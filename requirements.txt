@@ -1,0 +1,18 @@
+# Dependencias del proyecto Control de Entradas y Salidas
+# Python 3.11+
+
+# Framework principal
+flet==0.22.1
+
+# Base de datos
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9  # PostgreSQL driver
+alembic==1.13.1  # Migration tool
+
+# Configuracion
+python-dotenv==1.0.0
+pydantic==2.6.0
+pydantic-settings==2.1.0
+
+# Utilidades
+pillow==10.2.0  # Procesamiento de imagenes
