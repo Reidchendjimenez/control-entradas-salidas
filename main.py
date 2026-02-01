@@ -131,22 +131,22 @@ class ControlEntradasSalidasApp:
         # Crear NavigationBar (para móviles)
         self.navigation_bar = ft.NavigationBar(
             destinations=[
-                ft.NavigationBarDestination(
+                ft.NavigationDestination(
                     icon=ft.icons.INVENTORY_OUTLINED,
                     selected_icon=ft.icons.INVENTORY,
                     label="INVENTARIO",
                 ),
-                ft.NavigationBarDestination(
+                ft.NavigationDestination(
                     icon=ft.icons.FACT_CHECK_OUTLINED,
                     selected_icon=ft.icons.FACT_CHECK,
                     label="VALIDACIÓN",
                 ),
-                ft.NavigationBarDestination(
+                ft.NavigationDestination(
                     icon=ft.icons.STORAGE_OUTLINED,
                     selected_icon=ft.icons.STORAGE,
                     label="STOCK",
                 ),
-                ft.NavigationBarDestination(
+                ft.NavigationDestination(
                     icon=ft.icons.SETTINGS_OUTLINED,
                     selected_icon=ft.icons.SETTINGS,
                     label="CONFIG",
