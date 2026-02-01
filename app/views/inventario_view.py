@@ -246,6 +246,8 @@ class InventarioView(ft.Container):
 
     def _show_productos_view(self, categoria: Categoria):
         """Mostrar vista de productos de la categoria"""
+        print(f"=== Mostrando productos de categoria: {categoria.nombre} (ID: {categoria.id}) ===")
+        
         # Campo de busqueda (expand para ocupar ancho en móvil)
         self.search_field = ft.TextField(
             label="Buscar producto...",
@@ -255,11 +257,10 @@ class InventarioView(ft.Container):
             expand=True,
         )
 
-        # Lista de productos
-        self.productos_list = ft.ListView(
-            expand=True,
+        # CAMBIAR de ListView a Column con scroll (mejor compatibilidad)
+        self.productos_list = ft.Column(
             spacing=8,
-            padding=ft.padding.all(8),
+            scroll=ft.ScrollMode.AUTO,
         )
 
         # Boton volver
@@ -289,7 +290,7 @@ class InventarioView(ft.Container):
         )
 
         # Actualizar contenido: usar Column con scroll automático (mejor para móvil)
-        self.content_area.content = ft.Column(
+        nueva_vista = ft.Column(
             [
                 title_row,
                 ft.Divider(height=1),
@@ -302,19 +303,27 @@ class InventarioView(ft.Container):
                     weight=ft.FontWeight.W_500,
                 ),
                 ft.Container(height=8),
-                self.productos_list,
+                # Usar Container con expand para que el Column de productos ocupe el espacio disponible
+                ft.Container(
+                    content=self.productos_list,
+                    expand=True,
+                    padding=ft.padding.all(8),
+                ),
             ],
             expand=True,
             spacing=0,
-            scroll=ft.ScrollMode.AUTO,
         )
+        
+        self.content_area.content = nueva_vista
 
-        # Cargar productos
+        # Cargar productos ANTES de actualizar la vista
         self._load_productos(categoria)
+        
+        # Ahora sí, forzar actualización de toda la jerarquía
         try:
-            self.update()
-        except Exception:
-            pass
+            self.page.update()
+        except Exception as e:
+            print(f"Error actualizando page: {e}")
 
     def _load_productos(self, categoria: Categoria = None):
         """Cargar productos de la categoria"""
@@ -326,12 +335,16 @@ class InventarioView(ft.Container):
         try:
             db = next(get_db())
 
-            # Verificar busqueda
-            search_term = self.search_field.value.lower().strip() if self.search_field and self.search_field.value else ""
+            # Verificar busqueda - mejor manejo de None
+            search_term = ""
+            if self.search_field is not None and hasattr(self.search_field, 'value') and self.search_field.value:
+                search_term = self.search_field.value.lower().strip()
 
+            # Construir query con filtros explícitos
             query = db.query(Producto).filter(
-                Producto.categoria_id == categoria.id,
-                Producto.activo == True
+                Producto.categoria_id == categoria.id
+            ).filter(
+                Producto.activo.is_(True)
             )
 
             if search_term:
@@ -341,6 +354,16 @@ class InventarioView(ft.Container):
                 )
 
             productos = query.all()
+            
+            # Debug: imprimir cantidad de productos encontrados
+            print(f"Categoria: {categoria.nombre} (ID: {categoria.id})")
+            print(f"Productos encontrados: {len(productos)}")
+            
+            # Debug adicional: verificar todos los productos de esta categoría sin filtros
+            todos_productos = db.query(Producto).filter(Producto.categoria_id == categoria.id).all()
+            print(f"Total productos en categoria (sin filtro activo): {len(todos_productos)}")
+            for p in todos_productos:
+                print(f"  - {p.nombre} (activo: {p.activo})")
 
             self.productos_list.controls.clear()
 
@@ -527,10 +550,15 @@ class InventarioView(ft.Container):
 
                     self.productos_list.controls.append(card)
 
+            # Debug: verificar cuántos controles hay en la lista
+            print(f"Total controles en productos_list: {len(self.productos_list.controls)}")
+            
+            # NO actualizar productos_list directamente, solo la vista completa
+            # El ListView se actualizará cuando se actualice su contenedor padre
             try:
                 self.update()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Error actualizando vista: {e}")
 
         except Exception as ex:
             print(f"Error cargando productos: {ex}")
