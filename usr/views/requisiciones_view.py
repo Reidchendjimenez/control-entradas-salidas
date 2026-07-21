@@ -113,7 +113,7 @@ class RequisicionesView(ft.Container):
             header,
             self.list_container,
         ], expand=True, spacing=0)
-        self.content.bgcolor = colors['bg']
+        self.content.bgcolor = self.colors['bg']
 
         self.update()
         self._load_requisiciones()
