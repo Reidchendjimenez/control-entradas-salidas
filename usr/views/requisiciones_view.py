@@ -165,6 +165,8 @@ class RequisicionesView(ft.Container):
 
     def _load_requisiciones(self):
         try:
+            from usr.database.base import get_db_adaptive
+            db = next(get_db_adaptive())
             reqs = RequisicionService.get_all_requisiciones(db)
 
             self.requisiciones_list.controls.clear()
@@ -181,6 +183,7 @@ class RequisicionesView(ft.Container):
                     )
                     self.requisiciones_list.controls.append(card)
 
+            db.close()
             self.requisiciones_list.update()
             self.list_container.update()
             if self.page:
