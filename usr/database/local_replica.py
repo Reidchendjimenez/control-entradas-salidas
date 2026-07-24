@@ -922,12 +922,12 @@ class LocalReplica:
             db = next(get_db_adaptive())
             try:
                 from sqlalchemy import text
-                row = db.execute(text("""
+                rows = db.execute(text("""
                     SELECT numero_factura FROM facturas
-                    WHERE numero_factura ~ '^EV-[0-9]+$'
-                    ORDER BY numero_factura DESC LIMIT 1
-                """)).fetchone()
-                if row:
+                    WHERE numero_factura LIKE 'EV-%'
+                    ORDER BY numero_factura DESC LIMIT 5
+                """)).fetchall()
+                for row in rows:
                     num_part = row[0].replace('EV-', '').strip()
                     try:
                         remote_num = int(num_part)
