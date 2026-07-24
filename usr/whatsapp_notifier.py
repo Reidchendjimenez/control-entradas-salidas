@@ -95,6 +95,15 @@ def retry_queued_messages():
 
     for msg in messages:
         try:
+            conn = _get_queue_conn()
+            cursor = conn.cursor()
+            cursor.execute("SELECT estado FROM whatsapp_queue WHERE id = ?", (msg['id'],))
+            row = cursor.fetchone()
+            conn.close()
+            if not row or row[0] not in ('pending', 'failed'):
+                continue
+
+            update_queue_estado(msg['id'], 'sending')
             success = False
             if msg['tipo'] == 'text':
                 success = _send_text_direct(msg['mensaje'])

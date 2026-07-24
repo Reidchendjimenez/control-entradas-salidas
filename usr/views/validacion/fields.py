@@ -226,7 +226,15 @@ class ValidacionFields:
 
     def _on_tipo_documento_change(self, e):
         try:
-            self._apply_tipo_prefix()
+            selected = self.tipo_documento_segmented.selected
+            tipo = next(iter(selected)) if selected else "Factura"
+            if tipo == "Entrada":
+                from usr.database.local_replica import LocalReplica
+                correlativo = LocalReplica.get_next_entrada_correlativo()
+                self.factura_input.value = correlativo
+                self.factura_input.focus()
+            else:
+                self._apply_tipo_prefix()
             self.check_validar_button()
             if self.page:
                 self.page.update()
@@ -243,8 +251,8 @@ class ValidacionFields:
         selected = self.tipo_documento_segmented.selected
         tipo = next(iter(selected)) if selected else "Factura"
         prefix = PREFIX_MAP.get(tipo, "F-")
-        if raw:
-            self.factura_input.value = f"{prefix}{raw}"
+        self.factura_input.value = f"{prefix}{raw}"
+        self.factura_input.focus()
 
     def section_container(self, content_col):
         return ft.Container(

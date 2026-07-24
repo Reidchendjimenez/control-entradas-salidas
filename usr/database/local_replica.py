@@ -894,7 +894,54 @@ class LocalReplica:
         conn.close()
         
         return [dict(row) for row in rows]
-    
+
+    @staticmethod
+    def get_next_entrada_correlativo() -> str:
+        max_num = 0
+        try:
+            conn = get_local_conn()
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT numero_factura FROM facturas
+                WHERE numero_factura LIKE 'EV-%'
+                ORDER BY numero_factura DESC LIMIT 1
+            """)
+            row = cursor.fetchone()
+            conn.close()
+            if row:
+                num_part = row[0].replace('EV-', '').strip()
+                try:
+                    max_num = int(num_part)
+                except ValueError:
+                    pass
+        except Exception as ex:
+            print(f"[WARN] Error leyendo correlativo local: {ex}")
+
+        try:
+            from usr.database.base import get_db_adaptive
+            db = next(get_db_adaptive())
+            try:
+                from sqlalchemy import text
+                row = db.execute(text("""
+                    SELECT numero_factura FROM facturas
+                    WHERE numero_factura ~ '^EV-[0-9]+$'
+                    ORDER BY numero_factura DESC LIMIT 1
+                """)).fetchone()
+                if row:
+                    num_part = row[0].replace('EV-', '').strip()
+                    try:
+                        remote_num = int(num_part)
+                        if remote_num > max_num:
+                            max_num = remote_num
+                    except ValueError:
+                        pass
+            finally:
+                db.close()
+        except Exception as ex:
+            print(f"[WARN] Error leyendo correlativo remoto: {ex}")
+
+        return f"EV-{max_num + 1:04d}"
+
     # ==================== REQUISICIONES ====================
     
     @staticmethod
