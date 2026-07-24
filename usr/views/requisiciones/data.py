@@ -74,7 +74,7 @@ def get_detalles(req_id):
     try:
         return db.query(RequisicionDetalle).filter(
             RequisicionDetalle.requisicion_id == req_id
-        ).all()
+        ).order_by(RequisicionDetalle.id).all()
     finally:
         db.close()
 
@@ -249,56 +249,52 @@ def totalizar_requisicion(req_id, usuario="Admin"):
             raise ValueError("La requisición ya tiene traslados registrados")
 
         detalles = db.query(RequisicionDetalle).filter(RequisicionDetalle.requisicion_id == req_id).all()
+        if not detalles:
+            raise ValueError("La requisición no tiene detalles")
+
+        producto_ids = [d.producto_id for d in detalles]
+
+        existencias_orig = {
+            e.producto_id: e
+            for e in db.query(Existencia).filter(
+                Existencia.producto_id.in_(producto_ids),
+                Existencia.almacen == req.origen
+            ).all()
+        }
+        existencias_dest = {
+            e.producto_id: e
+            for e in db.query(Existencia).filter(
+                Existencia.producto_id.in_(producto_ids),
+                Existencia.almacen == req.destino
+            ).all()
+        }
 
         detalles_data = []
         stocks_sync = []
+        mov_params = []
+        kardex_params = []
+        now_iso = datetime.now().isoformat()
 
         for det in detalles:
-            # Leer stock actual (misma sesión db)
-            exist_orig = db.query(Existencia).filter(
-                Existencia.producto_id == det.producto_id,
-                Existencia.almacen == req.origen
-            ).first()
-            exist_dest = db.query(Existencia).filter(
-                Existencia.producto_id == det.producto_id,
-                Existencia.almacen == req.destino
-            ).first()
+            exist_orig = existencias_orig.get(det.producto_id)
+            exist_dest = existencias_dest.get(det.producto_id)
 
             cant_orig_actual = exist_orig.cantidad if exist_orig else 0
             cant_dest_actual = exist_dest.cantidad if exist_dest else 0
             cant_orig_nueva = max(0, cant_orig_actual - det.cantidad)
             cant_dest_nueva = cant_dest_actual + det.cantidad
-            now_iso = datetime.now().isoformat()
 
-            # Movimiento salida (origen)
-            db.execute(
-                text("""INSERT INTO movimientos
-(producto_id, tipo, cantidad, cantidad_anterior, cantidad_nueva,
- peso_total, registrado_por, observaciones,
- almacen, fecha_movimiento, created_at, device_id, sincronizado)
-VALUES (:p, :t, :c, :ca, :cn, :pt, :rp, :obs, :al, :fm, :ca2, :dv, 0)"""),
-                {"p": det.producto_id, "t": "tr_salida", "c": det.cantidad,
-                 "ca": cant_orig_actual, "cn": cant_orig_nueva,
-                 "pt": 0.0, "rp": usuario,
-                 "obs": f"Traslado req #{req.numero} → {req.destino}",
-                 "al": req.origen, "fm": now_iso, "ca2": now_iso, "dv": device_id}
-            )
+            mov_params.append({"p": det.producto_id, "t": "tr_salida", "c": det.cantidad,
+                               "ca": cant_orig_actual, "cn": cant_orig_nueva,
+                               "pt": 0.0, "rp": usuario,
+                               "obs": f"Traslado req #{req.numero} → {req.destino}",
+                               "al": req.origen, "fm": now_iso, "ca2": now_iso, "dv": device_id})
+            mov_params.append({"p": det.producto_id, "t": "tr_entrada", "c": det.cantidad,
+                               "ca": cant_dest_actual, "cn": cant_dest_nueva,
+                               "pt": 0.0, "rp": usuario,
+                               "obs": f"Traslado req #{req.numero} ← {req.origen}",
+                               "al": req.destino, "fm": now_iso, "ca2": now_iso, "dv": device_id})
 
-            # Movimiento entrada (destino)
-            db.execute(
-                text("""INSERT INTO movimientos
-(producto_id, tipo, cantidad, cantidad_anterior, cantidad_nueva,
- peso_total, registrado_por, observaciones,
- almacen, fecha_movimiento, created_at, device_id, sincronizado)
-VALUES (:p, :t, :c, :ca, :cn, :pt, :rp, :obs, :al, :fm, :ca2, :dv, 0)"""),
-                {"p": det.producto_id, "t": "tr_entrada", "c": det.cantidad,
-                 "ca": cant_dest_actual, "cn": cant_dest_nueva,
-                 "pt": 0.0, "rp": usuario,
-                 "obs": f"Traslado req #{req.numero} ← {req.origen}",
-                 "al": req.destino, "fm": now_iso, "ca2": now_iso, "dv": device_id}
-            )
-
-            # Actualizar existencias (misma sesión)
             if exist_orig:
                 exist_orig.cantidad = cant_orig_nueva
             if exist_dest:
@@ -306,11 +302,7 @@ VALUES (:p, :t, :c, :ca, :cn, :pt, :rp, :obs, :al, :fm, :ca2, :dv, 0)"""),
             else:
                 db.add(Existencia(producto_id=det.producto_id, almacen=req.destino, cantidad=det.cantidad))
 
-            # kardex_validaciones
-            db.execute(
-                text("INSERT INTO kardex_validaciones (producto_id, requisicion_id, fecha, usuario, cantidad_fisica) VALUES (:p, :r, :f, :u, :c)"),
-                {"p": det.producto_id, "r": req.id, "f": now_iso, "u": usuario, "c": det.cantidad}
-            )
+            kardex_params.append({"p": det.producto_id, "r": req.id, "f": now_iso, "u": usuario, "c": det.cantidad})
 
             detalles_data.append({
                 'producto_id': det.producto_id, 'ingrediente': det.ingrediente,
@@ -318,10 +310,33 @@ VALUES (:p, :t, :c, :ca, :cn, :pt, :rp, :obs, :al, :fm, :ca2, :dv, 0)"""),
             })
             stocks_sync.append((det.producto_id, req.origen, cant_orig_nueva, req.destino, cant_dest_nueva))
 
+        if mov_params:
+            chunk_size = 70
+            for i in range(0, len(mov_params), chunk_size):
+                db.execute(
+                    text("""INSERT INTO movimientos
+(producto_id, tipo, cantidad, cantidad_anterior, cantidad_nueva,
+ peso_total, registrado_por, observaciones,
+ almacen, fecha_movimiento, created_at, device_id, sincronizado)
+VALUES (:p, :t, :c, :ca, :cn, :pt, :rp, :obs, :al, :fm, :ca2, :dv, 0)"""),
+                    mov_params[i:i + chunk_size]
+                )
+
+        if kardex_params:
+            chunk_size = 190
+            for i in range(0, len(kardex_params), chunk_size):
+                db.execute(
+                    text("INSERT INTO kardex_validaciones (producto_id, requisicion_id, fecha, usuario, cantidad_fisica) VALUES (:p, :r, :f, :u, :c)"),
+                    kardex_params[i:i + chunk_size]
+                )
+
         # Sincronizar existencias a Supabase ANTES de commit.
         # Si Supabase está online y falla, se revierte todo.
         _sync_existencias_supabase_batch(stocks_sync)
 
+        req.estado = 'completada'
+        req.procesada_por = usuario
+        req.fecha_procesamiento = datetime.now()
         db.commit()
 
         # Post-commit: encolar sync (best-effort, no revierte)
