@@ -1,7 +1,6 @@
 import flet as ft
 import asyncio
 import os
-import tempfile
 from sqlalchemy.orm import joinedload
 from usr.database.base import get_db_adaptive, is_online
 from usr.models import Movimiento
@@ -262,24 +261,10 @@ class ValidacionView(ft.Container):
                         except Exception:
                             return short_path
                     
-                    temp_dir = get_long_path(tempfile.gettempdir())
-                    
                     if hasattr(dialog.ocr, 'current_image_path') and dialog.ocr.current_image_path:
                         candidate = get_long_path(dialog.ocr.current_image_path)
                         if os.path.exists(candidate):
                             img_path = candidate
-                        else:
-                            print(f"[WA] Imagen OCR no existe: {candidate}")
-                    
-                    if not img_path:
-                        candidates = [
-                            os.path.join(temp_dir, "ocr_temp.png"),
-                            os.path.join(temp_dir, "clipboard_image.png"),
-                        ]
-                        for c in candidates:
-                            if os.path.exists(c):
-                                img_path = c
-                                break
                     
                     productos_str = "Productos variados"
                     if self.selected_entradas:

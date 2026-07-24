@@ -433,11 +433,6 @@ class SyncManager:
         from .sync_queue import get_sync_queue
         from .local_replica import LocalReplica
         
-        # Verificar conexión antes de procesar
-        if not self.check_connection():
-            self._log("[SYNC] Sin conexión, saltando procesamiento de cola")
-            return
-        
         queue = get_sync_queue()
         
         pending = queue.get_pending()
@@ -709,6 +704,30 @@ class SyncManager:
                         queue.mark_completed(item['id'])
                         uploaded += 1
                         self._log(f"[SYNC] Pago de factura {fact_num} sincronizado")
+                        
+                    elif table == 'proveedores':
+                        nombre = data.get('nombre')
+                        if not nombre:
+                            continue
+                        vals = {
+                            'nombre': nombre,
+                            'rif': data.get('rif', ''),
+                            'estado': data.get('estado', 'Activo'),
+                        }
+                        check_sql = text("SELECT id FROM proveedores WHERE nombre = :nombre")
+                        existing = conn.execute(check_sql, {'nombre': nombre}).fetchone()
+                        if existing:
+                            set_cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
+                            sql = text(f"UPDATE proveedores SET {set_cols} WHERE nombre = :nombre")
+                        else:
+                            cols_str = ", ".join(vals.keys())
+                            placeholders = ", ".join([f":{k}" for k in vals.keys()])
+                            sql = text(f"INSERT INTO proveedores ({cols_str}) VALUES ({placeholders})")
+                        conn.execute(sql, vals)
+                        conn.commit()
+                        queue.mark_completed(item['id'])
+                        uploaded += 1
+                        self._log(f"[SYNC] Proveedor '{nombre}' sincronizado")
                         
                     elif table == 'requisiciones':
                         if operation == 'delete':

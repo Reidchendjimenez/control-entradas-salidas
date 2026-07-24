@@ -15,7 +15,7 @@ def _forzar_sync():
     try:
         from usr.database.sync import get_sync_manager
         sync_mgr = get_sync_manager()
-        if sync_mgr and sync_mgr.check_connection():
+        if sync_mgr:
             return bool(sync_mgr.full_sync())
         return True
     except Exception as e:

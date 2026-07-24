@@ -24,6 +24,52 @@ def load_products(limit=50):
     finally:
         db.close()
 
+
+def get_stock_stats(search="", categoria=None, almacen=None, stock_status="all"):
+    db = next(get_db_adaptive())
+    try:
+        query = db.query(
+            Producto.id,
+            Producto.stock_minimo,
+            func.coalesce(func.sum(Existencia.cantidad), 0).label('total_stock')
+        ).outerjoin(
+            Existencia, Existencia.producto_id == Producto.id
+        ).filter(
+            Producto.activo == True
+        )
+        if categoria and categoria.isdigit():
+            query = query.filter(Producto.categoria_id == int(categoria))
+        if search:
+            query = query.filter(
+                (Producto.nombre.ilike(f"%{search}%")) | (Producto.codigo.ilike(f"%{search}%"))
+            )
+        rows = query.group_by(Producto.id, Producto.stock_minimo).all()
+
+        def _filter_almacen(r):
+            if not almacen:
+                return True
+            return False  # TODO: implement warehouse-level stock check
+
+        total = len(rows)
+        sin_stock = 0
+        bajo_stock = 0
+        for r in rows:
+            stock = r.total_stock or 0
+            if stock <= 0:
+                sin_stock += 1
+            elif stock <= (r.stock_minimo or 0):
+                bajo_stock += 1
+
+        if stock_status == "low":
+            total = bajo_stock
+        elif stock_status == "out":
+            total = sin_stock
+            bajo_stock = 0
+
+        return total, bajo_stock, sin_stock
+    finally:
+        db.close()
+
 def get_existencias_map(producto_ids):
     if not producto_ids:
         return {}
@@ -48,7 +94,7 @@ def filter_products_db(search="", categoria=None, almacen=None, stock_status="al
         if search:
             query = query.filter((Producto.nombre.ilike(f"%{search}%")) | (Producto.codigo.ilike(f"%{search}%")))
         
-        productos = query.order_by(Producto.nombre).limit(limit).all()
+        productos = query.order_by(Producto.nombre).all() if stock_status != "all" else query.order_by(Producto.nombre).limit(limit).all()
         producto_ids = [p.id for p in productos]
         existencias_map = get_existencias_map(producto_ids)
         

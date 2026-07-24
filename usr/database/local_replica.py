@@ -937,26 +937,26 @@ class LocalReplica:
         conn = get_local_conn()
         cursor = conn.cursor()
         req_ids = set(d.get('requisicion_id') for d in detalles if d.get('requisicion_id') is not None)
-        for rid in req_ids:
-            cursor.execute("DELETE FROM requisicion_detalles WHERE requisicion_id = ?", (rid,))
-        for det in detalles:
-            cursor.execute("""
-                INSERT INTO requisicion_detalles 
-                (id, requisicion_id, producto_id, ingrediente, cantidad, unidad, cantidad_surtida, verificado)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET
-                    requisicion_id = excluded.requisicion_id,
-                    producto_id = excluded.producto_id,
-                    ingrediente = excluded.ingrediente,
-                    cantidad = excluded.cantidad,
-                    unidad = excluded.unidad,
-                    cantidad_surtida = excluded.cantidad_surtida,
-                    verificado = excluded.verificado
-            """, (
-                det.get('id'), det.get('requisicion_id'), det.get('producto_id'),
-                det.get('ingrediente'), det.get('cantidad'), det.get('unidad', 'unidad'),
-                det.get('cantidad_surtida', 0), det.get('verificado', False)
-            ))
+        if req_ids:
+            placeholders = ','.join('?' * len(req_ids))
+            cursor.execute(f"DELETE FROM requisicion_detalles WHERE requisicion_id IN ({placeholders})", list(req_ids))
+        cursor.executemany("""
+            INSERT INTO requisicion_detalles 
+            (id, requisicion_id, producto_id, ingrediente, cantidad, unidad, cantidad_surtida, verificado)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                requisicion_id = excluded.requisicion_id,
+                producto_id = excluded.producto_id,
+                ingrediente = excluded.ingrediente,
+                cantidad = excluded.cantidad,
+                unidad = excluded.unidad,
+                cantidad_surtida = excluded.cantidad_surtida,
+                verificado = excluded.verificado
+        """, [(
+            d.get('id'), d.get('requisicion_id'), d.get('producto_id'),
+            d.get('ingrediente'), d.get('cantidad'), d.get('unidad', 'unidad'),
+            d.get('cantidad_surtida', 0), d.get('verificado', False)
+        ) for d in detalles])
         conn.commit()
         conn.close()
     
@@ -1026,6 +1026,10 @@ class LocalReplica:
         
         stock_por_producto_almacen = {}
         
+        # Cargar unidad_medida de todos los productos en un solo query
+        cursor.execute("SELECT id, unidad_medida FROM productos")
+        unidad_map = {row['id']: row['unidad_medida'] or 'unidad' for row in cursor.fetchall()}
+        
         for mov in todos:
             producto_id = mov['producto_id']
             almacen = mov['almacen'] or 'principal'
@@ -1036,9 +1040,7 @@ class LocalReplica:
             if not producto_id:
                 continue
             
-            cursor.execute("SELECT unidad_medida FROM productos WHERE id = ?", (producto_id,))
-            prod_row = cursor.fetchone()
-            unidad = prod_row['unidad_medida'] if prod_row else 'unidad'
+            unidad = unidad_map.get(producto_id, 'unidad')
             
             key = (producto_id, almacen)
             if key not in stock_por_producto_almacen:

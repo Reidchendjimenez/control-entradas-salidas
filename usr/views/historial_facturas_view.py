@@ -76,8 +76,10 @@ class HistorialFacturasView(ft.Container):
         self.file_picker = ft.FilePicker(on_result=self._on_file_save)
         
         # Componentes de UI que necesitan persistencia de referencia
-        self.facturas_list = ft.ListView(expand=True, spacing=10, padding=20)
-        self.entradas_list = ft.ListView(expand=True, spacing=10, padding=20)
+        self.facturas_list = ft.Column(spacing=10)
+        self.entradas_list = ft.Column(spacing=10)
+        self.facturas_list_wrapper = ft.Container()
+        self.entradas_list_wrapper = ft.Container()
         self.total_facturas_text = ft.Text("0 factura(s)", size=14, weight="w500")
         
         self.search_field = ft.TextField(
@@ -100,8 +102,8 @@ class HistorialFacturasView(ft.Container):
 
     def on_theme_change(self):
         if not self.page: return
-        self._load_facturas()
-        self._load_entradas_por_fecha()
+        self._build_ui()
+        self.page.run_task(self._initial_load)
 
     def _build_ui(self):
         colors = _colors(self.page)
@@ -110,6 +112,8 @@ class HistorialFacturasView(ft.Container):
         self.search_field.border_color = colors['border']
         self.total_facturas_text.color = colors['text_secondary']
         self.fecha_seleccionada_txt.color = colors['accent']
+        self.facturas_list_wrapper.bgcolor = colors['bg']
+        self.entradas_list_wrapper.bgcolor = colors['bg']
         
         self._connection_indicator = ft.Container(
             content=ft.Icon(ft.Icons.WIFI, color=ft.Colors.GREEN_400, size=18),
@@ -256,8 +260,8 @@ class HistorialFacturasView(ft.Container):
             ft.Container(height=10),
             filtros,
             ft.Container(content=self.total_facturas_text, padding=ft.padding.only(left=22, top=8)),
-            ft.Container(content=self.facturas_list, expand=True, bgcolor=colors['bg']),
-        ], expand=True, spacing=0)
+            self.facturas_list_wrapper,
+        ], expand=True, spacing=0, scroll=ft.ScrollMode.AUTO)
 
     def _build_fecha_tab(self):
         colors = _colors(self.page)
@@ -314,8 +318,8 @@ class HistorialFacturasView(ft.Container):
 
         return ft.Column([
             selector_row,
-            ft.Container(content=self.entradas_list, expand=True, bgcolor=colors['bg']),
-        ], expand=True, spacing=0)
+            self.entradas_list_wrapper,
+        ], expand=True, spacing=0, scroll=ft.ScrollMode.AUTO)
 
     # ══════════════════════════════════════════════════════════════
     #  LOGICA DE DATOS
@@ -324,12 +328,10 @@ class HistorialFacturasView(ft.Container):
         from usr.error_handler import show_error
         try:
             self._build_ui()
-            self._load_facturas()
-            self._load_entradas_por_fecha()
-            self._update_connection_indicator()
+            self.page.run_task(self._initial_load)
         except Exception as e:
             show_error("Error al montar vista", e, "historial_facturas_view.did_mount")
-        
+
         # Loop de monitoreo asíncrono
         async def check_conn_loop():
             self._conn_check_active = True
@@ -340,11 +342,22 @@ class HistorialFacturasView(ft.Container):
                     try: self.page.update()
                     except Exception:
                         pass
-        
+
         self.page.run_task(check_conn_loop)
-        
+
         # Registrar callback para sync automático
         register_sync_callback(self._on_sync_complete)
+
+    async def _initial_load(self):
+        try:
+            await asyncio.to_thread(self._load_facturas)
+            await asyncio.to_thread(self._load_entradas_por_fecha)
+            self._update_connection_indicator()
+            if self.page and self.visible:
+                try: self.page.update()
+                except: pass
+        except Exception as e:
+            show_error(f"Error en carga inicial de historial: {e}")
     
     def will_unmount(self):
         self._conn_check_active = False
@@ -427,6 +440,19 @@ class HistorialFacturasView(ft.Container):
     def _load_facturas(self):
         db = None
         try:
+            self.total_facturas_text.value = "Cargando..."
+            self.facturas_list_wrapper.content = ft.Container(
+                ft.Column([
+                    ft.ProgressRing(),
+                    ft.Text("Cargando facturas...", size=14),
+                ], horizontal_alignment="center", spacing=10),
+                alignment=ft.alignment.center, padding=50,
+            )
+            self.facturas_list_wrapper.padding = 0
+            if self.page and self.visible:
+                try: self.page.update()
+                except: pass
+
             db = next(get_db_adaptive())
             query = db.query(Factura)
             if self._filtro_fecha_inicio:
@@ -435,7 +461,7 @@ class HistorialFacturasView(ft.Container):
                 from datetime import timedelta
                 fin = self._filtro_fecha_fin + timedelta(days=1)
                 query = query.filter(Factura.fecha_factura < fin)
-            self.facturas_data = query.order_by(Factura.fecha_factura.desc()).all()
+            self.facturas_data = query.order_by(Factura.fecha_factura.desc()).limit(100).all()
             self._apply_filters()
         except Exception as e:
             show_error(f"Error cargando facturas: {str(e)}")
@@ -452,6 +478,8 @@ class HistorialFacturasView(ft.Container):
         self._apply_filters()
 
     def _render_facturas(self, data):
+        self.facturas_list_wrapper.content = self.facturas_list
+        self.facturas_list_wrapper.padding = 20
         self.facturas_list.controls.clear()
         self.total_facturas_text.value = f"{len(data)} factura(s) encontradas"
         colors = _colors(self.page)
@@ -472,7 +500,7 @@ class HistorialFacturasView(ft.Container):
                 card = ft.Container(
                     padding=15, bgcolor=colors['card'], border_radius=12,
                     border=ft.border.all(1, _c(self.page, 'GREY_200')),
-                                    ink=True, on_click=lambda _, fact=f: self.page.run_task(self._show_factura_detalle, fact),
+                                    ink=True, on_click=lambda _, fact=f: self._show_factura_detalle(fact),
 
                     content=ft.Column([
                         ft.Row([
@@ -537,6 +565,19 @@ class HistorialFacturasView(ft.Container):
     def _load_entradas_por_fecha(self):
         if not self.page: return
         colors = _colors(self.page)
+
+        # Mostrar indicador de carga
+        self.entradas_list_wrapper.content = ft.Container(
+            ft.Column([
+                ft.ProgressRing(color=colors['accent']),
+                ft.Text("Cargando movimientos...", size=14, color=colors['text_secondary']),
+            ], horizontal_alignment="center", spacing=10),
+            alignment=ft.alignment.center, padding=50,
+        )
+        self.entradas_list_wrapper.padding = 0
+        if self.page and self.visible:
+            try: self.page.update()
+            except: pass
         
         # Determinar rango
         if self._fecha_especifica:
@@ -558,8 +599,10 @@ class HistorialFacturasView(ft.Container):
             db = next(get_db_adaptive())
             entradas = db.query(Movimiento).options(joinedload(Movimiento.producto)).filter(
                 Movimiento.tipo == "entrada", Movimiento.fecha_movimiento >= ini, Movimiento.fecha_movimiento < fin
-            ).order_by(Movimiento.fecha_movimiento.desc()).all()
+            ).order_by(Movimiento.fecha_movimiento.desc()).limit(200).all()
 
+            self.entradas_list_wrapper.content = self.entradas_list
+            self.entradas_list_wrapper.padding = 20
             self.entradas_list.controls.clear()
             if not entradas:
                 self.entradas_list.controls.append(
@@ -586,7 +629,9 @@ class HistorialFacturasView(ft.Container):
                     )
                     for m in movs:
                         self.entradas_list.controls.append(self._create_entrada_card(m, colors))
-            # if self.visible: self.update()
+            if self.page and self.visible:
+                try: self.page.update()
+                except: pass
         except Exception as e:
             show_error(f"Error al cargar movimientos: {str(e)}")
         finally:
@@ -681,7 +726,8 @@ class HistorialFacturasView(ft.Container):
                 actions=[ft.TextButton("Cerrar", on_click=close_dlg)]
             )
 
-            if self.page and self.visible:
+            if self.page:
+                self.page.overlay.append(dlg)
                 dlg.open = True
                 try:
                     self.page.update()

@@ -59,6 +59,10 @@ def show_proveedor_dialog(view, proveedor=None):
     def on_guardar(e):
         if not nombre_input.value.strip():
             return
+        if not rif_input.value.strip():
+            from usr.utils import show_snackbar
+            show_snackbar(view.page, "El RIF es obligatorio")
+            return
         save_proveedor(
             view,
             nombre_input.value.strip(),
@@ -126,26 +130,40 @@ def render_proveedores(view, data):
     view.lista_proveedores.controls = []
 
     for prov in data:
+        rif = prov.get('rif', '')
+        tel = prov.get('telefono', '')
+        email = prov.get('email', '')
+
+        info_parts = [s for s in [rif, tel, email] if s]
+        info_str = "  •  ".join(info_parts) if info_parts else ""
+
         card = ft.Container(
             content=ft.Column([
                 ft.Row([
-                    ft.Icon(ft.Icons.LOCAL_SHIPPING, color=colors['accent']),
-                    ft.Text(prov.get('nombre', 'Sin nombre'), weight="bold", expand=True),
                     ft.Container(
-                        content=ft.Text(prov.get('estado', 'Activo'), size=10, color="white"),
+                        content=ft.Icon(ft.Icons.LOCAL_SHIPPING, color=colors['white'], size=20),
+                        bgcolor=colors['accent'],
+                        padding=8,
+                        border_radius=8,
+                    ),
+                    ft.Column([
+                        ft.Text(prov.get('nombre', 'Sin nombre'), weight=ft.FontWeight.BOLD, size=14,
+                                color=colors['text_primary'], max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                        ft.Text(info_str, size=11, color=colors['text_secondary'],
+                                max_lines=1, overflow=ft.TextOverflow.ELLIPSIS) if info_str else ft.Container(),
+                    ], expand=True, spacing=2),
+                    ft.Container(
+                        content=ft.Text(prov.get('estado', 'Activo'), size=9, color="white"),
                         bgcolor=colors['success'] if prov.get('estado') == 'Activo' else colors['error'],
-                        padding=ft.padding.symmetric(horizontal=8, vertical=2),
-                        border_radius=10
-                    )
-                ]),
-                ft.Divider(height=10),
-                ft.Text(prov.get('rif', 'Sin RIF'), size=11, color=colors['text_secondary']),
-                ft.Text(prov.get('telefono', 'Sin telefono'), size=11, color=colors['text_secondary']),
-                ft.Text(prov.get('email', 'Sin email'), size=11, color=colors['text_secondary']),
-            ], spacing=2),
-            padding=15,
+                        padding=ft.padding.symmetric(horizontal=6, vertical=2),
+                        border_radius=6,
+                    ),
+                ], spacing=10),
+            ], spacing=0, tight=True),
+            padding=12,
             bgcolor=colors['card'],
-            border_radius=10,
+            border_radius=12,
+            border=ft.border.all(1, colors['border']),
             ink=True,
             on_click=lambda _, p=prov: show_proveedor_dialog(view, p)
         )
@@ -183,11 +201,10 @@ def build_proveedores_tab(view):
         on_change=lambda e: filter_proveedores(view, e),
     )
 
-    view.lista_proveedores = ft.GridView(
+    view.lista_proveedores = ft.ListView(
         expand=True,
-        runs_count=1 if view.is_mobile else 3,
         spacing=10,
-        padding=20,
+        padding=15,
     )
 
     return ft.Container(

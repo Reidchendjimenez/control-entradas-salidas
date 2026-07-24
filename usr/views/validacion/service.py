@@ -51,12 +51,22 @@ class ValidacionService:
             proveedor_obj = None
             if proveedor and proveedor != "Varios":
                 try:
-                    proveedor_obj = db.query(Proveedor).filter(Proveedor.nombre == proveedor).first()
+                    proveedor_obj = None
+                    if rif:
+                        proveedor_obj = db.query(Proveedor).filter(Proveedor.rif == rif).first()
+                    if not proveedor_obj:
+                        proveedor_obj = db.query(Proveedor).filter(Proveedor.nombre == proveedor).first()
                     if not proveedor_obj:
                         try:
                             proveedor_obj = Proveedor(nombre=proveedor, rif=rif or "", estado="Activo")
                             db.add(proveedor_obj)
                             db.flush()
+                            from usr.database.sync_queue import get_sync_queue
+                            get_sync_queue().add_pending('proveedores', 'insert', {
+                                'nombre': proveedor,
+                                'rif': rif or '',
+                                'estado': 'Activo',
+                            })
                             print(f"[NUEVO PROVEEDOR] Creado: {proveedor} (RIF: {rif or 'No prov'})")
                         except Exception as ex:
                             print(f"[WARN] Crear proveedor: {ex}")

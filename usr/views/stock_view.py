@@ -9,7 +9,7 @@ from usr.logger import get_logger
 from usr.views.stock.helpers import get_safe_colors
 from usr.views.stock.data import (
     load_categories, load_warehouses, load_products, 
-    get_existencias_map, filter_products_db, get_producto_historial
+    get_existencias_map, filter_products_db, get_producto_historial, get_stock_stats
 )
 from usr.views.stock.components import build_stat_card, build_product_card
 from usr.views.stock.dialogs import build_producto_historial_dialog
@@ -287,6 +287,11 @@ class StockView(ft.Container):
         self.is_loading = True
         colors = get_safe_colors(self.page)
 
+        # Mostrar estado de carga en los botones de resumen
+        self.total_productos_text.value = "..."
+        self.stock_bajo_text.value = "..."
+        self.sin_stock_text.value = "..."
+
         if hasattr(self, 'list_container'):
             self.list_container.content = ft.Container(
                 content=ft.Column([
@@ -305,6 +310,13 @@ class StockView(ft.Container):
             producto_ids = [p.id for p in productos]
             existencias_map = get_existencias_map(producto_ids)
             self._render_productos(productos, existencias_map)
+            # Calculate accurate stats from ALL products, not just the displayed 50
+            total, bajo, sin = get_stock_stats()
+            self.total_productos_text.value = str(total)
+            self.stock_bajo_text.value = str(bajo)
+            self.sin_stock_text.value = str(sin)
+            if self.page and self.visible:
+                self.update()
         except Exception as e:
             logger.error(f"Error cargando productos stock: {e}")
             show_error("Error al cargar productos", e)
@@ -322,11 +334,24 @@ class StockView(ft.Container):
             search = self.search_field.value.strip() if self.search_field.value else ""
             categoria = self.categoria_filter.value if self.categoria_filter.value else ""
             almacen = self.almacen_filter.value if self.almacen_filter.value else ""
-            
+
+            # Mostrar estado de carga en los botones de resumen
+            self.total_productos_text.value = "..."
+            self.stock_bajo_text.value = "..."
+            self.sin_stock_text.value = "..."
+            if self.page and self.visible:
+                self.update()
+
             productos, existencias_map = filter_products_db(
                 search, categoria, almacen, stock_status=self.current_stock_filter
             )
             self._render_productos(productos, existencias_map)
+            total, bajo, sin = get_stock_stats(search, categoria, almacen, stock_status=self.current_stock_filter)
+            self.total_productos_text.value = str(total)
+            self.stock_bajo_text.value = str(bajo)
+            self.sin_stock_text.value = str(sin)
+            if self.page and self.visible:
+                self.update()
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -343,16 +368,6 @@ class StockView(ft.Container):
             self.list_container.content = self.productos_list
 
         self.total_productos_text.value = str(len(productos))
-        bajo = 0
-        sin = 0
-        for p in productos:
-            stock_total = sum(existencias_map.get(p.id, {}).values()) or 0
-            if stock_total <= 0:
-                sin += 1
-            elif stock_total <= (p.stock_minimo or 0):
-                bajo += 1
-        self.stock_bajo_text.value = str(bajo)
-        self.sin_stock_text.value = str(sin)
 
         self.productos_list.controls.clear()
         

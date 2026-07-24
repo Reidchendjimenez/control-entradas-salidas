@@ -291,7 +291,7 @@ class InventarioView(ft.Container):
                     for c in local_categorias
                 ]
                 self.update()
-            if force_refresh or not local_categorias:
+            if force_refresh or True:
                 from usr.database.base import check_connection
                 if check_connection():
                     db = next(get_db_adaptive())
@@ -311,7 +311,7 @@ class InventarioView(ft.Container):
                             for c in cats_data
                         ]
                         self.update()
-                        if self.page:
+                        if self.page and force_refresh:
                             snack = ft.SnackBar(
                                 content=ft.Text("✓ Datos actualizados desde servidor"),
                                 bgcolor=ft.Colors.GREEN_700, duration=2,

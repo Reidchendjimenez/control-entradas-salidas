@@ -141,7 +141,12 @@ def preprocess_image(image_path: str) -> str:
 def check_proveedor_exists(proveedor_nombre: str, rif: str = "") -> dict:
     from usr.database.local_replica import LocalReplica
     proveedores = LocalReplica.get_proveedores(estado="Activo")
+    rif_stripped = rif.strip().lower() if rif else ""
     nombre_lower = proveedor_nombre.lower().strip() if proveedor_nombre else ""
+    for p in proveedores:
+        p_rif = (p.get('rif') or '').strip().lower()
+        if rif_stripped and p_rif and rif_stripped == p_rif:
+            return {"existe": True, "nombre": p['nombre']}
     for p in proveedores:
         if nombre_lower and nombre_lower in p.get('nombre', '').lower():
             return {"existe": True, "nombre": p['nombre']}

@@ -91,11 +91,15 @@ def buscar_productos(texto, limit=30):
 
 
 from sqlalchemy import text
+from sqlalchemy.orm import joinedload
+
 
 def marcar_detalle_verificado(detalle_id, estado):
     db = next(get_db_adaptive())
     try:
-        detalle = db.query(RequisicionDetalle).filter(RequisicionDetalle.id == detalle_id).first()
+        detalle = db.query(RequisicionDetalle).options(
+            joinedload(RequisicionDetalle.requisicion)
+        ).filter(RequisicionDetalle.id == detalle_id).first()
         if detalle:
             detalle.verificado = estado
             db.commit()
@@ -246,6 +250,9 @@ def totalizar_requisicion(req_id, usuario="Admin"):
 
         detalles = db.query(RequisicionDetalle).filter(RequisicionDetalle.requisicion_id == req_id).all()
 
+        detalles_data = []
+        stocks_sync = []
+
         for det in detalles:
             # Leer stock actual (misma sesión db)
             exist_orig = db.query(Existencia).filter(
@@ -305,32 +312,11 @@ VALUES (:p, :t, :c, :ca, :cn, :pt, :rp, :obs, :al, :fm, :ca2, :dv, 0)"""),
                 {"p": det.producto_id, "r": req.id, "f": now_iso, "u": usuario, "c": det.cantidad}
             )
 
-        req.estado = 'completada'
-        req.procesada_por = usuario
-        req.fecha_procesamiento = datetime.now()
-
-        # Leer existencias finales para sync (antes de commit, ORM aún accesible)
-        detalles_data = []
-        stocks_sync = []  # (producto_id, almacen_origen, stock_origen, almacen_destino, stock_destino)
-        for det in detalles:
-            exist_orig = db.query(Existencia).filter(
-                Existencia.producto_id == det.producto_id,
-                Existencia.almacen == req.origen
-            ).first()
-            exist_dest = db.query(Existencia).filter(
-                Existencia.producto_id == det.producto_id,
-                Existencia.almacen == req.destino
-            ).first()
-            coa = exist_orig.cantidad if exist_orig else 0
-            cda = exist_dest.cantidad if exist_dest else 0
-            con = max(0, coa - det.cantidad)
-            cdn = cda + det.cantidad
-
             detalles_data.append({
                 'producto_id': det.producto_id, 'ingrediente': det.ingrediente,
                 'cantidad': det.cantidad, 'unidad': det.unidad, 'es_pesable': False,
             })
-            stocks_sync.append((det.producto_id, req.origen, con, req.destino, cdn))
+            stocks_sync.append((det.producto_id, req.origen, cant_orig_nueva, req.destino, cant_dest_nueva))
 
         # Sincronizar existencias a Supabase ANTES de commit.
         # Si Supabase está online y falla, se revierte todo.
@@ -528,25 +514,18 @@ def _sync_existencias_supabase_batch(stocks):
     engine = create_engine(url, connect_args=connect_args)
     try:
         with engine.connect() as conn:
+            params = []
             for producto_id, almacen_origen, stock_origen, almacen_destino, stock_destino in stocks:
+                params.append({"p": producto_id, "a": almacen_origen, "c": stock_origen, "u": "unidad"})
+                params.append({"p": producto_id, "a": almacen_destino, "c": stock_destino, "u": "unidad"})
+            if params:
                 conn.execute(
                     text("""INSERT INTO existencias (producto_id, almacen, cantidad, unidad)
 VALUES (:p, :a, :c, :u)
 ON CONFLICT (producto_id, almacen)
-DO UPDATE SET cantidad = :c2, unidad = :u2"""),
-                    {"p": producto_id, "a": almacen_origen, "c": stock_origen, "u": "unidad",
-                     "c2": stock_origen, "u2": "unidad"}
-                )
-                conn.execute(
-                    text("""INSERT INTO existencias (producto_id, almacen, cantidad, unidad)
-VALUES (:p, :a, :c, :u)
-ON CONFLICT (producto_id, almacen)
-DO UPDATE SET cantidad = :c2, unidad = :u2"""),
-                    {"p": producto_id, "a": almacen_destino, "c": stock_destino, "u": "unidad",
-                     "c2": stock_destino, "u2": "unidad"}
+DO UPDATE SET cantidad = :c, unidad = :u"""),
+                    params
                 )
             conn.commit()
-    except Exception as e:
-        raise RuntimeError(f"Sync existencias a Supabase falló (transacción local revertida): {e}") from e
     finally:
         engine.dispose()
