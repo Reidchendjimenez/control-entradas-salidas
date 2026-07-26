@@ -429,7 +429,7 @@ class StockView(ft.Container):
         try:
             from usr.views.stock.dialogs import build_producto_historial_dialog
             
-            movimientos = get_producto_historial(producto.id, limit=20)
+            movimientos = get_producto_historial(producto.id, limit=100)
             
             self.active_dialog = build_producto_historial_dialog(producto, movimientos)
             self.active_dialog.actions[0].on_click = self._close_dialog

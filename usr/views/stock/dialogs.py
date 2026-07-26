@@ -1,83 +1,96 @@
 import flet as ft
 from usr.theme import get_colors
 
-def build_producto_historial_dialog(producto, movimientos):
-    colors = get_colors(None) # Page will be passed or handled by controller
-    
-    mov_list = ft.ListView(height=400, spacing=8)
-    for m in movimientos:
-        is_entrada = m.tipo in ("entrada", "tr_entrada")
-        is_traslado = m.tipo in ("tr_entrada", "tr_salida")
-        icon = ft.Icons.ADD_CIRCLE_OUTLINE if is_entrada else ft.Icons.REMOVE_CIRCLE_OUTLINE
-        color = colors['info'] if is_traslado else (colors['success'] if is_entrada else colors['error'])
-        
-        es_pesable = producto.es_pesable if producto else False
-        unidad_prod = producto.unidad_medida if producto else 'unidad'
-        
-        if es_pesable and (m.peso_total or 0) > 0:
-            cantidad_display = f"{(m.peso_total or 0):.3f} kg"
-            cantidad_valor = m.peso_total or 0
-        else:
-            cantidad_display = f"{int(m.cantidad)} {unidad_prod}"
-            cantidad_valor = m.cantidad
-        
-        factura_texto = ""
-        if m.factura:
-            factura_texto = f" - 📄 {m.factura.numero_factura}"
-        
-        mov_list.controls.append(
+tipo_labels = {
+    'entrada': ('Entrada', ft.Colors.GREEN_400),
+    'salida': ('Salida', ft.Colors.RED_400),
+    'ajuste': ('Ajuste', ft.Colors.ORANGE_400),
+    'tr_entrada': ('Tr. Entrada', ft.Colors.BLUE_400),
+    'tr_salida': ('Tr. Salida', ft.Colors.PURPLE_400),
+    'validacion': ('Validación', ft.Colors.TEAL_400),
+}
+
+def build_movimiento_card(m, colors, producto=None):
+    tipo_info = tipo_labels.get(getattr(m, 'tipo', None) or m.get('tipo', ''), ('?', ft.Colors.GREY_400))
+    tipo = tipo_info[0]
+    color = tipo_info[1]
+
+    if isinstance(m, dict):
+        cant_anterior = m.get('cantidad_anterior', 0)
+        cant = m.get('cantidad', 0)
+        cant_nueva = m.get('cantidad_nueva', 0)
+        fecha_raw = m.get('fecha_movimiento', '')
+        fecha = (fecha_raw[:10] + ' ' + fecha_raw[11:16]) if len(fecha_raw) >= 16 else (fecha_raw or '')[:16]
+        obs = (m.get('observaciones') or '').strip()
+        usuario = m.get('registrado_por') or '?'
+        alm = m.get('almacen') or ''
+    else:
+        cant_anterior = getattr(m, 'cantidad_anterior', 0) or 0
+        cant = getattr(m, 'cantidad', 0) or 0
+        cant_nueva = getattr(m, 'cantidad_nueva', 0) or 0
+        fecha = (m.fecha_movimiento.strftime('%d/%m/%Y %H:%M') if m.fecha_movimiento else '')
+        obs = (m.observaciones or '').strip()
+        usuario = m.registrado_por or '?'
+        alm = m.almacen or ''
+
+    info_parts = [usuario]
+    if alm:
+        info_parts.append(alm)
+    info_line = ' · '.join(info_parts)
+
+    sign_color = colors.get('success', ft.Colors.GREEN_400) if cant >= 0 else ft.Colors.RED_400
+    sign = '+' if cant >= 0 else ''
+
+    rows_in_card = [
+        ft.Row([
+            ft.Text(fecha, size=10, color=colors['text_secondary']),
             ft.Container(
-                content=ft.Row([
-                    ft.Container(
-                        content=ft.Icon(icon, color=color, size=24),
-                        padding=ft.padding.only(right=10)
-                    ),
-                    ft.Column([
-                        ft.Row([
-                            ft.Text(f"{m.tipo.upper()}{factura_texto}", weight="bold", size=14, selectable=True),
-                        ], alignment=ft.MainAxisAlignment.START, spacing=2),
-                        ft.Row([
-                            ft.Icon(ft.Icons.WAREHOUSE, size=12, color="#757575"),
-                            ft.Text(
-                                (m.almacen or 'principal').title(),
-                                size=11, color="#9E9E9E", selectable=True
-                            ),
-                        ], spacing=4),
-                        ft.Text(
-                            cantidad_display, 
-                            size=12, 
-                            color="#9E9E9E",
-                            selectable=True
-                        ),
-                        ft.Text(
-                            m.fecha_movimiento.strftime('%d/%m/%Y %H:%M'), 
-                            size=11, 
-                            color="#757575",
-                            selectable=True
-                        ),
-                    ],
-                    alignment=ft.MainAxisAlignment.START,
-                    spacing=2,
-                    expand=True,
-                    ),
-                    ft.Text(
-                        f"{'+' if is_entrada else '-'}{cantidad_valor:.3f}" if es_pesable and (m.peso_total or 0) > 0 else f"{'+' if is_entrada else '-'}{int(cantidad_valor)}", 
-                        color=color, 
-                        weight="bold",
-                        size=16
-                    ),
-                ], spacing=10),
-                bgcolor=colors['bg'],
-                padding=15,
-                border_radius=10,
-                margin=ft.margin.only(bottom=8),
-            )
+                content=ft.Text(tipo, size=9, color='white', weight='bold'),
+                bgcolor=color, padding=ft.padding.only(4, 1, 4, 1), border_radius=3,
+            ),
+        ], spacing=6),
+        ft.Row([
+            ft.Text(info_line, size=10, color=colors['text_secondary']),
+        ], spacing=6),
+    ]
+
+    if obs:
+        rows_in_card.append(
+            ft.Text(obs, size=9, color=colors['text_primary'], max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
         )
-    
+
+    rows_in_card.append(
+        ft.Container(
+            content=ft.Row([
+                ft.Text(f"{cant_anterior:.1f}", size=11, color=colors['text_secondary'], text_align=ft.TextAlign.CENTER, expand=True),
+                ft.Text("→", size=10, color=colors['text_secondary']),
+                ft.Text(f"{sign}{cant:.1f}", size=12, weight='bold', color=sign_color, text_align=ft.TextAlign.CENTER, expand=True),
+                ft.Text("→", size=10, color=colors['text_secondary']),
+                ft.Text(f"{cant_nueva:.1f}", size=12, weight='bold', color=colors['text_primary'], text_align=ft.TextAlign.CENTER, expand=True),
+            ], spacing=2, alignment=ft.MainAxisAlignment.CENTER),
+            bgcolor=colors['bg'], padding=ft.padding.only(4, 3, 4, 3), border_radius=5,
+        ),
+    )
+
+    return ft.Container(
+        content=ft.Column(rows_in_card, spacing=3),
+        padding=8, border_radius=7,
+        bgcolor=colors['card'],
+        border=ft.border.all(1, colors['border']),
+    )
+
+
+def build_producto_historial_dialog(producto, movimientos):
+    colors = get_colors(None)
+
+    mov_list = ft.Column(spacing=8, scroll=ft.ScrollMode.AUTO)
+    for m in movimientos:
+        mov_list.controls.append(build_movimiento_card(m, colors, producto))
+
     return ft.AlertDialog(
         title=ft.Text(f"Historial: {producto.nombre}"),
-        content=ft.Column([ft.Divider(), mov_list], tight=True, width=450),
-        actions=[ft.TextButton("Cerrar", on_click=lambda e: None)] # Callback handled by controller
+        content=ft.Container(content=mov_list, height=400),
+        actions=[ft.TextButton("Cerrar", on_click=lambda e: None)],
     )
 
 

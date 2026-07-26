@@ -145,11 +145,12 @@ class AuditView(ft.Container):
         # 1. Definir la cabecera (sin envolver en Row aquí, lo haremos al final)
         header_row = ft.Row([
             ft.Text("✓", width=30, weight="bold", color=self.colors['text_secondary']),
-            ft.Text("Producto", width=150, weight="bold", color=self.colors['text_secondary']),
-            ft.Text("Inicial", width=80, text_align=ft.TextAlign.RIGHT, weight="bold", color=self.colors['text_secondary']),
+            ft.Text("Producto", width=130, weight="bold", color=self.colors['text_secondary']),
+            ft.Container(width=26),
+            ft.Text("Inicial", width=90, text_align=ft.TextAlign.RIGHT, weight="bold", color=self.colors['text_secondary']),
             ft.Text("Traslado", width=80, text_align=ft.TextAlign.RIGHT, weight="bold", color=self.colors['text_secondary']),
             ft.Text("Final", width=80, text_align=ft.TextAlign.RIGHT, weight="bold", color=self.colors['text_secondary']),
-        ], spacing=10)
+        ], spacing=5)
 
         # 2. Crear las filas
         rows = []
@@ -172,14 +173,19 @@ class AuditView(ft.Container):
                         on_change=lambda e, id=item['detalle_id']: self._on_verify(id, e.control.value),
                         fill_color=self.colors['accent']
                     ),
-                    ft.Text(item['ingrediente'], width=150, color=self.colors['text_primary'], overflow=ft.TextOverflow.ELLIPSIS),
+                    ft.Text(item['ingrediente'], width=130, color=self.colors['text_primary'], overflow=ft.TextOverflow.ELLIPSIS),
+                    ft.IconButton(
+                        ft.Icons.HISTORY, icon_size=16, icon_color=self.colors['text_secondary'],
+                        tooltip="Ver movimientos del producto",
+                        on_click=lambda e, i=item: self._show_movimientos_historial(i)
+                    ),
                     ft.Row([
                         ft.Text(f"{data['inicial']:.2f}", width=60, text_align=ft.TextAlign.RIGHT),
                         adj_btn if adj_btn else ft.Container(width=30),
                     ], spacing=5),
                     ft.Text(f"{data['trasladada']:.2f}", width=80, text_align=ft.TextAlign.RIGHT, color=self.colors['accent']),
                     ft.Text(f"{data['final']:.2f}", width=80, text_align=ft.TextAlign.RIGHT, weight="bold"),
-                ], spacing=10),
+                ], spacing=5),
                 padding=10,
                 bgcolor=self.colors['card'] if item['verificado'] else self.colors['bg'],
                 border_radius=8,
@@ -395,6 +401,148 @@ class AuditView(ft.Container):
     def _close_dialog(self, dlg):
         dlg.open = False
         self.page.update()
+
+    def _show_movimientos_historial(self, item):
+        self.page.run_task(self._do_show_movimientos_historial, item)
+
+    async def _do_show_movimientos_historial(self, item):
+        import asyncio
+        from usr.database.local_replica import LocalReplica
+
+        producto_id = item['producto_id']
+        nombre = item['ingrediente']
+
+        movs = await asyncio.to_thread(LocalReplica.get_movimientos, producto_id, 9999)
+        if not movs:
+            show_warning("No hay movimientos para este producto")
+            return
+
+        almacenes = sorted(set(m.get('almacen') for m in movs if m.get('almacen')))
+
+        if len(almacenes) > 1:
+            selected = await self._preguntar_almacen(nombre, almacenes)
+            if selected is None:
+                return
+        else:
+            selected = almacenes[0]
+
+        movs_filtrados = [m for m in movs if m.get('almacen') == selected]
+        movs_filtrados.sort(key=lambda m: m.get('fecha_movimiento', ''), reverse=True)
+
+        tipo_labels = {
+            'entrada': ('Entrada', self.colors['success']),
+            'salida': ('Salida', ft.Colors.RED_400),
+            'ajuste': ('Ajuste', ft.Colors.ORANGE_400),
+            'tr_entrada': ('Tr. Entrada', ft.Colors.BLUE_400),
+            'tr_salida': ('Tr. Salida', ft.Colors.PURPLE_400),
+            'validacion': ('Validación', ft.Colors.TEAL_400),
+        }
+
+        mov_rows = []
+        for m in movs_filtrados:
+            tipo_info = tipo_labels.get(m.get('tipo', ''), (m.get('tipo', '?'), ft.Colors.GREY_400))
+            cant_anterior = m.get('cantidad_anterior', 0)
+            cant = m.get('cantidad', 0)
+            cant_nueva = m.get('cantidad_nueva', 0)
+            fecha_raw = m.get('fecha_movimiento', '')
+            fecha = (fecha_raw[:10] + ' ' + fecha_raw[11:16]) if len(fecha_raw) >= 16 else (fecha_raw or '')[:16]
+            obs = (m.get('observaciones') or '').strip()
+            usuario = m.get('registrado_por') or '?'
+            alm = m.get('almacen') or ''
+
+            info_parts = [usuario]
+            if alm:
+                info_parts.append(alm)
+            info_line = ' · '.join(info_parts)
+
+            sign_color = self.colors['success'] if cant >= 0 else ft.Colors.RED_400
+            sign = '+' if cant >= 0 else ''
+
+            rows_in_card = [
+                ft.Row([
+                    ft.Text(fecha, size=10, color=self.colors['text_secondary']),
+                    ft.Container(
+                        content=ft.Text(tipo_info[0], size=9, color='white', weight='bold'),
+                        bgcolor=tipo_info[1], padding=ft.padding.only(4, 1, 4, 1), border_radius=3,
+                    ),
+                ], spacing=6),
+                ft.Row([
+                    ft.Text(info_line, size=10, color=self.colors['text_secondary']),
+                ], spacing=6),
+            ]
+
+            if obs:
+                rows_in_card.append(
+                    ft.Text(obs, size=9, color=self.colors['text_primary'], max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                )
+
+            rows_in_card.append(
+                ft.Container(
+                    content=ft.Row([
+                        ft.Text(f"{cant_anterior:.1f}", size=11, color=self.colors['text_secondary'], text_align=ft.TextAlign.CENTER, expand=True),
+                        ft.Text("→", size=10, color=self.colors['text_secondary']),
+                        ft.Text(f"{sign}{cant:.1f}", size=12, weight='bold', color=sign_color, text_align=ft.TextAlign.CENTER, expand=True),
+                        ft.Text("→", size=10, color=self.colors['text_secondary']),
+                        ft.Text(f"{cant_nueva:.1f}", size=12, weight='bold', color=self.colors['text_primary'], text_align=ft.TextAlign.CENTER, expand=True),
+                    ], spacing=2, alignment=ft.MainAxisAlignment.CENTER),
+                    bgcolor=self.colors['bg'], padding=ft.padding.only(4, 3, 4, 3), border_radius=5,
+                ),
+            )
+
+            mov_rows.append(ft.Container(
+                content=ft.Column(rows_in_card, spacing=3),
+                padding=8, border_radius=7,
+                bgcolor=self.colors['card'],
+                border=ft.border.all(1, self.colors['border']),
+            ))
+
+        dlg = ft.AlertDialog(
+            title=ft.Text(f"Historial: {nombre} - {selected}", size=15, weight='bold'),
+            content=ft.Container(
+                content=ft.Column(mov_rows, spacing=4, scroll=ft.ScrollMode.AUTO),
+                height=400,
+            ),
+            actions=[ft.TextButton("Cerrar", on_click=lambda _: self._close_dialog(dlg))],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        self.page.overlay.append(dlg)
+        dlg.open = True
+        self.page.update()
+
+    async def _preguntar_almacen(self, nombre: str, almacenes: list):
+        import asyncio
+        """Pregunta al usuario qué almacén filtrar. Retorna el seleccionado o None si cancela."""
+        ev = asyncio.Event()
+        result = [None]
+
+        def on_click(alm):
+            result[0] = alm
+            dlg.open = False
+            self.page.update()
+            ev.set()
+
+        options = [ft.ElevatedButton(
+            a, icon=ft.Icons.WAREHOUSE, expand=True,
+            style=ft.ButtonStyle(color=self.colors['text_primary'], bgcolor=self.colors['surface']),
+            on_click=lambda e, a=a: on_click(a)
+        ) for a in almacenes]
+
+        dlg = ft.AlertDialog(
+            title=ft.Text(f"Filtrar historial de {nombre}", size=15, weight='bold'),
+            content=ft.Column([
+                ft.Text("Seleccione el almacén:", size=13, color=self.colors['text_secondary']),
+                ft.Container(height=10),
+                *options,
+            ], spacing=8, tight=True),
+            actions=[ft.TextButton("Cancelar", on_click=lambda _: on_click(None))],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        self.page.overlay.append(dlg)
+        dlg.open = True
+        self.page.update()
+
+        await ev.wait()
+        return result[0]
 
     def _on_guardar(self, _):
         self.page.run_task(self._do_guardar)

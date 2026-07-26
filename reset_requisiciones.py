@@ -1,8 +1,7 @@
 """
 Limpia todos los datos de prueba relacionados con requisiciones:
 - requisiciones
-- requisicion_detalles  
-- kardex_validaciones
+- requisicion_detalles
 - movimientos de tipo tr_salida / tr_entrada
 
 Ejecutar desde PC en desarrollo:  python reset_requisiciones.py
@@ -53,10 +52,9 @@ def limpiar_local():
     cursor = conn.cursor()
     
     tablas = [
-        ("kardex_validaciones", "DELETE FROM kardex_validaciones"),
         ("requisicion_detalles", "DELETE FROM requisicion_detalles"),
         ("requisiciones", "DELETE FROM requisiciones"),
-        ("movimientos (tr_salida/tr_entrada)", 
+        ("movimientos (tr_salida/tr_entrada)",
          "DELETE FROM movimientos WHERE tipo IN ('tr_salida', 'tr_entrada')"),
     ]
     
@@ -100,7 +98,6 @@ def limpiar_remoto():
         engine = create_engine(url, connect_args=connect_args)
         with engine.connect() as conn:
             tablas = [
-                ("kardex_validaciones", "DELETE FROM kardex_validaciones"),
                 ("requisicion_detalles", "DELETE FROM requisicion_detalles"),
                 ("requisiciones", "DELETE FROM requisiciones"),
                 ("movimientos (tr_salida/tr_entrada)",

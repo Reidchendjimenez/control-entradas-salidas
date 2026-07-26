@@ -250,13 +250,12 @@ class SyncManager:
                             mov_data = {
                                 'producto_id': mov.get('producto_id'),
                                 'factura_id': remote_factura_id,
+                                'requisicion_id': mov.get('requisicion_id'),
                                 'tipo': mov.get('tipo'),
                                 'cantidad': mov.get('cantidad'),
                                 'cantidad_anterior': mov.get('cantidad_anterior', 0),
                                 'cantidad_nueva': mov.get('cantidad_nueva', 0),
                                 'peso_total': mov.get('peso_total', 0),
-                                'peso_registrado': mov.get('peso_registrado'),
-                                'foto_peso_url': mov.get('foto_peso_url'),
                                 'registrado_por': mov.get('registrado_por'),
                                 'observaciones': mov.get('observaciones'),
                                 'almacen': mov.get('almacen'),
@@ -879,25 +878,7 @@ class SyncManager:
                             queue.mark_failed(item['id'], "Detalle no encontrado en Supabase")
                             self._log(f"[SYNC] Detalle no encontrado en Supabase para req={req_num}")
                     
-                    elif table == 'kardex_validaciones' and operation == 'insert':
-                        reg_data = {
-                            'producto_id': data.get('producto_id'),
-                            'requisicion_id': data.get('requisicion_id'),
-                            'fecha': data.get('fecha'),
-                            'usuario': data.get('usuario'),
-                            'cantidad_fisica': data.get('cantidad_fisica'),
-                            'observacion': data.get('observacion'),
-                        }
-                        conn.execute(text("""
-                            INSERT INTO kardex_validaciones
-                            (producto_id, requisicion_id, fecha, usuario, cantidad_fisica, observacion)
-                            VALUES (:producto_id, :requisicion_id, :fecha, :usuario, :cantidad_fisica, :observacion)
-                        """), reg_data)
-                        conn.commit()
-                        queue.mark_completed(item['id'])
-                        uploaded += 1
-                        self._log(f"[SYNC] Kardex validación sincronizada")
-                        
+
                 except Exception as e:
                     try:
                         conn.rollback()  # Reset transacción para que el siguiente item funcione

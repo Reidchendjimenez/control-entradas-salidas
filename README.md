@@ -25,7 +25,7 @@ El sistema utiliza una arquitectura de **Réplica Local**:
 El módulo de requisiciones implementa un proceso de control de calidad:
 - **Pendiente**: Registro inicial de solicitud.
 - **Auditoría**: Vista de verificación donde se compara el stock físico vs sistema. Permite realizar **Ajustes de Stock** inmediatos.
-- **Totalización**: Traslada físicamente el stock (Origen $\rightarrow$ Destino) y marca la requisición como `completada`, registrando la validación en el `kardex_validaciones`.
+- **Totalización**: Traslada físicamente el stock (Origen $\rightarrow$ Destino) y marca la requisición como `completada`.
 
 ---
 

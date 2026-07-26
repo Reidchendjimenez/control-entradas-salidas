@@ -199,16 +199,32 @@ class ValidacionService:
 
             db.commit()
 
-            # Reset sincronizado=0 on linked movements so _upload_pending_movimientos picks them up
+            # Actualizar factura_id en remoto directamente para evitar ciclo de duplicación
             try:
-                from usr.database.local_replica import get_local_conn
-                c2 = get_local_conn()
-                for m in movements:
-                    c2.execute("UPDATE movimientos SET sincronizado = 0 WHERE id = ?", (m.id,))
-                c2.commit()
-                c2.close()
+                from usr.database.base import get_db_adaptive
+                from sqlalchemy import text
+                remote_db = next(get_db_adaptive())
+                try:
+                    for m in movements:
+                        remote_db.execute(
+                            text("UPDATE movimientos SET factura_id = :fid WHERE id = :id"),
+                            {'fid': nueva_fac.id, 'id': m.id}
+                        )
+                    remote_db.commit()
+                except Exception as ex:
+                    print(f"[WARN] Error actualizando factura_id en remoto: {ex}")
+                    remote_db.rollback()
+                    # Fallback: marcar para re-sync
+                    from usr.database.local_replica import get_local_conn
+                    c2 = get_local_conn()
+                    for m in movements:
+                        c2.execute("UPDATE movimientos SET sincronizado = 0 WHERE id = ?", (m.id,))
+                    c2.commit()
+                    c2.close()
+                finally:
+                    remote_db.close()
             except Exception as ex:
-                print(f"[WARN] Reset sincronizado movements: {ex}")
+                print(f"[WARN] Error en sync remoto de factura_id: {ex}")
 
             result = {
                 'factura_id': nueva_fac.id,

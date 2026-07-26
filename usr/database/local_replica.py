@@ -99,13 +99,12 @@ def init_local_db():
             id INTEGER PRIMARY KEY,
             producto_id INTEGER NOT NULL,
             factura_id INTEGER,
+            requisicion_id INTEGER,
             tipo TEXT NOT NULL,
             cantidad REAL NOT NULL,
             cantidad_anterior REAL DEFAULT 0,
             cantidad_nueva REAL DEFAULT 0,
             peso_total REAL DEFAULT 0,
-            peso_registrado REAL,
-            foto_peso_url TEXT,
             registrado_por TEXT,
             observaciones TEXT,
             almacen TEXT,
@@ -191,18 +190,16 @@ def init_local_db():
     except Exception:
         pass  # Ya existe
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS kardex_validaciones (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            producto_id INTEGER NOT NULL,
-            requisicion_id INTEGER NOT NULL,
-            fecha TEXT NOT NULL,
-            usuario TEXT NOT NULL,
-            cantidad_fisica REAL,
-            observacion TEXT
-        )
-    """)
-    
+    try:
+        cursor.execute("ALTER TABLE movimientos ADD COLUMN requisicion_id INTEGER")
+    except Exception:
+        pass  # Ya existe
+
+    try:
+        cursor.execute("ALTER TABLE movimientos_archivo ADD COLUMN requisicion_id INTEGER")
+    except Exception:
+        pass  # Ya existe
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS sync_metadata (
             key TEXT PRIMARY KEY,
@@ -233,13 +230,12 @@ def init_local_db():
             id INTEGER PRIMARY KEY,
             producto_id INTEGER NOT NULL,
             factura_id INTEGER,
+            requisicion_id INTEGER,
             tipo TEXT NOT NULL,
             cantidad REAL NOT NULL,
             cantidad_anterior REAL DEFAULT 0,
             cantidad_nueva REAL DEFAULT 0,
             peso_total REAL DEFAULT 0,
-            peso_registrado REAL,
-            foto_peso_url TEXT,
             registrado_por TEXT,
             observaciones TEXT,
             almacen TEXT,
@@ -667,9 +663,9 @@ class LocalReplica:
         
         cursor.execute("""
             SELECT id FROM movimientos 
-            WHERE producto_id = ? AND tipo = ? AND cantidad = ? 
-            AND fecha_movimiento >= datetime(?) - 5
-        """, (producto_id, tipo, cantidad, fecha))
+            WHERE producto_id = ? AND tipo = ? AND cantidad = ? AND almacen = ?
+            AND fecha_movimiento >= datetime(?, '-5 seconds')
+        """, (producto_id, tipo, cantidad, movimiento.get('almacen'), fecha))
         
         existing = cursor.fetchone()
         if existing:
@@ -682,16 +678,16 @@ class LocalReplica:
         
         cursor.execute("""
             INSERT INTO movimientos 
-            (producto_id, factura_id, tipo, cantidad, cantidad_anterior, cantidad_nueva,
-             peso_total, peso_registrado, foto_peso_url, registrado_por, observaciones,
+            (producto_id, factura_id, requisicion_id, tipo, cantidad, cantidad_anterior, cantidad_nueva,
+             peso_total, registrado_por, observaciones,
              almacen, fecha_movimiento, created_at, device_id, sincronizado)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             movimiento.get('producto_id'), movimiento.get('factura_id'),
+            movimiento.get('requisicion_id'),
             movimiento.get('tipo'), movimiento.get('cantidad'),
             movimiento.get('cantidad_anterior', 0), movimiento.get('cantidad_nueva', 0),
-            movimiento.get('peso_total', 0), movimiento.get('peso_registrado'),
-            movimiento.get('foto_peso_url'), movimiento.get('registrado_por'),
+            movimiento.get('peso_total', 0), movimiento.get('registrado_por'),
             movimiento.get('observaciones'), movimiento.get('almacen'),
             movimiento.get('fecha_movimiento'), datetime.now().isoformat(),
             device_id, 0
@@ -772,10 +768,9 @@ class LocalReplica:
         conn = get_local_conn()
         cursor = conn.cursor()
         
-        valid_keys = ['id', 'producto_id', 'factura_id', 'tipo', 'cantidad', 
-                      'cantidad_anterior', 'cantidad_nueva', 'peso_total', 
-                      'peso_registrado', 'foto_peso_url', 'registrado_por', 
-                      'observaciones', 'almacen', 'fecha_movimiento', 
+        valid_keys = ['id', 'producto_id', 'factura_id', 'requisicion_id', 'tipo', 'cantidad',
+                      'cantidad_anterior', 'cantidad_nueva', 'peso_total',
+                      'registrado_por', 'observaciones', 'almacen', 'fecha_movimiento',
                       'created_at', 'device_id']
         
         inserted_count = 0
@@ -1133,10 +1128,9 @@ class LocalReplica:
             return
         conn = get_local_conn()
         cursor = conn.cursor()
-        valid_keys = ['id', 'producto_id', 'factura_id', 'tipo', 'cantidad',
+        valid_keys = ['id', 'producto_id', 'factura_id', 'requisicion_id', 'tipo', 'cantidad',
                       'cantidad_anterior', 'cantidad_nueva', 'peso_total',
-                      'peso_registrado', 'foto_peso_url', 'registrado_por',
-                      'observaciones', 'almacen', 'fecha_movimiento', 'created_at']
+                      'registrado_por', 'observaciones', 'almacen', 'fecha_movimiento', 'created_at']
         inserted = 0
         for chunk in [movimientos[i:i+100] for i in range(0, len(movimientos), 100)]:
             for mov in chunk:
@@ -1174,15 +1168,14 @@ class LocalReplica:
         cursor = conn.cursor()
         cursor.execute("""
             INSERT OR IGNORE INTO movimientos_archivo
-            (id, producto_id, factura_id, tipo, cantidad, cantidad_anterior, cantidad_nueva,
-             peso_total, peso_registrado, foto_peso_url, registrado_por, observaciones,
+            (id, producto_id, factura_id, requisicion_id, tipo, cantidad, cantidad_anterior, cantidad_nueva,
+             peso_total, registrado_por, observaciones,
              almacen, fecha_movimiento, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            mov.get('id'), mov.get('producto_id'), mov.get('factura_id'),
+            mov.get('id'), mov.get('producto_id'), mov.get('factura_id'), mov.get('requisicion_id'),
             mov.get('tipo'), mov.get('cantidad'), mov.get('cantidad_anterior', 0),
             mov.get('cantidad_nueva', 0), mov.get('peso_total', 0),
-            mov.get('peso_registrado'), mov.get('foto_peso_url'),
             mov.get('registrado_por'), mov.get('observaciones'),
             mov.get('almacen'), mov.get('fecha_movimiento'), mov.get('created_at')
         ))

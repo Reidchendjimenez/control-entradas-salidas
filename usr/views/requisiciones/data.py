@@ -224,8 +224,7 @@ def totalizar_requisicion(req_id, usuario="Admin"):
     2. Crea movimientos de salida (origen) y entrada (destino).
     3. Actualiza existencias localmente.
     4. Cambia estado a 'completada'.
-    5. Registra en kardex_validaciones.
-    6. Sincroniza cambios a Supabase via sync queue.
+    5. Sincroniza cambios a Supabase via sync queue.
     (Todo sobre una sola conexión SQLite para evitar "database is locked".)
     """
     from config.config import get_settings
@@ -272,7 +271,6 @@ def totalizar_requisicion(req_id, usuario="Admin"):
         detalles_data = []
         stocks_sync = []
         mov_params = []
-        kardex_params = []
         now_iso = datetime.now().isoformat()
 
         for det in detalles:
@@ -284,16 +282,18 @@ def totalizar_requisicion(req_id, usuario="Admin"):
             cant_orig_nueva = max(0, cant_orig_actual - det.cantidad)
             cant_dest_nueva = cant_dest_actual + det.cantidad
 
-            mov_params.append({"p": det.producto_id, "t": "tr_salida", "c": det.cantidad,
+            mov_params.append({"p": det.producto_id, "t": "tr_salida", "c": -det.cantidad,
                                "ca": cant_orig_actual, "cn": cant_orig_nueva,
                                "pt": 0.0, "rp": usuario,
                                "obs": f"Traslado req #{req.numero} → {req.destino}",
-                               "al": req.origen, "fm": now_iso, "ca2": now_iso, "dv": device_id})
+                               "al": req.origen, "fm": now_iso, "ca2": now_iso, "dv": device_id,
+                               "rid": req.id})
             mov_params.append({"p": det.producto_id, "t": "tr_entrada", "c": det.cantidad,
                                "ca": cant_dest_actual, "cn": cant_dest_nueva,
                                "pt": 0.0, "rp": usuario,
                                "obs": f"Traslado req #{req.numero} ← {req.origen}",
-                               "al": req.destino, "fm": now_iso, "ca2": now_iso, "dv": device_id})
+                               "al": req.destino, "fm": now_iso, "ca2": now_iso, "dv": device_id,
+                               "rid": req.id})
 
             if exist_orig:
                 exist_orig.cantidad = cant_orig_nueva
@@ -301,8 +301,6 @@ def totalizar_requisicion(req_id, usuario="Admin"):
                 exist_dest.cantidad = cant_dest_nueva
             else:
                 db.add(Existencia(producto_id=det.producto_id, almacen=req.destino, cantidad=det.cantidad))
-
-            kardex_params.append({"p": det.producto_id, "r": req.id, "f": now_iso, "u": usuario, "c": det.cantidad})
 
             detalles_data.append({
                 'producto_id': det.producto_id, 'ingrediente': det.ingrediente,
@@ -317,17 +315,9 @@ def totalizar_requisicion(req_id, usuario="Admin"):
                     text("""INSERT INTO movimientos
 (producto_id, tipo, cantidad, cantidad_anterior, cantidad_nueva,
  peso_total, registrado_por, observaciones,
- almacen, fecha_movimiento, created_at, device_id, sincronizado)
-VALUES (:p, :t, :c, :ca, :cn, :pt, :rp, :obs, :al, :fm, :ca2, :dv, 0)"""),
+ almacen, fecha_movimiento, created_at, device_id, sincronizado, requisicion_id)
+VALUES (:p, :t, :c, :ca, :cn, :pt, :rp, :obs, :al, :fm, :ca2, :dv, 0, :rid)"""),
                     mov_params[i:i + chunk_size]
-                )
-
-        if kardex_params:
-            chunk_size = 190
-            for i in range(0, len(kardex_params), chunk_size):
-                db.execute(
-                    text("INSERT INTO kardex_validaciones (producto_id, requisicion_id, fecha, usuario, cantidad_fisica) VALUES (:p, :r, :f, :u, :c)"),
-                    kardex_params[i:i + chunk_size]
                 )
 
         # Sincronizar existencias a Supabase ANTES de commit.
@@ -338,20 +328,6 @@ VALUES (:p, :t, :c, :ca, :cn, :pt, :rp, :obs, :al, :fm, :ca2, :dv, 0)"""),
         req.procesada_por = usuario
         req.fecha_procesamiento = datetime.now()
         db.commit()
-
-        # Post-commit: encolar sync (best-effort, no revierte)
-        try:
-            from usr.database.sync_queue import get_sync_queue
-            for det in detalles:
-                get_sync_queue().add_pending('kardex_validaciones', 'insert', {
-                    'producto_id': det.producto_id,
-                    'requisicion_id': req.id,
-                    'fecha': datetime.now().isoformat(),
-                    'usuario': usuario,
-                    'cantidad_fisica': det.cantidad,
-                })
-        except Exception as e:
-            print(f"[REQ] Error encolando kardex sync: {e}")
 
         try:
             _encolar_requisicion_sync(req, detalles_data)

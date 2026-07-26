@@ -38,15 +38,14 @@ def archivar_movimientos(meses_activos: int = 3, meses_retencion: int = 7):
         # Insertar en archivo
         cursor.execute("""
             INSERT OR IGNORE INTO movimientos_archivo
-            (id, producto_id, factura_id, tipo, cantidad, cantidad_anterior, cantidad_nueva,
-             peso_total, peso_registrado, foto_peso_url, registrado_por, observaciones,
+            (id, producto_id, factura_id, requisicion_id, tipo, cantidad, cantidad_anterior, cantidad_nueva,
+             peso_total, registrado_por, observaciones,
              almacen, fecha_movimiento, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            mov.get('id'), mov.get('producto_id'), mov.get('factura_id'),
+            mov.get('id'), mov.get('producto_id'), mov.get('factura_id'), mov.get('requisicion_id'),
             mov.get('tipo'), mov.get('cantidad'), mov.get('cantidad_anterior', 0),
             mov.get('cantidad_nueva', 0), mov.get('peso_total', 0),
-            mov.get('peso_registrado'), mov.get('foto_peso_url'),
             mov.get('registrado_por'), mov.get('observaciones'),
             mov.get('almacen'), mov.get('fecha_movimiento'), mov.get('created_at')
         ))
