@@ -1,23 +1,65 @@
-"""
-Archivado de movimientos antiguos.
-Mueve movimientos > N meses a movimientos_archivo y elimina los > N+M meses.
-"""
 from datetime import datetime, timedelta
-from typing import Optional
+from sqlalchemy import text
 from usr.database.local_replica import LocalReplica
 from usr.database.conn import get_local_conn
+from usr.database.base import is_online
 
 
-def archivar_movimientos(meses_activos: int = 3, meses_retencion: int = 7):
-    """
-    - Mueve a movimientos_archivo los movimientos sin factura > mes_limite
-    - Los movimientos con factura NEVERACION se archivan (quedan siempre en principal)
-    - Elimina de movimientos_archivo los registros > meses_retencion
-    
-    Args:
-        meses_activos: meses que se conservan en la tabla principal
-        meses_retencion: meses totales que se conservan (principal + archivo)
-    """
+def _get_remote_engine():
+    from sqlalchemy import create_engine
+    from config.config import get_settings
+    settings = get_settings()
+    return create_engine(settings.DATABASE_URL)
+
+
+def archivar_en_supabase(meses_activos: int = 3):
+    """Archiva en Supabase: guarda checkpoint, mueve movimientos viejos a archivo.
+    Retorna cantidad de archivados. Lanza excepción si falla."""
+    if not is_online():
+        raise ConnectionError("No hay conexion a Internet para archivar en la nube")
+
+    ahora = datetime.now()
+    fecha_limite = (ahora - timedelta(days=meses_activos * 30)).isoformat()
+
+    engine = _get_remote_engine()
+    try:
+        with engine.connect() as conn:
+            for tbl in [
+                "CREATE TABLE IF NOT EXISTS movimientos_archivo (id INTEGER PRIMARY KEY, producto_id INTEGER NOT NULL, factura_id INTEGER, requisicion_id INTEGER, tipo TEXT NOT NULL, cantidad REAL NOT NULL, cantidad_anterior REAL DEFAULT 0, cantidad_nueva REAL DEFAULT 0, peso_total REAL DEFAULT 0, registrado_por TEXT, observaciones TEXT, almacen TEXT, fecha_movimiento TEXT, created_at TEXT)",
+                "CREATE TABLE IF NOT EXISTS stock_checkpoint (producto_id INTEGER NOT NULL, almacen TEXT NOT NULL, cantidad REAL DEFAULT 0, PRIMARY KEY (producto_id, almacen))",
+            ]:
+                conn.execute(text(tbl))
+            conn.execute(text("DELETE FROM stock_checkpoint"))
+            existencias = LocalReplica.get_existencias()
+            for ext in existencias:
+                conn.execute(
+                    text("INSERT INTO stock_checkpoint (producto_id, almacen, cantidad) VALUES (:p, :a, :c)"),
+                    {'p': ext['producto_id'], 'a': ext['almacen'], 'c': ext.get('cantidad', 0)}
+                )
+            cols = "id, producto_id, factura_id, requisicion_id, tipo, cantidad, cantidad_anterior, cantidad_nueva, peso_total, registrado_por, observaciones, almacen, fecha_movimiento, created_at"
+            result = conn.execute(text(f"""
+                INSERT INTO movimientos_archivo ({cols})
+                SELECT {cols} FROM movimientos
+                WHERE fecha_movimiento < :limite AND factura_id IS NULL
+            """), {'limite': fecha_limite})
+            archivados = result.rowcount
+            conn.execute(text("""
+                DELETE FROM movimientos
+                WHERE fecha_movimiento < :limite AND factura_id IS NULL
+            """), {'limite': fecha_limite})
+            conn.execute(text("""
+                DELETE FROM movimientos_archivo
+                WHERE fecha_movimiento < :limite
+            """), {'limite': (ahora - timedelta(days=7 * 30)).isoformat()})
+            conn.commit()
+        print(f"[ARCHIVE] Supabase: {archivados} movimientos archivados")
+        return archivados
+    finally:
+        engine.dispose()
+
+
+def archivar_movimientos_local(meses_activos: int = 3, meses_retencion: int = 7):
+    """Archiva movimientos en la BD local."""
     ahora = datetime.now()
     fecha_limite_principal = (ahora - timedelta(days=meses_activos * 30)).isoformat()
     fecha_limite_eliminar = (ahora - timedelta(days=meses_retencion * 30)).isoformat()
@@ -25,7 +67,8 @@ def archivar_movimientos(meses_activos: int = 3, meses_retencion: int = 7):
     conn = get_local_conn()
     cursor = conn.cursor()
 
-    # 1. Seleccionar movimientos a archivar (sin factura_id y antiguos)
+    LocalReplica.save_checkpoints()
+
     cursor.execute("""
         SELECT * FROM movimientos 
         WHERE fecha_movimiento < ? AND factura_id IS NULL
@@ -35,12 +78,10 @@ def archivar_movimientos(meses_activos: int = 3, meses_retencion: int = 7):
 
     archivados = 0
     for mov in a_archivar:
-        # Insertar en archivo
         cursor.execute("""
             INSERT OR IGNORE INTO movimientos_archivo
             (id, producto_id, factura_id, requisicion_id, tipo, cantidad, cantidad_anterior, cantidad_nueva,
-             peso_total, registrado_por, observaciones,
-             almacen, fecha_movimiento, created_at)
+             peso_total, registrado_por, observaciones, almacen, fecha_movimiento, created_at)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             mov.get('id'), mov.get('producto_id'), mov.get('factura_id'), mov.get('requisicion_id'),
@@ -49,11 +90,9 @@ def archivar_movimientos(meses_activos: int = 3, meses_retencion: int = 7):
             mov.get('registrado_por'), mov.get('observaciones'),
             mov.get('almacen'), mov.get('fecha_movimiento'), mov.get('created_at')
         ))
-        # Eliminar de principal
         cursor.execute("DELETE FROM movimientos WHERE id = ?", (mov['id'],))
         archivados += 1
 
-    # 2. Eliminar archivos muy antiguos
     cursor.execute(
         "DELETE FROM movimientos_archivo WHERE fecha_movimiento < ?",
         (fecha_limite_eliminar,)
@@ -64,6 +103,13 @@ def archivar_movimientos(meses_activos: int = 3, meses_retencion: int = 7):
     conn.close()
 
     if archivados > 0 or eliminados > 0:
-        print(f"[ARCHIVE] {archivados} movimientos archivados, {eliminados} eliminados del archivo")
+        print(f"[ARCHIVE] Local: {archivados} archivados, {eliminados} eliminados")
 
     return archivados, eliminados
+
+
+def archivar_movimientos(meses_activos: int = 3, meses_retencion: int = 7):
+    """Archiva en Supabase primero, luego en local.
+    Si Supabase falla, se aborta (no se archiva local ni se crea periodo)."""
+    archivar_en_supabase(meses_activos)
+    return archivar_movimientos_local(meses_activos, meses_retencion)

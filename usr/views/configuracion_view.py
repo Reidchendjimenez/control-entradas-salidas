@@ -10,6 +10,7 @@ from usr.views.configuracion.categorias import show_categoria_dialog, create_cat
 from usr.views.configuracion.productos import show_producto_dialog, create_producto_item
 from usr.views.configuracion.proveedores import build_proveedores_tab, load_proveedores
 from usr.views.configuracion.sistema import build_sistema_tab
+from usr.views.configuracion.periodos import build_periodos_tab
 
 
 def _get_tipo_label(tipo):
@@ -112,6 +113,11 @@ class ConfiguracionView(ft.Container):
                     text="Sistema",
                     icon=ft.Icons.DASHBOARD_CUSTOMIZE,
                     content=build_sistema_tab(self),
+                ),
+                ft.Tab(
+                    text="Periodos",
+                    icon=ft.Icons.CALENDAR_MONTH,
+                    content=build_periodos_tab(self),
                 ),
             ],
             expand=True,

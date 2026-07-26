@@ -312,7 +312,7 @@ class SyncManager:
             ('factura_pagos', 'factura_pagos'),
             ('requisiciones', 'requisiciones'),
             ('requisicion_detalles', 'requisicion_detalles'),
-            ('movimientos_archivo', 'movimientos_archivo')
+            ('stock_checkpoint', 'stock_checkpoint'),
         ]
         
         from sqlalchemy import create_engine
@@ -321,12 +321,17 @@ class SyncManager:
         remote_engine = self._create_remote_engine()
         
         with remote_engine.connect() as conn:
-            # Migración remota: asegurar columna verificado en requisicion_detalles
-            try:
-                conn.execute(text("ALTER TABLE requisicion_detalles ADD COLUMN verificado INTEGER DEFAULT 0"))
-                conn.commit()
-            except Exception:
-                conn.rollback()  # Resetear transacción para que SELECTs siguientes funcionen
+            # Migración remota: asegurar existencias de tablas
+            for migracion in [
+                "ALTER TABLE requisicion_detalles ADD COLUMN verificado INTEGER DEFAULT 0",
+                "CREATE TABLE IF NOT EXISTS movimientos_archivo (id INTEGER PRIMARY KEY, producto_id INTEGER NOT NULL, factura_id INTEGER, requisicion_id INTEGER, tipo TEXT NOT NULL, cantidad REAL NOT NULL, cantidad_anterior REAL DEFAULT 0, cantidad_nueva REAL DEFAULT 0, peso_total REAL DEFAULT 0, registrado_por TEXT, observaciones TEXT, almacen TEXT, fecha_movimiento TEXT, created_at TEXT)",
+                "CREATE TABLE IF NOT EXISTS stock_checkpoint (producto_id INTEGER NOT NULL, almacen TEXT NOT NULL, cantidad REAL DEFAULT 0, PRIMARY KEY (producto_id, almacen))",
+            ]:
+                try:
+                    conn.execute(text(migracion))
+                    conn.commit()
+                except Exception:
+                    conn.rollback()
             
             for local_table, server_table in tables_to_sync:
                 try:
@@ -336,7 +341,6 @@ class SyncManager:
                     
                     remote_ids = [r['id'] for r in data if r.get('id') is not None]
                     
-                    # Usar INSERT OR REPLACE para no perder datos locales sin sincronizar
                     if local_table == 'categorias':
                         LocalReplica.save_categorias(data)
                         LocalReplica.delete_orphaned_records('categorias', remote_ids, 'nombre')
@@ -349,7 +353,6 @@ class SyncManager:
                     elif local_table == 'existencias':
                         LocalReplica.save_existencias(data)
                     elif local_table == 'movimientos':
-                        # Primero clear para evitar duplicados
                         LocalReplica.clear_movimientos()
                         LocalReplica.save_movimientos(data)
                     elif local_table == 'facturas':
@@ -363,9 +366,8 @@ class SyncManager:
                         LocalReplica.delete_orphaned_records('requisiciones', remote_ids)
                     elif local_table == 'requisicion_detalles':
                         LocalReplica.save_requisicion_detalles(data)
-                    elif local_table == 'movimientos_archivo':
-                        LocalReplica.clear_movimientos_archivo()
-                        LocalReplica.save_movimientos_archivo(data)
+                    elif local_table == 'stock_checkpoint':
+                        LocalReplica.save_stock_checkpoints(data)
                     
                     self._log(f"[SYNC] {len(data)} {local_table} baixats")
 
@@ -377,7 +379,8 @@ class SyncManager:
         
         remote_engine.dispose()
         
-        # Recalcular existencias después de la descarga
+        # Recalcular existencias: si hay checkpoint (archivo previo) solo escanea movimientos,
+        # si no hay checkpoint escanea movimientos + movimientos_archivo
         LocalReplica.recalculate_existencias()
         self._log("[SYNC] Descarga completada")
         return True

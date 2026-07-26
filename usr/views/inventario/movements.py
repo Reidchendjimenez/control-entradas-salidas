@@ -54,8 +54,6 @@ def registrar_movimiento(page, producto_seleccionado, tipo, cantidad, peso_total
 
     local_id = movimiento_data.get('id')
 
-    LocalReplica.recalculate_existencias()
-
     sync_mgr = None
     try:
         from usr.database import get_sync_manager

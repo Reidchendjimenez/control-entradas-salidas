@@ -287,6 +287,24 @@ def init_local_db():
         )
     """)
     
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS periodos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            periodo TEXT NOT NULL UNIQUE,
+            fecha_apertura TEXT NOT NULL,
+            registrado_por TEXT
+        )
+    """)
+    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS stock_checkpoint (
+            producto_id INTEGER NOT NULL,
+            almacen TEXT NOT NULL,
+            cantidad REAL DEFAULT 0,
+            PRIMARY KEY (producto_id, almacen)
+        )
+    """)
+    
     # Índices locales
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_local_tipo_fecha ON movimientos (tipo, fecha_movimiento DESC)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_local_producto ON movimientos (producto_id, fecha_movimiento DESC)")
@@ -296,6 +314,7 @@ def init_local_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_archivo_producto ON movimientos_archivo (producto_id, fecha_movimiento DESC)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_archivo_factura ON movimientos_archivo (factura_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_compras_lista_producto ON compras_lista (producto_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_periodos_periodo ON periodos (periodo DESC)")
 
     conn.commit()
     conn.close()
@@ -1050,54 +1069,88 @@ class LocalReplica:
     def recalculate_existencias() -> None:
         """Recalcula las existencias basándose en todos los movimientos.
         
-        Los movimientos de tipo 'ajuste' representan un conteo físico real:
-        se usa cantidad_nueva como valor definitivo de stock en ese momento.
-        Los movimientos posteriores (entrada/salida) se aplican sobre ese valor.
+        Si hay checkpoints guardados (archivo previo), usa esos como base
+        y solo recorre los movimientos activos (últimos 3 meses).
+        Si no, recorre movimientos + movimientos_archivo (descarga inicial).
         """
         conn = get_local_conn()
         cursor = conn.cursor()
         
-        cursor.execute("""
-            SELECT producto_id, almacen, tipo, cantidad, cantidad_nueva
-            FROM movimientos
-            ORDER BY id
-        """)
-        todos = cursor.fetchall()
-        
         cursor.execute("DELETE FROM existencias")
-        
-        stock_por_producto_almacen = {}
         
         # Cargar unidad_medida de todos los productos en un solo query
         cursor.execute("SELECT id, unidad_medida FROM productos")
         unidad_map = {row['id']: row['unidad_medida'] or 'unidad' for row in cursor.fetchall()}
         
-        for mov in todos:
-            producto_id = mov['producto_id']
-            almacen = mov['almacen'] or 'principal'
-            tipo = mov['tipo']
-            cantidad = mov['cantidad'] or 0
-            cantidad_nueva = mov['cantidad_nueva']
-            
-            if not producto_id:
-                continue
-            
-            unidad = unidad_map.get(producto_id, 'unidad')
-            
-            key = (producto_id, almacen)
-            if key not in stock_por_producto_almacen:
-                stock_por_producto_almacen[key] = {'cantidad': 0, 'unidad': unidad}
-            
-            if tipo in ('entrada', 'tr_entrada'):
-                stock_por_producto_almacen[key]['cantidad'] += cantidad
-            elif tipo in ('salida', 'tr_salida'):
-                stock_por_producto_almacen[key]['cantidad'] -= cantidad
-            elif tipo == 'ajuste':
-                if cantidad_nueva is not None:
-                    stock_por_producto_almacen[key]['cantidad'] = cantidad_nueva
+        stock_por_producto_almacen = {}
+        
+        checkpoints = LocalReplica.get_checkpoints()
+        if checkpoints:
+            cursor.execute("""
+                SELECT producto_id, almacen, tipo, cantidad_anterior, cantidad_nueva, id
+                FROM movimientos
+                ORDER BY id
+            """)
+            todos = cursor.fetchall()
+            for mov in todos:
+                producto_id = mov['producto_id']
+                almacen = mov['almacen'] or 'principal'
+                tipo = mov['tipo']
+                cantidad_anterior = mov['cantidad_anterior']
+                cantidad_nueva = mov['cantidad_nueva']
+                
+                if not producto_id:
+                    continue
+                
+                unidad = unidad_map.get(producto_id, 'unidad')
+                key = (producto_id, almacen)
+                if key not in stock_por_producto_almacen:
+                    stock_por_producto_almacen[key] = {
+                        'cantidad': checkpoints.get(key, 0),
+                        'unidad': unidad
+                    }
+                
+                if tipo == 'ajuste':
+                    if cantidad_nueva is not None:
+                        stock_por_producto_almacen[key]['cantidad'] = cantidad_nueva
+                else:
+                    if cantidad_nueva is not None and cantidad_anterior is not None:
+                        delta = cantidad_nueva - cantidad_anterior
+                        stock_por_producto_almacen[key]['cantidad'] += delta
+        else:
+            cursor.execute("""
+                SELECT producto_id, almacen, tipo, cantidad_anterior, cantidad_nueva, id
+                FROM movimientos
+                UNION ALL
+                SELECT producto_id, almacen, tipo, cantidad_anterior, cantidad_nueva, id
+                FROM movimientos_archivo
+                ORDER BY id
+            """)
+            todos = cursor.fetchall()
+            for mov in todos:
+                producto_id = mov['producto_id']
+                almacen = mov['almacen'] or 'principal'
+                tipo = mov['tipo']
+                cantidad_anterior = mov['cantidad_anterior']
+                cantidad_nueva = mov['cantidad_nueva']
+                
+                if not producto_id:
+                    continue
+                
+                unidad = unidad_map.get(producto_id, 'unidad')
+                key = (producto_id, almacen)
+                if key not in stock_por_producto_almacen:
+                    stock_por_producto_almacen[key] = {'cantidad': 0, 'unidad': unidad}
+                
+                if tipo == 'ajuste':
+                    if cantidad_nueva is not None:
+                        stock_por_producto_almacen[key]['cantidad'] = cantidad_nueva
+                else:
+                    if cantidad_nueva is not None and cantidad_anterior is not None:
+                        delta = cantidad_nueva - cantidad_anterior
+                        stock_por_producto_almacen[key]['cantidad'] += delta
         
         for (producto_id, almacen), data in stock_por_producto_almacen.items():
-            # Redondear a 4 decimales para eliminar el ruido de punto flotante de Python/IEEE 754
             final_stock = round(data['cantidad'], 4) if data['cantidad'] is not None else 0
             
             if producto_id and almacen and final_stock is not None:
@@ -1515,6 +1568,86 @@ class LocalReplica:
         rows = cursor.fetchall()
         conn.close()
         return [dict(row) for row in rows]
+
+    @staticmethod
+    def get_periodos() -> List[Dict]:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM periodos ORDER BY periodo DESC")
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def crear_periodo(periodo: str, registrado_por: str = None) -> bool:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "INSERT INTO periodos (periodo, fecha_apertura, registrado_por) VALUES (?, ?, ?)",
+                (periodo, datetime.now().isoformat(), registrado_por or "sistema")
+            )
+            conn.commit()
+            return True
+        except Exception:
+            return False
+        finally:
+            conn.close()
+
+    @staticmethod
+    def periodo_existe(periodo: str) -> bool:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM periodos WHERE periodo = ?", (periodo,))
+        existe = cursor.fetchone() is not None
+        conn.close()
+        return existe
+
+    # ==================== STOCK CHECKPOINT ====================
+
+    @staticmethod
+    def save_checkpoints() -> None:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM stock_checkpoint")
+        cursor.execute("""
+            INSERT INTO stock_checkpoint (producto_id, almacen, cantidad)
+            SELECT producto_id, almacen, cantidad FROM existencias
+        """)
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def get_checkpoints() -> Dict:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT producto_id, almacen, cantidad FROM stock_checkpoint")
+        rows = cursor.fetchall()
+        conn.close()
+        return {(r['producto_id'], r['almacen']): r['cantidad'] for r in rows}
+
+    @staticmethod
+    def clear_checkpoints() -> None:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM stock_checkpoint")
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def save_stock_checkpoints(data: list) -> None:
+        if not data:
+            return
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM stock_checkpoint")
+        for row in data:
+            cursor.execute(
+                "INSERT OR REPLACE INTO stock_checkpoint (producto_id, almacen, cantidad) VALUES (?, ?, ?)",
+                (row.get('producto_id'), row.get('almacen'), row.get('cantidad', 0))
+            )
+        conn.commit()
+        conn.close()
 
 
 def ensure_local_db():
