@@ -1603,6 +1603,14 @@ class LocalReplica:
         conn.close()
         return existe
 
+    @staticmethod
+    def clear_periodos() -> None:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM periodos")
+        conn.commit()
+        conn.close()
+
     # ==================== STOCK CHECKPOINT ====================
 
     @staticmethod

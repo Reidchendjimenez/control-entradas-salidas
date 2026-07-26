@@ -1,7 +1,7 @@
 import flet as ft
 from datetime import datetime
 from usr.database.local_replica import LocalReplica
-from usr.database.archive import archivar_movimientos
+from usr.database.archive import archivar_movimientos, guardar_periodo_en_supabase
 from usr.notifications import show_success, show_error, show_info
 from usr.views.configuracion.helpers import _colors
 
@@ -127,7 +127,7 @@ async def _do_aperturar(view, lista, info_text, btn):
 
     try:
         archivados, eliminados = archivar_movimientos(meses_activos=3, meses_retencion=7)
-
+        guardar_periodo_en_supabase(periodo)
         LocalReplica.crear_periodo(periodo, registrado_por="sistema")
         LocalReplica.recalculate_existencias()
 
@@ -141,6 +141,7 @@ async def _do_aperturar(view, lista, info_text, btn):
         btn.disabled = True
         view.update()
     except Exception as e:
+        print(f"[PERIODOS] Error al aperturar: {e}")
         show_error(f"Error al aperturar periodo: {str(e)}")
 
 
@@ -155,6 +156,7 @@ async def _do_recalcular(view, lista, info_text, btn_aperturar):
         LocalReplica.recalculate_existencias()
         show_success("Stock recalculado desde todos los movimientos")
     except Exception as e:
+        print(f"[PERIODOS] Error al recalcular: {e}")
         show_error(f"Error al recalcular: {str(e)}")
 
 
@@ -172,4 +174,5 @@ async def _do_reintentar_supabase(view, lista, info_text):
         else:
             show_info("No hay movimientos pendientes de archivar en la nube")
     except Exception as e:
+        print(f"[PERIODOS] Error al reintentar Supabase: {e}")
         show_error(f"Error: {str(e)}")

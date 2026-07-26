@@ -313,6 +313,7 @@ class SyncManager:
             ('requisiciones', 'requisiciones'),
             ('requisicion_detalles', 'requisicion_detalles'),
             ('stock_checkpoint', 'stock_checkpoint'),
+            ('periodos', 'periodos'),
         ]
         
         from sqlalchemy import create_engine
@@ -326,12 +327,18 @@ class SyncManager:
                 "ALTER TABLE requisicion_detalles ADD COLUMN verificado INTEGER DEFAULT 0",
                 "CREATE TABLE IF NOT EXISTS movimientos_archivo (id INTEGER PRIMARY KEY, producto_id INTEGER NOT NULL, factura_id INTEGER, requisicion_id INTEGER, tipo TEXT NOT NULL, cantidad REAL NOT NULL, cantidad_anterior REAL DEFAULT 0, cantidad_nueva REAL DEFAULT 0, peso_total REAL DEFAULT 0, registrado_por TEXT, observaciones TEXT, almacen TEXT, fecha_movimiento TEXT, created_at TEXT)",
                 "CREATE TABLE IF NOT EXISTS stock_checkpoint (producto_id INTEGER NOT NULL, almacen TEXT NOT NULL, cantidad REAL DEFAULT 0, PRIMARY KEY (producto_id, almacen))",
+                "CREATE TABLE IF NOT EXISTS periodos (id SERIAL PRIMARY KEY, periodo TEXT NOT NULL UNIQUE, fecha_apertura TEXT NOT NULL, registrado_por TEXT)",
             ]:
                 try:
                     conn.execute(text(migracion))
                     conn.commit()
                 except Exception:
                     conn.rollback()
+            try:
+                conn.execute(text("ALTER TABLE movimientos_archivo ADD COLUMN requisicion_id INTEGER"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
             
             for local_table, server_table in tables_to_sync:
                 try:
@@ -368,6 +375,13 @@ class SyncManager:
                         LocalReplica.save_requisicion_detalles(data)
                     elif local_table == 'stock_checkpoint':
                         LocalReplica.save_stock_checkpoints(data)
+                    elif local_table == 'periodos':
+                        for row in data:
+                            if not LocalReplica.periodo_existe(row.get('periodo')):
+                                LocalReplica.crear_periodo(
+                                    row.get('periodo'),
+                                    row.get('registrado_por')
+                                )
                     
                     self._log(f"[SYNC] {len(data)} {local_table} baixats")
 

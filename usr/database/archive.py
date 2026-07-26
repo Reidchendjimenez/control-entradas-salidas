@@ -29,6 +29,11 @@ def archivar_en_supabase(meses_activos: int = 3):
                 "CREATE TABLE IF NOT EXISTS stock_checkpoint (producto_id INTEGER NOT NULL, almacen TEXT NOT NULL, cantidad REAL DEFAULT 0, PRIMARY KEY (producto_id, almacen))",
             ]:
                 conn.execute(text(tbl))
+            try:
+                conn.execute(text("ALTER TABLE movimientos_archivo ADD COLUMN requisicion_id INTEGER"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
             conn.execute(text("DELETE FROM stock_checkpoint"))
             existencias = LocalReplica.get_existencias()
             for ext in existencias:
@@ -54,6 +59,29 @@ def archivar_en_supabase(meses_activos: int = 3):
             conn.commit()
         print(f"[ARCHIVE] Supabase: {archivados} movimientos archivados")
         return archivados
+    finally:
+        engine.dispose()
+
+
+def guardar_periodo_en_supabase(periodo: str, registrado_por: str = "sistema"):
+    """Guarda el periodo aperturado en Supabase para que los demas dispositivos lo vean."""
+    if not is_online():
+        raise ConnectionError("No hay conexion para guardar el periodo en la nube")
+    engine = _get_remote_engine()
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS periodos (
+                    id SERIAL PRIMARY KEY,
+                    periodo TEXT NOT NULL UNIQUE,
+                    fecha_apertura TEXT NOT NULL,
+                    registrado_por TEXT
+                )
+            """))
+            conn.execute(text(
+                "INSERT INTO periodos (periodo, fecha_apertura, registrado_por) VALUES (:p, :f, :r) ON CONFLICT (periodo) DO UPDATE SET fecha_apertura = EXCLUDED.fecha_apertura"
+            ), {'p': periodo, 'f': datetime.now().isoformat(), 'r': registrado_por})
+            conn.commit()
     finally:
         engine.dispose()
 
