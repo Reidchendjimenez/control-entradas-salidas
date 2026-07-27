@@ -66,8 +66,14 @@ class LoginView(ft.Container):
         self._build_ui()
     
     def _build_ui(self):
-        titulo = "Registro de Operador" if self.modo == "registro" else "Ingrese su PIN"
-        subtitulo = "Configure el operador principal del dispositivo" if self.modo == "registro" else "Ingrese su PIN para continuar"
+        if self.modo == "registro":
+            titulo = "Registro de Operador"
+            subtitulo = "Configure el operador principal del dispositivo"
+        else:
+            usuario = LocalReplica.get_usuario_dispositivo()
+            nombre = usuario['nombre'] if usuario else "Operador"
+            titulo = f"Bienvenido, {nombre}"
+            subtitulo = "Ingrese su PIN para continuar"
         
         btn_bgcolor = DARK_THEME['accent_dark']
         

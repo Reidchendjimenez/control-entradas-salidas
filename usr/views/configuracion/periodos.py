@@ -116,20 +116,81 @@ def _aperturar_periodo(view, lista, info_text, btn):
     view.page.run_task(_do_aperturar, view, lista, info_text, btn)
 
 
+def _show_loading(view, message="Procesando..."):
+    if not view.page:
+        return
+    colors = _colors(view.page)
+    overlay = ft.Container(
+        content=ft.Container(
+            content=ft.Column([
+                ft.ProgressBar(width=200, color=colors.get('accent', ft.Colors.PURPLE), bgcolor=ft.Colors.TRANSPARENT),
+                ft.Text(message, size=13, color=colors.get('text_primary'), text_align=ft.TextAlign.CENTER),
+            ], tight=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+            bgcolor=colors.get('card', '#252525'),
+            padding=20,
+            border_radius=15,
+            width=250,
+        ),
+        bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
+        alignment=ft.alignment.center,
+        expand=True,
+    )
+    view.page._periodos_overlay = overlay
+    view.page.overlay.append(overlay)
+    view.page.update()
+
+
+def _update_loading(view, message):
+    try:
+        if hasattr(view.page, '_periodos_overlay') and view.page._periodos_overlay:
+            view.page._periodos_overlay.content.content.controls[1].value = message
+            view.page.update()
+    except Exception:
+        pass
+
+
+def _hide_loading(view):
+    try:
+        if hasattr(view.page, '_periodos_overlay') and view.page._periodos_overlay:
+            view.page.overlay.remove(view.page._periodos_overlay)
+            view.page._periodos_overlay = None
+            view.page.update()
+    except Exception:
+        pass
+
+
 async def _do_aperturar(view, lista, info_text, btn):
+    print("[PERIODOS] _do_aperturar INICIO")
     periodo = datetime.now().strftime("%Y-%m")
+    print(f"[PERIODOS] periodo actual: {periodo}")
 
     if LocalReplica.periodo_existe(periodo):
+        print("[PERIODOS] periodo ya existe localmente")
         show_info(f"El periodo {periodo} ya fue aperturado")
         return
 
+    _show_loading(view, "Aperturando periodo...")
     show_info(f"Aperturando periodo {periodo}...")
+    print("[PERIODOS] llamando archivar_movimientos...")
 
     try:
+        _update_loading(view, "Archivando movimientos...")
         archivados, eliminados = archivar_movimientos(meses_activos=3, meses_retencion=7)
-        guardar_periodo_en_supabase(periodo)
+        print(f"[PERIODOS] archivo completado: {archivados} archivados")
+
+        _update_loading(view, "Guardando periodo en la nube...")
+        try:
+            print("[PERIODOS] guardando periodo en Supabase...")
+            guardar_periodo_en_supabase(periodo)
+            print("[PERIODOS] periodo guardado en Supabase")
+        except Exception as e:
+            print(f"[PERIODOS] No se pudo guardar periodo en nube: {e}")
+
+        _update_loading(view, "Recalculando existencias...")
         LocalReplica.crear_periodo(periodo, registrado_por="sistema")
+        print("[PERIODOS] periodo guardado localmente")
         LocalReplica.recalculate_existencias()
+        print("[PERIODOS] existencias recalculadas")
 
         show_success(f"Periodo {periodo} aperturado: {archivados} movimientos archivados")
 
@@ -143,6 +204,8 @@ async def _do_aperturar(view, lista, info_text, btn):
     except Exception as e:
         print(f"[PERIODOS] Error al aperturar: {e}")
         show_error(f"Error al aperturar periodo: {str(e)}")
+    finally:
+        _hide_loading(view)
 
 
 def _recalcular_desde_cero(view, lista, info_text, btn_aperturar):

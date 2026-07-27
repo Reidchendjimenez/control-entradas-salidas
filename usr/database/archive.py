@@ -137,7 +137,9 @@ def archivar_movimientos_local(meses_activos: int = 3, meses_retencion: int = 7)
 
 
 def archivar_movimientos(meses_activos: int = 3, meses_retencion: int = 7):
-    """Archiva en Supabase primero, luego en local.
-    Si Supabase falla, se aborta (no se archiva local ni se crea periodo)."""
-    archivar_en_supabase(meses_activos)
+    """Archiva en Supabase (si se puede) y siempre en local."""
+    try:
+        archivar_en_supabase(meses_activos)
+    except Exception as e:
+        print(f"[ARCHIVE] Supabase no disponible, solo archivo local: {e}")
     return archivar_movimientos_local(meses_activos, meses_retencion)

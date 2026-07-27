@@ -24,8 +24,15 @@ El sistema utiliza una arquitectura de **Réplica Local**:
 ### 3. Flujo de Requisiciones (Audit Workflow)
 El módulo de requisiciones implementa un proceso de control de calidad:
 - **Pendiente**: Registro inicial de solicitud.
-- **Auditoría**: Vista de verificación donde se compara el stock físico vs sistema. Permite realizar **Ajustes de Stock** inmediatos.
-- **Totalización**: Traslada físicamente el stock (Origen $\rightarrow$ Destino) y marca la requisición como `completada`.
+- **Auditoría**: Vista de verificación donde se compara el stock físico vs sistema. Permite realizar **Ajustes de Stock** inmediatos. Incluye botón de **Historial** (🕐) por producto que muestra el detalle de movimientos en cards.
+- **Totalización**: Trasladar físicamente el stock (Origen $\rightarrow$ Destino) y marca la requisición como `completada`.
+
+### 4. Sistema de Periodos y Archivado
+El sistema incluye un mecanismo de **apertura de periodos mensuales** para mantener la base de datos liviana:
+- **Apertura**: Un dispositivo apertura el periodo desde Configuración → Periodos. Esto archiva movimientos >3 meses (`movimientos` $\rightarrow$ `movimientos_archivo`) tanto localmente como en Supabase.
+- **Checkpoint**: Al archivar, se guarda el stock actual como punto de partida (`stock_checkpoint`). Los demás dispositivos descargan este checkpoint vía sync y no necesitan escanear `movimientos_archivo`.
+- **Cálculo optimizado**: `recalculate_existencias()` usa el delta `cantidad_nueva - cantidad_anterior` (corrige productos pesables) y solo escanea `movimientos` si hay checkpoint; si no, escanea `movimientos` + `movimientos_archivo`.
+- **Sincronización**: La tabla `periodos` se sincroniza entre dispositivos. La tabla `movimientos_archivo` **no se descarga** a los dispositivos — se consulta directamente en Supabase solo cuando se necesita.
 
 ---
 
@@ -33,24 +40,94 @@ El módulo de requisiciones implementa un proceso de control de calidad:
 
 ```text
 control-entradas-salidas/
-├── main.py                    # Entry point: Maneja la redirección a app_updates/
+├── main.py                        # Entry point: redirección a app_updates/
 ├── usr/
+│   ├── app_controller.py          # Controlador principal, navegación entre vistas
+│   ├── app_launcher.py            # Arranque: login, sync inicial, carga de vistas
+│   ├── notifications.py           # Sistema centralizado de snackbars/banners
+│   ├── theme.py                   # Paleta de colores (light/dark)
+│   ├── logger.py                  # Logger configurado
+│   ├── error_handler.py           # Manejo global de errores
+│   ├── updater.py                 # Verificación y descarga de updates
+│   ├── init_db.py                 # Shim → usr/init_db.py (migración Supabase)
+│   ├── ocr_extractor.py           # Extracción de datos de facturas con Gemini API
+│   ├── whatsapp_notifier.py       # Envío de mensajes WhatsApp
+│   │
 │   ├── database/
-│   │   ├── conn.py            # Conexiones SQLite/Supabase
-│   │   ├── local_replica.py   # Definición de tablas SQLite y migraciones locales
-│   │   ├── sync.py            # Lógica core de sincronización y poda de huérfanos
-│   │   └── sync_queue.py      # Gestión de operaciones pendientes
-│   ├── models/                # Definiciones de SQLAlchemy (Esquema de datos)
-│   │   ├── producto.py        # Atributos: es_pesable, tipo, etc.
-│   │   └── requisicion.py     # Modelos de Requisición y Detalle (incluye verificado)
-│   └── views/                 # UI desarrollada con Flet
+│   │   ├── conn.py                # Conexiones SQLite (local) y cache
+│   │   ├── base.py                # Engine SQLAlchemy, is_online(), get_db_adaptive()
+│   │   ├── local_replica.py        # Esquema SQLite, CREATE TABLE, recalculate_existencias()
+│   │   ├── sync.py                 # Sincronización bidireccional, migraciones remotas
+│   │   ├── sync_queue.py           # Cola de operaciones pendientes (offline)
+│   │   ├── sync_callbacks.py       # Callbacks de sync
+│   │   ├── archive.py              # Archivado de movimientos (local + Supabase) + checkpoint
+│   │   └── cache.py                # Caché local (SQLite)
+│   │
+│   ├── models/                    # Modelos SQLAlchemy (esquema de datos)
+│   │   ├── producto.py             # Producto: es_pesable, tipo, peso_unitario
+│   │   ├── categoria.py           # Categoría
+│   │   ├── proveedor.py           # Proveedor
+│   │   ├── factura.py             # Factura
+│   │   ├── factura_pago.py        # Pago de factura
+│   │   ├── movimiento.py          # Movimiento (entradas/salidas/ajustes/traslados)
+│   │   ├── movimiento_archivo.py  # Movimiento archivado
+│   │   ├── existencia.py           # Existencia por producto + almacén
+│   │   ├── requisicion.py          # Requisición y Detalle (incluye verificado)
+│   │   ├── compra_lista.py        # Item de lista de compras
+│   │   ├── receta.py               # Receta y componentes
+│   │   └── produccion.py           # Producción y detalles
+│   │
+│   └── views/                     # UI (Flet)
+│       ├── configuracion/
+│       │   ├── categorias.py      # Tab: CRUD categorías
+│       │   ├── productos.py       # Tab: CRUD productos
+│       │   ├── proveedores.py     # Tab: CRUD proveedores
+│       │   ├── sistema.py          # Tab: conexión, modo offline, operador
+│       │   ├── periodos.py         # Tab: apertura de periodos, reinterto nube, recalcular
+│       │   ├── dialogs.py          # Diálogos compartidos
+│       │   └── helpers.py          # Colores y utilidades UI
+│       ├── configuracion_view.py  # Contenedor de tabs (Categorías, Productos, etc.)
+│       ├── inventario/
+│       │   ├── categories.py      # Grid de categorías
+│       │   ├── products.py        # Lista de productos
+│       │   ├── movements.py       # registrar_movimiento() + ajustar_existencia()
+│       │   ├── shopping_list.py   # Lista de compras
+│       │   ├── dialogs.py          # Diálogos de cantidad y corrección
+│       │   └── helpers.py
+│       ├── inventario_view.py     # Vista principal de inventario
+│       ├── stock/
+│       │   ├── data.py            # get_producto_historial()
+│       │   ├── components.py      # Componentes de UI
+│       │   ├── dialogs.py          # build_movimiento_card(), build_producto_historial_dialog()
+│       │   └── helpers.py
+│       ├── stock_view.py         # Vista de stock y existencias
+│       ├── validacion/
+│       │   ├── ocr_handler.py     # OCR con Gemini, manejo de portapapeles
+│       │   ├── fields.py           # Campos de factura
+│       │   ├── service.py          # Validación, vinculación factura-movimientos
+│       │   ├── payments.py         # Gestión de pagos
+│       │   └── dialog.py           # Diálogo de validación
+│       ├── validacion_view.py     # Vista de validación de facturas
 │       ├── requisiciones/
-│       │   ├── data.py        # Lógica de negocio de requisiciones (CRUD + Audit)
-│       │   ├── audit_view.py  # Vista de verificación y totalización
-│       │   └── visualize_view.py # Vista de solo lectura simplificada
-│       └── ...                # Otras vistas (Inventario, Stock, etc.)
-└── config/
-    └── config.py              # Configuración centralizada con Pydantic
+│       │   ├── data.py            # Lógica de negocio (CRUD + Audit + Historial)
+│       │   ├── audit_view.py      # Verificación, totalización e historial por producto
+│       │   ├── visualize_view.py # Vista de solo lectura
+│       │   ├── form.py             # Creación/edición de requisiciones
+│       │   ├── cards.py            # Cards de requisiciones
+│       │   ├── components.py       # Componentes reutilizables
+│       │   ├── service.py          # Validación de requisiciones
+│       │   ├── dialogs.py           # Diálogos
+│       │   └── helpers.py
+│       ├── requisiciones_view.py  # Vista principal de requisiciones
+│       ├── producciones_view.py   # Vista de producciones (recetas)
+│       ├── historial_facturas_view.py # Historial de facturas
+│       ├── login_view.py          # Login y registro de operador
+│       └── whatsapp_bandeja_view.py # Bandeja de mensajes WhatsApp
+│
+├── config/
+│   └── config.py                  # Configuración con Pydantic (DATABASE_URL, etc.)
+└── app_updates/                  # Parches descargados (prioridad sobre el .exe)
+    └── usr/                       # Código actualizado
 ```
 
 ---
@@ -130,18 +207,25 @@ Si se agregan nuevas dependencias en `requirements.txt`, se debe recompilar:
 
 #### Base de Datos
 - **No mezcles** `sqlite3` directo con SQLAlchemy ORM. Usa **uno solo** para evitar inconsistencias de datos.
-- Cada escritura de movimiento debe actualizar el stock (ej: `recalculate_existencias()`).
+- Cada escritura de movimiento actualiza el stock vía `update_existencia()` (O(1)). El `recalculate_existencias()` **solo se llama** en sincronización (no en cada movimiento manual).
+- `recalculate_existencias()` usa `cantidad_nueva - cantidad_anterior` como delta para soportar productos pesables correctos.
 - Limpia `page.overlay` selectivamente, no con `.clear()` que borra overlays de otras vistas.
-
-#### Manejo de Errores
-- Usa siempre `show_error()`/`show_warning()`/`show_success()` del sistema centralizado (`usr.notifications`).
-- No dupliques la lógica de inicio de sesión (`LoginView._go_to_main` es casi igual a `main.py`).
-- Captura excepciones específicas, no `Exception` genérica.
 
 #### Sincronización
 - **Solo existe una cola activa**: `sync_queue`. La tabla `pending_operations` fue eliminada porque nunca se procesaba.
 - Al eliminar un movimiento via SQLAlchemy, también elimínalo del SQLite local raw si usas ambos sistemas.
 - `LocalReplica.save_movimiento()` ya no tiene lógica de sync propia. Delega al llamante (`registrar_movimiento` o `save_movimiento_with_sync`).
+- **Tablas que se sincronizan**: `categorias`, `productos`, `proveedores`, `existencias`, `movimientos`, `facturas`, `factura_pagos`, `requisiciones`, `requisicion_detalles`, `stock_checkpoint`, `periodos`.
+- **`movimientos_archivo` NO se descarga** a los dispositivos. Se consulta directamente en Supabase cuando se necesita historial.
+- **Migraciones remotas**: Al descargar, `_download_all_from_server()` ejecuta `ALTER TABLE`/`CREATE TABLE` en Supabase para asegurar que las tablas tengan las columnas necesarias (ej: `requisicion_id` en `movimientos_archivo`, tabla `stock_checkpoint`, tabla `periodos`).
+
+#### Archivado y Periodos
+- **Un solo dispositivo** apertura el periodo. Esto ejecuta `archivar_movimientos()` que:
+  1. En Supabase: guarda checkpoint + archiva movimientos viejos (`movimientos` → `movimientos_archivo`)
+  2. En local: guarda checkpoint + archiva localmente
+- Si Supabase no está disponible, el archivo procede solo localmente (con warning en consola).
+- Los demás dispositivos al sincronizar: descargan `stock_checkpoint` y `periodos`, y `recalculate_existencias()` usa el checkpoint (solo escanea `movimientos`).
+- Si los datos se desincronizan, desde Configuración → Periodos se puede **"Recalcular stock desde cero"** (limpia checkpoints y hace escaneo completo).
 
 #### Estructura
 - Evita alias redundantes (ej: 4 alias para `get_session()`).
@@ -152,6 +236,22 @@ Si se agregan nuevas dependencias en `requirements.txt`, se debe recompilar:
 ---
 
 ## Historial de Cambios
+
+### Version 2.2.0 (Julio 2026)
+- ✨ **Sistema de Periodos**: Apertura de periodos mensuales desde Configuración → Periodos. Archiva movimientos >3 meses en BD local y Supabase.
+- ✨ **Stock Checkpoint**: Punto de partida para cálculo de existencias. `recalculate_existencias()` usa checkpoint si existe (solo escanea `movimientos`), si no, escanea `movimientos` + `movimientos_archivo` (UNION ALL).
+- ✨ **Historial de movimientos**: Botón 🕐 en Audit View y Stock View que muestra cards de movimientos por producto y almacén.
+- 🐛 **Corregido**: `recalculate_existencias()` ahora usa `cantidad_nueva - cantidad_anterior` como delta (corrige bug con productos pesables donde `cantidad` almacenaba unidades pero `cantidad_nueva` se calculaba en kg).
+- 🐛 **Corregido**: `tr_salida` en requisiciones almacena `-det.cantidad` (antes `+det.cantidad` causaba stock inflado en origen).
+- 🐛 **Corregido**: Dedup SQL en `save_movimiento` usaba `datetime(?) - 5` inválido, ahora `datetime(?, '-5 seconds')` + filtro por `almacen`.
+- 🐛 **Corregido**: `service.py` validación hace UPDATE directo en Supabase para `factura_id` en vez de reset `sincronizado=0` (evita duplicados).
+- ⚡ **Optimizado**: Eliminado `recalculate_existencias()` de `registrar_movimiento()` (redundante con `update_existencia()`, O(1)). Solo se llama en sincronización.
+- ⚡ **Optimizado**: `movimientos_archivo` ya no se descarga a cada dispositivo. Se consulta directo en Supabase cuando se necesita.
+- ⚡ **Optimizado**: Migración de documentos históricos (2 EV-*, 68 V-REF-* + 342 sin-prefijo) a `tipo_documento='Entrada'`.
+- 🔧 **Mejorado**: Botones "Reintentar archivo en nube" y "Recalcular stock desde cero" en tab de Periodos.
+- 🔧 **Mejorado**: Dialog de progreso visual durante apertura de periodo (ProgressBar con mensaje).
+- 🗑️ **Eliminado**: Tabla `kardex_validaciones` en Supabase.
+- 🗑️ **Eliminado**: Columnas huérfanas (`peso_registrado`, `foto_peso_url`, `ingrediente`, `origen`, `destino`, `usuario`) de `movimientos` en Supabase.
 
 ### Version 2.1.1 (Mayo 2026)
 - 🐛 **Corregido**: `NameError: snack is not defined` en 6 ubicaciones de `requisiciones_view.py`
