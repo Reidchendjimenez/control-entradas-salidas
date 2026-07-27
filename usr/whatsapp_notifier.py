@@ -294,16 +294,28 @@ def get_available_groups() -> list:
         return []
 
 
-def format_validation_message(producto_nombre: str, cantidad: float, factura: str, 
-                               proveedor: str = "Varios", monto: float = 0, 
-                               metodos_pago: list = None, usuario: str = "") -> str:
+def format_validation_message(producto_nombre: str, cantidad: float, factura: str,
+                               proveedor: str = "Varios", monto: float = 0,
+                               metodos_pago: list = None, usuario: str = "",
+                               fecha_entrada=None) -> str:
     import datetime
+    if fecha_entrada:
+        if isinstance(fecha_entrada, str):
+            try:
+                fecha_dt = datetime.datetime.fromisoformat(fecha_entrada.replace('Z', '+00:00').replace('+00:00', ''))
+            except Exception:
+                fecha_dt = datetime.datetime.now()
+        else:
+            fecha_dt = fecha_entrada
+        fecha_str = fecha_dt.strftime('%d/%m %H:%M')
+    else:
+        fecha_str = datetime.datetime.now().strftime('%d/%m %H:%M')
     return f"""✅ *Entrada Validada* ✅
 
 📦 *Cargo productos:* {producto_nombre}
 🏢 *Proveedor:* {proveedor}
 📃 *Factura:* {factura}
-🕐 *Fecha:* {datetime.datetime.now().strftime('%d/%m %H:%M')}
+🕐 *Fecha:* {fecha_str}
 👤 *Usuario:* {usuario}
 
 _🤖-Lycoris_bot_"""

@@ -267,6 +267,7 @@ class ValidacionView(ft.Container):
                             img_path = candidate
                     
                     productos_str = "Productos variados"
+                    fecha_entrada = None
                     if self.selected_entradas:
                         try:
                             from usr.database.local_replica import LocalReplica
@@ -275,12 +276,19 @@ class ValidacionView(ft.Container):
                                 movimientos = db.query(Movimiento).filter(Movimiento.id.in_(list(self.selected_entradas))).all()
                                 productos_ids = set(m.get('producto_id') if isinstance(m, dict) else m.producto_id for m in movimientos)
                                 nombres = []
-                                for pid in productos_ids:
+                                fechas = []
+                                for m in movimientos:
+                                    fm = m.get('fecha_movimiento') if isinstance(m, dict) else m.fecha_movimiento
+                                    if fm:
+                                        fechas.append(fm)
+                                    pid = m.get('producto_id') if isinstance(m, dict) else m.producto_id
                                     prod = LocalReplica.get_producto_by_id(pid)
                                     if prod:
                                         nom = prod.get('nombre', 'Producto') if isinstance(prod, dict) else getattr(prod, 'nombre', 'Producto')
                                         nombres.append(nom)
                                 productos_str = ", ".join(nombres) if nombres else "Productos variados"
+                                if fechas:
+                                    fecha_entrada = min(fechas)
                             finally:
                                 db.close()
                         except Exception:
@@ -289,7 +297,8 @@ class ValidacionView(ft.Container):
                     msg = format_validation_message(
                         productos_str, 0, data.get('factura', ''),
                         data.get('proveedor', ''), data.get('monto', 0),
-                        data.get('pagos', []), result.get('usuario', 'Sistema')
+                        data.get('pagos', []), result.get('usuario', 'Sistema'),
+                        fecha_entrada
                     )
                     
                     # Envío asíncrono sin esperar la respuesta
