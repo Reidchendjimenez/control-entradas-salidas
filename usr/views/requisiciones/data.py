@@ -175,8 +175,10 @@ def get_requisicion_audit_data(req_id):
         req = db.query(Requisicion).filter(Requisicion.id == req_id).first()
         if not req:
             return None
-            
-        detalles = db.query(RequisicionDetalle).filter(RequisicionDetalle.requisicion_id == req_id).all()
+
+        detalles = db.query(RequisicionDetalle).filter(
+            RequisicionDetalle.requisicion_id == req_id
+        ).order_by(RequisicionDetalle.id).all()
         
         audit_items = []
         for det in detalles:

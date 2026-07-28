@@ -20,7 +20,12 @@ class Requisicion(Base):
     fecha_creacion = Column(DateTime(timezone=True), server_default=func.now())
     actualizada = Column(DateTime(timezone=True), onupdate=func.now())
 
-    detalles = relationship("RequisicionDetalle", back_populates="requisicion", cascade="all, delete-orphan")
+    detalles = relationship(
+        "RequisicionDetalle",
+        back_populates="requisicion",
+        cascade="all, delete-orphan",
+        order_by="RequisicionDetalle.id"
+    )
 
     def __repr__(self):
         return f"<Requisicion(numero='{self.numero}', origen='{self.origen}', destino='{self.destino}')>"
