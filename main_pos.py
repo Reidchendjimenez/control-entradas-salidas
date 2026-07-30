@@ -24,9 +24,8 @@ def resource_path(relative_path: str) -> str:
 
 
 _app_dir = os.path.dirname(os.path.abspath(__file__))
-_updates_dir = os.path.join(_app_dir, "app_updates")
-if os.path.exists(_updates_dir):
-    sys.path.insert(0, _updates_dir)
+if _app_dir not in sys.path:
+    sys.path.insert(0, _app_dir)
 
 os.environ['LYCORIS_DB_PATH'] = os.path.join(_app_dir, "lycoris_local.db")
 

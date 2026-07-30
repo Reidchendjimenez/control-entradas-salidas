@@ -1,17 +1,8 @@
 """
-Launcher simplificado para el POS.
-
-NO incluye:
-- Login de usuario
-- Sincronización con Supabase
-- Comprobación de actualizaciones
-
-SÍ incluye:
-- Apertura de la BD local compartida
-- Configuración básica de la página
-- Carga de la vista principal del POS
+Launcher para el POS con soporte de actualizaciones.
 """
 import os
+import sys
 import asyncio
 import flet as ft
 from usr.logger import get_logger
@@ -45,7 +36,49 @@ async def main(page: ft.Page):
     except Exception:
         pass
 
-    db_path = os.path.abspath(os.path.join(db_dir, "lycoris_local.db"))
+    from usr.updater import _get_app_dir
+    app_dir = _get_app_dir()
+    updates_dir = os.path.join(app_dir, "app_updates")
+
+    # Mostrar pantalla de carga
+    status_text = ft.Text("Iniciando...", size=14, color="#9E9E9E")
+    loading = ft.Column([
+        ft.ProgressRing(width=40, height=40, color="#4CAF50"),
+        ft.Container(height=20),
+        status_text,
+    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+    page.add(loading)
+    page.update()
+
+    # Comprobar actualizaciones
+    try:
+        from usr.updater import comprobar_y_aplicar_actualizaciones
+        await comprobar_y_aplicar_actualizaciones(page, status_text)
+    except Exception as e_up:
+        print(f"[POS] Error ejecutando actualizador: {e_up}")
+
+    # Cargar código desde app_updates si existe
+    if os.path.exists(updates_dir):
+        status_text.value = "Aplicando actualizaciones..."
+        status_text.update()
+        sys.path.insert(0, updates_dir)
+        updates_usr = os.path.join(updates_dir, "usr")
+        if os.path.exists(updates_usr):
+            import usr
+            usr.__path__ = [os.path.abspath(updates_usr)]
+            for key in list(sys.modules.keys()):
+                if key == "usr" or key.startswith("usr."):
+                    sys.modules.pop(key, None)
+            db_path = os.environ.get('LYCORIS_DB_PATH', 'lycoris_local.db')
+            from usr.database.conn import set_db_path as _reset_db_path
+            _reset_db_path(db_path)
+            from usr.database.local_replica import ensure_local_db as _ensure_local_db_updates
+            try:
+                _ensure_local_db_updates()
+            except Exception as e_eldu:
+                print(f"[POS] Error ensure_local_db tras override: {e_eldu}")
+
+    db_path = os.environ.get('LYCORIS_DB_PATH') or os.path.abspath(os.path.join(db_dir, "lycoris_local.db"))
     os.environ['LYCORIS_DB_PATH'] = db_path
 
     from usr.database.conn import set_db_path
