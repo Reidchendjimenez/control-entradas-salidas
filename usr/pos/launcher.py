@@ -62,22 +62,22 @@ async def main(page: ft.Page):
         status_text.value = "Aplicando actualizaciones..."
         status_text.update()
         sys.path.insert(0, updates_dir)
-            updates_usr = os.path.join(updates_dir, "usr")
-            if os.path.exists(updates_usr):
-                import usr
-                original_path = list(usr.__path__)
-                usr.__path__ = [os.path.abspath(updates_usr)] + original_path
-                for key in list(sys.modules.keys()):
-                    if key == "usr" or key.startswith("usr."):
-                        sys.modules.pop(key, None)
-                db_path = os.environ.get('LYCORIS_DB_PATH', 'lycoris_local.db')
-                from usr.database.conn import set_db_path as _reset_db_path
-                _reset_db_path(db_path)
-                from usr.database.local_replica import ensure_local_db as _ensure_local_db_updates
-                try:
-                    _ensure_local_db_updates()
-                except Exception as e_eldu:
-                    print(f"[POS] Error ensure_local_db tras override: {e_eldu}")
+        updates_usr = os.path.join(updates_dir, "usr")
+        if os.path.exists(updates_usr):
+            import usr
+            original_path = list(usr.__path__)
+            usr.__path__ = [os.path.abspath(updates_usr)] + original_path
+            for key in list(sys.modules.keys()):
+                if key == "usr" or key.startswith("usr."):
+                    sys.modules.pop(key, None)
+            db_path = os.environ.get('LYCORIS_DB_PATH', 'lycoris_local.db')
+            from usr.database.conn import set_db_path as _reset_db_path
+            _reset_db_path(db_path)
+            from usr.database.local_replica import ensure_local_db as _ensure_local_db_updates
+            try:
+                _ensure_local_db_updates()
+            except Exception as e_eldu:
+                print(f"[POS] Error ensure_local_db tras override: {e_eldu}")
 
     db_path = os.environ.get('LYCORIS_DB_PATH') or os.path.abspath(os.path.join(db_dir, "lycoris_local.db"))
     os.environ['LYCORIS_DB_PATH'] = db_path
