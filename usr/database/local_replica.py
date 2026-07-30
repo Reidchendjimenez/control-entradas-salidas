@@ -282,6 +282,14 @@ def init_local_db():
             updated_at  TEXT,
             FOREIGN KEY (sesion_id) REFERENCES pos_sesiones(id)
         )
+     """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pos_settings (
+            key         TEXT    NOT NULL,
+            value       TEXT,
+            PRIMARY KEY (key)
+        )
     """)
 
     cursor.execute("""
@@ -1893,6 +1901,28 @@ class LocalReplica:
         cursor = conn.cursor()
         now = datetime.now().isoformat()
         cursor.execute("UPDATE pos_comandas SET estado='cerrada', updated_at=? WHERE id=?", (now, comanda_id))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def get_pos_setting(key: str, default: str = None) -> str:
+        """Obtiene un setting de POS (ej: printer_device)."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT value FROM pos_settings WHERE key = ?", (key,))
+        row = cursor.fetchone()
+        conn.close()
+        return row['value'] if row else default
+
+    @staticmethod
+    def set_pos_setting(key: str, value: str) -> None:
+        """Guarda un setting de POS."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO pos_settings (key, value) VALUES (?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        """, (key, value))
         conn.commit()
         conn.close()
 

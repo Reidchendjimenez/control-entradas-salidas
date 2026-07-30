@@ -18,12 +18,16 @@ os.environ['SSL_CERT_FILE'] = certifi.where()
 
 
 def resource_path(relative_path: str) -> str:
+    """Resuelve la ruta de recursos tanto para ejecucion directa como PyInstaller."""
     if hasattr(sys, '_MEIPASS'):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
 
 
 _app_dir = os.path.dirname(os.path.abspath(__file__))
+_updates_dir = os.path.join(_app_dir, "app_updates")
+if os.path.exists(_updates_dir):
+    sys.path.insert(0, _updates_dir)
 if _app_dir not in sys.path:
     sys.path.insert(0, _app_dir)
 

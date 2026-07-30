@@ -1,5 +1,6 @@
 import flet as ft
 from usr.database.local_replica import LocalReplica
+from usr.database.sync_queue import get_sync_queue
 
 
 class ConfigPOSView(ft.Container):
@@ -26,6 +27,12 @@ class ConfigPOSView(ft.Container):
             on_click=lambda _: self._go_back(),
         )
         titulo=ft.Text("Configuracion del POS", size=20, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE, expand=True)
+        btn_refresh=ft.IconButton(
+            icon=ft.Icons.REFRESH_ROUNDED,
+            icon_color=ft.Colors.WHITE,
+            tooltip="Sincronizar con nube",
+            on_click=lambda _: self._on_refresh(),
+        )
         self.lv_usuarios=ft.ListView(expand=True, spacing=8, auto_scroll=False)
         self.lv_mesas=ft.ListView(expand=True, spacing=8, auto_scroll=False)
         self.lv_habitaciones=ft.ListView(expand=True, spacing=8, auto_scroll=False)
@@ -93,18 +100,171 @@ class ConfigPOSView(ft.Container):
                             ft.Container(expand=True),
                         ]),
                         ft.Container(height=10),
-                        ft.Container(content=self.lv_platos, border=ft.border.all(1,"#3D3D3D"),
+                        ft.Container(content=self.lv_platos, border=ft.border.all(1,"#3D3D3F"),
                                       border_radius=10, padding=10, expand=True),
                     ], expand=True),
+                ),
+                ft.Tab(
+                    text="Impresora",
+                    icon=ft.Icons.PRINT_ROUNDED,
+                    content=self._build_printer_tab(),
                 ),
             ],
             expand=True,
         )
         self.content=ft.Column([
-            ft.Row([btn_back, titulo], alignment=ft.MainAxisAlignment.START),
+            ft.Row([btn_back, titulo, btn_refresh], alignment=ft.MainAxisAlignment.START),
             ft.Container(height=10),
             self.tabs,
         ], expand=True)
+
+    def _build_printer_tab(self):
+        """Construye el contenido de la pestaña de impresora."""
+        self._printer_status = ft.Text("Buscando impresoras...", size=14, color="#9E9E9E")
+        self._printer_list = ft.ListView(expand=True, spacing=6)
+        self._btn_test = ft.ElevatedButton(
+            "Probar impresion", icon=ft.Icons.PRINT_ROUNDED,
+            bgcolor="#1E88E5", color=ft.Colors.WHITE,
+            on_click=lambda _: self._on_test_printer(),
+        )
+        self._btn_refresh_printers = ft.IconButton(
+            icon=ft.Icons.REFRESH_ROUNDED,
+            icon_color=ft.Colors.WHITE,
+            tooltip="Buscar impresoras",
+            on_click=lambda _: self._load_printer_list(),
+        )
+
+        content = ft.Column([
+            ft.Row([
+                ft.Text("Impresora de comandas", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                self._btn_refresh_printers,
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            ft.Container(height=10),
+            self._printer_status,
+            ft.Container(height=10),
+            ft.Container(content=self._printer_list, border=ft.border.all(1,"#3D3D3D"),
+                         border_radius=10, padding=10, expand=True),
+            ft.Container(height=10),
+            self._btn_test,
+        ], expand=True)
+
+        self._load_printer_list()
+        return content
+
+    def _load_printer_list(self):
+        """Carga la lista de impresoras disponibles."""
+        self._printer_list.controls.clear()
+        try:
+            from usr.pos.printer import listar_impresoras, _get_configured_device
+            printers = listar_impresoras()
+            configured = _get_configured_device()
+
+            if not printers:
+                self._printer_status.value = "No se encontraron impresoras"
+                self._printer_status.color = "#9E9E9E"
+                self._btn_test.disabled = True
+            else:
+                self._printer_status.value = f"Se encontraron {len(printers)} impresora(s)"
+                self._printer_status.color = "#4CAF50"
+                self._btn_test.disabled = False
+
+            for p in printers:
+                is_selected = configured == p.get('path')
+                self._printer_list.controls.append(
+                    ft.Container(
+                        content=ft.Row([
+                            ft.Icon(
+                                ft.Icons.PRINT_ROUNDED if p.get('type') == 'usb' else ft.Icons.USB_ROUNDED,
+                                color="#4CAF50" if is_selected else "#9E9E9E",
+                                size=20,
+                            ),
+                            ft.Column([
+                                ft.Text(p.get('name', 'Desconocida'), size=14, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
+                                ft.Text(f"Tipo: {p.get('type','?')} | Path: {p.get('path','?')}", size=11, color="#9E9E9E"),
+                            ], expand=True),
+                            ft.Switch(
+                                value=is_selected,
+                                on_change=lambda e, pp=p: self._on_select_printer(pp, e.control.value),
+                            ),
+                        ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                        padding=10,
+                        bgcolor="#2A2A2A" if is_selected else "#1E1E1E",
+                        border=ft.border.all(1, "#4CAF50" if is_selected else "#3D3D3D"),
+                        border_radius=8,
+                    )
+                )
+        except Exception as e:
+            self._printer_status.value = f"Error: {e}"
+            self._printer_status.color = "#EF5350"
+        self.update()
+
+    def _on_select_printer(self, printer: dict, selected: bool):
+        """Selecciona o deselecciona una impresora."""
+        if not selected:
+            return
+        try:
+            from usr.pos.printer import configurar_impresora
+            configurar_impresora(printer.get('path'))
+            self._printer_status.value = f"Impresora configurada: {printer.get('name')}"
+            self._printer_status.color = "#4CAF50"
+        except Exception as e:
+            self._printer_status.value = f"Error: {e}"
+            self._printer_status.color = "#EF5350"
+        self._load_printer_list()
+
+    def _on_test_printer(self):
+        """Prueba la impresion en la impresora configurada."""
+        try:
+            from usr.pos.printer import test_imprimir
+            result = test_imprimir()
+            if result:
+                snack = ft.SnackBar(
+                    content=ft.Text("Impresion de prueba enviada"),
+                    bgcolor=ft.Colors.GREEN_600, duration=2000,
+                )
+            else:
+                snack = ft.SnackBar(
+                    content=ft.Text("No se encontro impresora"),
+                    bgcolor=ft.Colors.RED_600, duration=2000,
+                )
+            if self.page:
+                self.page.overlay.append(snack)
+                snack.open = True
+                self.page.update()
+        except Exception as e:
+            if self.page:
+                snack = ft.SnackBar(
+                    content=ft.Text(f"Error: {e}"),
+                    bgcolor=ft.Colors.RED_600, duration=2000,
+                )
+                self.page.overlay.append(snack)
+                snack.open = True
+                self.page.update()
+
+    def _on_refresh(self):
+        """Fuerza sync con Supabase y recarga todos los datos POS."""
+        try:
+            from usr.database.base import is_online as base_is_online
+            from usr.database import get_sync_manager
+            online = base_is_online()
+            if online:
+                sync_mgr = get_sync_manager()
+                if sync_mgr:
+                    sync_mgr.force_sync_now()
+        except Exception as e:
+            print(f"[POS CONFIG] Error al forzar sync: {e}")
+        self._load_usuarios()
+        self._load_mesas()
+        self._load_habitaciones()
+        self._load_platos()
+        if self.page:
+            snack = ft.SnackBar(
+                content=ft.Text("Sincronizacion completada"),
+                bgcolor=ft.Colors.BLUE_600, duration=1500,
+            )
+            self.page.overlay.append(snack)
+            snack.open = True
+            self.page.update()
 
     # ==================== USUARIOS ====================
 
@@ -186,7 +346,11 @@ class ConfigPOSView(ft.Container):
                 return
         es_admin=self.admin_check.value
         try:
-            LocalReplica.crear_pos_usuario(nombre, pin, es_admin=es_admin)
+            uid = LocalReplica.crear_pos_usuario(nombre, pin, es_admin=es_admin)
+            get_sync_queue().add_pending('pos_usuarios', 'insert', {
+                'id': uid, 'nombre': nombre, 'pin_hash': None,
+                'es_admin': 1 if es_admin else 0, 'activo': 1,
+            })
             self._close_dialog()
             self._load_usuarios()
         except Exception as ex:
@@ -243,7 +407,11 @@ class ConfigPOSView(ft.Container):
             self._show_error(self.mesa_numero, "Ingrese el numero de mesa")
             return
         try:
-            LocalReplica.crear_pos_mesa(numero, self.mesa_nombre.value, self.mesa_zona.value)
+            mid = LocalReplica.crear_pos_mesa(numero, self.mesa_nombre.value, self.mesa_zona.value)
+            get_sync_queue().add_pending('pos_mesas', 'insert', {
+                'id': mid, 'numero': numero,
+                'nombre': self.mesa_nombre.value, 'zona': self.mesa_zona.value, 'activo': 1,
+            })
             self._close_dialog()
             self._load_mesas()
         except Exception as ex:
@@ -300,7 +468,11 @@ class ConfigPOSView(ft.Container):
             self._show_error(self.hab_numero, "Ingrese el numero de habitacion")
             return
         try:
-            LocalReplica.crear_pos_habitacion(numero, self.hab_piso.value, self.hab_tipo.value)
+            hid = LocalReplica.crear_pos_habitacion(numero, self.hab_piso.value, self.hab_tipo.value)
+            get_sync_queue().add_pending('pos_habitaciones', 'insert', {
+                'id': hid, 'numero': numero,
+                'piso': self.hab_piso.value, 'tipo': self.hab_tipo.value, 'activo': 1,
+            })
             self._close_dialog()
             self._load_habitaciones()
         except Exception as ex:
@@ -399,6 +571,7 @@ class ConfigPOSView(ft.Container):
     def _delete_plato(self, plato: dict):
         def confirm():
             LocalReplica.delete_plato(plato['id'])
+            get_sync_queue().add_pending('platos', 'delete', {'id': plato['id']})
             self._close_dialog()
             self._load_platos()
         self._show_dialog(
@@ -434,7 +607,10 @@ class ConfigPOSView(ft.Container):
         def add_cat():
             nombre=(nombre_new.value or "").strip()
             if nombre:
-                LocalReplica.save_plato_categoria({'nombre': nombre, 'color': color_picker.value})
+                cid = LocalReplica.save_plato_categoria({'nombre': nombre, 'color': color_picker.value})
+                get_sync_queue().add_pending('platos_categorias', 'insert', {
+                    'id': cid, 'nombre': nombre, 'color': color_picker.value, 'activo': 1,
+                })
                 nombre_new.value=""
                 self._show_plato_categorias_dialog()
                 if self.page:
@@ -468,9 +644,14 @@ class ConfigPOSView(ft.Container):
     def _toggle_pcat(self, cat, activo):
         LocalReplica.save_plato_categoria({'id': cat['id'], 'nombre': cat['nombre'],
                                             'color': cat.get('color','#FF6F00'), 'activo': activo})
+        get_sync_queue().add_pending('platos_categorias', 'update', {
+            'id': cat['id'], 'nombre': cat['nombre'],
+            'color': cat.get('color','#FF6F00'), 'activo': activo,
+        })
 
     def _delete_pcat(self, cat):
         LocalReplica.delete_plato_categoria(cat['id'])
+        get_sync_queue().add_pending('platos_categorias', 'delete', {'id': cat['id']})
         self._show_plato_categorias_dialog()
 
     # ==================== DIALOGO PLATO ====================
@@ -589,7 +770,14 @@ class ConfigPOSView(ft.Container):
                 }
                 if is_edit:
                     pd['id']=plato_id
-                LocalReplica.save_plato(pd, ingredientes)
+                pid = LocalReplica.save_plato(pd, ingredientes)
+                pd['id'] = pid
+                get_sync_queue().add_pending('platos', 'upsert', pd)
+                for ing in ingredientes:
+                    get_sync_queue().add_pending('plato_ingredientes', 'insert', {
+                        'plato_id': pid, 'producto_id': ing['producto_id'],
+                        'cantidad': ing['cantidad'], 'unidad': ing['unidad'],
+                    })
                 self._close_dialog()
                 self._load_platos()
             except Exception as ex:

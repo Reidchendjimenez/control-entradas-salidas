@@ -1,5 +1,6 @@
 import flet as ft
 from usr.database.local_replica import LocalReplica
+from usr.database.sync_queue import get_sync_queue
 
 
 class PlatosView(ft.Container):
@@ -105,6 +106,7 @@ class PlatosView(ft.Container):
 
     def _delete_plato(self, plato: dict):
         LocalReplica.delete_plato(plato['id'])
+        get_sync_queue().add_pending('platos', 'delete', {'id': plato['id']})
         self._load_platos()
 
     # ===== CATEGORIAS =====
@@ -128,7 +130,10 @@ class PlatosView(ft.Container):
         def add_cat():
             n = (nombre_new.value or "").strip()
             if n:
-                LocalReplica.save_plato_categoria({'nombre': n, 'color': color_dd.value})
+                cid = LocalReplica.save_plato_categoria({'nombre': n, 'color': color_dd.value})
+                get_sync_queue().add_pending('platos_categorias', 'insert', {
+                    'id': cid, 'nombre': n, 'color': color_dd.value, 'activo': 1,
+                })
                 nombre_new.value = ""
                 self._show_categorias_dialog()
         content = ft.Column([
@@ -146,12 +151,19 @@ class PlatosView(ft.Container):
                 ft.Container(width=12, height=12, bgcolor=cat.get('color','#FF6F00'), border_radius=6),
                 ft.Text(cat['nombre'], size=14, color=ft.Colors.WHITE, expand=True),
                 ft.Switch(value=bool(cat.get('activo')),
-                          on_change=lambda e, c=cat: LocalReplica.save_plato_categoria(
-                              {'id': c['id'], 'nombre': c['nombre'], 'color': c.get('color','#FF6F00'),
-                               'activo': e.control.value})),
+                          on_change=lambda e, c=cat: (
+                              LocalReplica.save_plato_categoria(
+                                  {'id': c['id'], 'nombre': c['nombre'], 'color': c.get('color','#FF6F00'),
+                                   'activo': e.control.value}),
+                              get_sync_queue().add_pending('platos_categorias', 'update', {
+                                  'id': c['id'], 'nombre': c['nombre'],
+                                  'color': c.get('color','#FF6F00'), 'activo': e.control.value,
+                              }))),
                 ft.IconButton(ft.Icons.DELETE, icon_size=18, icon_color="#EF5350",
-                              on_click=lambda _, c=cat: (LocalReplica.delete_plato_categoria(c['id']),
-                                                         self._show_categorias_dialog())),
+                              on_click=lambda _, c=cat: (
+                                  LocalReplica.delete_plato_categoria(c['id']),
+                                  get_sync_queue().add_pending('platos_categorias', 'delete', {'id': c['id']}),
+                                  self._show_categorias_dialog())),
             ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
             padding=8, bgcolor="#1E1E1E", border_radius=8,
         )
@@ -244,9 +256,16 @@ class PlatosView(ft.Container):
                 'es_contorno': bool(es_contorno_sw.value),
                 'lleva_contornos': bool(lleva_contornos_sw.value),
             }
-            if is_edit: data['id'] = pid
-            LocalReplica.save_plato(data, ingredientes)
-            self._close_dialog(); self._load_platos()
+        if is_edit: data['id'] = pid
+        pid = LocalReplica.save_plato(data, ingredientes)
+        data['id'] = pid
+        get_sync_queue().add_pending('platos', 'upsert', data)
+        for ing in ingredientes:
+            get_sync_queue().add_pending('plato_ingredientes', 'insert', {
+                'plato_id': pid, 'producto_id': ing['producto_id'],
+                'cantidad': ing['cantidad'], 'unidad': ing['unidad'],
+            })
+        self._close_dialog(); self._load_platos()
 
         self._show_dialog(f"{'Editar' if is_edit else 'Nuevo'} Plato", content, save)
 

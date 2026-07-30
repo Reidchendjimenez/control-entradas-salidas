@@ -387,6 +387,7 @@ class SyncManager:
                 "CREATE TABLE IF NOT EXISTS pos_mesas (id SERIAL PRIMARY KEY, numero TEXT NOT NULL, nombre TEXT, zona TEXT, activo INTEGER DEFAULT 1, creado_en TEXT NOT NULL)",
                 "CREATE TABLE IF NOT EXISTS pos_habitaciones (id SERIAL PRIMARY KEY, numero TEXT NOT NULL, piso TEXT, tipo TEXT, activo INTEGER DEFAULT 1, creado_en TEXT NOT NULL)",
                 "CREATE TABLE IF NOT EXISTS pos_usuarios (id SERIAL PRIMARY KEY, nombre TEXT NOT NULL, pin_hash TEXT, es_admin INTEGER DEFAULT 0, activo INTEGER DEFAULT 1, creado_en TEXT NOT NULL)",
+                "CREATE TABLE IF NOT EXISTS pos_sesiones (id SERIAL PRIMARY KEY, usuario_id INTEGER NOT NULL, abierta_en TEXT NOT NULL, cerrada_en TEXT)",
             ]:
                 try:
                     conn.execute(text(migracion))
