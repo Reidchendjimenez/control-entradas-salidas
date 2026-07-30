@@ -1973,6 +1973,171 @@ class LocalReplica:
         conn.close()
 
     @staticmethod
+    def save_platos_categorias(categorias: List[Dict]) -> None:
+        """Bulk upsert platos_categorias para sync."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        for cat in categorias:
+            cid = cat.get('id')
+            if cid and cursor.execute("SELECT id FROM platos_categorias WHERE id=?", (cid,)).fetchone():
+                cursor.execute("""
+                    UPDATE platos_categorias SET nombre=?, color=?, activo=?, updated_at=? WHERE id=?
+                """, (cat.get('nombre'), cat.get('color', '#FF6F00'),
+                      1 if cat.get('activo', True) else 0, cat.get('updated_at', now), cid))
+            else:
+                cursor.execute("""
+                    INSERT INTO platos_categorias (id, nombre, color, activo, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (cid, cat.get('nombre'), cat.get('color', '#FF6F00'),
+                      1 if cat.get('activo', True) else 0,
+                      cat.get('created_at', now), cat.get('updated_at', now)))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def save_platos(platos: List[Dict]) -> None:
+        """Bulk upsert platos para sync."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        for p in platos:
+            pid = p.get('id')
+            if pid and cursor.execute("SELECT id FROM platos WHERE id=?", (pid,)).fetchone():
+                cursor.execute("""
+                    UPDATE platos SET nombre=?, categoria_id=?, precio_venta=?, activo=?,
+                    es_contorno=?, lleva_contornos=?, updated_at=? WHERE id=?
+                """, (
+                    p.get('nombre'), p.get('categoria_id'), float(p.get('precio_venta', 0)),
+                    1 if p.get('activo', True) else 0,
+                    1 if p.get('es_contorno', False) else 0,
+                    1 if p.get('lleva_contornos', False) else 0,
+                    p.get('updated_at', now), pid
+                ))
+            else:
+                cursor.execute("""
+                    INSERT INTO platos (id, nombre, categoria_id, precio_venta, activo,
+                    es_contorno, lleva_contornos, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    pid, p.get('nombre'), p.get('categoria_id'), float(p.get('precio_venta', 0)),
+                    1 if p.get('activo', True) else 0,
+                    1 if p.get('es_contorno', False) else 0,
+                    1 if p.get('lleva_contornos', False) else 0,
+                    p.get('created_at', now), p.get('updated_at', now)
+                ))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def save_plato_ingredientes(ingredientes: List[Dict]) -> None:
+        """Bulk upsert plato_ingredientes para sync."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        for ing in ingredientes:
+            iid = ing.get('id')
+            if iid and cursor.execute("SELECT id FROM plato_ingredientes WHERE id=?", (iid,)).fetchone():
+                cursor.execute("""
+                    UPDATE plato_ingredientes SET plato_id=?, producto_id=?, cantidad=?, unidad=? WHERE id=?
+                """, (ing.get('plato_id'), ing.get('producto_id'),
+                      float(ing.get('cantidad', 1)), ing.get('unidad', 'unidad'), iid))
+            else:
+                cursor.execute("""
+                    INSERT INTO plato_ingredientes (id, plato_id, producto_id, cantidad, unidad)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (iid, ing.get('plato_id'), ing.get('producto_id'),
+                      float(ing.get('cantidad', 1)), ing.get('unidad', 'unidad')))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def save_plato_contornos_bulk(contornos: List[Dict]) -> None:
+        """Bulk upsert plato_contornos para sync."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        for c in contornos:
+            cid = c.get('id')
+            if cid and cursor.execute("SELECT id FROM plato_contornos WHERE id=?", (cid,)).fetchone():
+                cursor.execute("""
+                    UPDATE plato_contornos SET plato_id=?, contorno_id=?, max_seleccionar=? WHERE id=?
+                """, (c.get('plato_id'), c.get('contorno_id'), c.get('max_seleccionar', 2), cid))
+            else:
+                cursor.execute("""
+                    INSERT INTO plato_contornos (id, plato_id, contorno_id, max_seleccionar)
+                    VALUES (?, ?, ?, ?)
+                """, (cid, c.get('plato_id'), c.get('contorno_id'), c.get('max_seleccionar', 2)))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def save_pos_mesas(mesas: List[Dict]) -> None:
+        """Bulk upsert pos_mesas para sync."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        for m in mesas:
+            mid = m.get('id')
+            if mid and cursor.execute("SELECT id FROM pos_mesas WHERE id=?", (mid,)).fetchone():
+                cursor.execute("""
+                    UPDATE pos_mesas SET numero=?, nombre=?, zona=?, activo=? WHERE id=?
+                """, (m.get('numero'), m.get('nombre'), m.get('zona'),
+                      1 if m.get('activo', True) else 0, mid))
+            else:
+                cursor.execute("""
+                    INSERT INTO pos_mesas (id, numero, nombre, zona, activo, creado_en)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (mid, m.get('numero'), m.get('nombre'), m.get('zona'),
+                      1 if m.get('activo', True) else 0, m.get('creado_en', now)))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def save_pos_habitaciones(habitaciones: List[Dict]) -> None:
+        """Bulk upsert pos_habitaciones para sync."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        for h in habitaciones:
+            hid = h.get('id')
+            if hid and cursor.execute("SELECT id FROM pos_habitaciones WHERE id=?", (hid,)).fetchone():
+                cursor.execute("""
+                    UPDATE pos_habitaciones SET numero=?, piso=?, tipo=?, activo=? WHERE id=?
+                """, (h.get('numero'), h.get('piso'), h.get('tipo'),
+                      1 if h.get('activo', True) else 0, hid))
+            else:
+                cursor.execute("""
+                    INSERT INTO pos_habitaciones (id, numero, piso, tipo, activo, creado_en)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (hid, h.get('numero'), h.get('piso'), h.get('tipo'),
+                      1 if h.get('activo', True) else 0, h.get('creado_en', now)))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def save_pos_usuarios(usuarios: List[Dict]) -> None:
+        """Bulk upsert pos_usuarios para sync."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        for u in usuarios:
+            uid = u.get('id')
+            if uid and cursor.execute("SELECT id FROM pos_usuarios WHERE id=?", (uid,)).fetchone():
+                cursor.execute("""
+                    UPDATE pos_usuarios SET nombre=?, pin_hash=?, es_admin=?, activo=? WHERE id=?
+                """, (u.get('nombre'), u.get('pin_hash'),
+                      1 if u.get('es_admin', False) else 0,
+                      1 if u.get('activo', True) else 0, uid))
+            else:
+                cursor.execute("""
+                    INSERT INTO pos_usuarios (id, nombre, pin_hash, es_admin, activo, creado_en)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (uid, u.get('nombre'), u.get('pin_hash'),
+                      1 if u.get('es_admin', False) else 0,
+                      1 if u.get('activo', True) else 0, u.get('creado_en', now)))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
     def get_receta_by_id(receta_id: int) -> Optional[Dict]:
         """Obtiene una receta por ID."""
         conn = get_local_conn()
