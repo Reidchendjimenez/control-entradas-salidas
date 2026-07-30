@@ -81,6 +81,12 @@ def show_categoria_dialog(view, categoria=None):
         active_color=colors['success'],
     )
 
+    visible_pos_sw = ft.Switch(
+        label="Visible en POS",
+        value=getattr(categoria, 'visible_en_pos', True) if categoria else True,
+        active_color=colors['accent'],
+    )
+
     def save_click(e):
         if not nombre_field.value or not nombre_field.value.strip():
             nombre_field.error_text = "Requerido"
@@ -92,7 +98,8 @@ def show_categoria_dialog(view, categoria=None):
             descripcion_field.value.strip(),
             color_dropdown.value,
             activo_sw.value,
-            categoria.id if categoria else None
+            categoria.id if categoria else None,
+            visible_pos_sw.value,
         )
         close_dialog(view)
         if callable(getattr(view, '_load_data', None)):
@@ -105,6 +112,7 @@ def show_categoria_dialog(view, categoria=None):
         descripcion_field,
         ft.Divider(height=15, color=colors['border']),
         activo_sw,
+        visible_pos_sw,
     ], spacing=12 if is_mobile else 18, tight=True, scroll=ft.ScrollMode.AUTO)
 
     view.active_dialog = ft.AlertDialog(
@@ -147,12 +155,13 @@ def _update_color_preview(view, color, preview_row, dropdown=None):
         dropdown.update()
 
 
-def save_categoria(view, nombre, descripcion, color, activo, cat_id):
+def save_categoria(view, nombre, descripcion, color, activo, cat_id, visible_pos=True):
     cat_data = {
         "nombre": str(nombre),
         "descripcion": str(descripcion) if descripcion else "",
         "color": str(color),
         "activo": 1 if activo else 0,
+        "visible_en_pos": 1 if visible_pos else 0,
         "updated_at": datetime.now().isoformat()
     }
     if cat_id:

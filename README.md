@@ -34,13 +34,28 @@ El sistema incluye un mecanismo de **apertura de periodos mensuales** para mante
 - **Cálculo optimizado**: `recalculate_existencias()` usa el delta `cantidad_nueva - cantidad_anterior` (corrige productos pesables) y solo escanea `movimientos` si hay checkpoint; si no, escanea `movimientos` + `movimientos_archivo`.
 - **Sincronización**: La tabla `periodos` se sincroniza entre dispositivos. La tabla `movimientos_archivo` **no se descarga** a los dispositivos — se consulta directamente en Supabase solo cuando se necesita.
 
+### 5. Módulo POS (Point of Sale) — Independiente
+El sistema incluye un **módulo de ventas** que se compila y ejecuta como aplicación **independiente** del sistema principal:
+- **Entry point separado**: `main_pos.py` se compila como `Lycoris POS.exe` (mientras `main.py` sigue siendo `Lycoris Control.exe`).
+- **BD compartida**: Ambos módulos leen de la **misma BD SQLite** (`lycoris_local.db`), por lo que el POS ve productos, existencias y precios del inventario automáticamente.
+- **Sin login/sync/updates**: El POS NO requiere login de operador, NO sincroniza con Supabase y NO descarga actualizaciones — es totalmente local y arranca rápido.
+- **Login propio**: Tiene su propio sistema de **cajeros** (múltiples por dispositivo, con PIN opcional) registrado en `pos_usuarios` y `pos_sesiones`.
+- **Independiente del control**: Una venta en el POS generará un movimiento de `salida` en el inventario (cuando se implemente), pero sin disparar validaciones ni requisiciones.
+
+**Cómo compilar ambos .exe** (ejemplo con PyInstaller):
+```bash
+pyinstaller --onefile --windowed --name "Lycoris Control" --add-data "assets:assets" main.py
+pyinstaller --onefile --windowed --name "Lycoris POS"    --add-data "assets:assets" main_pos.py
+```
+
 ---
 
 ## 📂 Mapa del Proyecto
 
 ```text
 control-entradas-salidas/
-├── main.py                        # Entry point: redirección a app_updates/
+├── main.py                        # Entry point: sistema de inventario (redirige a app_updates/)
+├── main_pos.py                    # Entry point: módulo POS (compilable como .exe independiente)
 ├── usr/
 │   ├── app_controller.py          # Controlador principal, navegación entre vistas
 │   ├── app_launcher.py            # Arranque: login, sync inicial, carga de vistas
@@ -51,7 +66,14 @@ control-entradas-salidas/
 │   ├── updater.py                 # Verificación y descarga de updates
 │   ├── init_db.py                 # Shim → usr/init_db.py (migración Supabase)
 │   ├── ocr_extractor.py           # Extracción de datos de facturas con Gemini API
-│   ├── whatsapp_notifier.py       # Envío de mensajes WhatsApp
+│   ├── whatsapp_notifier.py       # Envío de mensajes WhatsApp (incluye format_validation_message)
+│   │
+│   ├── pos/                       # Módulo POS (Point of Sale) — independiente
+│   │   ├── launcher.py            # Launcher simplificado del POS (sin login/sync)
+│   │   ├── data.py                # Acceso a productos y stock del inventario
+│   │   └── views/
+│   │       ├── login.py           # Selección de cajero (con PIN opcional)
+│   │       └── home.py            # Vista principal del POS (logueado)
 │   │
 │   ├── database/
 │   │   ├── conn.py                # Conexiones SQLite (local) y cache
@@ -72,7 +94,7 @@ control-entradas-salidas/
 │   │   ├── movimiento.py          # Movimiento (entradas/salidas/ajustes/traslados)
 │   │   ├── movimiento_archivo.py  # Movimiento archivado
 │   │   ├── existencia.py           # Existencia por producto + almacén
-│   │   ├── requisicion.py          # Requisición y Detalle (incluye verificado)
+│   │   ├── requisicion.py          # Requisición y Detalle (incluye verificado, order_by id)
 │   │   ├── compra_lista.py        # Item de lista de compras
 │   │   ├── receta.py               # Receta y componentes
 │   │   └── produccion.py           # Producción y detalles
@@ -83,7 +105,7 @@ control-entradas-salidas/
 │       │   ├── productos.py       # Tab: CRUD productos
 │       │   ├── proveedores.py     # Tab: CRUD proveedores
 │       │   ├── sistema.py          # Tab: conexión, modo offline, operador
-│       │   ├── periodos.py         # Tab: apertura de periodos, reinterto nube, recalcular
+│       │   ├── periodos.py         # Tab: apertura de periodos, reintento nube, recalcular
 │       │   ├── dialogs.py          # Diálogos compartidos
 │       │   └── helpers.py          # Colores y utilidades UI
 │       ├── configuracion_view.py  # Contenedor de tabs (Categorías, Productos, etc.)
@@ -104,15 +126,15 @@ control-entradas-salidas/
 │       ├── validacion/
 │       │   ├── ocr_handler.py     # OCR con Gemini, manejo de portapapeles
 │       │   ├── fields.py           # Campos de factura
-│       │   ├── service.py          # Validación, vinculación factura-movimientos
+│       │   ├── service.py          # Validación, vinculación factura-movimientos (marca sincronizado=0)
 │       │   ├── payments.py         # Gestión de pagos
 │       │   └── dialog.py           # Diálogo de validación
-│       ├── validacion_view.py     # Vista de validación de facturas
+│       ├── validacion_view.py     # Vista de validación de facturas (botón Sincronizar refresca)
 │       ├── requisiciones/
-│       │   ├── data.py            # Lógica de negocio (CRUD + Audit + Historial)
+│       │   ├── data.py            # Lógica de negocio (CRUD + Audit + Historial, ORDER BY id)
 │       │   ├── audit_view.py      # Verificación, totalización e historial por producto
 │       │   ├── visualize_view.py # Vista de solo lectura
-│       │   ├── form.py             # Creación/edición de requisiciones
+│       │   ├── form.py             # Creación/edición de requisiciones (usa model.order_by id)
 │       │   ├── cards.py            # Cards de requisiciones
 │       │   ├── components.py       # Componentes reutilizables
 │       │   ├── service.py          # Validación de requisiciones
@@ -121,7 +143,7 @@ control-entradas-salidas/
 │       ├── requisiciones_view.py  # Vista principal de requisiciones
 │       ├── producciones_view.py   # Vista de producciones (recetas)
 │       ├── historial_facturas_view.py # Historial de facturas
-│       ├── login_view.py          # Login y registro de operador
+│       ├── login_view.py          # Login y registro de operador (muestra Bienvenido, {nombre})
 │       └── whatsapp_bandeja_view.py # Bandeja de mensajes WhatsApp
 │
 ├── config/
@@ -143,6 +165,19 @@ control-entradas-salidas/
 #### 2. Fallo en Notificaciones tras Actualización
 - **Causa**: Al limpiar `sys.modules` para cargar la nueva versión, se pierde la referencia a la página de Flet (`_page`) en el módulo de notificaciones.
 - **Solución**: Se implementó un **Stack Walker** en `usr/notifications.py` que busca la instancia de `ft.Page` recorriendo la pila de llamadas si la referencia directa es `None`.
+
+#### 3. Pantalla gris (overlay) al cerrar un diálogo modal (AlertDialog)
+- **Causa**: En Flet, al cerrar un diálogo con `dialog.open = False` y luego llamar `page.overlay.remove(dialog)`, el overlay translúcido del modal puede quedar "fantasma" porque Flet ya lo considera cerrado pero el backdrop persiste.
+- **Solución**: **No** remover el diálogo del overlay manualmente. Solo establecer `dialog.open = False` y luego `page.update()`. Flet se encarga internamente del backdrop. Ejemplo:
+  ```python
+  def _close_dialog(self):
+      if self.active_dialog:
+          self.active_dialog.open = False
+          self.active_dialog = None
+          if self.page:
+              self.page.update()
+  ```
+  Si hay múltiples diálogos abiertos, iterar `page.overlay[:]` y cerrarlos todos sin removerlos.
 
 #### 3. Bases de Datos Duplicadas
 - **Causa**: Uso de rutas relativas que crean una DB en la raíz y otra en `app_updates/`.
@@ -236,6 +271,14 @@ Si se agregan nuevas dependencias en `requirements.txt`, se debe recompilar:
 ---
 
 ## Historial de Cambios
+
+### Version 2.3.0 (Julio 2026)
+- ✨ **Módulo POS (Point of Sale)**: Nuevo entry point `main_pos.py` compilable como `.exe` independiente. Comparte BD local con el inventario pero NO requiere login/sync/updates. Launcher simplificado en `usr/pos/launcher.py`.
+- ✨ **Login del POS**: Sistema de cajeros con PIN opcional (`usr/pos/views/login.py`). Tabla `pos_usuarios` y `pos_sesiones` en SQLite local. Barra superior con avatar + botón de cerrar sesión.
+- ⚡ **Optimizado**: `_upload_pending_movimientos()` ahora resuelve `factura_id` solo si el movimiento tiene factura asociada, y `requisicion_id` solo para traslados (`tr_salida`/`tr_entrada`). Reduce llamadas a la red innecesarias.
+- 🐛 **Corregido**: Form de edición de requisición ahora respeta el orden de productos (mismo `ORDER BY id`) que el audit y visualize, agregando `order_by` en el modelo `Requisicion.detalles` y en `get_requisicion_audit_data`.
+- 🐛 **Corregido**: Validación ahora marca movimientos como `sincronizado=0` para que `_upload_pending_movimientos` suba el `factura_id` a Supabase. Antes el UPDATE "remoto" era a la BD local (redundante) y el fallback no se ejecutaba.
+- 🔧 **Mejorado**: Mensaje de WhatsApp en validación usa la fecha de la entrada (no la fecha de validación), obtenida como la fecha mínima de los movimientos seleccionados.
 
 ### Version 2.2.0 (Julio 2026)
 - ✨ **Sistema de Periodos**: Apertura de periodos mensuales desde Configuración → Periodos. Archiva movimientos >3 meses en BD local y Supabase.

@@ -199,8 +199,11 @@ class SyncManager:
                     try:
                         mov_id = mov.get('id')
                         local_factura_id = mov.get('factura_id')
+                        local_requisicion_id = mov.get('requisicion_id')
+                        tipo = mov.get('tipo')
 
-                        # Resolver factura_id local → remoto via numero_factura
+                        # Solo resolver factura_id si el movimiento tiene factura asociada
+                        # (entradas validadas). Traslados, ajustes y salidas no la necesitan.
                         remote_factura_id = None
                         if local_factura_id:
                             try:
@@ -223,15 +226,39 @@ class SyncManager:
                             except Exception as ex:
                                 print(f"[SYNC] Error resolviendo factura_id {local_factura_id}: {ex}")
 
+                        # Resolver requisicion_id local → remoto via numero
+                        # Solo para traslados (tr_salida, tr_entrada)
+                        remote_requisicion_id = None
+                        if local_requisicion_id and tipo in ('tr_salida', 'tr_entrada'):
+                            try:
+                                local_conn = get_local_conn()
+                                cur = local_conn.cursor()
+                                cur.execute(
+                                    "SELECT numero FROM requisiciones WHERE id = ?",
+                                    (local_requisicion_id,)
+                                )
+                                row = cur.fetchone()
+                                local_conn.close()
+                                if row:
+                                    num_req = row['numero']
+                                    result = conn.execute(
+                                        text("SELECT id FROM requisiciones WHERE numero = :num"),
+                                        {'num': num_req}
+                                    ).fetchone()
+                                    if result:
+                                        remote_requisicion_id = result[0]
+                            except Exception as ex:
+                                print(f"[SYNC] Error resolviendo requisicion_id {local_requisicion_id}: {ex}")
+
                         # Buscar si el movimiento ya existe en Supabase por campos clave
                         match = conn.execute(text("""
-                            SELECT id FROM movimientos 
+                            SELECT id FROM movimientos
                             WHERE producto_id = :p AND tipo = :t AND cantidad = :c
                             AND fecha_movimiento = :f AND almacen = :a
                             LIMIT 1
                         """), {
                             'p': mov.get('producto_id'),
-                            't': mov.get('tipo'),
+                            't': tipo,
                             'c': mov.get('cantidad'),
                             'f': mov.get('fecha_movimiento'),
                             'a': mov.get('almacen'),
@@ -239,19 +266,27 @@ class SyncManager:
 
                         if match:
                             remote_mov_id = match[0]
+                            updates = []
+                            params = {'id': remote_mov_id}
                             if remote_factura_id:
+                                updates.append("factura_id = :fid")
+                                params['fid'] = remote_factura_id
+                            if remote_requisicion_id:
+                                updates.append("requisicion_id = :rid")
+                                params['rid'] = remote_requisicion_id
+                            if updates:
                                 conn.execute(
-                                    text("UPDATE movimientos SET factura_id = :fid WHERE id = :id"),
-                                    {'fid': remote_factura_id, 'id': remote_mov_id}
+                                    text(f"UPDATE movimientos SET {', '.join(updates)} WHERE id = :id"),
+                                    params
                                 )
                                 conn.commit()
-                                print(f"[SYNC] Movimiento {mov_id} → factura_id={remote_factura_id} (remoto) actualizado (ID remoto: {remote_mov_id})")
+                                print(f"[SYNC] Movimiento {mov_id} (ID remoto: {remote_mov_id}) actualizado")
                         else:
                             mov_data = {
                                 'producto_id': mov.get('producto_id'),
                                 'factura_id': remote_factura_id,
-                                'requisicion_id': mov.get('requisicion_id'),
-                                'tipo': mov.get('tipo'),
+                                'requisicion_id': remote_requisicion_id or mov.get('requisicion_id'),
+                                'tipo': tipo,
                                 'cantidad': mov.get('cantidad'),
                                 'cantidad_anterior': mov.get('cantidad_anterior', 0),
                                 'cantidad_nueva': mov.get('cantidad_nueva', 0),
@@ -270,6 +305,10 @@ class SyncManager:
                         # el ID remoto, no lo marcamos como sincronizado para reintentar
                         if local_factura_id and not remote_factura_id:
                             print(f"[SYNC] Movimiento {mov_id} postergado: factura_id={local_factura_id} no resuelto en Supabase")
+                            continue
+                        # Si tiene requisicion_id y no se pudo resolver, postergar también
+                        if local_requisicion_id and not remote_requisicion_id and tipo in ('tr_salida', 'tr_entrada'):
+                            print(f"[SYNC] Movimiento {mov_id} postergado: requisicion_id={local_requisicion_id} no resuelto en Supabase")
                             continue
 
                         LocalReplica.mark_movimiento_sincronizado(mov_id)
@@ -314,6 +353,8 @@ class SyncManager:
             ('requisicion_detalles', 'requisicion_detalles'),
             ('stock_checkpoint', 'stock_checkpoint'),
             ('periodos', 'periodos'),
+            ('recetas', 'recetas'),
+            ('receta_componentes', 'receta_componentes'),
         ]
         
         from sqlalchemy import create_engine
@@ -324,10 +365,16 @@ class SyncManager:
         with remote_engine.connect() as conn:
             # Migración remota: asegurar existencias de tablas
             for migracion in [
-                "ALTER TABLE requisicion_detalles ADD COLUMN verificado INTEGER DEFAULT 0",
+                "ALTER TABLE requisicion_detalles ADD COLUMN IF NOT EXISTS verificado INTEGER DEFAULT 0",
+                "ALTER TABLE categorias ADD COLUMN IF NOT EXISTS visible_en_pos INTEGER DEFAULT 1",
+                "ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_venta REAL DEFAULT 0",
+                "CREATE TABLE IF NOT EXISTS recetas (id SERIAL PRIMARY KEY, nombre TEXT NOT NULL, tipo TEXT NOT NULL, producto_base_id INTEGER, producto_final_id INTEGER, cantidad_producida REAL DEFAULT 1, activo INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT)",
+                "CREATE TABLE IF NOT EXISTS receta_componentes (id SERIAL PRIMARY KEY, receta_id INTEGER NOT NULL, producto_id INTEGER NOT NULL, cantidad REAL NOT NULL, unidad TEXT DEFAULT 'unidad', tipo_componente TEXT NOT NULL)",
                 "CREATE TABLE IF NOT EXISTS movimientos_archivo (id INTEGER PRIMARY KEY, producto_id INTEGER NOT NULL, factura_id INTEGER, requisicion_id INTEGER, tipo TEXT NOT NULL, cantidad REAL NOT NULL, cantidad_anterior REAL DEFAULT 0, cantidad_nueva REAL DEFAULT 0, peso_total REAL DEFAULT 0, registrado_por TEXT, observaciones TEXT, almacen TEXT, fecha_movimiento TEXT, created_at TEXT)",
                 "CREATE TABLE IF NOT EXISTS stock_checkpoint (producto_id INTEGER NOT NULL, almacen TEXT NOT NULL, cantidad REAL DEFAULT 0, PRIMARY KEY (producto_id, almacen))",
                 "CREATE TABLE IF NOT EXISTS periodos (id SERIAL PRIMARY KEY, periodo TEXT NOT NULL UNIQUE, fecha_apertura TEXT NOT NULL, registrado_por TEXT)",
+                "ALTER TABLE platos ADD COLUMN IF NOT EXISTS es_contorno INTEGER DEFAULT 0",
+                "CREATE TABLE IF NOT EXISTS plato_contornos (id SERIAL PRIMARY KEY, plato_id INTEGER NOT NULL, contorno_id INTEGER NOT NULL, max_seleccionar INTEGER DEFAULT 2)",
             ]:
                 try:
                     conn.execute(text(migracion))
@@ -382,6 +429,10 @@ class SyncManager:
                                     row.get('periodo'),
                                     row.get('registrado_por')
                                 )
+                    elif local_table == 'recetas':
+                        LocalReplica.save_recetas(data)
+                    elif local_table == 'receta_componentes':
+                        LocalReplica.save_receta_componentes(data)
                     
                     self._log(f"[SYNC] {len(data)} {local_table} baixats")
 
@@ -497,12 +548,13 @@ class SyncManager:
                         has_id = 'id' in data and data.get('id')
                         
                         if has_nombre:
-                            cols = ['nombre', 'descripcion', 'color', 'activo', 'updated_at']
+                            cols = ['nombre', 'descripcion', 'color', 'activo', 'visible_en_pos', 'updated_at']
                             vals = {
                                 'nombre': data.get('nombre'),
                                 'descripcion': data.get('descripcion', ''),
                                 'color': data.get('color', '#888888'),
                                 'activo': data.get('activo', 1),
+                                'visible_en_pos': data.get('visible_en_pos', 1),
                                 'updated_at': data.get('updated_at')
                             }
                             
@@ -556,6 +608,7 @@ class SyncManager:
                                  'es_pesable': data.get('es_pesable', 0),
                                  'requiere_foto_peso': data.get('requiere_foto_peso', 0),
                                  'peso_unitario': float(data.get('peso_unitario', 0)),
+                                 'precio_venta': float(data.get('precio_venta', 0)),
                                  'unidad_medida': data.get('unidad_medida', 'unidad'),
                                  'stock_actual': float(data.get('stock_actual', 0)),
                                  'stock_minimo': float(data.get('stock_minimo', 0)),
@@ -894,7 +947,63 @@ class SyncManager:
                         else:
                             queue.mark_failed(item['id'], "Detalle no encontrado en Supabase")
                             self._log(f"[SYNC] Detalle no encontrado en Supabase para req={req_num}")
-                    
+
+                    elif table == 'recetas':
+                        rid = data.get('id')
+                        nombre = data.get('nombre', '')
+                        vals = {
+                            'nombre': nombre,
+                            'tipo': data.get('tipo', ''),
+                            'producto_base_id': data.get('producto_base_id'),
+                            'producto_final_id': data.get('producto_final_id'),
+                            'cantidad_producida': data.get('cantidad_producida', 1),
+                            'activo': data.get('activo', 1),
+                            'updated_at': data.get('updated_at'),
+                        }
+                        if rid:
+                            cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
+                            sql = text(f"UPDATE recetas SET {cols} WHERE id = :id")
+                            vals['id'] = rid
+                        else:
+                            check = conn.execute(text("SELECT id FROM recetas WHERE nombre = :n AND tipo = :t"),
+                                                  {'n': nombre, 't': data.get('tipo', '')}).fetchone()
+                            if check:
+                                cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
+                                sql = text(f"UPDATE recetas SET {cols} WHERE id = :id")
+                                vals['id'] = check[0]
+                            else:
+                                cols = ", ".join(vals.keys())
+                                placeholders = ", ".join([f":{k}" for k in vals.keys()])
+                                vals['created_at'] = data.get('created_at', data.get('updated_at'))
+                                sql = text(f"INSERT INTO recetas ({cols}, created_at) VALUES ({placeholders}, :created_at)")
+                        conn.execute(sql, vals)
+                        conn.commit()
+                        queue.mark_completed(item['id'])
+                        uploaded += 1
+                        self._log(f"[SYNC] Receta '{nombre}' sincronizada")
+
+                    elif table == 'receta_componentes':
+                        cid = data.get('id')
+                        vals = {
+                            'receta_id': data.get('receta_id'),
+                            'producto_id': data.get('producto_id'),
+                            'cantidad': data.get('cantidad', 1),
+                            'unidad': data.get('unidad', 'unidad'),
+                            'tipo_componente': data.get('tipo_componente', 'INGREDIENTE'),
+                        }
+                        if cid:
+                            cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
+                            sql = text(f"UPDATE receta_componentes SET {cols} WHERE id = :id")
+                            vals['id'] = cid
+                        else:
+                            cols = ", ".join(vals.keys())
+                            placeholders = ", ".join([f":{k}" for k in vals.keys()])
+                            sql = text(f"INSERT INTO receta_componentes ({cols}) VALUES ({placeholders})")
+                        conn.execute(sql, vals)
+                        conn.commit()
+                        queue.mark_completed(item['id'])
+                        uploaded += 1
+                        self._log(f"[SYNC] Componente de receta sincronizado")
 
                 except Exception as e:
                     try:

@@ -21,6 +21,7 @@ class Producto(Base):
     
     requiere_foto_peso = Column(Boolean, default=False)
     peso_unitario = Column(Float, nullable=True)
+    precio_venta = Column(Float, default=0)
     unidad_medida = Column(String(20), default="unidad")
     
     stock_actual = Column(Float, default=0)

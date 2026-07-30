@@ -112,6 +112,16 @@ def show_producto_dialog(view, producto=None):
             prefix_icon=ft.Icons.TAG,
         )
 
+        precio_venta_field = ft.TextField(
+            label="Precio de venta (Bs)",
+            value=str(getattr(producto, 'precio_venta', 0) or 0) if producto else "0",
+            keyboard_type=ft.KeyboardType.NUMBER,
+            expand=True,
+            border=ft.InputBorder.OUTLINE,
+            border_radius=10,
+            prefix_icon=ft.Icons.ATTACH_MONEY,
+        )
+
         descripcion_field = ft.TextField(
             label="Descripcion",
             value=producto.descripcion if producto else "",
@@ -200,7 +210,8 @@ def show_producto_dialog(view, producto=None):
                     es_pesable_sw.value,
                     almacen_dropdown.value,
                     tipo_dropdown.value,
-                    )
+                    float(precio_venta_field.value or 0),
+                )
             except Exception as ex:
                 from usr.error_handler import show_error
                 show_error("Error saving product", ex, "configuracion.productos.save_prod_click")
@@ -216,6 +227,7 @@ def show_producto_dialog(view, producto=None):
                 cat_dropdown,
                 stock_min_field,
                 unidad_field,
+                precio_venta_field,
         descripcion_field,
         ft.Divider(height=15, color=colors['border']),
         es_pesable_sw,
@@ -232,11 +244,14 @@ def show_producto_dialog(view, producto=None):
                 ft.Row([nombre_field, codigo_field], spacing=15),
                 cat_dropdown,
                 ft.Row([stock_min_field, unidad_field], spacing=15),
+                precio_venta_field,
                 descripcion_field,
                 ft.Divider(height=20, color=colors['border']),
                 es_pesable_sw,
                 peso_unitario_field,
                 requiere_foto_sw,
+                ft.Divider(height=20, color=colors['border']),
+                tipo_dropdown,
                 ft.Divider(height=20, color=colors['border']),
                 almacen_dropdown,
                 activo_sw,
@@ -272,7 +287,7 @@ def show_producto_dialog(view, producto=None):
         db.close()
 
 
-def save_producto(view, n, c, d, cat_id, rf, pu, u, sm, a, p_id, es_p=False, almacen="principal", tipo="ninguno"):
+def save_producto(view, n, c, d, cat_id, rf, pu, u, sm, a, p_id, es_p=False, almacen="principal", tipo="ninguno", precio_venta=0):
     stock_actual_val = 0
     if p_id:
         existing = LocalReplica.get_producto_by_id(p_id)
@@ -286,6 +301,7 @@ def save_producto(view, n, c, d, cat_id, rf, pu, u, sm, a, p_id, es_p=False, alm
         "categoria_id": int(cat_id) if cat_id else None,
         "requiere_foto_peso": 1 if rf else 0,
         "peso_unitario": float(pu) if pu else 0.0,
+        "precio_venta": float(precio_venta) if precio_venta else 0.0,
         "stock_minimo": float(sm) if sm else 0.0,
         "stock_actual": stock_actual_val,
         "unidad_medida": str(u) if u else "unidad",

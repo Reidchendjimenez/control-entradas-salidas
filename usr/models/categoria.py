@@ -13,6 +13,7 @@ class Categoria(Base):
     imagen = Column(Text, nullable=True)  # Ruta o URL de la imagen
     color = Column(String(20), default="#2196F3")  # Color del botón
     activo = Column(Boolean, default=True)
+    visible_en_pos = Column(Boolean, default=True)
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())

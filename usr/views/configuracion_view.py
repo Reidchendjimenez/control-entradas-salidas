@@ -165,10 +165,17 @@ class ConfiguracionView(ft.Container):
 
     def _build_productos_tab(self):
         colors = _colors(self.page)
-        fab_content = ft.Row([
-            ft.Icon(ft.Icons.ADD_BOX, size=20),
-            ft.Text("Nuevo Producto" if not self.is_mobile else "Nuevo", weight=ft.FontWeight.BOLD),
-        ], alignment=ft.MainAxisAlignment.CENTER, spacing=8)
+
+        self.producto_cat_filter = ft.Dropdown(
+            label="Filtrar por categoria",
+            options=[],
+            value=None,
+            border_radius=10,
+            bgcolor=colors['card'],
+            border_color=colors['border'],
+            width=200,
+            on_change=self._filter_productos,
+        )
 
         self.producto_search = ft.TextField(
             hint_text="Buscar productos...",
@@ -182,9 +189,21 @@ class ConfiguracionView(ft.Container):
         )
 
         return ft.Container(
+            content=self.lista_productos,
+            padding=20,
+            expand=True,
+        )
+
+    def _build_producto_header(self):
+        colors = _colors(self.page)
+        fab_content = ft.Row([
+            ft.Icon(ft.Icons.ADD_BOX, size=20),
+            ft.Text("Nuevo Producto" if not self.is_mobile else "Nuevo", weight=ft.FontWeight.BOLD),
+        ], alignment=ft.MainAxisAlignment.CENTER, spacing=8)
+        return ft.Container(
             content=ft.Column([
-                ft.Container(height=15),
                 ft.Row([
+                    self.producto_cat_filter,
                     self.producto_search,
                     ft.Container(
                         content=fab_content,
@@ -193,12 +212,10 @@ class ConfiguracionView(ft.Container):
                         border_radius=30,
                         on_click=lambda _: show_producto_dialog(self),
                     ),
-                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, spacing=10),
-                ft.Container(height=15),
-                self.lista_productos,
-            ], expand=True, spacing=0),
-            padding=20,
-            expand=True,
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                ft.Divider(height=1, color=colors['border']),
+            ], spacing=15),
+            padding=ft.padding.only(bottom=10),
         )
 
     def _load_data(self):
@@ -215,16 +232,21 @@ class ConfiguracionView(ft.Container):
             self.categorias_cache = cats
             self.productos_cache = prods
 
+            self.producto_cat_filter.options = [
+                ft.dropdown.Option("", "Todas las categorias")
+            ] + [ft.dropdown.Option(str(c.id), c.nombre) for c in cats]
+
             if self.is_mobile:
                 self.lista_categorias.controls = [create_categoria_item_mobile(self, c) for c in cats]
             else:
                 self.lista_categorias.controls = create_categoria_grid(self, cats)
 
-            self.lista_productos.controls = [create_producto_item(self, p) for p in prods]
+            self.lista_productos.controls = [self._build_producto_header()] + [create_producto_item(self, p) for p in prods]
 
             load_proveedores(self)
 
             self.update()
+            self._apply_producto_filters()
             db.close()
         except Exception as e:
             show_error(f"Error al cargar datos: {str(e)}")
@@ -259,9 +281,17 @@ class ConfiguracionView(ft.Container):
         await asyncio.sleep(0.3)
         if time.time() - self._last_prod_search < 0.3:
             return
+        self._apply_producto_filters()
+
+    def _apply_producto_filters(self):
         search = self.producto_search.value.lower() if self.producto_search.value else ""
-        filtered = [p for p in self.productos_cache if search in p.nombre.lower()]
-        self.lista_productos.controls = [create_producto_item(self, p) for p in filtered]
+        cat_val = self.producto_cat_filter.value
+        filtered = self.productos_cache
+        if search:
+            filtered = [p for p in filtered if search in p.nombre.lower()]
+        if cat_val:
+            filtered = [p for p in filtered if str(p.categoria_id) == cat_val]
+        self.lista_productos.controls = [self._build_producto_header()] + [create_producto_item(self, p) for p in filtered]
         self.update()
 
     def refresh(self):

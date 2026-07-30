@@ -20,7 +20,7 @@ jobs:
 
       - name: Create Update Zip
         run: |
-          zip -r update.zip usr config -x "*.pyc" -x "*__pycache__*" -x "config/.device_id" -x "*.backup"
+          zip -r update.zip main.py main_pos.py usr config -x "*.pyc" -x "*__pycache__*" -x "config/.device_id" -x "*.backup"
 
       - name: Commit and Push zip
         run: |

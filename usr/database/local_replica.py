@@ -27,6 +27,7 @@ def init_local_db():
             imagen TEXT,
             color TEXT DEFAULT '#2196F3',
             activo INTEGER DEFAULT 1,
+            visible_en_pos INTEGER DEFAULT 1,
             created_at TEXT,
             updated_at TEXT
         )
@@ -56,6 +57,7 @@ def init_local_db():
              es_pesable INTEGER DEFAULT 0,
              requiere_foto_peso INTEGER DEFAULT 0,
              peso_unitario REAL,
+             precio_venta REAL DEFAULT 0,
              unidad_medida TEXT DEFAULT 'unidad',
              stock_actual REAL DEFAULT 0,
              stock_minimo REAL DEFAULT 0,
@@ -67,10 +69,17 @@ def init_local_db():
          )
      """)
     
-    # Migración: agregar columna tipo a productos si no existe
-    try:
-        cursor.execute("ALTER TABLE productos ADD COLUMN tipo TEXT")
-    except Exception:
+    # Migraciones para columnas agregadas posteriormente
+    _migraciones = [
+        ("productos", "tipo", "TEXT"),
+        ("productos", "precio_venta", "REAL DEFAULT 0"),
+        ("categorias", "visible_en_pos", "INTEGER DEFAULT 1"),
+    ]
+    for tabla, col, tipo in _migraciones:
+        try:
+            cursor.execute(f"ALTER TABLE {tabla} ADD COLUMN {col} {tipo}")
+        except Exception:
+            pass
         pass  # Ya existe
     
     cursor.execute("""
@@ -216,6 +225,49 @@ def init_local_db():
             configurado_en TEXT NOT NULL
         )
     """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pos_usuarios (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre      TEXT    NOT NULL UNIQUE,
+            pin_hash    TEXT,
+            es_admin    INTEGER DEFAULT 0,
+            activo      INTEGER DEFAULT 1,
+            creado_en   TEXT NOT NULL
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pos_mesas (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero      TEXT    NOT NULL UNIQUE,
+            nombre      TEXT,
+            zona        TEXT,
+            activo      INTEGER DEFAULT 1,
+            creado_en   TEXT NOT NULL
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pos_habitaciones (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            numero      TEXT    NOT NULL UNIQUE,
+            piso        TEXT,
+            tipo        TEXT,
+            activo      INTEGER DEFAULT 1,
+            creado_en   TEXT NOT NULL
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pos_sesiones (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario_id  INTEGER NOT NULL,
+            abierta_en  TEXT NOT NULL,
+            cerrada_en  TEXT,
+            FOREIGN KEY (usuario_id) REFERENCES pos_usuarios(id)
+        )
+    """)
     
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS compras_lista (
@@ -305,6 +357,58 @@ def init_local_db():
         )
     """)
     
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS platos_categorias (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            color TEXT DEFAULT '#FF6F00',
+            activo INTEGER DEFAULT 1,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS platos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            categoria_id INTEGER NOT NULL,
+            precio_venta REAL DEFAULT 0,
+            activo INTEGER DEFAULT 1,
+            created_at TEXT,
+            updated_at TEXT,
+            FOREIGN KEY (categoria_id) REFERENCES platos_categorias(id)
+        )
+    """)
+    
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS plato_ingredientes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            plato_id INTEGER NOT NULL,
+            producto_id INTEGER NOT NULL,
+            cantidad REAL NOT NULL,
+            unidad TEXT DEFAULT 'unidad',
+            FOREIGN KEY (plato_id) REFERENCES platos(id),
+            FOREIGN KEY (producto_id) REFERENCES productos(id)
+        )
+    """)
+
+    try:
+        cursor.execute("ALTER TABLE platos ADD COLUMN es_contorno INTEGER DEFAULT 0")
+    except Exception:
+        pass
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS plato_contornos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            plato_id INTEGER NOT NULL,
+            contorno_id INTEGER NOT NULL,
+            max_seleccionar INTEGER DEFAULT 2,
+            FOREIGN KEY (plato_id) REFERENCES platos(id),
+            FOREIGN KEY (contorno_id) REFERENCES platos(id)
+        )
+    """)
+    
     # Índices locales
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_local_tipo_fecha ON movimientos (tipo, fecha_movimiento DESC)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_local_producto ON movimientos (producto_id, fecha_movimiento DESC)")
@@ -345,7 +449,25 @@ def _migrate_old_tables(conn):
         except Exception as e:
             pass
     
+    _run_pos_migrations(cursor)
     conn.commit()
+
+def _run_pos_migrations(cursor):
+    """Migraciones automáticas para tablas POS."""
+    import re
+    migrations = [
+        ("pos_usuarios", [("es_admin", "INTEGER DEFAULT 0")]),
+    ]
+    for table, columns in migrations:
+        cursor.execute(f"PRAGMA table_info({table})")
+        existing = {row[1] for row in cursor.fetchall()}
+        for col_name, col_type in columns:
+            if col_name not in existing:
+                try:
+                    cursor.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}")
+                    print(f"[MIGRATE] Columna {col_name} agregada a {table}")
+                except Exception as e:
+                    print(f"[MIGRATE] Error agregando {col_name} a {table}: {e}")
 
 class LocalReplica:
     """Clase para manejar la réplica local de datos."""
@@ -375,12 +497,13 @@ class LocalReplica:
         for cat in categorias:
             cursor.execute("""
                 INSERT OR REPLACE INTO categorias 
-                (id, nombre, descripcion, imagen, color, activo, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                (id, nombre, descripcion, imagen, color, activo, visible_en_pos, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 cat.get('id'), cat.get('nombre'), cat.get('descripcion'),
                 cat.get('imagen'), cat.get('color', '#2196F3'),
                 1 if cat.get('activo', True) else 0,
+                1 if cat.get('visible_en_pos', True) else 0,
                 cat.get('created_at'), cat.get('updated_at')
             ))
         
@@ -397,6 +520,16 @@ class LocalReplica:
         rows = cursor.fetchall()
         conn.close()
         
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def get_categorias_pos() -> List[Dict]:
+        """Obtiene categorías visibles en el POS."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM categorias WHERE activo = 1 AND visible_en_pos = 1 ORDER BY nombre")
+        rows = cursor.fetchall()
+        conn.close()
         return [dict(row) for row in rows]
 
     @staticmethod
@@ -500,24 +633,25 @@ class LocalReplica:
         cursor = conn.cursor()
         
         for prod in productos:
-             cursor.execute("""
-                 INSERT OR REPLACE INTO productos 
-                  (id, nombre, codigo, descripcion, categoria_id, es_pesable, 
-                   requiere_foto_peso, peso_unitario, unidad_medida, stock_actual, 
-                   stock_minimo, activo, created_at, updated_at, almacen_predeterminado, tipo)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-             """, (
-                 prod.get('id'), prod.get('nombre'), prod.get('codigo'),
-                 prod.get('descripcion'), prod.get('categoria_id'),
-                 1 if prod.get('es_pesable') else 0,
-                 1 if prod.get('requiere_foto_peso') else 0,
-                 prod.get('peso_unitario'), prod.get('unidad_medida', 'unidad'),
-                 prod.get('stock_actual', 0), prod.get('stock_minimo', 0),
-                 1 if prod.get('activo', True) else 0,
-                 prod.get('created_at'), prod.get('updated_at'),
-                 prod.get('almacen_predeterminado', 'principal'),
-                 prod.get('tipo', 'ninguno')
-             ))
+            cursor.execute("""
+                INSERT OR REPLACE INTO productos 
+                 (id, nombre, codigo, descripcion, categoria_id, es_pesable, 
+                  requiere_foto_peso, peso_unitario, precio_venta, unidad_medida, stock_actual, 
+                  stock_minimo, activo, created_at, updated_at, almacen_predeterminado, tipo)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                prod.get('id'), prod.get('nombre'), prod.get('codigo'),
+                prod.get('descripcion'), prod.get('categoria_id'),
+                1 if prod.get('es_pesable') else 0,
+                1 if prod.get('requiere_foto_peso') else 0,
+                prod.get('peso_unitario'), prod.get('precio_venta', 0),
+                prod.get('unidad_medida', 'unidad'),
+                prod.get('stock_actual', 0), prod.get('stock_minimo', 0),
+                1 if prod.get('activo', True) else 0,
+                prod.get('created_at'), prod.get('updated_at'),
+                prod.get('almacen_predeterminado', 'principal'),
+                prod.get('tipo', 'ninguno')
+            ))
         
         conn.commit()
         conn.close()
@@ -541,6 +675,38 @@ class LocalReplica:
         
         return [dict(row) for row in rows]
     
+    @staticmethod
+    def get_productos_pos(categoria_id: int = None) -> List[Dict]:
+        """Obtiene productos del POS: activos y marcados para la venta."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        if categoria_id:
+            cursor.execute(
+                "SELECT * FROM productos WHERE activo = 1 AND tipo = 'Productos para la venta' AND categoria_id = ? ORDER BY nombre",
+                (categoria_id,)
+            )
+        else:
+            cursor.execute("SELECT * FROM productos WHERE activo = 1 AND tipo = 'Productos para la venta' ORDER BY nombre")
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def get_productos_insumo(categoria_id: int = None) -> List[Dict]:
+        """Obtiene productos aptos como ingredientes: uso interno o insumos."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        if categoria_id:
+            cursor.execute(
+                "SELECT * FROM productos WHERE activo = 1 AND (tipo = 'Productos para uso interno' OR tipo = 'Insumos') AND categoria_id = ? ORDER BY nombre",
+                (categoria_id,)
+            )
+        else:
+            cursor.execute("SELECT * FROM productos WHERE activo = 1 AND (tipo = 'Productos para uso interno' OR tipo = 'Insumos') ORDER BY nombre")
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
     @staticmethod
     def get_producto_by_id(producto_id: int) -> Optional[Dict]:
         """Obtiene un producto por ID."""
@@ -1392,6 +1558,264 @@ class LocalReplica:
         conn.commit()
         conn.close()
 
+    # ==================== POS USUARIOS ====================
+
+    @staticmethod
+    def get_pos_usuarios(solo_activos: bool = True) -> List[Dict]:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        if solo_activos:
+            cursor.execute("SELECT * FROM pos_usuarios WHERE activo = 1 ORDER BY nombre")
+        else:
+            cursor.execute("SELECT * FROM pos_usuarios ORDER BY nombre")
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def get_pos_usuario(usuario_id: int) -> Optional[Dict]:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM pos_usuarios WHERE id = ?", (usuario_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+    @staticmethod
+    def crear_pos_usuario(nombre: str, pin: str | None = None, es_admin: bool = False) -> int:
+        import hashlib
+        pin_hash = None
+        if pin and pin.strip():
+            pin_hash = hashlib.sha256(pin.strip().encode()).hexdigest()
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        from datetime import datetime
+        cursor.execute(
+            "INSERT INTO pos_usuarios (nombre, pin_hash, es_admin, activo, creado_en) VALUES (?, ?, ?, 1, ?)",
+            (nombre.strip(), pin_hash, 1 if es_admin else 0, datetime.now().isoformat())
+        )
+        uid = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return uid
+
+    @staticmethod
+    def update_pos_usuario(usuario_id: int, nombre: str = None, pin: str = None, es_admin: bool = None, activo: bool = None) -> None:
+        import hashlib
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        updates = []
+        params = []
+        if nombre is not None:
+            updates.append("nombre = ?")
+            params.append(nombre.strip())
+        if pin is not None:
+            if pin == "":
+                updates.append("pin_hash = NULL")
+            else:
+                updates.append("pin_hash = ?")
+                params.append(hashlib.sha256(pin.strip().encode()).hexdigest())
+        if es_admin is not None:
+            updates.append("es_admin = ?")
+            params.append(1 if es_admin else 0)
+        if activo is not None:
+            updates.append("activo = ?")
+            params.append(1 if activo else 0)
+        if not updates:
+            conn.close()
+            return
+        params.append(usuario_id)
+        cursor.execute(f"UPDATE pos_usuarios SET {', '.join(updates)} WHERE id = ?", params)
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def delete_pos_usuario(usuario_id: int) -> None:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM pos_usuarios WHERE id = ?", (usuario_id,))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def verificar_pos_pin(usuario_id: int, pin: str) -> bool:
+        import hashlib
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT pin_hash FROM pos_usuarios WHERE id = ?", (usuario_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row or not row['pin_hash']:
+            return False
+        pin_hash = hashlib.sha256(pin.encode()).hexdigest()
+        return row['pin_hash'] == pin_hash
+
+    @staticmethod
+    def abrir_pos_sesion(usuario_id: int) -> int:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        from datetime import datetime
+        cursor.execute(
+            "INSERT INTO pos_sesiones (usuario_id, abierta_en) VALUES (?, ?)",
+            (usuario_id, datetime.now().isoformat())
+        )
+        sid = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return sid
+
+    @staticmethod
+    def cerrar_pos_sesion(sesion_id: int) -> None:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        from datetime import datetime
+        cursor.execute(
+            "UPDATE pos_sesiones SET cerrada_en = ? WHERE id = ?",
+            (datetime.now().isoformat(), sesion_id)
+        )
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def get_pos_sesion_activa() -> Optional[Dict]:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT s.*, u.nombre as usuario_nombre
+            FROM pos_sesiones s
+            JOIN pos_usuarios u ON u.id = s.usuario_id
+            WHERE s.cerrada_en IS NULL
+            ORDER BY s.abierta_en DESC
+            LIMIT 1
+        """)
+        row = cursor.fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+    # ==================== POS MESAS ====================
+
+    @staticmethod
+    def get_pos_mesas(solo_activos: bool = False) -> List[Dict]:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        if solo_activos:
+            cursor.execute("SELECT * FROM pos_mesas WHERE activo = 1 ORDER BY zona, numero")
+        else:
+            cursor.execute("SELECT * FROM pos_mesas ORDER BY zona, numero")
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def crear_pos_mesa(numero: str, nombre: str = None, zona: str = None) -> int:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        from datetime import datetime
+        cursor.execute(
+            "INSERT INTO pos_mesas (numero, nombre, zona, activo, creado_en) VALUES (?, ?, ?, 1, ?)",
+            (numero.strip(), nombre.strip() if nombre else None, zona.strip() if zona else None, datetime.now().isoformat())
+        )
+        mid = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return mid
+
+    @staticmethod
+    def update_pos_mesa(mesa_id: int, numero: str = None, nombre: str = None, zona: str = None, activo: bool = None) -> None:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        updates = []
+        params = []
+        if numero is not None:
+            updates.append("numero = ?")
+            params.append(numero.strip())
+        if nombre is not None:
+            updates.append("nombre = ?")
+            params.append(nombre.strip() if nombre else None)
+        if zona is not None:
+            updates.append("zona = ?")
+            params.append(zona.strip() if zona else None)
+        if activo is not None:
+            updates.append("activo = ?")
+            params.append(1 if activo else 0)
+        if not updates:
+            conn.close()
+            return
+        params.append(mesa_id)
+        cursor.execute(f"UPDATE pos_mesas SET {', '.join(updates)} WHERE id = ?", params)
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def delete_pos_mesa(mesa_id: int) -> None:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM pos_mesas WHERE id = ?", (mesa_id,))
+        conn.commit()
+        conn.close()
+
+    # ==================== POS HABITACIONES ====================
+
+    @staticmethod
+    def get_pos_habitaciones(solo_activos: bool = False) -> List[Dict]:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        if solo_activos:
+            cursor.execute("SELECT * FROM pos_habitaciones WHERE activo = 1 ORDER BY piso, numero")
+        else:
+            cursor.execute("SELECT * FROM pos_habitaciones ORDER BY piso, numero")
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def crear_pos_habitacion(numero: str, piso: str = None, tipo: str = None) -> int:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        from datetime import datetime
+        cursor.execute(
+            "INSERT INTO pos_habitaciones (numero, piso, tipo, activo, creado_en) VALUES (?, ?, ?, 1, ?)",
+            (numero.strip(), piso.strip() if piso else None, tipo.strip() if tipo else None, datetime.now().isoformat())
+        )
+        hid = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return hid
+
+    @staticmethod
+    def update_pos_habitacion(hab_id: int, numero: str = None, piso: str = None, tipo: str = None, activo: bool = None) -> None:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        updates = []
+        params = []
+        if numero is not None:
+            updates.append("numero = ?")
+            params.append(numero.strip())
+        if piso is not None:
+            updates.append("piso = ?")
+            params.append(piso.strip() if piso else None)
+        if tipo is not None:
+            updates.append("tipo = ?")
+            params.append(tipo.strip() if tipo else None)
+        if activo is not None:
+            updates.append("activo = ?")
+            params.append(1 if activo else 0)
+        if not updates:
+            conn.close()
+            return
+        params.append(hab_id)
+        cursor.execute(f"UPDATE pos_habitaciones SET {', '.join(updates)} WHERE id = ?", params)
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def delete_pos_habitacion(hab_id: int) -> None:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM pos_habitaciones WHERE id = ?", (hab_id,))
+        conn.commit()
+        conn.close()
+
     # ==================== RECETAS ====================
 
     @staticmethod
@@ -1406,6 +1830,67 @@ class LocalReplica:
         rows = cursor.fetchall()
         conn.close()
         return [dict(row) for row in rows]
+
+    @staticmethod
+    def save_recetas(recetas: List[Dict]) -> None:
+        """Guarda lista de recetas (bulk upsert para sync)."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        for r in recetas:
+            rid = r.get('id')
+            if rid:
+                cursor.execute("""
+                    UPDATE recetas SET nombre=?, tipo=?, producto_base_id=?, producto_final_id=?,
+                    cantidad_producida=?, activo=?, updated_at=?
+                    WHERE id=?
+                """, (
+                    r.get('nombre'), r.get('tipo'),
+                    r.get('producto_base_id'), r.get('producto_final_id'),
+                    r.get('cantidad_producida', 1),
+                    1 if r.get('activo', True) else 0,
+                    r.get('updated_at', now), rid
+                ))
+            else:
+                cursor.execute("""
+                    INSERT INTO recetas (nombre, tipo, producto_base_id, producto_final_id,
+                    cantidad_producida, activo, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    r.get('nombre'), r.get('tipo'),
+                    r.get('producto_base_id'), r.get('producto_final_id'),
+                    r.get('cantidad_producida', 1),
+                    1 if r.get('activo', True) else 0,
+                    r.get('created_at', now), r.get('updated_at', now)
+                ))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def save_receta_componentes(componentes: List[Dict]) -> None:
+        """Guarda lista de componentes de receta (bulk upsert para sync)."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        for c in componentes:
+            cid = c.get('id')
+            if cid:
+                cursor.execute("""
+                    UPDATE receta_componentes SET receta_id=?, producto_id=?, cantidad=?,
+                    unidad=?, tipo_componente=? WHERE id=?
+                """, (
+                    c.get('receta_id'), c.get('producto_id'), c.get('cantidad'),
+                    c.get('unidad', 'unidad'), c.get('tipo_componente'), cid
+                ))
+            else:
+                cursor.execute("""
+                    INSERT INTO receta_componentes (receta_id, producto_id, cantidad, unidad, tipo_componente)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (
+                    c.get('receta_id'), c.get('producto_id'), c.get('cantidad'),
+                    c.get('unidad', 'unidad'), c.get('tipo_componente')
+                ))
+        conn.commit()
+        conn.close()
 
     @staticmethod
     def get_receta_by_id(receta_id: int) -> Optional[Dict]:
@@ -1460,6 +1945,249 @@ class LocalReplica:
         cursor = conn.cursor()
         cursor.execute("DELETE FROM receta_componentes WHERE receta_id = ?", (receta_id,))
         cursor.execute("DELETE FROM recetas WHERE id = ?", (receta_id,))
+        conn.commit()
+        conn.close()
+
+    # ==================== PLATOS (tablas separadas de inventario) ====================
+
+    @staticmethod
+    def get_platos_categorias(solo_activas: bool = True) -> List[Dict]:
+        """Obtiene categorías de platos."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        if solo_activas:
+            cursor.execute("SELECT * FROM platos_categorias WHERE activo = 1 ORDER BY nombre")
+        else:
+            cursor.execute("SELECT * FROM platos_categorias ORDER BY nombre")
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def save_plato_categoria(cat: Dict) -> int:
+        """Crea o actualiza una categoría de plato."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        cid = cat.get('id')
+        if cid:
+            cursor.execute("""
+                UPDATE platos_categorias SET nombre=?, color=?, activo=?, updated_at=? WHERE id=?
+            """, (cat.get('nombre'), cat.get('color', '#FF6F00'),
+                  1 if cat.get('activo', True) else 0, now, cid))
+        else:
+            cursor.execute("""
+                INSERT INTO platos_categorias (nombre, color, activo, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (cat.get('nombre'), cat.get('color', '#FF6F00'),
+                  1 if cat.get('activo', True) else 0, now, now))
+            cid = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return cid
+
+    @staticmethod
+    def delete_plato_categoria(cat_id: int) -> None:
+        """Elimina una categoría de plato si no tiene platos."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM platos_categorias WHERE id = ?", (cat_id,))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def get_platos() -> List[Dict]:
+        """Obtiene todos los platos con su categoría."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT p.id, p.nombre, p.categoria_id, p.precio_venta, p.activo, p.es_contorno,
+                   pc.nombre as categoria_nombre, pc.color as categoria_color
+            FROM platos p
+            LEFT JOIN platos_categorias pc ON p.categoria_id = pc.id
+            ORDER BY p.nombre
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def get_plato_with_ingredientes(plato_id: int) -> Optional[Dict]:
+        """Obtiene un plato con sus ingredientes."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT p.id, p.nombre, p.categoria_id, p.precio_venta, p.activo, p.es_contorno,
+                   pc.nombre as categoria_nombre, pc.color as categoria_color
+            FROM platos p
+            LEFT JOIN platos_categorias pc ON p.categoria_id = pc.id
+            WHERE p.id = ?
+        """, (plato_id,))
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return None
+        plato = dict(row)
+        cursor.execute("""
+            SELECT pi.*, pr.nombre as producto_nombre, pr.tipo as producto_tipo
+            FROM plato_ingredientes pi
+            LEFT JOIN productos pr ON pi.producto_id = pr.id
+            WHERE pi.plato_id = ?
+            ORDER BY pr.nombre
+        """, (plato_id,))
+        plato['ingredientes'] = [dict(r) for r in cursor.fetchall()]
+
+        cursor.execute("""
+            SELECT pc.contorno_id, pc.max_seleccionar,
+                   p.nombre as contorno_nombre, p.precio_venta as contorno_precio
+            FROM plato_contornos pc
+            INNER JOIN platos p ON pc.contorno_id = p.id
+            WHERE pc.plato_id = ?
+            ORDER BY p.nombre
+        """, (plato_id,))
+        plato['contornos'] = [dict(r) for r in cursor.fetchall()]
+
+        conn.close()
+        return plato
+
+    @staticmethod
+    def get_platos_pos() -> List[Dict]:
+        """Obtiene platos activos para mostrar en POS."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT p.id, p.nombre, p.categoria_id, p.precio_venta,
+                   pc.nombre as categoria_nombre, pc.color as categoria_color
+            FROM platos p
+            INNER JOIN platos_categorias pc ON p.categoria_id = pc.id AND pc.activo = 1
+            WHERE p.activo = 1 AND (p.es_contorno IS NULL OR p.es_contorno = 0)
+            ORDER BY pc.nombre, p.nombre
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def save_plato(plato: Dict, ingredientes: List[Dict]) -> int:
+        """Crea o actualiza un plato y sus ingredientes."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        plato_id = plato.get('id')
+
+        if plato_id:
+            cursor.execute("""
+                UPDATE platos SET nombre=?, categoria_id=?, precio_venta=?,
+                activo=?, es_contorno=?, updated_at=? WHERE id=?
+            """, (
+                plato.get('nombre'), plato.get('categoria_id'),
+                float(plato.get('precio_venta', 0)),
+                1 if plato.get('activo', True) else 0,
+                1 if plato.get('es_contorno', False) else 0, now, plato_id
+            ))
+        else:
+            cursor.execute("""
+                INSERT INTO platos (nombre, categoria_id, precio_venta, activo, es_contorno, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                plato.get('nombre'), plato.get('categoria_id'),
+                float(plato.get('precio_venta', 0)),
+                1 if plato.get('activo', True) else 0,
+                1 if plato.get('es_contorno', False) else 0, now, now
+            ))
+            plato_id = cursor.lastrowid
+
+        cursor.execute("DELETE FROM plato_ingredientes WHERE plato_id = ?", (plato_id,))
+        for ing in ingredientes:
+            cursor.execute("""
+                INSERT INTO plato_ingredientes (plato_id, producto_id, cantidad, unidad)
+                VALUES (?, ?, ?, ?)
+            """, (
+                plato_id, ing.get('producto_id'), float(ing.get('cantidad', 1)),
+                ing.get('unidad', 'unidad')
+            ))
+
+        conn.commit()
+        conn.close()
+        return plato_id
+
+    @staticmethod
+    def delete_plato(plato_id: int) -> None:
+        """Elimina un plato y sus ingredientes."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM plato_ingredientes WHERE plato_id = ?", (plato_id,))
+        cursor.execute("DELETE FROM plato_contornos WHERE plato_id = ? OR contorno_id = ?", (plato_id, plato_id))
+        cursor.execute("DELETE FROM platos WHERE id = ?", (plato_id,))
+        conn.commit()
+        conn.close()
+
+    # ==================== CONTORNOS ====================
+
+    @staticmethod
+    def get_contornos() -> List[Dict]:
+        """Obtiene todos los contornos (platos con es_contorno=1)."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT p.id, p.nombre, p.categoria_id, p.precio_venta, p.activo, p.es_contorno,
+                   pc.nombre as categoria_nombre, pc.color as categoria_color
+            FROM platos p
+            LEFT JOIN platos_categorias pc ON p.categoria_id = pc.id
+            WHERE p.es_contorno = 1
+            ORDER BY p.nombre
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def get_contornos_activos() -> List[Dict]:
+        """Obtiene contornos activos para POS."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT p.id, p.nombre, p.precio_venta,
+                   pc.nombre as categoria_nombre, pc.color as categoria_color
+            FROM platos p
+            INNER JOIN platos_categorias pc ON p.categoria_id = pc.id AND pc.activo = 1
+            WHERE p.activo = 1 AND p.es_contorno = 1
+            ORDER BY pc.nombre, p.nombre
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def get_plato_contornos(plato_id: int) -> List[Dict]:
+        """Obtiene los contornos asignados a un plato."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT pc.id as relacion_id, pc.plato_id, pc.contorno_id, pc.max_seleccionar,
+                   p.nombre as contorno_nombre, p.precio_venta as contorno_precio,
+                   pc2.nombre as categoria_nombre, pc2.color as categoria_color
+            FROM plato_contornos pc
+            INNER JOIN platos p ON pc.contorno_id = p.id
+            LEFT JOIN platos_categorias pc2 ON p.categoria_id = pc2.id
+            WHERE pc.plato_id = ?
+            ORDER BY p.nombre
+        """, (plato_id,))
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def save_plato_contornos(plato_id: int, contorno_ids: List[int], max_seleccionar: int = 2) -> None:
+        """Reemplaza los contornos asignados a un plato."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM plato_contornos WHERE plato_id = ?", (plato_id,))
+        for cid in contorno_ids:
+            cursor.execute("""
+                INSERT INTO plato_contornos (plato_id, contorno_id, max_seleccionar)
+                VALUES (?, ?, ?)
+            """, (plato_id, cid, max_seleccionar))
         conn.commit()
         conn.close()
 
