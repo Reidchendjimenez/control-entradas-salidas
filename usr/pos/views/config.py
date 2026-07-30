@@ -354,12 +354,19 @@ class ConfigPOSView(ft.Container):
         cat=plato.get('categoria_nombre') or "Sin categoria"
         precio=float(plato.get('precio_venta', 0) or 0)
         es_contorno=bool(plato.get('es_contorno'))
+        lleva=bool(plato.get('lleva_contornos'))
         tags=[]
         if es_contorno:
             tags.append(ft.Container(
                 content=ft.Text("CONTORNO", size=9, weight=ft.FontWeight.BOLD, color="#FF6F00"),
                 bgcolor="#FF6F0022", padding=ft.padding.symmetric(horizontal=6, vertical=2),
                 border_radius=4,
+            ))
+        if lleva:
+            tags.append(ft.Container(
+                content=ft.Text("+", size=9, weight=ft.FontWeight.BOLD, color="#4CAF50"),
+                bgcolor="#4CAF5022", padding=ft.padding.symmetric(horizontal=5, vertical=2),
+                border_radius=4, tooltip="Lleva contornos",
             ))
         return ft.Container(
             content=ft.Row([
@@ -374,7 +381,7 @@ class ConfigPOSView(ft.Container):
                         ft.Text(plato['nombre'], size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
                         *tags,
                     ], spacing=6, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                    ft.Text(f"{cat}  |  Bs {precio:.2f}", size=12, color="#9E9E9E"),
+                    ft.Text(f"{cat}  |  $ {precio:.2f}", size=12, color="#9E9E9E"),
                 ], spacing=2, expand=True),
                 ft.Row([
                     ft.IconButton(ft.Icons.EDIT, icon_size=18, icon_color="#BB86FC",
@@ -414,14 +421,14 @@ class ConfigPOSView(ft.Container):
                 padding=10, alignment=ft.alignment.center,
             ))
 
-        nombre_new=ft.TextField(label="Nueva categoria", width=300, autofocus=True)
+        nombre_new=ft.TextField(label="Nueva categoria", width=250, autofocus=True)
         color_picker=ft.Dropdown(
             label="Color",
             options=[ft.dropdown.Option(c[0], c[1]) for c in [
                 ("#FF6F00", "Naranja"), ("#E53935", "Rojo"), ("#43A047", "Verde"),
                 ("#1E88E5", "Azul"), ("#8E24AA", "Morado"), ("#00ACC1", "Cyan"),
             ]],
-            value="#FF6F00", width=200,
+            value="#FF6F00", width=150,
         )
 
         def add_cat():
@@ -433,20 +440,13 @@ class ConfigPOSView(ft.Container):
                 if self.page:
                     self.page.update()
 
-        add_row=ft.Row([
-            nombre_new, color_picker,
-            ft.IconButton(ft.Icons.ADD_CIRCLE_ROUNDED, icon_color="#4CAF50",
-                          icon_size=32, tooltip="Agregar", on_click=lambda _: add_cat()),
-        ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER)
-
         content=ft.Column([
-            ft.Text("Gestionar categorias de platos", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-            ft.Container(height=10),
-            add_row,
-            ft.Container(height=10),
+            ft.Row([nombre_new, color_picker, ft.IconButton(ft.Icons.ADD_CIRCLE, icon_color="#4CAF50",
+                       icon_size=32, on_click=lambda _: add_cat())], spacing=6),
+            ft.Container(height=8),
             ft.Container(content=cat_list, border=ft.border.all(1,"#3D3D3D"),
-                          border_radius=10, padding=10, expand=True),
-        ], expand=True)
+                          border_radius=10, padding=10, height=300),
+        ], tight=True, scroll=ft.ScrollMode.AUTO, width=520)
 
         self._show_dialog(title="Categorias", content=content, on_save=lambda: self._close_dialog(),
                           save_text="Cerrar")
@@ -481,8 +481,7 @@ class ConfigPOSView(ft.Container):
 
         nombre=ft.TextField(label="Nombre",
                             value=plato.get('nombre','') if is_edit else '',
-                            width=350, autofocus=True,
-                            capitalization=ft.TextCapitalization.WORDS)
+                            width=350, autofocus=True)
 
         cats=LocalReplica.get_platos_categorias()
         cat_opts=[ft.dropdown.Option(str(c['id']), c['nombre']) for c in cats]
@@ -490,7 +489,7 @@ class ConfigPOSView(ft.Container):
                            value=str(plato.get('categoria_id','')) if is_edit else None,
                            width=350)
 
-        precio=ft.TextField(label="Precio de venta (Bs)",
+        precio=ft.TextField(label="Precio de venta ($)",
                             value=f"{float(plato.get('precio_venta',0) or 0):.2f}" if is_edit else '',
                             keyboard_type=ft.KeyboardType.NUMBER, width=350)
 
@@ -549,51 +548,15 @@ class ConfigPOSView(ft.Container):
             ),
         ], spacing=8, tight=True)
 
-        # --- Seccion de contornos asignables ---
-        contornos_section=ft.Column(spacing=6, tight=True)
-        contornos_data=[]
-        if is_edit and plato_id:
-            full=LocalReplica.get_plato_with_ingredientes(plato_id)
-            if full:
-                contornos_data=full.get('contornos',[])
-        max_sel=ft.TextField(label="Max contornos a elegir", width=200,
-                             value="2", keyboard_type=ft.KeyboardType.NUMBER)
-
-        def _toggle_contorno_section(e):
-            contornos_section.visible=e.control.value
-            content.update()
-
-        es_contorno_sw.on_change=_toggle_contorno_section
-
-        contorno_checks={}
-        cont_opts=LocalReplica.get_contornos_activos() if is_edit else []
-        for c in cont_opts:
-            checked=any(str(c['id']) == str(cc.get('contorno_id','')) for cc in contornos_data)
-            chk=ft.Checkbox(label=c['nombre'], value=checked)
-            contorno_checks[str(c['id'])]=chk
-            contornos_section.controls.append(chk)
-            max_sel.value=str(contornos_data[0].get('max_seleccionar',2)) if contornos_data else "2"
-
-        if not cont_opts and is_edit:
-            contornos_section.controls.append(
-                ft.Text("No hay contornos activos. Cree platos marcados como 'Contorno' primero.",
-                        size=12, color="#9E9E9E", italic=True)
-            )
-
-        contornos_section.visible=bool(es_contorno_sw.value) if not is_edit else (is_edit and not plato.get('es_contorno'))
-
-        contornos_assign=ft.Column([
-            ft.Text("CONTORNOS DISPONIBLES", size=13, weight=ft.FontWeight.BOLD, color="#9E9E9E"),
-            contornos_section,
-            ft.Row([max_sel], visible=len(cont_opts) > 0),
-        ], spacing=8, tight=True)
+        lleva_contornos_sw=ft.Switch(
+            label="Lleva contornos (elige al vender)",
+            value=bool(plato.get('lleva_contornos')) if is_edit else False,
+        )
 
         content=ft.Column([
-            nombre, cat_dd, precio, es_contorno_sw,
+            nombre, cat_dd, precio, es_contorno_sw, lleva_contornos_sw,
             ft.Divider(height=1, color="#3D3D3D"),
             ingredientes_section,
-            ft.Divider(height=1, color="#3D3D3D"),
-            contornos_assign,
         ], spacing=12, tight=True, scroll=ft.ScrollMode.AUTO)
 
         def save():
@@ -606,6 +569,7 @@ class ConfigPOSView(ft.Container):
 
             ingredientes=[]
             for row_ctrl in ingredientes_container.controls:
+                if not hasattr(row_ctrl, 'controls') or not row_ctrl.controls: continue
                 fields=row_ctrl.controls
                 pid=fields[0].value; cant=fields[1].value; uni=fields[2].value
                 if pid and cant:
@@ -621,20 +585,11 @@ class ConfigPOSView(ft.Container):
                     'categoria_id': int(cat_val),
                     'precio_venta': float(precio.value or 0),
                     'es_contorno': bool(es_contorno_sw.value),
+                    'lleva_contornos': bool(lleva_contornos_sw.value),
                 }
                 if is_edit:
                     pd['id']=plato_id
                 LocalReplica.save_plato(pd, ingredientes)
-
-                if not es_contorno_sw.value:
-                    selected=[int(cid) for cid, chk in contorno_checks.items() if chk.value]
-                    if is_edit and plato_id:
-                        LocalReplica.save_plato_contornos(plato_id, selected, int(max_sel.value or 2))
-                    elif not is_edit:
-                        new_id=pd.get('id') or (plato_id if is_edit else None)
-                        if selected and new_id:
-                            LocalReplica.save_plato_contornos(new_id, selected, int(max_sel.value or 2))
-
                 self._close_dialog()
                 self._load_platos()
             except Exception as ex:

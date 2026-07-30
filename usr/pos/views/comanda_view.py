@@ -25,8 +25,11 @@ class ComandaPedidoView(ft.Container):
 
         # ---- Panel izquierdo: COMANDA ----
         self.lv_comanda = ft.ListView(expand=True, spacing=6, auto_scroll=False)
-        self.txt_total = ft.Text("Bs 0.00", size=22, weight=ft.FontWeight.BOLD, color="#4CAF50")
+        self.txt_total = ft.Text("$ 0.00", size=22, weight=ft.FontWeight.BOLD, color="#4CAF50")
         self.txt_vacio = ft.Text("Seleccione productos", size=14, color="#9E9E9E", italic=True)
+        self.btn_comandar = ft.ElevatedButton("Comandar", icon=ft.Icons.ASSIGNMENT_ROUNDED,
+                                              bgcolor="#4CAF50", color=ft.Colors.WHITE,
+                                              disabled=True, on_click=lambda _: self._comandar())
 
         col_comanda = ft.Column([
             ft.Container(
@@ -48,9 +51,7 @@ class ComandaPedidoView(ft.Container):
                                       icon_color="#EF5350",
                                       style=ft.ButtonStyle(color="#EF5350"),
                                       on_click=lambda _: self._go_back()),
-                    ft.ElevatedButton("Cobrar", icon=ft.Icons.PAYMENTS_ROUNDED,
-                                      bgcolor="#4CAF50", color=ft.Colors.WHITE,
-                                      disabled=True),
+                    self.btn_comandar,
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                 padding=ft.padding.symmetric(horizontal=10, vertical=8),
             ),
@@ -251,24 +252,33 @@ class ComandaPedidoView(ft.Container):
         precio = float(plato.get('precio_venta', 0) or 0)
         nombre = plato.get('nombre', '?')
         color = plato.get('categoria_color', '#FF6F00')
+        lleva = bool(plato.get('lleva_contornos'))
         card = ft.Container(
             bgcolor="#1E1E1E", border_radius=12, padding=12,
             alignment=ft.alignment.center,
             border=ft.border.only(bottom=ft.BorderSide(3, color)),
             shadow=ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 3)),
             on_click=lambda _, p=plato: self._agregar_item(p),
-            content=ft.Column([
+            content=ft.Stack([
+                ft.Column([
+                    ft.Container(
+                        content=ft.Text(nombre[:2].upper(), size=22, weight="bold", color=ft.Colors.WHITE),
+                        alignment=ft.alignment.center, width=50, height=50,
+                        bgcolor=color, shape=ft.BoxShape.CIRCLE,
+                        shadow=ft.BoxShadow(blur_radius=8, color=ft.Colors.with_opacity(0.3, color), offset=ft.Offset(0, 3)),
+                    ),
+                    ft.Container(height=6),
+                    ft.Text(nombre.upper(), size=10, weight="bold", color=ft.Colors.WHITE,
+                            text_align=ft.TextAlign.CENTER, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
+                    ft.Text(f"$ {precio:.2f}", size=12, weight="bold", color=color),
+                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, alignment=ft.MainAxisAlignment.CENTER),
                 ft.Container(
-                    content=ft.Text(nombre[:2].upper(), size=22, weight="bold", color=ft.Colors.WHITE),
-                    alignment=ft.alignment.center, width=50, height=50,
-                    bgcolor=color, shape=ft.BoxShape.CIRCLE,
-                    shadow=ft.BoxShadow(blur_radius=8, color=ft.Colors.with_opacity(0.3, color), offset=ft.Offset(0, 3)),
-                ),
-                ft.Container(height=6),
-                ft.Text(nombre.upper(), size=10, weight="bold", color=ft.Colors.WHITE,
-                        text_align=ft.TextAlign.CENTER, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
-                ft.Text(f"Bs {precio:.2f}", size=12, weight="bold", color=color),
-            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, alignment=ft.MainAxisAlignment.CENTER),
+                    content=ft.Text("+", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                    bgcolor="#4CAF50", width=18, height=18, border_radius=9,
+                    alignment=ft.alignment.center,
+                    right=30, top=0,
+                ) if lleva else ft.Container(),
+            ]),
         )
         card.on_hover = lambda e, c=card, cl=color: self._cat_hover(e, c, cl)
         return card
@@ -346,7 +356,7 @@ class ComandaPedidoView(ft.Container):
                 ft.Container(height=6),
                 ft.Text(nombre.upper(), size=10, weight="bold", color=ft.Colors.WHITE,
                         text_align=ft.TextAlign.CENTER, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
-                ft.Text(f"Bs {precio:.2f}", size=12, weight="bold", color=color),
+                ft.Text(f"$ {precio:.2f}", size=12, weight="bold", color=color),
             ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, alignment=ft.MainAxisAlignment.CENTER),
         )
         card.on_hover = lambda e, c=card, cl=color: self._cat_hover(e, c, cl)
@@ -434,7 +444,7 @@ class ComandaPedidoView(ft.Container):
                 ft.Container(height=6),
                 ft.Text(nombre.upper(), size=10, weight="bold", color=ft.Colors.WHITE,
                         text_align=ft.TextAlign.CENTER, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
-                ft.Text(f"Bs {precio:.2f}", size=11, color="#4CAF50", weight=ft.FontWeight.BOLD),
+                ft.Text(f"$ {precio:.2f}", size=11, color="#4CAF50", weight=ft.FontWeight.BOLD),
             ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, alignment=ft.MainAxisAlignment.CENTER),
         )
         card.on_hover = lambda e, c=card: self._prod_hover(e, c)
@@ -451,9 +461,8 @@ class ComandaPedidoView(ft.Container):
         card.update()
 
     def _agregar_item(self, prod: dict):
-        # Si es plato (es_contorno=0) con contornos asignados, mostrar dialogo
-        if prod.get('es_contorno') == 0:
-            contornos = LocalReplica.get_plato_contornos(prod['id'])
+        if prod.get('lleva_contornos'):
+            contornos = LocalReplica.get_contornos_activos()
             if contornos:
                 self._show_contornos_dialog(prod, contornos)
                 return
@@ -466,22 +475,77 @@ class ComandaPedidoView(ft.Container):
         self.items.append({'producto': prod, 'cantidad': 1})
         self._refrescar_comanda()
 
+    def _comandar(self):
+        if not self.items:
+            return
+        mesa_id = self.mesa.get('id') if self.mesa else None
+        hab_id = None
+        total = sum(
+            item['cantidad'] * float(item['producto'].get('precio_venta', 0) or 0)
+            for item in self.items
+        )
+        items_data = []
+        for item in self.items:
+            p = item['producto']
+            entry = {
+                'id': p.get('id'),
+                'nombre': p.get('nombre'),
+                'precio': float(p.get('precio_venta', 0) or 0),
+                'cantidad': item['cantidad'],
+            }
+            if item.get('contornos_info'):
+                entry['contornos'] = [c.get('nombre') for c in item['contornos_info']]
+            items_data.append(entry)
+
+        try:
+            comanda_id = LocalReplica.save_comanda(
+                sesion_id=self.sesion_id, items=items_data, total=total,
+                mesa_id=mesa_id, habitacion_id=hab_id,
+            )
+
+            from usr.pos.printer import imprimir_comanda
+            impreso = imprimir_comanda(items_data, total, comanda_id)
+
+            self.items.clear()
+            self._refrescar_comanda()
+            msg = f"Comanda #{comanda_id} guardada"
+            if not impreso:
+                msg += " (sin impresora)"
+            if self.page:
+                self.page.snack_bar = ft.SnackBar(
+                    content=ft.Text(msg), bgcolor="#4CAF50",
+                )
+                self.page.snack_bar.open = True
+                self.page.update()
+        except Exception as ex:
+            import traceback as tb
+            tb.print_exc()
+            if self.page:
+                self.page.snack_bar = ft.SnackBar(
+                    content=ft.Text(f"Error: {ex}"), bgcolor="#EF5350",
+                )
+                self.page.snack_bar.open = True
+                self.page.update()
+
     def _show_contornos_dialog(self, plato: dict, contornos: list):
-        max_sel = contornos[0].get('max_seleccionar', 2)
         checks = {}
         for c in contornos:
-            chk = ft.Checkbox(label=c['contorno_nombre'], value=False)
-            checks[str(c['contorno_id'])] = chk
+            chk = ft.Checkbox(label=c.get('nombre', '?'), value=False)
+            checks[str(c['id'])] = chk
 
+        max_sel = 2
         max_text = ft.Text(f"Seleccione hasta {max_sel} contornos", size=12, color="#9E9E9E", italic=True)
         err_text = ft.Text("", size=11, color="#EF5350")
 
         def on_confirm(e):
             selected = [cid for cid, chk in checks.items() if chk.value]
+            if not selected:
+                err_text.value = "Seleccione al menos un contorno"
+                err_text.update(); return
             if len(selected) > max_sel:
                 err_text.value = f"Maximo {max_sel} contornos"
                 err_text.update(); return
-            ci = [c for c in contornos if str(c['contorno_id']) in selected]
+            ci = [c for c in contornos if str(c['id']) in selected]
             for item in self.items:
                 if item['producto']['id'] == plato['id'] and not item.get('contornos_seleccionados'):
                     item['cantidad'] += 1
@@ -499,7 +563,7 @@ class ComandaPedidoView(ft.Container):
         content = ft.Column([
             max_text, err_text,
             *[chk for chk in checks.values()],
-        ], spacing=8, tight=True)
+        ], spacing=8, tight=True, scroll=ft.ScrollMode.AUTO)
 
         self._show_dialog(
             title=f"Contornos para {plato.get('nombre','')}",
@@ -519,11 +583,11 @@ class ComandaPedidoView(ft.Container):
             total += subtotal
             lines = [
                 ft.Text(p.get('nombre', '?'), size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-                ft.Text(f"Bs {precio:.2f}", size=11, color="#9E9E9E"),
+                ft.Text(f"$ {precio:.2f}", size=11, color="#9E9E9E"),
             ]
             if item.get('contornos_info'):
                 for ci in item['contornos_info']:
-                    lines.append(ft.Text(f"+ {ci['contorno_nombre']}", size=10, color="#FF6F00"))
+                    lines.append(ft.Text(f"+ {ci.get('nombre','?')}", size=10, color="#FF6F00"))
             self.lv_comanda.controls.append(ft.Container(
                 content=ft.Row([
                     ft.Column(lines, spacing=1, expand=True),
@@ -534,7 +598,7 @@ class ComandaPedidoView(ft.Container):
                         ft.IconButton(icon=ft.Icons.ADD_CIRCLE_OUTLINE, icon_size=18, icon_color="#4CAF50",
                                      on_click=lambda _, idx=i: self._cambiar_cantidad(idx, 1)),
                         ft.Container(width=10),
-                        ft.Text(f"Bs {subtotal:.2f}", size=14, weight=ft.FontWeight.BOLD, color="#4CAF50"),
+                        ft.Text(f"$ {subtotal:.2f}", size=14, weight=ft.FontWeight.BOLD, color="#4CAF50"),
                         ft.IconButton(icon=ft.Icons.DELETE_OUTLINE, icon_size=18, icon_color="#EF5350",
                                      on_click=lambda _, idx=i: self._eliminar_item(idx)),
                     ], spacing=2, vertical_alignment=ft.CrossAxisAlignment.CENTER),
@@ -542,7 +606,8 @@ class ComandaPedidoView(ft.Container):
                 padding=ft.padding.symmetric(horizontal=10, vertical=4),
                 bgcolor="#222222" if i % 2 == 0 else "#1A1A1A",
             ))
-        self.txt_total.value = f"Bs {total:.2f}"
+        self.txt_total.value = f"$ {total:.2f}"
+        self.btn_comandar.disabled = len(self.items) == 0
         if self.page:
             self.update()
 

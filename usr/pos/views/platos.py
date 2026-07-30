@@ -90,7 +90,7 @@ class PlatosView(ft.Container):
                         ft.Text(plato['nombre'], size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
                         *tags,
                     ], spacing=6, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                    ft.Text(f"{cat}  |  Bs {precio:.2f}", size=12, color="#9E9E9E"),
+                    ft.Text(f"{cat}  |  $ {precio:.2f}", size=12, color="#9E9E9E"),
                 ], spacing=2, expand=True),
                 ft.Row([
                     ft.IconButton(ft.Icons.EDIT, icon_size=18, icon_color="#BB86FC",
@@ -133,10 +133,11 @@ class PlatosView(ft.Container):
                 self._show_categorias_dialog()
         content = ft.Column([
             ft.Row([nombre_new, color_dd, ft.IconButton(ft.Icons.ADD_CIRCLE, icon_color="#4CAF50",
-                       icon_size=32, on_click=lambda _: add_cat())], spacing=8),
+                       icon_size=32, on_click=lambda _: add_cat())], spacing=6),
+            ft.Container(height=8),
             ft.Container(content=cat_list, border=ft.border.all(1,"#3D3D3D"),
-                          border_radius=10, padding=10, expand=True),
-        ], expand=True)
+                          border_radius=10, padding=10, height=300),
+        ], tight=True, scroll=ft.ScrollMode.AUTO, width=520)
         self._show_dialog("Categorias de platos", content, lambda: self._close_dialog(), "Cerrar")
 
     def _build_cat_card(self, cat: dict):
@@ -167,7 +168,7 @@ class PlatosView(ft.Container):
         cat_dd = ft.Dropdown(label="Categoria",
             options=[ft.dropdown.Option(str(c['id']), c['nombre']) for c in cats],
             value=str(plato.get('categoria_id','')) if is_edit else None, width=350)
-        precio = ft.TextField(label="Precio (Bs)",
+        precio = ft.TextField(label="Precio ($)",
             value=f"{float(plato.get('precio_venta',0) or 0):.2f}" if is_edit else '',
             keyboard_type=ft.KeyboardType.NUMBER, width=350)
 
@@ -212,50 +213,15 @@ class PlatosView(ft.Container):
                 on_click=lambda _: add_ing()),
         ], spacing=8, tight=True)
 
-        # --- Contornos asignables ---
-        contornos_section = ft.Column(spacing=6, tight=True)
-        contornos_data = []
-        if is_edit and pid:
-            full = LocalReplica.get_plato_with_ingredientes(pid)
-            if full: contornos_data = full.get('contornos', [])
-        max_sel = ft.TextField(label="Max contornos a elegir", width=200,
-                               value="2", keyboard_type=ft.KeyboardType.NUMBER)
-
-        def _toggle_contorno_section(e):
-            contornos_section.visible = e.control.value
-            content.update()
-
-        es_contorno_sw.on_change = _toggle_contorno_section
-
-        contorno_checks = {}
-        cont_opts = LocalReplica.get_contornos_activos() if is_edit else []
-        for c in cont_opts:
-            checked = any(str(c['id']) == str(cc.get('contorno_id','')) for cc in contornos_data)
-            chk = ft.Checkbox(label=c['nombre'], value=checked)
-            contorno_checks[str(c['id'])] = chk
-            contornos_section.controls.append(chk)
-            max_sel.value = str(contornos_data[0].get('max_seleccionar', 2)) if contornos_data else "2"
-
-        if not cont_opts and is_edit:
-            contornos_section.controls.append(
-                ft.Text("No hay contornos activos. Cree platos marcados como 'Contorno' primero.",
-                        size=12, color="#9E9E9E", italic=True)
-            )
-
-        contornos_section.visible = bool(es_contorno_sw.value) if not is_edit else (is_edit and not plato.get('es_contorno'))
-
-        contornos_assign = ft.Column([
-            ft.Text("CONTORNOS DISPONIBLES", size=13, weight=ft.FontWeight.BOLD, color="#9E9E9E"),
-            contornos_section,
-            ft.Row([max_sel], visible=len(cont_opts) > 0),
-        ], spacing=8, tight=True)
+        lleva_contornos_sw = ft.Switch(
+            label="Lleva contornos (elige al vender)",
+            value=bool(plato.get('lleva_contornos')) if is_edit else False,
+        )
 
         content = ft.Column([
-            nombre, cat_dd, precio, es_contorno_sw,
+            nombre, cat_dd, precio, es_contorno_sw, lleva_contornos_sw,
             ft.Divider(height=1, color="#3D3D3D"),
             ing_section,
-            ft.Divider(height=1, color="#3D3D3D"),
-            contornos_assign,
         ], spacing=12, tight=True, scroll=ft.ScrollMode.AUTO)
 
         def save():
@@ -276,19 +242,11 @@ class PlatosView(ft.Container):
                 'categoria_id': int(cat_dd.value),
                 'precio_venta': float(precio.value or 0),
                 'es_contorno': bool(es_contorno_sw.value),
+                'lleva_contornos': bool(lleva_contornos_sw.value),
             }
-            if is_edit:
-                data['id'] = pid
+            if is_edit: data['id'] = pid
             LocalReplica.save_plato(data, ingredientes)
-
-            if not es_contorno_sw.value:
-                selected = [int(cid) for cid, chk in contorno_checks.items() if chk.value]
-                current_pid = pid if is_edit else data.get('id')
-                if selected and current_pid:
-                    LocalReplica.save_plato_contornos(current_pid, selected, int(max_sel.value or 2))
-
-            self._close_dialog()
-            self._load_platos()
+            self._close_dialog(); self._load_platos()
 
         self._show_dialog(f"{'Editar' if is_edit else 'Nuevo'} Plato", content, save)
 

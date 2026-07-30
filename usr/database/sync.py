@@ -374,6 +374,7 @@ class SyncManager:
                 "CREATE TABLE IF NOT EXISTS stock_checkpoint (producto_id INTEGER NOT NULL, almacen TEXT NOT NULL, cantidad REAL DEFAULT 0, PRIMARY KEY (producto_id, almacen))",
                 "CREATE TABLE IF NOT EXISTS periodos (id SERIAL PRIMARY KEY, periodo TEXT NOT NULL UNIQUE, fecha_apertura TEXT NOT NULL, registrado_por TEXT)",
                 "ALTER TABLE platos ADD COLUMN IF NOT EXISTS es_contorno INTEGER DEFAULT 0",
+                "ALTER TABLE platos ADD COLUMN IF NOT EXISTS lleva_contornos INTEGER DEFAULT 0",
                 "CREATE TABLE IF NOT EXISTS plato_contornos (id SERIAL PRIMARY KEY, plato_id INTEGER NOT NULL, contorno_id INTEGER NOT NULL, max_seleccionar INTEGER DEFAULT 2)",
             ]:
                 try:

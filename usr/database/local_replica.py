@@ -268,7 +268,22 @@ def init_local_db():
             FOREIGN KEY (usuario_id) REFERENCES pos_usuarios(id)
         )
     """)
-    
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pos_comandas (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            sesion_id   INTEGER NOT NULL,
+            mesa_id     INTEGER,
+            habitacion_id INTEGER,
+            estado      TEXT DEFAULT 'abierta',
+            total       REAL DEFAULT 0,
+            items_json  TEXT,
+            created_at  TEXT NOT NULL,
+            updated_at  TEXT,
+            FOREIGN KEY (sesion_id) REFERENCES pos_sesiones(id)
+        )
+    """)
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS compras_lista (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -395,6 +410,11 @@ def init_local_db():
 
     try:
         cursor.execute("ALTER TABLE platos ADD COLUMN es_contorno INTEGER DEFAULT 0")
+    except Exception:
+        pass
+
+    try:
+        cursor.execute("ALTER TABLE platos ADD COLUMN lleva_contornos INTEGER DEFAULT 0")
     except Exception:
         pass
 
@@ -1816,6 +1836,66 @@ class LocalReplica:
         conn.commit()
         conn.close()
 
+    # ==================== COMANDAS ====================
+
+    @staticmethod
+    def save_comanda(sesion_id: int, items: list, total: float,
+                     mesa_id: int = None, habitacion_id: int = None) -> int:
+        import json
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        items_json = json.dumps(items, ensure_ascii=False, default=str)
+        cursor.execute("""
+            INSERT INTO pos_comandas (sesion_id, mesa_id, habitacion_id, estado, total, items_json, created_at)
+            VALUES (?, ?, ?, 'abierta', ?, ?, ?)
+        """, (sesion_id, mesa_id, habitacion_id, total, items_json, now))
+        comanda_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return comanda_id
+
+    @staticmethod
+    def get_comandas_by_mesa(mesa_id: int, solo_abiertas: bool = True) -> List[Dict]:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        if solo_abiertas:
+            cursor.execute("""
+                SELECT * FROM pos_comandas WHERE mesa_id = ? AND estado = 'abierta' ORDER BY created_at DESC
+            """, (mesa_id,))
+        else:
+            cursor.execute("""
+                SELECT * FROM pos_comandas WHERE mesa_id = ? ORDER BY created_at DESC
+            """, (mesa_id,))
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def get_comandas_by_habitacion(hab_id: int, solo_abiertas: bool = True) -> List[Dict]:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        if solo_abiertas:
+            cursor.execute("""
+                SELECT * FROM pos_comandas WHERE habitacion_id = ? AND estado = 'abierta' ORDER BY created_at DESC
+            """, (hab_id,))
+        else:
+            cursor.execute("""
+                SELECT * FROM pos_comandas WHERE habitacion_id = ? ORDER BY created_at DESC
+            """, (hab_id,))
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def cerrar_comanda(comanda_id: int) -> None:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        cursor.execute("UPDATE pos_comandas SET estado='cerrada', updated_at=? WHERE id=?", (now, comanda_id))
+        conn.commit()
+        conn.close()
+
     # ==================== RECETAS ====================
 
     @staticmethod
@@ -2001,7 +2081,7 @@ class LocalReplica:
         conn = get_local_conn()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT p.id, p.nombre, p.categoria_id, p.precio_venta, p.activo, p.es_contorno,
+            SELECT p.id, p.nombre, p.categoria_id, p.precio_venta, p.activo, p.es_contorno, p.lleva_contornos,
                    pc.nombre as categoria_nombre, pc.color as categoria_color
             FROM platos p
             LEFT JOIN platos_categorias pc ON p.categoria_id = pc.id
@@ -2017,7 +2097,7 @@ class LocalReplica:
         conn = get_local_conn()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT p.id, p.nombre, p.categoria_id, p.precio_venta, p.activo, p.es_contorno,
+            SELECT p.id, p.nombre, p.categoria_id, p.precio_venta, p.activo, p.es_contorno, p.lleva_contornos,
                    pc.nombre as categoria_nombre, pc.color as categoria_color
             FROM platos p
             LEFT JOIN platos_categorias pc ON p.categoria_id = pc.id
@@ -2056,7 +2136,7 @@ class LocalReplica:
         conn = get_local_conn()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT p.id, p.nombre, p.categoria_id, p.precio_venta,
+            SELECT p.id, p.nombre, p.categoria_id, p.precio_venta, p.lleva_contornos,
                    pc.nombre as categoria_nombre, pc.color as categoria_color
             FROM platos p
             INNER JOIN platos_categorias pc ON p.categoria_id = pc.id AND pc.activo = 1
@@ -2078,22 +2158,24 @@ class LocalReplica:
         if plato_id:
             cursor.execute("""
                 UPDATE platos SET nombre=?, categoria_id=?, precio_venta=?,
-                activo=?, es_contorno=?, updated_at=? WHERE id=?
+                activo=?, es_contorno=?, lleva_contornos=?, updated_at=? WHERE id=?
             """, (
                 plato.get('nombre'), plato.get('categoria_id'),
                 float(plato.get('precio_venta', 0)),
                 1 if plato.get('activo', True) else 0,
-                1 if plato.get('es_contorno', False) else 0, now, plato_id
+                1 if plato.get('es_contorno', False) else 0,
+                1 if plato.get('lleva_contornos', False) else 0, now, plato_id
             ))
         else:
             cursor.execute("""
-                INSERT INTO platos (nombre, categoria_id, precio_venta, activo, es_contorno, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO platos (nombre, categoria_id, precio_venta, activo, es_contorno, lleva_contornos, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 plato.get('nombre'), plato.get('categoria_id'),
                 float(plato.get('precio_venta', 0)),
                 1 if plato.get('activo', True) else 0,
-                1 if plato.get('es_contorno', False) else 0, now, now
+                1 if plato.get('es_contorno', False) else 0,
+                1 if plato.get('lleva_contornos', False) else 0, now, now
             ))
             plato_id = cursor.lastrowid
 
