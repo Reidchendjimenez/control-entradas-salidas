@@ -190,7 +190,8 @@ async def main(page: ft.Page):
             updates_usr = os.path.join(updates_dir, "usr")
             if os.path.exists(updates_usr):
                 import usr
-                usr.__path__ = [os.path.abspath(updates_usr)]
+                original_path = list(usr.__path__)
+                usr.__path__ = [os.path.abspath(updates_usr)] + original_path
                 # Forzar recarga de cualquier módulo de 'usr' ya cargado (evita caché viejo)
                 for key in list(sys.modules.keys()):
                     if key == "usr" or key.startswith("usr."):
