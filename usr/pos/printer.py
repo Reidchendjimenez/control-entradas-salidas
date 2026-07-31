@@ -31,6 +31,7 @@ _COMANDA_HEADER_DIRECCION = "comanda_header_direccion"
 _COMANDA_HEADER_TELEFONO = "comanda_header_telefono"
 _COMANDA_CORRELATIVO = "comanda_correlativo"
 _COMANDA_PIE_PAGINA = "comanda_pie_pagina"
+_COMANDA_HEADER_SIZE = "comanda_header_size"
 _COMANDA_QR_PATH = "comanda_qr_path"
 
 
@@ -150,6 +151,27 @@ def set_qr_path(path: str):
         LocalReplica.set_pos_setting(_COMANDA_QR_PATH, path)
     except Exception as e:
         logger.error(f"Error guardando ruta QR: {e}")
+
+
+def _get_header_size() -> str:
+    """Obtiene el tamaño del membrete: 'small', 'normal', 'large'."""
+    try:
+        from usr.database.local_replica import LocalReplica
+        val = LocalReplica.get_pos_setting(_COMANDA_HEADER_SIZE, 'large')
+        return val if val in ('small', 'normal', 'large') else 'large'
+    except Exception:
+        return 'large'
+
+
+def set_header_size(size: str):
+    """Guarda el tamaño del membrete: 'small', 'normal', 'large'."""
+    if size not in ('small', 'normal', 'large'):
+        size = 'large'
+    try:
+        from usr.database.local_replica import LocalReplica
+        LocalReplica.set_pos_setting(_COMANDA_HEADER_SIZE, size)
+    except Exception as e:
+        logger.error(f"Error guardando tamano del membrete: {e}")
 
 
 def _append_image(cmd: bytes, image_path: str, max_width: int = 384) -> bytes:
@@ -491,18 +513,28 @@ def _escpos_ticket(lines: list, total: float = None, comanda_id: int = None) -> 
     rif = (header.get('rif') or '').strip()
     direccion = (header.get('direccion') or '').strip()
     telefono = (header.get('telefono') or '').strip()
+    header_size = _get_header_size()
 
     cmd += b"\x1b\x61\x01"  # centrar
+    if header_size == 'small':
+        cmd += b"\x1b\x21\x01"  # font B (condensado)
+    elif header_size == 'normal':
+        cmd += b"\x1b\x21\x00"  # normal
     if nombre_empresa:
-        cmd += b"\x1b\x21\x30"  # doble altura + doble ancho
+        if header_size == 'large':
+            cmd += b"\x1b\x21\x30"  # doble altura + doble ancho
         cmd += f"{nombre_empresa}\n".encode()
         cmd += b"\x1b\x21\x00"  # reset char size
+    if header_size == 'small':
+        cmd += b"\x1b\x21\x01"
     if rif:
         cmd += f"RIF: {rif}\n".encode()
     if direccion:
         cmd += f"{direccion}\n".encode()
     if telefono:
         cmd += f"Tel: {telefono}\n".encode()
+    if header_size == 'small':
+        cmd += b"\x1b\x21\x00"
 
     # Correlativo
     if comanda_id is not None:

@@ -192,6 +192,15 @@ class ConfigPOSView(ft.Container):
             on_click=lambda _: self._on_clear_qr(),
         )
 
+        self._header_size_dd = ft.Dropdown(
+            label="Tamano del membrete",
+            options=[
+                ft.dropdown.Option("small", "Pequeño (condensado)"),
+                ft.dropdown.Option("normal", "Normal"),
+                ft.dropdown.Option("large", "Grande"),
+            ],
+            value="large", width=350,
+        )
         self._header_nombre_btn = ft.ElevatedButton(
             "Guardar membrete", icon=ft.Icons.SAVE_ROUNDED,
             bgcolor="#4CAF50", color=ft.Colors.WHITE,
@@ -218,6 +227,8 @@ class ConfigPOSView(ft.Container):
                 self._header_direccion, self._header_telefono,
             ], spacing=8),
             ft.Container(height=5),
+            self._header_size_dd,
+            ft.Container(height=5),
             self._header_nombre_btn,
             ft.Divider(height=1, color="#3D3D3D"),
             ft.Container(height=5),
@@ -243,12 +254,13 @@ class ConfigPOSView(ft.Container):
     def _load_header_config(self):
         """Carga la configuracion del membrete, correlativo, pie y QR."""
         try:
-            from usr.pos.printer import _get_comanda_header, get_correlativo_actual, _get_pie_pagina, _get_qr_path
+            from usr.pos.printer import _get_comanda_header, get_correlativo_actual, _get_pie_pagina, _get_qr_path, _get_header_size
             h = _get_comanda_header()
             self._header_nombre.value = h.get('nombre', '')
             self._header_rif.value = h.get('rif', '')
             self._header_direccion.value = h.get('direccion', '')
             self._header_telefono.value = h.get('telefono', '')
+            self._header_size_dd.value = _get_header_size()
             corr = get_correlativo_actual()
             self._correlativo_val.value = str(corr)
             self._correlativo_display.value = str(corr)
@@ -260,13 +272,14 @@ class ConfigPOSView(ft.Container):
     def _on_save_header(self):
         """Guarda la configuracion del membrete."""
         try:
-            from usr.pos.printer import set_comanda_header
+            from usr.pos.printer import set_comanda_header, set_header_size
             set_comanda_header(
                 nombre=self._header_nombre.value,
                 rif=self._header_rif.value,
                 direccion=self._header_direccion.value,
                 telefono=self._header_telefono.value,
             )
+            set_header_size(self._header_size_dd.value or 'large')
             if self.page:
                 snack = ft.SnackBar(
                     content=ft.Text("Membrete guardado"),

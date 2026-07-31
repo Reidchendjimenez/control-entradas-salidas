@@ -38,9 +38,15 @@ El sistema incluye un mecanismo de **apertura de periodos mensuales** para mante
 El sistema incluye un **módulo de ventas** que se compila y ejecuta como aplicación **independiente** del sistema principal:
 - **Entry point separado**: `main_pos.py` se compila como `Lycoris POS.exe` (mientras `main.py` sigue siendo `Lycoris Control.exe`).
 - **BD compartida**: Ambos módulos leen de la **misma BD SQLite** (`lycoris_local.db`), por lo que el POS ve productos, existencias y precios del inventario automáticamente.
-- **Sin login/sync/updates**: El POS NO requiere login de operador, NO sincroniza con Supabase y NO descarga actualizaciones — es totalmente local y arranca rápido.
 - **Login propio**: Tiene su propio sistema de **cajeros** (múltiples por dispositivo, con PIN opcional) registrado en `pos_usuarios` y `pos_sesiones`.
-- **Independiente del control**: Una venta en el POS generará un movimiento de `salida` en el inventario (cuando se implemente), pero sin disparar validaciones ni requisiciones.
+- **Sync separado del inventario**: El POS tiene su propio `POSSyncManager` (`usr/database/pos_sync.py`) que solo sincroniza las 8 tablas POS (`platos_categorias`, `platos`, `plato_ingredientes`, `plato_contornos`, `pos_mesas`, `pos_habitaciones`, `pos_usuarios`, `pos_settings`). El `SyncManager` principal ignora estas tablas.
+- **Impresora térmica**: Soporta auto-detección USB/serial/Windows (`win32print`), imprime comandas con membrete configurable (nombre, RIF, dirección, teléfono), correlativo auto-incremental, precio por plato, y pie de página personalizado con imagen QR de pago móvil (todo renderizado como raster ESC/POS).
+- **Configuración persistente**: Membrete, correlativo, pie de página y ruta QR se guardan en `pos_settings` y se sincronizan con Supabase para compartir entre dispositivos.
+
+**Compilación**:
+```bash
+pyinstaller --onefile --windowed --name "Lycoris POS" --add-data "assets:assets" main_pos.py
+```
 
 **Cómo compilar ambos .exe** (ejemplo con PyInstaller):
 ```bash
@@ -69,17 +75,25 @@ control-entradas-salidas/
 │   ├── whatsapp_notifier.py       # Envío de mensajes WhatsApp (incluye format_validation_message)
 │   │
 │   ├── pos/                       # Módulo POS (Point of Sale) — independiente
-│   │   ├── launcher.py            # Launcher simplificado del POS (sin login/sync)
+│   │   ├── launcher.py            # Launcher del POS (app_updates override, sync POS, icono)
 │   │   ├── data.py                # Acceso a productos y stock del inventario
+│   │   ├── printer.py             # Impresión ESC/POS: membrete, correlativo, prices, QR raster
+│   │   ├── comanda_view.py        # Vista de comandas (productos, cantidades, notas)
 │   │   └── views/
 │   │       ├── login.py           # Selección de cajero (con PIN opcional)
-│   │       └── home.py            # Vista principal del POS (logueado)
+│   │       ├── home.py            # Vista principal del POS (logueado)
+│   │       ├── comandas.py        # Gestión de comandas abiertas
+│   │       ├── config.py          # Config: usuarios, mesas, habitaciones, platos, impresora
+│   │       ├── mesas.py           # Vista de mesas (asignar comandas)
+│   │       ├── habitaciones.py    # Vista de habitaciones
+│   │       └── platos.py          # Vista de platos
 │   │
 │   ├── database/
 │   │   ├── conn.py                # Conexiones SQLite (local) y cache
 │   │   ├── base.py                # Engine SQLAlchemy, is_online(), get_db_adaptive()
 │   │   ├── local_replica.py        # Esquema SQLite, CREATE TABLE, recalculate_existencias()
-│   │   ├── sync.py                 # Sincronización bidireccional, migraciones remotas
+│   │   ├── sync.py                 # Sincronización bidireccional (solo inventario), migraciones
+│   │   ├── pos_sync.py             # Sync exclusivo para tablas POS (8 tablas, POSSyncManager)
 │   │   ├── sync_queue.py           # Cola de operaciones pendientes (offline)
 │   │   ├── sync_callbacks.py       # Callbacks de sync
 │   │   ├── archive.py              # Archivado de movimientos (local + Supabase) + checkpoint
@@ -250,7 +264,8 @@ Si se agregan nuevas dependencias en `requirements.txt`, se debe recompilar:
 - **Solo existe una cola activa**: `sync_queue`. La tabla `pending_operations` fue eliminada porque nunca se procesaba.
 - Al eliminar un movimiento via SQLAlchemy, también elimínalo del SQLite local raw si usas ambos sistemas.
 - `LocalReplica.save_movimiento()` ya no tiene lógica de sync propia. Delega al llamante (`registrar_movimiento` o `save_movimiento_with_sync`).
-- **Tablas que se sincronizan**: `categorias`, `productos`, `proveedores`, `existencias`, `movimientos`, `facturas`, `factura_pagos`, `requisiciones`, `requisicion_detalles`, `stock_checkpoint`, `periodos`.
+- **Tablas que sincroniza el SyncManager (inventario)**: `categorias`, `productos`, `proveedores`, `existencias`, `movimientos`, `facturas`, `factura_pagos`, `requisiciones`, `requisicion_detalles`, `stock_checkpoint`, `periodos`, `recetas`, `receta_componentes`.
+- **Tablas que sincroniza el POSSyncManager (POS)**: `platos_categorias`, `platos`, `plato_ingredientes`, `plato_contornos`, `pos_mesas`, `pos_habitaciones`, `pos_usuarios`, `pos_settings`. El `SyncManager` principal ignora estas tablas.
 - **`movimientos_archivo` NO se descarga** a los dispositivos. Se consulta directamente en Supabase cuando se necesita historial.
 - **Migraciones remotas**: Al descargar, `_download_all_from_server()` ejecuta `ALTER TABLE`/`CREATE TABLE` en Supabase para asegurar que las tablas tengan las columnas necesarias (ej: `requisicion_id` en `movimientos_archivo`, tabla `stock_checkpoint`, tabla `periodos`).
 
@@ -271,6 +286,15 @@ Si se agregan nuevas dependencias en `requirements.txt`, se debe recompilar:
 ---
 
 ## Historial de Cambios
+
+### Version 2.4.0 (Julio 2026)
+- ✨ **Sync separado POS/Inventario**: Nuevo `POSSyncManager` en `usr/database/pos_sync.py`. Las 8 tablas POS se sincronizan con su propio gestor, el `SyncManager` principal las ignora.
+- ✨ **Impresora con membrete y correlativo**: Ticket ESC/POS ahora incluye nombre empresa, RIF, dirección, teléfono (configurable desde pestaña Impresora), número de comanda auto-incremental y precio por plato.
+- ✨ **Pie de página + QR en ticket**: Texto configurable (C.I, teléfono, banco) e imagen QR de pago móvil renderizados lado a lado como una sola imagen raster ESC/POS (GS v 0) usando PIL.
+- ✨ **Sincronización de pos_settings**: Los settings de impresora (membrete, correlativo, pie, QR) se sincronizan con Supabase para compartir entre dispositivos POS.
+- ✨ **Detección de impresoras Windows**: Nuevo `_find_windows_printers()` usando `win32print.OpenPrinter`/`WritePrinter` para detectar colas de impresión del sistema.
+- 🔧 **Icono de ventana POS**: `page.assets_allow_override = True` y `page.window.icon` para el ejecutable.
+- 📦 **Dependencia**: `pywin32` agregado a `requirements.txt` con marcador `sys_platform == "win32"`.
 
 ### Version 2.3.0 (Julio 2026)
 - ✨ **Módulo POS (Point of Sale)**: Nuevo entry point `main_pos.py` compilable como `.exe` independiente. Comparte BD local con el inventario pero NO requiere login/sync/updates. Launcher simplificado en `usr/pos/launcher.py`.

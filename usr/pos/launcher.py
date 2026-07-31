@@ -23,10 +23,9 @@ async def main(page: ft.Page):
     page.bgcolor = "#121212"
     page.theme_mode = ft.ThemeMode.DARK
     page.assets_allow_override = True
-    try:
-        page.window.icon = _resource_path("assets/icono.ico")
-    except Exception:
-        pass
+    icon_path = _resource_path("assets/icono.ico")
+    if os.path.exists(icon_path):
+        page.window.icon = icon_path
 
     from usr.error_handler import set_page
     set_page(page)
@@ -52,13 +51,24 @@ async def main(page: ft.Page):
     app_dir = _get_app_dir()
     updates_dir = os.path.join(app_dir, "app_updates")
 
-    # Mostrar pantalla de carga
+    # Mostrar pantalla de carga con logo
+    logo_img = None
+    logo_path = _resource_path("assets/icon.png")
+    if os.path.exists(logo_path):
+        logo_img = ft.Image(
+            src=logo_path,
+            width=120, height=120,
+            fit=ft.ImageFit.CONTAIN,
+        )
     status_text = ft.Text("Iniciando...", size=14, color="#9E9E9E")
-    loading = ft.Column([
-        ft.ProgressRing(width=40, height=40, color="#4CAF50"),
-        ft.Container(height=20),
-        status_text,
-    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+    loading_items = []
+    if logo_img:
+        loading_items.append(logo_img)
+        loading_items.append(ft.Container(height=10))
+    loading_items.append(ft.ProgressRing(width=40, height=40, color="#4CAF50"))
+    loading_items.append(ft.Container(height=10))
+    loading_items.append(status_text)
+    loading = ft.Column(loading_items, horizontal_alignment=ft.CrossAxisAlignment.CENTER)
     page.add(loading)
     page.update()
 
