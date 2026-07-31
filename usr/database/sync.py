@@ -355,13 +355,6 @@ class SyncManager:
             ('periodos', 'periodos'),
             ('recetas', 'recetas'),
             ('receta_componentes', 'receta_componentes'),
-            ('platos_categorias', 'platos_categorias'),
-            ('platos', 'platos'),
-            ('plato_ingredientes', 'plato_ingredientes'),
-            ('plato_contornos', 'plato_contornos'),
-            ('pos_mesas', 'pos_mesas'),
-            ('pos_habitaciones', 'pos_habitaciones'),
-            ('pos_usuarios', 'pos_usuarios'),
         ]
         
         from sqlalchemy import create_engine
@@ -380,14 +373,6 @@ class SyncManager:
                 "CREATE TABLE IF NOT EXISTS movimientos_archivo (id INTEGER PRIMARY KEY, producto_id INTEGER NOT NULL, factura_id INTEGER, requisicion_id INTEGER, tipo TEXT NOT NULL, cantidad REAL NOT NULL, cantidad_anterior REAL DEFAULT 0, cantidad_nueva REAL DEFAULT 0, peso_total REAL DEFAULT 0, registrado_por TEXT, observaciones TEXT, almacen TEXT, fecha_movimiento TEXT, created_at TEXT)",
                 "CREATE TABLE IF NOT EXISTS stock_checkpoint (producto_id INTEGER NOT NULL, almacen TEXT NOT NULL, cantidad REAL DEFAULT 0, PRIMARY KEY (producto_id, almacen))",
                 "CREATE TABLE IF NOT EXISTS periodos (id SERIAL PRIMARY KEY, periodo TEXT NOT NULL UNIQUE, fecha_apertura TEXT NOT NULL, registrado_por TEXT)",
-                "CREATE TABLE IF NOT EXISTS platos_categorias (id SERIAL PRIMARY KEY, nombre TEXT NOT NULL, color TEXT DEFAULT '#FF6F00', activo INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT)",
-                "CREATE TABLE IF NOT EXISTS platos (id SERIAL PRIMARY KEY, nombre TEXT NOT NULL, categoria_id INTEGER NOT NULL, precio_venta REAL DEFAULT 0, activo INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT, es_contorno INTEGER DEFAULT 0, lleva_contornos INTEGER DEFAULT 0)",
-                "CREATE TABLE IF NOT EXISTS plato_ingredientes (id SERIAL PRIMARY KEY, plato_id INTEGER NOT NULL, producto_id INTEGER NOT NULL, cantidad REAL NOT NULL, unidad TEXT DEFAULT 'unidad')",
-                "CREATE TABLE IF NOT EXISTS plato_contornos (id SERIAL PRIMARY KEY, plato_id INTEGER NOT NULL, contorno_id INTEGER NOT NULL, max_seleccionar INTEGER DEFAULT 2)",
-                "CREATE TABLE IF NOT EXISTS pos_mesas (id SERIAL PRIMARY KEY, numero TEXT NOT NULL, nombre TEXT, zona TEXT, activo INTEGER DEFAULT 1, creado_en TEXT NOT NULL)",
-                "CREATE TABLE IF NOT EXISTS pos_habitaciones (id SERIAL PRIMARY KEY, numero TEXT NOT NULL, piso TEXT, tipo TEXT, activo INTEGER DEFAULT 1, creado_en TEXT NOT NULL)",
-                "CREATE TABLE IF NOT EXISTS pos_usuarios (id SERIAL PRIMARY KEY, nombre TEXT NOT NULL, pin_hash TEXT, es_admin INTEGER DEFAULT 0, activo INTEGER DEFAULT 1, creado_en TEXT NOT NULL)",
-                "CREATE TABLE IF NOT EXISTS pos_sesiones (id SERIAL PRIMARY KEY, usuario_id INTEGER NOT NULL, abierta_en TEXT NOT NULL, cerrada_en TEXT)",
             ]:
                 try:
                     conn.execute(text(migracion))
@@ -446,20 +431,7 @@ class SyncManager:
                         LocalReplica.save_recetas(data)
                     elif local_table == 'receta_componentes':
                         LocalReplica.save_receta_componentes(data)
-                    elif local_table == 'platos_categorias':
-                        LocalReplica.save_platos_categorias(data)
-                    elif local_table == 'platos':
-                        LocalReplica.save_platos(data)
-                    elif local_table == 'plato_ingredientes':
-                        LocalReplica.save_plato_ingredientes(data)
-                    elif local_table == 'plato_contornos':
-                        LocalReplica.save_plato_contornos_bulk(data)
-                    elif local_table == 'pos_mesas':
-                        LocalReplica.save_pos_mesas(data)
-                    elif local_table == 'pos_habitaciones':
-                        LocalReplica.save_pos_habitaciones(data)
-                    elif local_table == 'pos_usuarios':
-                        LocalReplica.save_pos_usuarios(data)
+
                     
                     self._log(f"[SYNC] {len(data)} {local_table} baixats")
 
@@ -534,6 +506,10 @@ class SyncManager:
         # Los movimientos se sincronizan via _upload_pending_movimientos (sincronizado=0),
         # excepto las eliminaciones que van por sync_queue con operation='delete'
         pending = [p for p in pending if not (p.get('table_name') == 'movimientos' and p.get('operation') != 'delete')]
+        # Las tablas POS las maneja POSSyncManager por separado
+        _POS_TABLES = {'pos_mesas','pos_habitaciones','pos_usuarios','pos_settings',
+                       'platos_categorias','platos','plato_ingredientes','plato_contornos'}
+        pending = [p for p in pending if p.get('table_name') not in _POS_TABLES]
         
         if pending:
             # Usar conexión a Supabase para subir datos
@@ -1030,187 +1006,6 @@ class SyncManager:
                         conn.commit()
                         queue.mark_completed(item['id'])
                         uploaded += 1
-                        self._log(f"[SYNC] Componente de receta sincronizado")
-
-                    elif table == 'platos_categorias':
-                        cid = data.get('id')
-                        vals = {
-                            'id': cid,
-                            'nombre': data.get('nombre', ''),
-                            'color': data.get('color', '#FF6F00'),
-                            'activo': 1 if data.get('activo', True) else 0,
-                            'created_at': data.get('created_at', data.get('updated_at')),
-                            'updated_at': data.get('updated_at'),
-                        }
-                        exists = cid and conn.execute(
-                            text("SELECT id FROM platos_categorias WHERE id = :id"), {'id': cid}
-                        ).fetchone()
-                        if exists:
-                            cols = ", ".join([f"{k} = :{k}" for k in ['nombre','color','activo','updated_at']])
-                            sql = text(f"UPDATE platos_categorias SET {cols} WHERE id = :id")
-                        else:
-                            cols = ", ".join(vals.keys())
-                            placeholders = ", ".join([f":{k}" for k in vals.keys()])
-                            sql = text(f"INSERT INTO platos_categorias ({cols}) VALUES ({placeholders})")
-                        conn.execute(sql, vals)
-                        conn.commit()
-                        queue.mark_completed(item['id'])
-                        uploaded += 1
-                        self._log(f"[SYNC] Categoría de plato sincronizada")
-
-                    elif table == 'platos':
-                        pid = data.get('id')
-                        vals = {
-                            'id': pid,
-                            'nombre': data.get('nombre', ''),
-                            'categoria_id': data.get('categoria_id'),
-                            'precio_venta': float(data.get('precio_venta', 0)),
-                            'activo': 1 if data.get('activo', True) else 0,
-                            'es_contorno': 1 if data.get('es_contorno', False) else 0,
-                            'lleva_contornos': 1 if data.get('lleva_contornos', False) else 0,
-                            'created_at': data.get('created_at', data.get('updated_at')),
-                            'updated_at': data.get('updated_at'),
-                        }
-                        exists = pid and conn.execute(
-                            text("SELECT id FROM platos WHERE id = :id"), {'id': pid}
-                        ).fetchone()
-                        if exists:
-                            cols = ", ".join([f"{k} = :{k}" for k in ['nombre','categoria_id','precio_venta','activo','es_contorno','lleva_contornos','updated_at']])
-                            sql = text(f"UPDATE platos SET {cols} WHERE id = :id")
-                        else:
-                            cols = ", ".join(vals.keys())
-                            placeholders = ", ".join([f":{k}" for k in vals.keys()])
-                            sql = text(f"INSERT INTO platos ({cols}) VALUES ({placeholders})")
-                        conn.execute(sql, vals)
-                        conn.commit()
-                        queue.mark_completed(item['id'])
-                        uploaded += 1
-                        self._log(f"[SYNC] Plato sincronizado")
-
-                    elif table == 'plato_ingredientes':
-                        iid = data.get('id')
-                        vals = {
-                            'plato_id': data.get('plato_id'),
-                            'producto_id': data.get('producto_id'),
-                            'cantidad': float(data.get('cantidad', 1)),
-                            'unidad': data.get('unidad', 'unidad'),
-                        }
-                        if iid:
-                            cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
-                            sql = text(f"UPDATE plato_ingredientes SET {cols} WHERE id = :id")
-                            vals['id'] = iid
-                        else:
-                            cols = ", ".join(vals.keys())
-                            placeholders = ", ".join([f":{k}" for k in vals.keys()])
-                            sql = text(f"INSERT INTO plato_ingredientes ({cols}) VALUES ({placeholders})")
-                        conn.execute(sql, vals)
-                        conn.commit()
-                        queue.mark_completed(item['id'])
-                        uploaded += 1
-                        self._log(f"[SYNC] Ingrediente de plato sincronizado")
-
-                    elif table == 'plato_contornos':
-                        pcid = data.get('id')
-                        vals = {
-                            'plato_id': data.get('plato_id'),
-                            'contorno_id': data.get('contorno_id'),
-                            'max_seleccionar': data.get('max_seleccionar', 2),
-                        }
-                        if pcid:
-                            cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
-                            sql = text(f"UPDATE plato_contornos SET {cols} WHERE id = :id")
-                            vals['id'] = pcid
-                        else:
-                            cols = ", ".join(vals.keys())
-                            placeholders = ", ".join([f":{k}" for k in vals.keys()])
-                            sql = text(f"INSERT INTO plato_contornos ({cols}) VALUES ({placeholders})")
-                        conn.execute(sql, vals)
-                        conn.commit()
-                        queue.mark_completed(item['id'])
-                        uploaded += 1
-                        self._log(f"[SYNC] Relación plato-contorno sincronizada")
-
-                    elif table == 'pos_mesas':
-                        mid = data.get('id')
-                        vals = {
-                            'id': mid,
-                            'numero': data.get('numero', ''),
-                            'nombre': data.get('nombre'),
-                            'zona': data.get('zona'),
-                            'activo': 1 if data.get('activo', True) else 0,
-                            'creado_en': data.get('creado_en', datetime.now().isoformat()),
-                        }
-                        exists = mid and conn.execute(
-                            text("SELECT id FROM pos_mesas WHERE id = :id"), {'id': mid}
-                        ).fetchone()
-                        if exists:
-                            cols = ", ".join([f"{k} = :{k}" for k in ['numero','nombre','zona','activo']])
-                            sql = text(f"UPDATE pos_mesas SET {cols} WHERE id = :id")
-                            conn.execute(sql, vals)
-                        else:
-                            cols = ", ".join(vals.keys())
-                            placeholders = ", ".join([f":{k}" for k in vals.keys()])
-                            sql = text(f"INSERT INTO pos_mesas ({cols}) VALUES ({placeholders})")
-                            conn.execute(sql, vals)
-                        conn.commit()
-                        queue.mark_completed(item['id'])
-                        uploaded += 1
-                        self._log(f"[SYNC] Mesa sincronizada")
-
-                    elif table == 'pos_habitaciones':
-                        hid = data.get('id')
-                        vals = {
-                            'id': hid,
-                            'numero': data.get('numero', ''),
-                            'piso': data.get('piso'),
-                            'tipo': data.get('tipo'),
-                            'activo': 1 if data.get('activo', True) else 0,
-                            'creado_en': data.get('creado_en', datetime.now().isoformat()),
-                        }
-                        exists = hid and conn.execute(
-                            text("SELECT id FROM pos_habitaciones WHERE id = :id"), {'id': hid}
-                        ).fetchone()
-                        if exists:
-                            cols = ", ".join([f"{k} = :{k}" for k in ['numero','piso','tipo','activo']])
-                            sql = text(f"UPDATE pos_habitaciones SET {cols} WHERE id = :id")
-                            conn.execute(sql, vals)
-                        else:
-                            cols = ", ".join(vals.keys())
-                            placeholders = ", ".join([f":{k}" for k in vals.keys()])
-                            sql = text(f"INSERT INTO pos_habitaciones ({cols}) VALUES ({placeholders})")
-                            conn.execute(sql, vals)
-                        conn.commit()
-                        queue.mark_completed(item['id'])
-                        uploaded += 1
-                        self._log(f"[SYNC] Habitación sincronizada")
-
-                    elif table == 'pos_usuarios':
-                        uid = data.get('id')
-                        vals = {
-                            'id': uid,
-                            'nombre': data.get('nombre', ''),
-                            'pin_hash': data.get('pin_hash'),
-                            'es_admin': 1 if data.get('es_admin', False) else 0,
-                            'activo': 1 if data.get('activo', True) else 0,
-                            'creado_en': data.get('creado_en', datetime.now().isoformat()),
-                        }
-                        exists = uid and conn.execute(
-                            text("SELECT id FROM pos_usuarios WHERE id = :id"), {'id': uid}
-                        ).fetchone()
-                        if exists:
-                            cols = ", ".join([f"{k} = :{k}" for k in ['nombre','pin_hash','es_admin','activo']])
-                            sql = text(f"UPDATE pos_usuarios SET {cols} WHERE id = :id")
-                            conn.execute(sql, vals)
-                        else:
-                            cols = ", ".join(vals.keys())
-                            placeholders = ", ".join([f":{k}" for k in vals.keys()])
-                            sql = text(f"INSERT INTO pos_usuarios ({cols}) VALUES ({placeholders})")
-                            conn.execute(sql, vals)
-                        conn.commit()
-                        queue.mark_completed(item['id'])
-                        uploaded += 1
-                        self._log(f"[SYNC] Usuario POS sincronizado")
-
                 except Exception as e:
                     try:
                         conn.rollback()  # Reset transacción para que el siguiente item funcione

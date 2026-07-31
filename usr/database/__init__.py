@@ -12,6 +12,9 @@ from .sync import (
     save_movimiento_with_sync, recalculate_local_stock,
     get_pending_movimientos_count
 )
+from .pos_sync import (
+    POSSyncManager, init_pos_sync_manager, get_pos_sync_manager,
+)
 
 Base = get_base()
 SessionLocal = get_session()
@@ -25,5 +28,6 @@ __all__ = [
     'LocalReplica', 'SyncQueue', 'get_sync_queue',
     'SyncManager', 'init_sync_manager', 'get_sync_manager',
     'save_movimiento_with_sync', 'recalculate_local_stock',
-    'get_pending_movimientos_count'
+    'get_pending_movimientos_count',
+    'POSSyncManager', 'init_pos_sync_manager', 'get_pos_sync_manager',
 ]

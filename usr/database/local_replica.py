@@ -1915,8 +1915,9 @@ class LocalReplica:
         return row['value'] if row else default
 
     @staticmethod
-    def set_pos_setting(key: str, value: str) -> None:
-        """Guarda un setting de POS."""
+    def set_pos_setting(key: str, value: str, sync: bool = True) -> None:
+        """Guarda un setting de POS.
+        Si sync=True, lo encola para subir a Supabase."""
         conn = get_local_conn()
         cursor = conn.cursor()
         cursor.execute("""
@@ -1925,6 +1926,11 @@ class LocalReplica:
         """, (key, value))
         conn.commit()
         conn.close()
+        if sync:
+            try:
+                get_sync_queue().add_pending('pos_settings', 'upsert', {'key': key, 'value': value})
+            except Exception:
+                pass
 
     # ==================== RECETAS ====================
 

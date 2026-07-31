@@ -110,12 +110,12 @@ async def main(page: ft.Page):
     except Exception as e:
         print(f"[POS] Error ensure_local_db: {e}")
 
-    # Sincronizar datos desde Supabase al iniciar POS
+    # Sincronizar datos POS desde Supabase (independiente del sync de inventario)
     try:
-        from usr.database.sync import init_sync_manager, get_sync_manager
         from usr.database.base import get_engine
-        init_sync_manager(get_engine)
-        sm = get_sync_manager()
+        from usr.database.pos_sync import init_pos_sync_manager, get_pos_sync_manager
+        init_pos_sync_manager(get_engine)
+        sm = get_pos_sync_manager()
         if sm and sm.check_connection():
             sm.full_sync()
             print("[POS] Sync completado")

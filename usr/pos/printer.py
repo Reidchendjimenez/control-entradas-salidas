@@ -30,6 +30,8 @@ _COMANDA_HEADER_RIF = "comanda_header_rif"
 _COMANDA_HEADER_DIRECCION = "comanda_header_direccion"
 _COMANDA_HEADER_TELEFONO = "comanda_header_telefono"
 _COMANDA_CORRELATIVO = "comanda_correlativo"
+_COMANDA_PIE_PAGINA = "comanda_pie_pagina"
+_COMANDA_QR_PATH = "comanda_qr_path"
 
 
 def _get_configured_device():
@@ -112,6 +114,179 @@ def get_correlativo_actual() -> int:
             return 0
     except Exception:
         return 0
+
+
+def _get_pie_pagina() -> str:
+    """Obtiene el texto del pie de pagina del ticket."""
+    try:
+        from usr.database.local_replica import LocalReplica
+        return LocalReplica.get_pos_setting(_COMANDA_PIE_PAGINA, '') or ''
+    except Exception:
+        return ''
+
+
+def set_pie_pagina(texto: str):
+    """Guarda el texto del pie de pagina del ticket."""
+    try:
+        from usr.database.local_replica import LocalReplica
+        LocalReplica.set_pos_setting(_COMANDA_PIE_PAGINA, texto)
+    except Exception as e:
+        logger.error(f"Error guardando pie de pagina: {e}")
+
+
+def _get_qr_path() -> str:
+    """Obtiene la ruta de la imagen QR para el ticket."""
+    try:
+        from usr.database.local_replica import LocalReplica
+        return LocalReplica.get_pos_setting(_COMANDA_QR_PATH, '') or ''
+    except Exception:
+        return ''
+
+
+def set_qr_path(path: str):
+    """Guarda la ruta de la imagen QR para el ticket."""
+    try:
+        from usr.database.local_replica import LocalReplica
+        LocalReplica.set_pos_setting(_COMANDA_QR_PATH, path)
+    except Exception as e:
+        logger.error(f"Error guardando ruta QR: {e}")
+
+
+def _append_image(cmd: bytes, image_path: str, max_width: int = 384) -> bytes:
+    """Agrega comandos ESC/POS para imprimir una imagen.
+    Retorna los bytes actualizados. Si falla, retorna cmd sin cambios."""
+    try:
+        from PIL import Image
+        img = Image.open(image_path)
+        if img.mode == 'RGBA':
+            bg = Image.new('RGB', img.size, (255, 255, 255))
+            bg.paste(img, mask=img.split()[3])
+            img = bg
+        if img.mode != '1':
+            img = img.convert('1', dither=Image.NONE)
+        w, h = img.size
+        if w > max_width:
+            ratio = max_width / w
+            w = max_width
+            h = int(h * ratio)
+            img = img.resize((w, h), Image.LANCZOS)
+        cmd = _append_raster(cmd, img)
+    except Exception as e:
+        logger.error(f"Error agregando imagen al ticket: {e}")
+    return cmd
+
+
+def _append_raster(cmd: bytes, img) -> bytes:
+    """Agrega comandos ESC/POS raster (GS v 0) para una imagen PIL en modo '1'.
+    Retorna cmd actualizado."""
+    w, h = img.size
+    xL = w & 0xFF
+    xH = (w >> 8) & 0xFF
+    yL = h & 0xFF
+    yH = (h >> 8) & 0xFF
+    cmd += b"\x1d\x76\x30\x00"
+    cmd += bytes([xL, xH, yL, yH])
+    for y in range(h):
+        row = b""
+        for x in range(0, w, 8):
+            byte_val = 0
+            for bit in range(8):
+                if x + bit < w:
+                    pixel = img.getpixel((x + bit, y))
+                    if pixel == 0:
+                        byte_val |= (1 << (7 - bit))
+            row += bytes([byte_val])
+        cmd += row
+    return cmd
+
+
+def _append_footer(cmd: bytes) -> bytes:
+    """Renderiza texto del pie de pagina + QR lado a lado como una sola imagen raster.
+    Si no hay ni texto ni QR, retorna cmd sin cambios."""
+    pie = _get_pie_pagina()
+    qr_path = _get_qr_path()
+    if not pie and not qr_path:
+        return cmd
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        import os
+
+        # Cargar QR
+        qr_img = None
+        qr_w = qr_h = 0
+        if qr_path and os.path.exists(qr_path):
+            qr_img = Image.open(qr_path)
+            if qr_img.mode == 'RGBA':
+                bg = Image.new('RGB', qr_img.size, (255, 255, 255))
+                bg.paste(qr_img, mask=qr_img.split()[3])
+                qr_img = bg
+            qr_img = qr_img.convert('1', dither=Image.NONE)
+            qr_max = 180
+            if qr_img.width > qr_max:
+                r = qr_max / qr_img.width
+                qr_w = qr_max
+                qr_h = int(qr_img.height * r)
+                qr_img = qr_img.resize((qr_w, qr_h), Image.LANCZOS)
+            else:
+                qr_w, qr_h = qr_img.size
+
+        # Preparar texto
+        lines = pie.split('\n') if pie else []
+        font_size = 22
+        try:
+            font = ImageFont.truetype("DejaVuSansMono.ttf", font_size)
+        except Exception:
+            font = ImageFont.load_default()
+        margin = 8
+        spacing = 12
+        text_w = 0
+        line_h = font_size + 4
+        for line in lines:
+            bbox = font.getbbox(line)
+            text_w = max(text_w, bbox[2] - bbox[0])
+        text_h = len(lines) * line_h + margin * 2
+
+        # Dimensiones del composite
+        total_w = text_w + spacing + qr_w + margin * 3 if qr_img else text_w + margin * 2
+        composite_h = max(text_h, qr_h) + margin * 2 if qr_img else text_h
+
+        # Limitar al ancho maximo de impresion
+        max_w = 384
+        if total_w > max_w:
+            scale = max_w / total_w
+            total_w = max_w
+            text_w = int(text_w * scale)
+            qr_w = int(qr_w * scale)
+            qr_h = int(qr_h * scale)
+            if qr_img:
+                qr_img = qr_img.resize((qr_w, qr_h), Image.LANCZOS)
+            font_size = max(10, int(font_size * scale))
+            try:
+                font = ImageFont.truetype("DejaVuSansMono.ttf", font_size)
+            except Exception:
+                font = ImageFont.load_default()
+            line_h = font_size + 4
+            text_h = len(lines) * line_h + margin * 2
+
+        composite = Image.new('1', (total_w, composite_h), 255)
+        draw = ImageDraw.Draw(composite)
+
+        # Texto a la izquierda
+        y = (composite_h - text_h) // 2
+        for line in lines:
+            draw.text((margin, y), line, font=font, fill=0)
+            y += line_h
+
+        # QR a la derecha
+        if qr_img:
+            qr_x = total_w - qr_w - margin
+            qr_y = (composite_h - qr_h) // 2
+            composite.paste(qr_img, (qr_x, qr_y))
+
+        cmd = _append_raster(cmd, composite)
+    except Exception as e:
+        logger.error(f"Error renderizando footer compuesto: {e}")
+    return cmd
 
 
 def _find_usb_printers():
@@ -371,6 +546,9 @@ def _escpos_ticket(lines: list, total: float = None, comanda_id: int = None) -> 
         cmd += f"TOTAL: ${total:.2f}\n".encode()
         cmd += b"\x1b\x45\x00"
         cmd += b"\x1b\x61\x00"
+
+    # --- Pie de pagina + QR (lado a lado como imagen raster) ---
+    cmd = _append_footer(cmd)
 
     cmd += b"\n"
     cmd += b"\x1b\x64\x04"  # Avanzar 4 lineas

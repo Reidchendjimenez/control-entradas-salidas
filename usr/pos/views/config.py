@@ -162,6 +162,36 @@ class ConfigPOSView(ft.Container):
             ),
         ], vertical_alignment=ft.CrossAxisAlignment.CENTER)
 
+        # Pie de pagina
+        self._pie_pagina_field = ft.TextField(
+            label="Texto del pie de pagina",
+            multiline=True, min_lines=2, max_lines=4,
+            width=400,
+            hint_text="C.I 10.928.040\nTLF 0424-9517174\nBANCO PROVINCIAL (0108)",
+        )
+        self._pie_pagina_btn = ft.ElevatedButton(
+            "Guardar pie de pagina", icon=ft.Icons.SAVE_ROUNDED,
+            bgcolor="#4CAF50", color=ft.Colors.WHITE,
+            on_click=lambda _: self._on_save_pie_pagina(),
+        )
+        # QR
+        self._qr_path_field = ft.TextField(
+            label="Ruta de la imagen QR (pago movil)",
+            width=400,
+            read_only=True,
+            hint_text="Seleccione una imagen...",
+        )
+        self._qr_select_btn = ft.ElevatedButton(
+            "Seleccionar imagen QR", icon=ft.Icons.IMAGE_ROUNDED,
+            bgcolor="#1E88E5", color=ft.Colors.WHITE,
+            on_click=lambda _: self._on_select_qr(),
+        )
+        self._qr_clear_btn = ft.ElevatedButton(
+            "Quitar QR", icon=ft.Icons.DELETE_ROUNDED,
+            bgcolor="#EF5350", color=ft.Colors.WHITE,
+            on_click=lambda _: self._on_clear_qr(),
+        )
+
         self._header_nombre_btn = ft.ElevatedButton(
             "Guardar membrete", icon=ft.Icons.SAVE_ROUNDED,
             bgcolor="#4CAF50", color=ft.Colors.WHITE,
@@ -194,6 +224,16 @@ class ConfigPOSView(ft.Container):
             ft.Text("CORRELATIVO DE COMANDAS", size=14, weight=ft.FontWeight.BOLD, color="#BB86FC"),
             ft.Container(height=5),
             correlativo_row,
+            ft.Divider(height=1, color="#3D3D3D"),
+            ft.Container(height=5),
+            ft.Text("PIE DE PAGINA", size=14, weight=ft.FontWeight.BOLD, color="#BB86FC"),
+            ft.Container(height=5),
+            self._pie_pagina_field,
+            self._pie_pagina_btn,
+            ft.Container(height=5),
+            self._qr_path_field,
+            self._qr_select_btn,
+            self._qr_clear_btn,
         ], expand=True, scroll=ft.ScrollMode.AUTO)
 
         self._load_printer_list()
@@ -201,9 +241,9 @@ class ConfigPOSView(ft.Container):
         return content
 
     def _load_header_config(self):
-        """Carga la configuracion del membrete y correlativo."""
+        """Carga la configuracion del membrete, correlativo, pie y QR."""
         try:
-            from usr.pos.printer import _get_comanda_header, get_correlativo_actual
+            from usr.pos.printer import _get_comanda_header, get_correlativo_actual, _get_pie_pagina, _get_qr_path
             h = _get_comanda_header()
             self._header_nombre.value = h.get('nombre', '')
             self._header_rif.value = h.get('rif', '')
@@ -212,6 +252,8 @@ class ConfigPOSView(ft.Container):
             corr = get_correlativo_actual()
             self._correlativo_val.value = str(corr)
             self._correlativo_display.value = str(corr)
+            self._pie_pagina_field.value = _get_pie_pagina()
+            self._qr_path_field.value = _get_qr_path()
         except Exception as e:
             print(f"[POS CONFIG] Error cargando membrete: {e}")
 
@@ -359,14 +401,73 @@ class ConfigPOSView(ft.Container):
                 snack.open = True
                 self.page.update()
 
+    def _on_save_pie_pagina(self):
+        """Guarda el texto del pie de pagina."""
+        try:
+            from usr.pos.printer import set_pie_pagina
+            set_pie_pagina(self._pie_pagina_field.value or '')
+            if self.page:
+                snack = ft.SnackBar(
+                    content=ft.Text("Pie de pagina guardado"),
+                    bgcolor=ft.Colors.GREEN_600, duration=1500,
+                )
+                self.page.overlay.append(snack)
+                snack.open = True
+                self.page.update()
+        except Exception as e:
+            print(f"[POS CONFIG] Error guardando pie de pagina: {e}")
+
+    def _ensure_file_picker(self):
+        if not hasattr(self, '_file_picker') or not self._file_picker:
+            self._file_picker = ft.FilePicker(on_result=self._on_qr_selected)
+            if self.page:
+                self.page.overlay.append(self._file_picker)
+                self.page.update()
+
+    def _on_select_qr(self):
+        self._ensure_file_picker()
+        if self._file_picker:
+            self._file_picker.pick_files(
+                allow_multiple=False,
+                allowed_extensions=['png', 'jpg', 'jpeg', 'bmp'],
+            )
+
+    def _on_qr_selected(self, e: ft.FilePickerResultEvent):
+        if e.files and len(e.files) > 0:
+            path = e.files[0].path
+            self._qr_path_field.value = path
+            try:
+                from usr.pos.printer import set_qr_path
+                set_qr_path(path)
+            except Exception as ex:
+                print(f"[POS CONFIG] Error guardando ruta QR: {ex}")
+            if self.page:
+                snack = ft.SnackBar(
+                    content=ft.Text("QR configurado"),
+                    bgcolor=ft.Colors.GREEN_600, duration=1500,
+                )
+                self.page.overlay.append(snack)
+                snack.open = True
+                self.page.update()
+
+    def _on_clear_qr(self):
+        self._qr_path_field.value = ''
+        try:
+            from usr.pos.printer import set_qr_path
+            set_qr_path('')
+        except Exception as e:
+            print(f"[POS CONFIG] Error limpiando QR: {e}")
+        if self.page:
+            self.page.update()
+
     def _on_refresh(self):
         """Fuerza sync con Supabase y recarga todos los datos POS."""
         try:
             from usr.database.base import is_online as base_is_online
-            from usr.database import get_sync_manager
+            from usr.database.pos_sync import get_pos_sync_manager
             online = base_is_online()
             if online:
-                sync_mgr = get_sync_manager()
+                sync_mgr = get_pos_sync_manager()
                 if sync_mgr:
                     sync_mgr.force_sync_now()
         except Exception as e:
