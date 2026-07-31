@@ -300,7 +300,8 @@ class InventarioView(ft.Container):
                         cats_data = [
                             {"id": c.id, "nombre": c.nombre, "color": c.color,
                              "descripcion": c.descripcion, "imagen": c.imagen,
-                             "activo": c.activo, "created_at": str(c.created_at) if c.created_at else None,
+                             "activo": c.activo, "visible_en_pos": 1 if c.visible_en_pos else 0,
+                             "created_at": str(c.created_at) if c.created_at else None,
                              "updated_at": str(c.updated_at) if c.updated_at else None}
                             for c in categorias
                         ]

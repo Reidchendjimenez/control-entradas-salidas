@@ -595,6 +595,12 @@ class LocalReplica:
         cursor = conn.cursor()
         
         for cat in categorias:
+            visible_pos = cat.get('visible_en_pos', True)
+            if 'visible_en_pos' not in cat and cat.get('id') is not None:
+                cursor.execute("SELECT visible_en_pos FROM categorias WHERE id = ?", (cat.get('id'),))
+                row = cursor.fetchone()
+                if row:
+                    visible_pos = row[0]
             cursor.execute("""
                 INSERT OR REPLACE INTO categorias 
                 (id, nombre, descripcion, imagen, color, activo, visible_en_pos, created_at, updated_at)
@@ -603,7 +609,7 @@ class LocalReplica:
                 cat.get('id'), cat.get('nombre'), cat.get('descripcion'),
                 cat.get('imagen'), cat.get('color', '#2196F3'),
                 1 if cat.get('activo', True) else 0,
-                1 if cat.get('visible_en_pos', True) else 0,
+                1 if visible_pos else 0,
                 cat.get('created_at'), cat.get('updated_at')
             ))
         

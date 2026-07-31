@@ -176,6 +176,7 @@ class POSSyncManager:
     def _process_sync_queue(self):
         from .sync_queue import get_sync_queue
         queue = get_sync_queue()
+        queue.init_queue()
 
         pending = queue.get_pending()
         pending = [p for p in pending if p.get('table_name') in {t[0] for t in _POS_TABLES}]
