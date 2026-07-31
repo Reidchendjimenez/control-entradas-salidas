@@ -568,7 +568,9 @@ class ComandaPedidoView(ft.Container):
                 sesion_id=self.sesion_id, items=items_data, total=total,
                 mesa_id=mesa_id, habitacion_id=hab_id,
             )
-            self._show_snack(f"Comanda #{comanda_id} guardada", color="#4CAF50")
+            if self.on_back:
+                self.on_back()
+            self._show_snack("Comanda guardada", color="#4CAF50")
         except Exception as ex:
             import traceback as tb
             tb.print_exc()
