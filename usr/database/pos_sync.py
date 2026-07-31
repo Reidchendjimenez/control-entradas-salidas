@@ -148,7 +148,24 @@ class POSSyncManager:
                         LocalReplica.save_pos_usuarios(data)
                         LocalReplica.delete_orphaned_records('pos_usuarios', remote_ids)
                     elif local_table == 'pos_settings':
+                        pending_keys = set()
+                        try:
+                            from usr.database.conn import get_local_conn
+                            lconn = get_local_conn()
+                            rows = lconn.execute(
+                                "SELECT data FROM sync_queue WHERE table_name = 'pos_settings' AND status = 'pending'"
+                            ).fetchall()
+                            lconn.close()
+                            for r in rows:
+                                try:
+                                    pending_keys.add(json.loads(r['data']).get('key'))
+                                except Exception:
+                                    pass
+                        except Exception:
+                            pass
                         for row in data:
+                            if row.get('key') in pending_keys:
+                                continue
                             LocalReplica.set_pos_setting(row['key'], row['value'], sync=False)
                     elif local_table == 'pos_comandas':
                         LocalReplica.save_comandas_sync(data)
@@ -165,6 +182,7 @@ class POSSyncManager:
                 data = [dict_to_serializable(dict(row._mapping)) for row in rows]
                 LocalReplica.save_movimientos(data)
                 LocalReplica.relink_ventas_movimientos()
+                LocalReplica.recalculate_existencias()
                 self._log(f"{len(data)} movimientos descargados")
             except Exception as e:
                 self._log(f"Error descargando movimientos: {e}")

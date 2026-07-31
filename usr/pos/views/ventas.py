@@ -108,7 +108,8 @@ class VentasView(ft.Container):
         if vigente:
             actions.append(ft.IconButton(
                 icon=ft.Icons.UNDO_ROUNDED, icon_color="#EF5350",
-                tooltip="Anular venta", on_click=lambda _, v=venta: self._anular_venta(v),
+                tooltip="Anular venta",
+                on_click=lambda e, v=venta: self._anular_venta(e, v),
             ))
 
         return ft.Container(
@@ -142,13 +143,153 @@ class VentasView(ft.Container):
             border=ft.border.all(1, "#3D3D3D"),
             border_radius=12,
             padding=ft.padding.symmetric(horizontal=14, vertical=10),
+            on_click=lambda _, v=venta: self._ver_detalle(v),
+        )
+
+    def _ver_detalle(self, venta: dict):
+        correlativo = venta.get('correlativo')
+        numero = f"{correlativo:05d}" if correlativo is not None else f"#{venta.get('comanda_id', '?')}"
+        vigente = venta.get('estado') == 'vigente'
+        fecha = (venta.get('created_at') or '').replace('T', ' ')[:19]
+        total = float(venta.get('total', 0) or 0)
+
+        mesas = {m['id']: m for m in LocalReplica.get_pos_mesas()}
+        habs = {h['id']: h for h in LocalReplica.get_pos_habitaciones()}
+        lugar = "Sin mesa"
+        if venta.get('mesa_id'):
+            m = mesas.get(venta['mesa_id'])
+            if m:
+                lugar = f"Mesa {m.get('numero', '?')}"
+        elif venta.get('habitacion_id'):
+            h = habs.get(venta['habitacion_id'])
+            if h:
+                lugar = f"Habitacion {h.get('numero', '?')}"
+
+        vendedor = None
+        if venta.get('usuario_id'):
+            u = LocalReplica.get_pos_usuario(venta['usuario_id'])
+            if u:
+                vendedor = u.get('nombre') or f"#{venta['usuario_id']}"
+
+        filas_info = [
+            ("Fecha", fecha),
+            ("Vendedor", vendedor or "-"),
+            ("Mesa / Hab.", lugar),
+        ]
+        if venta.get('venta_anula_id'):
+            cv = LocalReplica.get_venta_by_id(venta['venta_anula_id'])
+            if cv and cv.get('correlativo') is not None:
+                filas_info.append(("Corrige a", f"#{cv['correlativo']:05d}"))
+
+        info_rows = []
+        for label, value in filas_info:
+            info_rows.append(ft.Row([
+                ft.Text(label, size=11, color="#9E9E9E", width=110),
+                ft.Text(value, size=13, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE, expand=True),
+            ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER))
+
+        item_rows = []
+        for it in venta.get('items', []):
+            nombre = it.get('nombre') or f"Producto #{it.get('id')}"
+            cantidad = it.get('cantidad', 1)
+            precio = float(it.get('precio', 0) or 0)
+            contornos = it.get('contornos') or []
+            item_rows.append(ft.Column([
+                ft.Row([
+                    ft.Text(nombre, size=13, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE, expand=True),
+                    ft.Text(f"x{cantidad}", size=12, color="#9E9E9E"),
+                    ft.Text(f"$ {precio * cantidad:.2f}", size=13, weight=ft.FontWeight.BOLD, color="#4CAF50"),
+                ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            ] + ([
+                ft.Text(" + " + ", ".join(contornos), size=11, color="#FFB74D")
+            ] if contornos else []), spacing=2))
+
+        estado_badge = ft.Container(
+            content=ft.Text("VIGENTE" if vigente else "ANULADA",
+                            size=10, weight=ft.FontWeight.BOLD,
+                            color="#4CAF50" if vigente else "#EF5350"),
+            bgcolor="#1B5E20" if vigente else "#B71C1C",
+            border_radius=10, padding=ft.padding.symmetric(horizontal=10, vertical=3),
+        )
+
+        total_bs_text = ft.Container()
+        if venta.get('tasa_bs'):
+            from usr.pos.tasa_cambio import formatear_bs
+            total_bs_text = ft.Text(
+                f"Bs {formatear_bs(total * float(venta['tasa_bs']))}",
+                size=14, weight=ft.FontWeight.BOLD, color="#26A69A")
+
+        anulacion_rows = []
+        if not vigente:
+            anulacion_rows = [
+                ft.Container(height=10),
+                ft.Divider(color="#3D3D3D"),
+                ft.Text("ANULACION", size=11, weight=ft.FontWeight.BOLD, color="#EF5350"),
+                ft.Row([ft.Text("Motivo", size=11, color="#9E9E9E", width=110),
+                        ft.Text(venta.get('motivo_anulacion') or "-", size=13, color=ft.Colors.WHITE, expand=True)],
+                       spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                ft.Row([ft.Text("Anulada por", size=11, color="#9E9E9E", width=110),
+                        ft.Text(venta.get('anulada_por') or "-", size=13, color=ft.Colors.WHITE, expand=True)],
+                       spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            ]
+            if venta.get('anulada_en'):
+                anulacion_rows.append(ft.Row([
+                    ft.Text("Cuando", size=11, color="#9E9E9E", width=110),
+                    ft.Text((venta['anulada_en'] or '').replace('T', ' ')[:19], size=13, color=ft.Colors.WHITE, expand=True),
+                ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER))
+
+        movs = []
+        if venta.get('id'):
+            movs = LocalReplica.get_movimientos_venta(venta['id'])
+
+        content = ft.Container(
+            content=ft.Column([
+                ft.Row([ft.Text(numero, size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE), estado_badge],
+                       spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                ft.Container(height=6),
+                *info_rows,
+                ft.Divider(height=20, color="#3D3D3D"),
+                ft.Text("ITEMS VENDIDOS", size=11, weight=ft.FontWeight.BOLD, color="#9E9E9E"),
+                *item_rows,
+            ] + ([
+                ft.Container(height=6),
+                ft.Text("DESCARGOS DE INVENTARIO", size=11, weight=ft.FontWeight.BOLD, color="#9E9E9E"),
+                *[ft.Row([
+                    ft.Text(m.get('producto_nombre'), size=12, color=ft.Colors.WHITE, expand=True),
+                    ft.Text(f"-{float(m.get('cantidad',0)):.2f}", size=11, color="#EF5350"),
+                    ft.Text(m.get('almacen') or '?', size=11, weight=ft.FontWeight.BOLD,
+                            color="#FFB74D", text_align=ft.TextAlign.END),
+                ], spacing=6, vertical_alignment=ft.CrossAxisAlignment.CENTER) for m in movs],
+            ] if movs else []) + [
+                ft.Row([
+                    ft.Text("TOTAL", size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                    ft.Container(expand=True),
+                    ft.Text(f"$ {total:.2f}", size=16, weight=ft.FontWeight.BOLD,
+                            color="#4CAF50" if vigente else "#9E9E9E"),
+                ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                total_bs_text,
+                *anulacion_rows,
+            ], spacing=8, tight=True, scroll=ft.ScrollMode.AUTO),
+            width=440,
+        )
+
+        self._show_dialog(
+            title="Detalle de venta",
+            content=content,
+            on_save=lambda e: self._close_dialog(),
+            save_text="Cerrar",
         )
 
     def _anular_ultima(self):
         if self._ultima_vigente:
             self._anular_venta(self._ultima_vigente)
 
-    def _anular_venta(self, venta: dict):
+    def _anular_venta(self, venta: dict, event=None):
+        if event is not None:
+            try:
+                event.stop_propagation()
+            except Exception:
+                pass
         motivo_field = ft.TextField(
             label="Motivo de la anulacion",
             value="Correccion de la venta",

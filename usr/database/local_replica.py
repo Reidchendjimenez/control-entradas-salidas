@@ -2328,6 +2328,21 @@ class LocalReplica:
         return d
 
     @staticmethod
+    def get_movimientos_venta(venta_id: int) -> List[Dict]:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT m.producto_id, m.cantidad, m.almacen, COALESCE(p.nombre, 'Producto #'||m.producto_id) AS producto_nombre
+            FROM movimientos m
+            LEFT JOIN productos p ON p.id = m.producto_id
+            WHERE m.venta_id = ? AND m.tipo = 'venta'
+            ORDER BY p.nombre
+        """, (venta_id,))
+        rows = [dict(r) for r in cursor.fetchall()]
+        conn.close()
+        return rows
+
+    @staticmethod
     def _parse_comanda_items(items_json: str) -> list:
         import json
         try:
@@ -2520,8 +2535,7 @@ class LocalReplica:
                     prod = LocalReplica.get_producto_by_id(pid)
                     if not prod:
                         continue
-                    almacen = (prod.get('almacen_predeterminado') or 'principal').strip()
-                    LocalReplica._acumular_mov(acumulado, pid, prod.get('nombre'), cant, almacen)
+                    LocalReplica._acumular_mov(acumulado, pid, prod.get('nombre'), cant, 'restaurante')
                 else:
                     LocalReplica._acumular_ingredientes(acumulado, pid, cant)
 
@@ -2541,7 +2555,7 @@ class LocalReplica:
             prod = LocalReplica.get_producto_by_id(ing.get('producto_id'))
             if not prod:
                 continue
-            almacen = (prod.get('almacen_predeterminado') or 'principal').strip()
+            almacen = 'restaurante'
             LocalReplica._acumular_mov(
                 acumulado, ing['producto_id'], prod.get('nombre'),
                 float(ing.get('cantidad', 1) or 1) * cant, almacen)
@@ -2683,6 +2697,8 @@ class LocalReplica:
         conn.close()
         if sync:
             try:
+                from .sync_queue import SyncQueue, get_sync_queue
+                SyncQueue.init_queue()
                 get_sync_queue().add_pending('pos_settings', 'upsert', {'key': key, 'value': value})
             except Exception:
                 pass
