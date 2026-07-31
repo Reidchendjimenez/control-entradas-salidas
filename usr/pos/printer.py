@@ -23,8 +23,13 @@ _DEVICE_PATHS = [
     "/dev/lp0", "/dev/lp1",
 ]
 
-# Config key en pos_settings
+# Config keys en pos_settings
 _PRINTER_CONFIG_KEY = "printer_device"
+_COMANDA_HEADER_NOMBRE = "comanda_header_nombre"
+_COMANDA_HEADER_RIF = "comanda_header_rif"
+_COMANDA_HEADER_DIRECCION = "comanda_header_direccion"
+_COMANDA_HEADER_TELEFONO = "comanda_header_telefono"
+_COMANDA_CORRELATIVO = "comanda_correlativo"
 
 
 def _get_configured_device():
@@ -43,6 +48,70 @@ def _set_configured_device(device_path: str):
         LocalReplica.set_pos_setting(_PRINTER_CONFIG_KEY, device_path)
     except Exception as e:
         logger.error(f"Error guardando config de impresora: {e}")
+
+
+def _get_comanda_header():
+    """Obtiene la configuracion del membrete de comanda."""
+    try:
+        from usr.database.local_replica import LocalReplica
+        return {
+            'nombre': LocalReplica.get_pos_setting(_COMANDA_HEADER_NOMBRE, ''),
+            'rif': LocalReplica.get_pos_setting(_COMANDA_HEADER_RIF, ''),
+            'direccion': LocalReplica.get_pos_setting(_COMANDA_HEADER_DIRECCION, ''),
+            'telefono': LocalReplica.get_pos_setting(_COMANDA_HEADER_TELEFONO, ''),
+        }
+    except Exception:
+        return {'nombre': '', 'rif': '', 'direccion': '', 'telefono': ''}
+
+
+def _get_next_correlativo() -> int:
+    """Obtiene el siguiente numero de correlativo y lo incrementa."""
+    try:
+        from usr.database.local_replica import LocalReplica
+        val = LocalReplica.get_pos_setting(_COMANDA_CORRELATIVO, '0')
+        try:
+            current = int(val)
+        except ValueError:
+            current = 0
+        new_val = current + 1
+        LocalReplica.set_pos_setting(_COMANDA_CORRELATIVO, str(new_val))
+        return current
+    except Exception:
+        return 0
+
+
+def set_comanda_header(nombre: str = '', rif: str = '', direccion: str = '', telefono: str = ''):
+    """Guarda la configuracion del membrete."""
+    try:
+        from usr.database.local_replica import LocalReplica
+        LocalReplica.set_pos_setting(_COMANDA_HEADER_NOMBRE, nombre)
+        LocalReplica.set_pos_setting(_COMANDA_HEADER_RIF, rif)
+        LocalReplica.set_pos_setting(_COMANDA_HEADER_DIRECCION, direccion)
+        LocalReplica.set_pos_setting(_COMANDA_HEADER_TELEFONO, telefono)
+    except Exception as e:
+        logger.error(f"Error guardando membrete: {e}")
+
+
+def set_correlativo_inicial(valor: int):
+    """Establece el valor inicial del correlativo."""
+    try:
+        from usr.database.local_replica import LocalReplica
+        LocalReplica.set_pos_setting(_COMANDA_CORRELATIVO, str(valor))
+    except Exception as e:
+        logger.error(f"Error guardando correlativo: {e}")
+
+
+def get_correlativo_actual() -> int:
+    """Lee el correlativo actual sin incrementarlo."""
+    try:
+        from usr.database.local_replica import LocalReplica
+        val = LocalReplica.get_pos_setting(_COMANDA_CORRELATIVO, '0')
+        try:
+            return int(val)
+        except ValueError:
+            return 0
+    except Exception:
+        return 0
 
 
 def _find_usb_printers():
@@ -233,7 +302,7 @@ def _find_printer_device_auto():
     return None
 
 
-def _escpos_ticket(lines: list, total: float = None) -> bytes:
+def _escpos_ticket(lines: list, total: float = None, comanda_id: int = None) -> bytes:
     """Genera los bytes ESC/POS para un ticket de comanda."""
     from datetime import datetime
     cmd = b""
@@ -241,10 +310,33 @@ def _escpos_ticket(lines: list, total: float = None) -> bytes:
     # Inicializar
     cmd += b"\x1b\x40"
 
-    # Centro: restaurante
-    cmd += b"\x1b\x61\x01"
-    cmd += b"CONTROL DE COMANDAS\n"
-    cmd += b"\x1b\x61\x00"
+    # --- Membrete / Header ---
+    header = _get_comanda_header()
+    nombre_empresa = (header.get('nombre') or '').strip()
+    rif = (header.get('rif') or '').strip()
+    direccion = (header.get('direccion') or '').strip()
+    telefono = (header.get('telefono') or '').strip()
+
+    cmd += b"\x1b\x61\x01"  # centrar
+    if nombre_empresa:
+        cmd += b"\x1b\x21\x30"  # doble altura + doble ancho
+        cmd += f"{nombre_empresa}\n".encode()
+        cmd += b"\x1b\x21\x00"  # reset char size
+    if rif:
+        cmd += f"RIF: {rif}\n".encode()
+    if direccion:
+        cmd += f"{direccion}\n".encode()
+    if telefono:
+        cmd += f"Tel: {telefono}\n".encode()
+
+    # Correlativo
+    if comanda_id is not None:
+        correlativo = _get_next_correlativo()
+        cmd += b"\x1b\x45\x01"  # negrita
+        cmd += f"Comanda Nro: {correlativo:05d}\n".encode()
+        cmd += b"\x1b\x45\x00"  # negrita off
+
+    cmd += b"\x1b\x61\x00"  # izquierda
     cmd += f"{datetime.now():%d/%m/%Y %H:%M}\n".encode()
     cmd += b"--------------------------------\n"
     cmd += b"\n"
@@ -252,14 +344,20 @@ def _escpos_ticket(lines: list, total: float = None) -> bytes:
     for item in lines:
         cant = item.get('cantidad', 1)
         nombre = item.get('nombre', '?')
-        precio = item.get('precio', 0)
+        precio = float(item.get('precio', 0))
         contornos = item.get('contornos', [])
 
         # Negrita para cantidad + nombre
         cmd += b"\x1b\x45\x01"
         cmd += f"{cant}x ".encode()
         cmd += b"\x1b\x45\x00"
-        cmd += f"{nombre}\n".encode()
+        cmd += f"{nombre}".encode()
+        # Precio a la derecha
+        cmd += b"\x1b\x61\x02"  # alinear derecha
+        cmd += b"\x1b\x45\x01"
+        cmd += f" ${precio:.2f}\n".encode()
+        cmd += b"\x1b\x45\x00"
+        cmd += b"\x1b\x61\x00"  # izquierda
 
         if contornos:
             for c in contornos:
@@ -268,7 +366,7 @@ def _escpos_ticket(lines: list, total: float = None) -> bytes:
     cmd += b"--------------------------------\n"
 
     if total is not None:
-        cmd += b"\x1b\x61\x01"
+        cmd += b"\x1b\x61\x02"  # derecha
         cmd += b"\x1b\x45\x01"
         cmd += f"TOTAL: ${total:.2f}\n".encode()
         cmd += b"\x1b\x45\x00"
@@ -293,7 +391,7 @@ def imprimir_comanda(items: list, total: float = None, comanda_id: int = None) -
         }
         lines.append(entry)
 
-    data = _escpos_ticket(lines, total)
+    data = _escpos_ticket(lines, total, comanda_id)
 
     printer = _find_printer_device()
     if printer is None:
@@ -327,8 +425,8 @@ def imprimir_comanda(items: list, total: float = None, comanda_id: int = None) -
 def test_imprimir() -> bool:
     """Imprime una pagina de prueba para verificar la impresora."""
     data = _escpos_ticket(
-        [{'cantidad': 1, 'nombre': 'PRUEBA', 'precio': 0, 'contornos': []}],
-        total=0.0
+        [{'cantidad': 2, 'nombre': 'PRUEBA DE IMPRESION', 'precio': 1.50, 'contornos': []}],
+        total=3.0
     )
 
     printer = _find_printer_device()

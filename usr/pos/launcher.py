@@ -10,11 +10,23 @@ from usr.logger import get_logger
 logger = get_logger(__name__)
 
 
+def _resource_path(relative_path: str) -> str:
+    if hasattr(sys, '_MEIPASS'):
+        return os.path.join(sys._MEIPASS, relative_path)
+    base = os.path.dirname(os.path.abspath(__file__))
+    return os.path.abspath(os.path.join(base, '../../' + relative_path))
+
+
 async def main(page: ft.Page):
     page.title = "Lycoris POS"
     page.favicon = "favicon.png"
     page.bgcolor = "#121212"
     page.theme_mode = ft.ThemeMode.DARK
+    page.assets_allow_override = True
+    try:
+        page.window.icon = _resource_path("assets/icono.ico")
+    except Exception:
+        pass
 
     from usr.error_handler import set_page
     set_page(page)

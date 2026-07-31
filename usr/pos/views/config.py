@@ -122,6 +122,10 @@ class ConfigPOSView(ft.Container):
         """Construye el contenido de la pestaña de impresora."""
         self._printer_status = ft.Text("Buscando impresoras...", size=14, color="#9E9E9E")
         self._printer_list = ft.ListView(expand=True, spacing=6)
+        self._printer_section = ft.Container(
+            content=self._printer_list, border=ft.border.all(1,"#3D3D3D"),
+            border_radius=10, padding=10, height=200,
+        )
         self._btn_test = ft.ElevatedButton(
             "Probar impresion", icon=ft.Icons.PRINT_ROUNDED,
             bgcolor="#1E88E5", color=ft.Colors.WHITE,
@@ -134,6 +138,36 @@ class ConfigPOSView(ft.Container):
             on_click=lambda _: self._load_printer_list(),
         )
 
+        # Fields for header config
+        self._header_nombre = ft.TextField(label="Nombre de la empresa", width=350)
+        self._header_rif = ft.TextField(label="RIF", width=350)
+        self._header_direccion = ft.TextField(label="Direccion", width=350)
+        self._header_telefono = ft.TextField(label="Telefono", width=350)
+
+        # Correlativo
+        self._correlativo_display = ft.Text("0", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE)
+        self._correlativo_val = ft.TextField(
+            label="Correlativo inicial", width=150,
+            keyboard_type=ft.KeyboardType.NUMBER,
+        )
+        correlativo_row = ft.Row([
+            ft.Text("Correlativo actual:", size=14, color="#9E9E9E"),
+            self._correlativo_display,
+            ft.Container(width=20),
+            self._correlativo_val,
+            ft.ElevatedButton(
+                "Establecer", icon=ft.Icons.SETTINGS_ROUNDED,
+                bgcolor="#1E88E5", color=ft.Colors.WHITE,
+                on_click=lambda _: self._on_save_correlativo(),
+            ),
+        ], vertical_alignment=ft.CrossAxisAlignment.CENTER)
+
+        self._header_nombre_btn = ft.ElevatedButton(
+            "Guardar membrete", icon=ft.Icons.SAVE_ROUNDED,
+            bgcolor="#4CAF50", color=ft.Colors.WHITE,
+            on_click=lambda _: self._on_save_header(),
+        )
+
         content = ft.Column([
             ft.Row([
                 ft.Text("Impresora de comandas", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
@@ -142,14 +176,97 @@ class ConfigPOSView(ft.Container):
             ft.Container(height=10),
             self._printer_status,
             ft.Container(height=10),
-            ft.Container(content=self._printer_list, border=ft.border.all(1,"#3D3D3D"),
-                         border_radius=10, padding=10, expand=True),
+            self._printer_section,
             ft.Container(height=10),
             self._btn_test,
-        ], expand=True)
+            ft.Divider(height=1, color="#3D3D3D"),
+            ft.Container(height=5),
+            ft.Text("MEMBRETE DE COMANDAS", size=14, weight=ft.FontWeight.BOLD, color="#BB86FC"),
+            ft.Container(height=5),
+            ft.Column([
+                self._header_nombre, self._header_rif,
+                self._header_direccion, self._header_telefono,
+            ], spacing=8),
+            ft.Container(height=5),
+            self._header_nombre_btn,
+            ft.Divider(height=1, color="#3D3D3D"),
+            ft.Container(height=5),
+            ft.Text("CORRELATIVO DE COMANDAS", size=14, weight=ft.FontWeight.BOLD, color="#BB86FC"),
+            ft.Container(height=5),
+            correlativo_row,
+        ], expand=True, scroll=ft.ScrollMode.AUTO)
 
         self._load_printer_list()
+        self._load_header_config()
         return content
+
+    def _load_header_config(self):
+        """Carga la configuracion del membrete y correlativo."""
+        try:
+            from usr.pos.printer import _get_comanda_header, get_correlativo_actual
+            h = _get_comanda_header()
+            self._header_nombre.value = h.get('nombre', '')
+            self._header_rif.value = h.get('rif', '')
+            self._header_direccion.value = h.get('direccion', '')
+            self._header_telefono.value = h.get('telefono', '')
+            corr = get_correlativo_actual()
+            self._correlativo_val.value = str(corr)
+            self._correlativo_display.value = str(corr)
+        except Exception as e:
+            print(f"[POS CONFIG] Error cargando membrete: {e}")
+
+    def _on_save_header(self):
+        """Guarda la configuracion del membrete."""
+        try:
+            from usr.pos.printer import set_comanda_header
+            set_comanda_header(
+                nombre=self._header_nombre.value,
+                rif=self._header_rif.value,
+                direccion=self._header_direccion.value,
+                telefono=self._header_telefono.value,
+            )
+            if self.page:
+                snack = ft.SnackBar(
+                    content=ft.Text("Membrete guardado"),
+                    bgcolor=ft.Colors.GREEN_600, duration=1500,
+                )
+                self.page.overlay.append(snack)
+                snack.open = True
+                self.page.update()
+        except Exception as e:
+            if self.page:
+                snack = ft.SnackBar(
+                    content=ft.Text(f"Error: {e}"),
+                    bgcolor=ft.Colors.RED_600, duration=2000,
+                )
+                self.page.overlay.append(snack)
+                snack.open = True
+                self.page.update()
+
+    def _on_save_correlativo(self):
+        """Establece el correlativo inicial."""
+        try:
+            val = int(self._correlativo_val.value or '0')
+            from usr.pos.printer import set_correlativo_inicial
+            set_correlativo_inicial(val)
+            self._correlativo_display.value = str(val)
+            if self.page:
+                snack = ft.SnackBar(
+                    content=ft.Text(f"Correlativo establecido en {val}"),
+                    bgcolor=ft.Colors.GREEN_600, duration=1500,
+                )
+                self.page.overlay.append(snack)
+                snack.open = True
+                self.page.update()
+        except ValueError:
+            if self.page:
+                snack = ft.SnackBar(
+                    content=ft.Text("Ingrese un numero valido"),
+                    bgcolor=ft.Colors.RED_600, duration=2000,
+                )
+                self.page.overlay.append(snack)
+                snack.open = True
+                self.page.update()
 
     def _load_printer_list(self):
         """Carga la lista de impresoras disponibles."""
