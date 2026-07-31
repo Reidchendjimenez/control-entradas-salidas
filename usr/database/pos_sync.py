@@ -19,6 +19,8 @@ _POS_TABLES = [
     ('pos_habitaciones', 'pos_habitaciones'),
     ('pos_usuarios', 'pos_usuarios'),
     ('pos_settings', 'pos_settings'),
+    ('pos_comandas', 'pos_comandas'),
+    ('pos_ventas', 'pos_ventas'),
 ]
 
 
@@ -106,6 +108,11 @@ class POSSyncManager:
                 "CREATE TABLE IF NOT EXISTS pos_habitaciones (id SERIAL PRIMARY KEY, numero TEXT NOT NULL, piso TEXT, tipo TEXT, activo INTEGER DEFAULT 1, creado_en TEXT NOT NULL)",
                 "CREATE TABLE IF NOT EXISTS pos_usuarios (id SERIAL PRIMARY KEY, nombre TEXT NOT NULL, pin_hash TEXT, es_admin INTEGER DEFAULT 0, activo INTEGER DEFAULT 1, creado_en TEXT NOT NULL)",
                 "CREATE TABLE IF NOT EXISTS pos_settings (key TEXT PRIMARY KEY, value TEXT)",
+                "CREATE TABLE IF NOT EXISTS pos_comandas (id SERIAL PRIMARY KEY, sesion_id INTEGER, mesa_id INTEGER, habitacion_id INTEGER, estado TEXT DEFAULT 'abierta', total REAL DEFAULT 0, items_json TEXT, sync_uuid TEXT, created_at TEXT NOT NULL, updated_at TEXT)",
+                "CREATE TABLE IF NOT EXISTS pos_ventas (id SERIAL PRIMARY KEY, comanda_id INTEGER, correlativo INTEGER, total REAL DEFAULT 0, items_json TEXT, mesa_id INTEGER, habitacion_id INTEGER, usuario_id INTEGER, sesion_id INTEGER, estado TEXT DEFAULT 'vigente', venta_anula_id INTEGER, motivo_anulacion TEXT, anulada_por TEXT, anulada_en TEXT, tasa_bs REAL, sync_uuid TEXT, comanda_sync_uuid TEXT, venta_anula_sync_uuid TEXT, created_at TEXT NOT NULL, updated_at TEXT)",
+                "ALTER TABLE movimientos ADD COLUMN IF NOT EXISTS venta_sync_uuid TEXT",
+                "CREATE INDEX IF NOT EXISTS idx_pos_comandas_sync_uuid ON pos_comandas (sync_uuid)",
+                "CREATE INDEX IF NOT EXISTS idx_pos_ventas_sync_uuid ON pos_ventas (sync_uuid)",
             ]:
                 try:
                     conn.execute(text(migration))
@@ -143,10 +150,24 @@ class POSSyncManager:
                     elif local_table == 'pos_settings':
                         for row in data:
                             LocalReplica.set_pos_setting(row['key'], row['value'], sync=False)
+                    elif local_table == 'pos_comandas':
+                        LocalReplica.save_comandas_sync(data)
+                    elif local_table == 'pos_ventas':
+                        LocalReplica.save_ventas_sync(data)
 
                     self._log(f"{len(data)} {local_table} descargados")
                 except Exception as e:
                     self._log(f"Error descargando {local_table}: {e}")
+
+            try:
+                result = conn.execute(text("SELECT * FROM movimientos ORDER BY id"))
+                rows = result.fetchall()
+                data = [dict_to_serializable(dict(row._mapping)) for row in rows]
+                LocalReplica.save_movimientos(data)
+                LocalReplica.relink_ventas_movimientos()
+                self._log(f"{len(data)} movimientos descargados")
+            except Exception as e:
+                self._log(f"Error descargando movimientos: {e}")
 
         remote_engine.dispose()
         self._log("Descarga POS completada")
@@ -164,6 +185,11 @@ class POSSyncManager:
             try:
                 uploaded = self._upload_to_remote(remote_engine, pending)
                 self._log(f"{uploaded} operaciones POS subidas a Supabase")
+                try:
+                    movs = self._upload_pending_movimientos_venta(remote_engine)
+                    self._log(f"{movs} movimientos de venta subidos a Supabase")
+                except Exception as e_mov:
+                    self._log(f"Error subiendo movimientos de venta: {e_mov}")
             except Exception as e:
                 self._log(f"Error subiendo POS: {e}")
             finally:
@@ -345,6 +371,72 @@ class POSSyncManager:
                             conn.execute(text("INSERT INTO pos_settings (key, value) VALUES (:key, :value)"), vals)
                         conn.commit()
 
+                    elif table == 'pos_comandas':
+                        su = (data.get('sync_uuid') or '').strip()
+                        if not su:
+                            raise ValueError("pos_comandas sin sync_uuid")
+                        vals = {
+                            'sync_uuid': su,
+                            'sesion_id': data.get('sesion_id'),
+                            'mesa_id': data.get('mesa_id'),
+                            'habitacion_id': data.get('habitacion_id'),
+                            'estado': data.get('estado', 'abierta'),
+                            'total': float(data.get('total', 0) or 0),
+                            'items_json': data.get('items_json'),
+                            'created_at': data.get('created_at', data.get('updated_at')),
+                            'updated_at': data.get('updated_at'),
+                        }
+                        exists = conn.execute(
+                            text("SELECT id FROM pos_comandas WHERE sync_uuid = :su"), {'su': su}
+                        ).fetchone()
+                        if exists:
+                            cols = ", ".join([f"{k} = :{k}" for k in ['sesion_id','mesa_id','habitacion_id','estado','total','items_json','updated_at']])
+                            conn.execute(text(f"UPDATE pos_comandas SET {cols} WHERE sync_uuid = :sync_uuid"), vals)
+                        else:
+                            cols = ", ".join(vals.keys())
+                            ph = ", ".join([f":{k}" for k in vals.keys()])
+                            conn.execute(text(f"INSERT INTO pos_comandas ({cols}) VALUES ({ph})"), vals)
+                        conn.commit()
+
+                    elif table == 'pos_ventas':
+                        su = (data.get('sync_uuid') or '').strip()
+                        if not su:
+                            raise ValueError("pos_ventas sin sync_uuid")
+                        if op == 'delete':
+                            conn.execute(text("DELETE FROM pos_ventas WHERE sync_uuid = :su"), {'su': su})
+                            conn.commit()
+                        else:
+                            vals = {
+                                'sync_uuid': su,
+                                'comanda_sync_uuid': (data.get('comanda_sync_uuid') or '').strip() or None,
+                                'venta_anula_sync_uuid': (data.get('venta_anula_sync_uuid') or '').strip() or None,
+                                'correlativo': data.get('correlativo'),
+                                'total': float(data.get('total', 0) or 0),
+                                'items_json': data.get('items_json'),
+                                'mesa_id': data.get('mesa_id'),
+                                'habitacion_id': data.get('habitacion_id'),
+                                'usuario_id': data.get('usuario_id'),
+                                'sesion_id': data.get('sesion_id'),
+                                'estado': data.get('estado', 'vigente'),
+                                'motivo_anulacion': data.get('motivo_anulacion'),
+                                'anulada_por': data.get('anulada_por'),
+                                'anulada_en': data.get('anulada_en'),
+                                'tasa_bs': data.get('tasa_bs'),
+                                'created_at': data.get('created_at', data.get('updated_at')),
+                                'updated_at': data.get('updated_at'),
+                            }
+                            exists = conn.execute(
+                                text("SELECT id FROM pos_ventas WHERE sync_uuid = :su"), {'su': su}
+                            ).fetchone()
+                            if exists:
+                                cols = ", ".join([f"{k} = :{k}" for k in ['comanda_sync_uuid','venta_anula_sync_uuid','correlativo','total','items_json','mesa_id','habitacion_id','usuario_id','sesion_id','estado','motivo_anulacion','anulada_por','anulada_en','tasa_bs','updated_at']])
+                                conn.execute(text(f"UPDATE pos_ventas SET {cols} WHERE sync_uuid = :sync_uuid"), vals)
+                            else:
+                                cols = ", ".join(vals.keys())
+                                ph = ", ".join([f":{k}" for k in vals.keys()])
+                                conn.execute(text(f"INSERT INTO pos_ventas ({cols}) VALUES ({ph})"), vals)
+                            conn.commit()
+
                     queue.mark_completed(item['id'])
                     uploaded += 1
                     self._log(f"{table} sincronizado")
@@ -355,6 +447,89 @@ class POSSyncManager:
                         pass
                     queue.mark_failed(item['id'], str(e))
                     self._log(f"Error subiendo {table}: {e}")
+        return uploaded
+
+    def _upload_pending_movimientos_venta(self, remote_engine) -> int:
+        """Sube movimientos de venta/devolucion pendientes (sincronizado=0) y los marca.
+
+        La venta se enlaza por venta_sync_uuid (los ids locales no son validos en otros
+        dispositivos). El matching evita duplicados si el sync principal ya los subio.
+        """
+        from usr.database.conn import get_local_conn
+        from .local_replica import LocalReplica
+
+        local = get_local_conn()
+        cursor = local.cursor()
+        cursor.execute("""
+            SELECT * FROM movimientos
+            WHERE sincronizado = 0 AND tipo IN ('venta', 'devolucion')
+            ORDER BY id
+        """)
+        rows = [dict(r) for r in cursor.fetchall()]
+        if not rows:
+            local.close()
+            return 0
+
+        uploaded = 0
+        with remote_engine.connect() as conn:
+            for m in rows:
+                try:
+                    vsu = (m.get('venta_sync_uuid') or '').strip()
+                    existing = None
+                    if vsu:
+                        existing = conn.execute(text("""
+                            SELECT id FROM movimientos
+                            WHERE venta_sync_uuid = :vsu AND tipo = :t AND producto_id = :p
+                              AND COALESCE(almacen, '') = COALESCE(:a, '')
+                            LIMIT 1
+                        """), {'vsu': vsu, 't': m.get('tipo'), 'p': m.get('producto_id'), 'a': m.get('almacen')}).fetchone()
+                    if not existing:
+                        existing = conn.execute(text("""
+                            SELECT id FROM movimientos
+                            WHERE producto_id = :p AND tipo = :t AND cantidad = :c
+                              AND fecha_movimiento = :f AND COALESCE(almacen, '') = COALESCE(:a, '')
+                            LIMIT 1
+                        """), {
+                            'p': m.get('producto_id'), 't': m.get('tipo'), 'c': m.get('cantidad'),
+                            'f': m.get('fecha_movimiento'), 'a': m.get('almacen'),
+                        }).fetchone()
+
+                    vals = {
+                        'producto_id': m.get('producto_id'),
+                        'factura_id': None,
+                        'requisicion_id': None,
+                        'venta_sync_uuid': vsu or None,
+                        'tipo': m.get('tipo'),
+                        'cantidad': m.get('cantidad'),
+                        'cantidad_anterior': m.get('cantidad_anterior', 0),
+                        'cantidad_nueva': m.get('cantidad_nueva', 0),
+                        'peso_total': m.get('peso_total', 0),
+                        'registrado_por': m.get('registrado_por'),
+                        'observaciones': m.get('observaciones'),
+                        'almacen': m.get('almacen'),
+                        'fecha_movimiento': m.get('fecha_movimiento'),
+                        'created_at': m.get('created_at'),
+                        'device_id': m.get('device_id'),
+                    }
+                    if existing:
+                        cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
+                        conn.execute(text(f"UPDATE movimientos SET {cols} WHERE id = :id"), vals | {'id': existing[0]})
+                        conn.commit()
+                    else:
+                        cols = ", ".join(vals.keys())
+                        ph = ", ".join([f":{k}" for k in vals.keys()])
+                        conn.execute(text(f"INSERT INTO movimientos ({cols}) VALUES ({ph})"), vals)
+                        conn.commit()
+
+                    LocalReplica.mark_movimiento_sincronizado(m['id'])
+                    uploaded += 1
+                except Exception as e:
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
+                    self._log(f"Error subiendo movimiento venta {m.get('id')}: {e}")
+        local.close()
         return uploaded
 
     def full_sync(self) -> bool:

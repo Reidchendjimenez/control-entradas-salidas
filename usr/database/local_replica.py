@@ -205,6 +205,41 @@ def init_local_db():
         pass  # Ya existe
 
     try:
+        cursor.execute("ALTER TABLE movimientos ADD COLUMN venta_id INTEGER")
+    except Exception:
+        pass  # Ya existe
+
+    try:
+        cursor.execute("ALTER TABLE pos_ventas ADD COLUMN tasa_bs REAL")
+    except Exception:
+        pass  # Ya existe
+
+    try:
+        cursor.execute("ALTER TABLE pos_comandas ADD COLUMN sync_uuid TEXT")
+    except Exception:
+        pass  # Ya existe
+
+    try:
+        cursor.execute("ALTER TABLE pos_ventas ADD COLUMN sync_uuid TEXT")
+    except Exception:
+        pass  # Ya existe
+
+    try:
+        cursor.execute("ALTER TABLE pos_ventas ADD COLUMN comanda_sync_uuid TEXT")
+    except Exception:
+        pass  # Ya existe
+
+    try:
+        cursor.execute("ALTER TABLE pos_ventas ADD COLUMN venta_anula_sync_uuid TEXT")
+    except Exception:
+        pass  # Ya existe
+
+    try:
+        cursor.execute("ALTER TABLE movimientos ADD COLUMN venta_sync_uuid TEXT")
+    except Exception:
+        pass  # Ya existe
+
+    try:
         cursor.execute("ALTER TABLE movimientos_archivo ADD COLUMN requisicion_id INTEGER")
     except Exception:
         pass  # Ya existe
@@ -214,6 +249,14 @@ def init_local_db():
             key TEXT PRIMARY KEY,
             value TEXT,
             updated_at TEXT
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pos_sync_tombstones (
+            uuid    TEXT PRIMARY KEY,
+            tabla   TEXT,
+            created_at TEXT
         )
     """)
     
@@ -278,6 +321,7 @@ def init_local_db():
             estado      TEXT DEFAULT 'abierta',
             total       REAL DEFAULT 0,
             items_json  TEXT,
+            sync_uuid   TEXT,
             created_at  TEXT NOT NULL,
             updated_at  TEXT,
             FOREIGN KEY (sesion_id) REFERENCES pos_sesiones(id)
@@ -289,6 +333,31 @@ def init_local_db():
             key         TEXT    NOT NULL,
             value       TEXT,
             PRIMARY KEY (key)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pos_ventas (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            comanda_id      INTEGER NOT NULL,
+            correlativo     INTEGER,
+            total           REAL DEFAULT 0,
+            items_json      TEXT,
+            mesa_id         INTEGER,
+            habitacion_id   INTEGER,
+            usuario_id      INTEGER,
+            sesion_id       INTEGER,
+            estado          TEXT DEFAULT 'vigente',
+            venta_anula_id  INTEGER,
+            motivo_anulacion TEXT,
+            anulada_por     TEXT,
+            anulada_en      TEXT,
+            tasa_bs         REAL,
+            sync_uuid       TEXT,
+            comanda_sync_uuid TEXT,
+            venta_anula_sync_uuid TEXT,
+            created_at      TEXT NOT NULL,
+            updated_at      TEXT
         )
     """)
 
@@ -441,7 +510,10 @@ def init_local_db():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_local_tipo_fecha ON movimientos (tipo, fecha_movimiento DESC)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_local_producto ON movimientos (producto_id, fecha_movimiento DESC)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_local_factura ON movimientos (factura_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_local_venta ON movimientos (venta_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_local_sync ON movimientos (sincronizado)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_comanda_sync_uuid ON pos_comandas (sync_uuid)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_venta_sync_uuid ON pos_ventas (sync_uuid)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_archivo_tipo_fecha ON movimientos_archivo (tipo, fecha_movimiento DESC)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_archivo_producto ON movimientos_archivo (producto_id, fecha_movimiento DESC)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_archivo_factura ON movimientos_archivo (factura_id)")
@@ -981,7 +1053,7 @@ class LocalReplica:
         conn = get_local_conn()
         cursor = conn.cursor()
         
-        valid_keys = ['id', 'producto_id', 'factura_id', 'requisicion_id', 'tipo', 'cantidad',
+        valid_keys = ['id', 'producto_id', 'factura_id', 'requisicion_id', 'venta_id', 'venta_sync_uuid', 'tipo', 'cantidad',
                       'cantidad_anterior', 'cantidad_nueva', 'peso_total',
                       'registrado_por', 'observaciones', 'almacen', 'fecha_movimiento',
                       'created_at', 'device_id']
@@ -995,11 +1067,19 @@ class LocalReplica:
                 producto_id = mov.get('producto_id')
                 tipo = mov.get('tipo')
                 cantidad = mov.get('cantidad')
-                
+
                 if producto_id is None or tipo is None:
                     continue
                 if cantidad is None:
                     continue
+
+                vsu = (mov.get('venta_sync_uuid') or '').strip()
+                if vsu:
+                    cursor.execute(
+                        "SELECT uuid FROM pos_sync_tombstones WHERE uuid = ? AND tabla = 'movimientos'",
+                        (vsu,))
+                    if cursor.fetchone():
+                        continue
                 
                 # Normalizar fecha para comparación (quitar timezone)
                 fecha_raw = mov.get('fecha_movimiento')
@@ -1016,6 +1096,17 @@ class LocalReplica:
                 if cursor.fetchone():
                     updated_count += 1
                     continue
+
+                if vsu:
+                    cursor.execute("""
+                        SELECT id FROM movimientos
+                        WHERE venta_sync_uuid = ? AND tipo = ? AND producto_id = ?
+                          AND COALESCE(almacen, '') = COALESCE(?, '')
+                        LIMIT 1
+                    """, (vsu, tipo, producto_id, mov.get('almacen')))
+                    if cursor.fetchone():
+                        updated_count += 1
+                        continue
                 
                 values = [mov.get(k) for k in valid_keys]
                 values.append(1)
@@ -1797,6 +1888,26 @@ class LocalReplica:
         return [dict(row) for row in rows]
 
     @staticmethod
+    def get_pos_habitacion_by_id(hab_id: int) -> Optional[Dict]:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM pos_habitaciones WHERE id = ?", (hab_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+    @staticmethod
+    def get_habitaciones_ocupadas() -> set:
+        """Retorna el set de habitacion_id que tienen comandas abiertas."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT DISTINCT habitacion_id FROM pos_comandas WHERE estado = 'abierta' AND habitacion_id IS NOT NULL")
+        rows = cursor.fetchall()
+        conn.close()
+        return {int(r['habitacion_id']) for r in rows}
+
+    @staticmethod
     def crear_pos_habitacion(numero: str, piso: str = None, tipo: str = None) -> int:
         conn = get_local_conn()
         cursor = conn.cursor()
@@ -1849,19 +1960,106 @@ class LocalReplica:
     @staticmethod
     def save_comanda(sesion_id: int, items: list, total: float,
                      mesa_id: int = None, habitacion_id: int = None) -> int:
+        """Guarda la comanda abierta de la mesa/habitacion (upsert).
+        Si ya existe una comanda abierta para la mesa/habitacion, la actualiza;
+        si no, crea una nueva. Retorna el id de la comanda."""
         import json
+        import uuid
         conn = get_local_conn()
         cursor = conn.cursor()
         now = datetime.now().isoformat()
         items_json = json.dumps(items, ensure_ascii=False, default=str)
-        cursor.execute("""
-            INSERT INTO pos_comandas (sesion_id, mesa_id, habitacion_id, estado, total, items_json, created_at)
-            VALUES (?, ?, ?, 'abierta', ?, ?, ?)
-        """, (sesion_id, mesa_id, habitacion_id, total, items_json, now))
-        comanda_id = cursor.lastrowid
+        sync_uuid = None
+        comanda_id = None
+        if mesa_id is not None:
+            cursor.execute(
+                "SELECT id, sync_uuid FROM pos_comandas WHERE mesa_id = ? AND estado = 'abierta' ORDER BY id DESC LIMIT 1",
+                (mesa_id,))
+            row = cursor.fetchone()
+            if row:
+                comanda_id = row['id']
+                sync_uuid = row['sync_uuid']
+                cursor.execute(
+                    "UPDATE pos_comandas SET items_json = ?, total = ?, updated_at = ? WHERE id = ?",
+                    (items_json, total, now, comanda_id))
+        elif habitacion_id is not None:
+            cursor.execute(
+                "SELECT id, sync_uuid FROM pos_comandas WHERE habitacion_id = ? AND estado = 'abierta' ORDER BY id DESC LIMIT 1",
+                (habitacion_id,))
+            row = cursor.fetchone()
+            if row:
+                comanda_id = row['id']
+                sync_uuid = row['sync_uuid']
+                cursor.execute(
+                    "UPDATE pos_comandas SET items_json = ?, total = ?, updated_at = ? WHERE id = ?",
+                    (items_json, total, now, comanda_id))
+        if comanda_id is None:
+            sync_uuid = uuid.uuid4().hex
+            cursor.execute("""
+                INSERT INTO pos_comandas (sesion_id, mesa_id, habitacion_id, estado, total, items_json, sync_uuid, created_at)
+                VALUES (?, ?, ?, 'abierta', ?, ?, ?, ?)
+            """, (sesion_id, mesa_id, habitacion_id, total, items_json, sync_uuid, now))
+            comanda_id = cursor.lastrowid
         conn.commit()
         conn.close()
+        try:
+            LocalReplica._enqueue_comanda(comanda_id, sync_uuid)
+        except Exception:
+            pass
         return comanda_id
+
+    @staticmethod
+    def _enqueue_comanda(comanda_id: int, sync_uuid: str = None) -> None:
+        """Encola una comanda para subirla a Supabase (sync POS)."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM pos_comandas WHERE id = ?", (comanda_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return
+        d = dict(row)
+        d['sync_uuid'] = sync_uuid or d.get('sync_uuid')
+        from .sync_queue import get_sync_queue
+        get_sync_queue().add_pending('pos_comandas', 'upsert', d)
+
+    @staticmethod
+    def get_comanda_abierta(mesa_id: int = None, habitacion_id: int = None) -> Optional[Dict]:
+        """Retorna la comanda abierta (con items parseados) de la mesa/habitacion, o None."""
+        import json
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        row = None
+        if mesa_id is not None:
+            cursor.execute(
+                "SELECT * FROM pos_comandas WHERE mesa_id = ? AND estado = 'abierta' ORDER BY id DESC LIMIT 1",
+                (mesa_id,))
+            row = cursor.fetchone()
+        elif habitacion_id is not None:
+            cursor.execute(
+                "SELECT * FROM pos_comandas WHERE habitacion_id = ? AND estado = 'abierta' ORDER BY id DESC LIMIT 1",
+                (habitacion_id,))
+            row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return None
+        d = dict(row)
+        try:
+            d['items'] = json.loads(d.get('items_json') or '[]')
+        except Exception:
+            d['items'] = []
+        return d
+
+    @staticmethod
+    def get_mesas_ocupadas() -> set:
+        """Retorna el set de mesa_id que tienen comandas abiertas."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT DISTINCT mesa_id FROM pos_comandas WHERE estado = 'abierta' AND mesa_id IS NOT NULL")
+        rows = cursor.fetchall()
+        conn.close()
+        return {int(r['mesa_id']) for r in rows}
 
     @staticmethod
     def get_comandas_by_mesa(mesa_id: int, solo_abiertas: bool = True) -> List[Dict]:
@@ -1903,6 +2101,506 @@ class LocalReplica:
         cursor.execute("UPDATE pos_comandas SET estado='cerrada', updated_at=? WHERE id=?", (now, comanda_id))
         conn.commit()
         conn.close()
+        try:
+            LocalReplica._enqueue_comanda(comanda_id)
+        except Exception:
+            pass
+
+    @staticmethod
+    def reabrir_comanda(comanda_id: int) -> None:
+        """Reabre una comanda cerrada (para correccion/venta devuelta)."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        cursor.execute("UPDATE pos_comandas SET estado='abierta', updated_at=? WHERE id=?", (now, comanda_id))
+        conn.commit()
+        conn.close()
+        try:
+            LocalReplica._enqueue_comanda(comanda_id)
+        except Exception:
+            pass
+
+    # ==================== VENTAS (POS) ====================
+
+    @staticmethod
+    def registrar_venta(comanda_id: int, correlativo: int, total: float, items: list,
+                        mesa_id: int = None, habitacion_id: int = None,
+                        usuario_id: int = None, sesion_id: int = None,
+                        venta_anula_id: int = None, tasa_bs: float = None) -> int:
+        """Registra una venta cobrada. Retorna el id de la venta."""
+        import json
+        import uuid
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        items_json = json.dumps(items, ensure_ascii=False, default=str)
+        sync_uuid = uuid.uuid4().hex
+        comanda_sync_uuid = None
+        if comanda_id:
+            cursor.execute("SELECT sync_uuid FROM pos_comandas WHERE id = ?", (comanda_id,))
+            crow = cursor.fetchone()
+            if crow:
+                comanda_sync_uuid = crow['sync_uuid']
+        venta_anula_sync_uuid = None
+        if venta_anula_id:
+            cursor.execute("SELECT sync_uuid FROM pos_ventas WHERE id = ?", (venta_anula_id,))
+            vrow = cursor.fetchone()
+            if vrow:
+                venta_anula_sync_uuid = vrow['sync_uuid']
+        cursor.execute("""
+            INSERT INTO pos_ventas
+            (comanda_id, correlativo, total, items_json, mesa_id, habitacion_id,
+             usuario_id, sesion_id, estado, venta_anula_id, tasa_bs,
+             sync_uuid, comanda_sync_uuid, venta_anula_sync_uuid, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'vigente', ?, ?, ?, ?, ?, ?, ?)
+        """, (comanda_id, correlativo, total, items_json, mesa_id, habitacion_id,
+              usuario_id, sesion_id, venta_anula_id, tasa_bs,
+              sync_uuid, comanda_sync_uuid, venta_anula_sync_uuid, now, now))
+        venta_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        try:
+            LocalReplica._enqueue_venta(venta_id, sync_uuid)
+        except Exception:
+            pass
+        return venta_id
+
+    @staticmethod
+    def _enqueue_venta(venta_id: int, sync_uuid: str = None) -> None:
+        """Encola una venta para subirla a Supabase (sync POS)."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM pos_ventas WHERE id = ?", (venta_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return
+        d = dict(row)
+        d['sync_uuid'] = sync_uuid or d.get('sync_uuid')
+        from .sync_queue import get_sync_queue
+        get_sync_queue().add_pending('pos_ventas', 'upsert', d)
+
+    @staticmethod
+    def anular_venta(venta_id: int, anulada_por: str = None, motivo: str = '') -> None:
+        """Marca una venta como anulada (devuelta)."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        cursor.execute("""
+            UPDATE pos_ventas SET estado='anulada', motivo_anulacion=?, anulada_por=?, anulada_en=?, updated_at=?
+            WHERE id=?
+        """, (motivo or 'Correccion', anulada_por, now, now, venta_id))
+        conn.commit()
+        conn.close()
+        try:
+            LocalReplica._enqueue_venta(venta_id)
+        except Exception:
+            pass
+
+    @staticmethod
+    def eliminar_venta_y_movimientos(venta_id: int) -> None:
+        """Elimina una venta no impresa y sus movimientos, restaurando el stock."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        sync_uuid = None
+        cursor.execute("SELECT sync_uuid FROM pos_ventas WHERE id = ?", (venta_id,))
+        row = cursor.fetchone()
+        if row:
+            sync_uuid = row['sync_uuid']
+        cursor.execute("SELECT * FROM movimientos WHERE venta_id = ?", (venta_id,))
+        movs = [dict(r) for r in cursor.fetchall()]
+        for m in movs:
+            if m.get('producto_id') and m.get('almacen'):
+                cursor.execute(
+                    "UPDATE existencias SET cantidad=? WHERE producto_id=? AND almacen=?",
+                    (m.get('cantidad_anterior'), m['producto_id'], m['almacen']))
+        cursor.execute("DELETE FROM movimientos WHERE venta_id = ?", (venta_id,))
+        cursor.execute("DELETE FROM pos_ventas WHERE id = ?", (venta_id,))
+        if sync_uuid:
+            now = datetime.now().isoformat()
+            cursor.execute(
+                "INSERT OR IGNORE INTO pos_sync_tombstones (uuid, tabla, created_at) VALUES (?, 'pos_ventas', ?)",
+                (sync_uuid, now))
+            for m in movs:
+                m_vsu = m.get('venta_sync_uuid')
+                if m_vsu:
+                    cursor.execute(
+                        "INSERT OR IGNORE INTO pos_sync_tombstones (uuid, tabla, created_at) VALUES (?, 'movimientos', ?)",
+                        (m_vsu, now))
+        conn.commit()
+        conn.close()
+        if sync_uuid:
+            try:
+                from .sync_queue import get_sync_queue
+                get_sync_queue().add_pending('pos_ventas', 'delete', {'sync_uuid': sync_uuid})
+            except Exception:
+                pass
+
+    @staticmethod
+    def get_venta_by_id(venta_id: int) -> Optional[Dict]:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM pos_ventas WHERE id = ?", (venta_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return None
+        d = dict(row)
+        d['items'] = LocalReplica._parse_comanda_items(d.get('items_json'))
+        return d
+
+    @staticmethod
+    def get_ventas(limit: int = 200) -> List[Dict]:
+        """Historial de ventas (mas recientes primero)."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM pos_ventas ORDER BY id DESC LIMIT ?", (limit,))
+        rows = cursor.fetchall()
+        conn.close()
+        ventas = []
+        for r in rows:
+            d = dict(r)
+            d['items'] = LocalReplica._parse_comanda_items(d.get('items_json'))
+            ventas.append(d)
+        return ventas
+
+    @staticmethod
+    def get_ultima_venta_vigente() -> Optional[Dict]:
+        """Ultima venta cobrada que sigue vigente (no anulada)."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM pos_ventas WHERE estado = 'vigente' ORDER BY id DESC LIMIT 1
+        """)
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return None
+        d = dict(row)
+        d['items'] = LocalReplica._parse_comanda_items(d.get('items_json'))
+        return d
+
+    @staticmethod
+    def get_venta_anulada_by_comanda(comanda_id: int) -> Optional[Dict]:
+        """Ultima venta anulada de una comanda (para saber si el proximo cobro es una correccion)."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM pos_ventas WHERE comanda_id = ? AND estado = 'anulada' ORDER BY id DESC LIMIT 1
+        """, (comanda_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return None
+        d = dict(row)
+        d['items'] = LocalReplica._parse_comanda_items(d.get('items_json'))
+        return d
+
+    @staticmethod
+    def _parse_comanda_items(items_json: str) -> list:
+        import json
+        try:
+            return json.loads(items_json or '[]')
+        except Exception:
+            return []
+
+    @staticmethod
+    def save_comandas_sync(rows: list) -> int:
+        """Aplica comandas descargadas de Supabase (upsert por sync_uuid).
+        Retorna cuantas se insertaron o actualizaron."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        count = 0
+        for c in rows:
+            sync_uuid = (c.get('sync_uuid') or '').strip()
+            if not sync_uuid:
+                continue
+            cursor.execute("SELECT id FROM pos_comandas WHERE sync_uuid = ?", (sync_uuid,))
+            existing = cursor.fetchone()
+            if existing:
+                cursor.execute("""
+                    UPDATE pos_comandas SET
+                        sesion_id = ?, mesa_id = ?, habitacion_id = ?, estado = ?,
+                        total = ?, items_json = ?, updated_at = ?
+                    WHERE id = ?
+                """, (
+                    c.get('sesion_id'), c.get('mesa_id'), c.get('habitacion_id'),
+                    c.get('estado', 'abierta'), c.get('total', 0), c.get('items_json'),
+                    c.get('updated_at'), existing['id']
+                ))
+            else:
+                cursor.execute("""
+                    INSERT INTO pos_comandas
+                        (sesion_id, mesa_id, habitacion_id, estado, total, items_json,
+                         sync_uuid, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    c.get('sesion_id'), c.get('mesa_id'), c.get('habitacion_id'),
+                    c.get('estado', 'abierta'), c.get('total', 0), c.get('items_json'),
+                    sync_uuid, c.get('created_at'), c.get('updated_at')
+                ))
+            count += 1
+        conn.commit()
+        conn.close()
+        return count
+
+    @staticmethod
+    def save_ventas_sync(rows: list) -> int:
+        """Aplica ventas descargadas de Supabase (upsert por sync_uuid).
+
+        Resuelve comanda_id y venta_anula_id locales desde los sync_uuid, y respeta
+        last-writer-wins por updated_at para no pisar ediciones locales mas nuevas.
+        """
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        count = 0
+        for v in rows:
+            sync_uuid = (v.get('sync_uuid') or '').strip()
+            if not sync_uuid:
+                continue
+            cursor.execute("SELECT uuid FROM pos_sync_tombstones WHERE uuid = ? AND tabla = 'pos_ventas'", (sync_uuid,))
+            if cursor.fetchone():
+                continue
+            comanda_id = None
+            csync = (v.get('comanda_sync_uuid') or '').strip()
+            if csync:
+                cursor.execute("SELECT id FROM pos_comandas WHERE sync_uuid = ?", (csync,))
+                r = cursor.fetchone()
+                if r:
+                    comanda_id = r['id']
+            venta_anula_id = None
+            vsync = (v.get('venta_anula_sync_uuid') or '').strip()
+            if vsync:
+                cursor.execute("SELECT id FROM pos_ventas WHERE sync_uuid = ?", (vsync,))
+                r = cursor.fetchone()
+                if r:
+                    venta_anula_id = r['id']
+
+            cursor.execute("SELECT id, updated_at FROM pos_ventas WHERE sync_uuid = ?", (sync_uuid,))
+            existing = cursor.fetchone()
+            if existing:
+                if (existing['updated_at'] and v.get('updated_at')
+                        and str(v['updated_at']) < str(existing['updated_at'])):
+                    continue
+                cursor.execute("""
+                    UPDATE pos_ventas SET
+                        comanda_id = ?, correlativo = ?, total = ?, items_json = ?,
+                        mesa_id = ?, habitacion_id = ?, usuario_id = ?, sesion_id = ?,
+                        estado = ?, venta_anula_id = ?, motivo_anulacion = ?,
+                        anulada_por = ?, anulada_en = ?, tasa_bs = ?,
+                        comanda_sync_uuid = ?, venta_anula_sync_uuid = ?, updated_at = ?
+                    WHERE id = ?
+                """, (
+                    comanda_id, v.get('correlativo'), v.get('total', 0), v.get('items_json'),
+                    v.get('mesa_id'), v.get('habitacion_id'), v.get('usuario_id'),
+                    v.get('sesion_id'), v.get('estado', 'vigente'), venta_anula_id,
+                    v.get('motivo_anulacion'), v.get('anulada_por'), v.get('anulada_en'),
+                    v.get('tasa_bs'), csync, vsync, v.get('updated_at'), existing['id']
+                ))
+            else:
+                cursor.execute("""
+                    INSERT INTO pos_ventas
+                        (comanda_id, correlativo, total, items_json, mesa_id, habitacion_id,
+                         usuario_id, sesion_id, estado, venta_anula_id, motivo_anulacion,
+                         anulada_por, anulada_en, tasa_bs, sync_uuid, comanda_sync_uuid,
+                         venta_anula_sync_uuid, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    comanda_id, v.get('correlativo'), v.get('total', 0), v.get('items_json'),
+                    v.get('mesa_id'), v.get('habitacion_id'), v.get('usuario_id'),
+                    v.get('sesion_id'), v.get('estado', 'vigente'), venta_anula_id,
+                    v.get('motivo_anulacion'), v.get('anulada_por'), v.get('anulada_en'),
+                    v.get('tasa_bs'), sync_uuid, csync, vsync, v.get('created_at'),
+                    v.get('updated_at')
+                ))
+            count += 1
+        conn.commit()
+        conn.close()
+        return count
+
+    @staticmethod
+    def relink_ventas_movimientos() -> None:
+        """Restaura movimientos.venta_id desde venta_sync_uuid tras una descarga."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE movimientos SET venta_id = (
+                SELECT pv.id FROM pos_ventas pv WHERE pv.sync_uuid = movimientos.venta_sync_uuid
+            )
+            WHERE venta_sync_uuid IS NOT NULL AND venta_sync_uuid != ''
+        """)
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def get_plato_ingredientes(plato_id: int) -> List[Dict]:
+        """Ingredientes de un plato/contorno."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT pi.*, pr.nombre as producto_nombre
+            FROM plato_ingredientes pi
+            LEFT JOIN productos pr ON pi.producto_id = pr.id
+            WHERE pi.plato_id = ?
+            ORDER BY pr.nombre
+        """, (plato_id,))
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+
+    @staticmethod
+    def get_pos_mesa_by_id(mesa_id: int) -> Optional[Dict]:
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM pos_mesas WHERE id = ?", (mesa_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return dict(row) if row else None
+
+    @staticmethod
+    def resolver_movimientos_venta(items: list) -> List[Dict]:
+        """Resuelve cada item de la comanda a los productos de inventario a descontar.
+
+        - Item tipo 'producto' (o en tabla productos): descuenta el producto mismo.
+        - Item plato/contorno con ingredientes: descuenta cada ingrediente x cantidad.
+        - Plato/contorno sin ingredientes asignados: NO genera movimiento (no descarga nada).
+        - Contornos seleccionados de un plato tambien se resuelven via sus ingredientes.
+
+        Retorna lista agrupada: {producto_id, producto_nombre, cantidad, almacen}
+        """
+        acumulado = {}
+        for item in items:
+            pid = item.get('id')
+            cant = float(item.get('cantidad', 1) or 1)
+            if not pid:
+                continue
+
+            if str(item.get('tipo') or '').lower() == 'producto':
+                tipos = ['producto']
+            else:
+                prod = LocalReplica.get_producto_by_id(pid)
+                tipos = ['producto'] if prod else ['plato']
+
+            for t in tipos:
+                if t == 'producto':
+                    prod = LocalReplica.get_producto_by_id(pid)
+                    if not prod:
+                        continue
+                    almacen = (prod.get('almacen_predeterminado') or 'principal').strip()
+                    LocalReplica._acumular_mov(acumulado, pid, prod.get('nombre'), cant, almacen)
+                else:
+                    LocalReplica._acumular_ingredientes(acumulado, pid, cant)
+
+            cids = list(item.get('contorno_ids') or [])
+            for ci in (item.get('contornos_info') or []):
+                if ci.get('id'):
+                    cids.append(ci['id'])
+            for cid in cids:
+                LocalReplica._acumular_ingredientes(acumulado, cid, cant)
+
+        return list(acumulado.values())
+
+    @staticmethod
+    def _acumular_ingredientes(acumulado: dict, plato_id: int, cant: float) -> None:
+        ingredientes = LocalReplica.get_plato_ingredientes(plato_id)
+        for ing in (ingredientes or []):
+            prod = LocalReplica.get_producto_by_id(ing.get('producto_id'))
+            if not prod:
+                continue
+            almacen = (prod.get('almacen_predeterminado') or 'principal').strip()
+            LocalReplica._acumular_mov(
+                acumulado, ing['producto_id'], prod.get('nombre'),
+                float(ing.get('cantidad', 1) or 1) * cant, almacen)
+
+    @staticmethod
+    def _acumular_mov(acumulado: dict, producto_id: int, nombre: str, cantidad: float, almacen: str) -> None:
+        key = (producto_id, almacen)
+        if key not in acumulado:
+            acumulado[key] = {'producto_id': producto_id, 'producto_nombre': nombre,
+                              'cantidad': 0.0, 'almacen': almacen}
+        acumulado[key]['cantidad'] += cantidad
+
+    @staticmethod
+    def _get_venta_sync_uuid(venta_id: int) -> str:
+        """Sync_uuid de una venta (para el vinculo estable venta<->movimientos)."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT sync_uuid FROM pos_ventas WHERE id = ?", (venta_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return row['sync_uuid'] if row and row['sync_uuid'] else ''
+
+    @staticmethod
+    def aplicar_movimientos_venta(venta_id: int, movimientos: List[Dict], registrado_por: str = None) -> None:
+        """Registra movimientos tipo 'venta' (salida de mercancia) y descuenta existencias."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        venta_sync_uuid = LocalReplica._get_venta_sync_uuid(venta_id)
+        for mov in movimientos:
+            producto_id = mov.get('producto_id')
+            cantidad = float(mov.get('cantidad', 0) or 0)
+            almacen = (mov.get('almacen') or 'principal').strip()
+            if not producto_id or cantidad <= 0:
+                continue
+            cursor.execute("SELECT cantidad FROM existencias WHERE producto_id = ? AND almacen = ?",
+                           (producto_id, almacen))
+            row = cursor.fetchone()
+            cant_anterior = float(row['cantidad']) if row else 0.0
+            cant_nueva = cant_anterior - cantidad
+            if cant_nueva < 0:
+                print(f"[WARN] Stock negativo por venta: producto={producto_id}, almacen={almacen}")
+            obs = f"Venta #{venta_id}"
+            if mov.get('producto_nombre'):
+                obs += f" - {mov['producto_nombre']}"
+            if cant_nueva < 0:
+                obs += " [STOCK INSUFICIENTE]"
+            cursor.execute("""
+                INSERT INTO movimientos
+                (producto_id, venta_id, venta_sync_uuid, tipo, cantidad, cantidad_anterior, cantidad_nueva,
+                 peso_total, registrado_por, observaciones, almacen, fecha_movimiento, created_at, sincronizado)
+                VALUES (?, ?, ?, 'venta', ?, ?, ?, 0, ?, ?, ?, ?, ?, 0)
+            """, (producto_id, venta_id, venta_sync_uuid or None, cantidad, cant_anterior, cant_nueva,
+                  registrado_por, obs, almacen, now, now))
+            cursor.execute("""
+                UPDATE existencias SET cantidad = ? WHERE producto_id = ? AND almacen = ?
+            """, (cant_nueva, producto_id, almacen))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def revertir_movimientos_venta(venta_id: int, registrado_por: str = None) -> None:
+        """Revierte la salida de mercancia de una venta anulada (tipo 'devolucion')."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        venta_sync_uuid = LocalReplica._get_venta_sync_uuid(venta_id)
+        cursor.execute("SELECT * FROM movimientos WHERE venta_id = ? AND tipo = 'venta'", (venta_id,))
+        movs = [dict(r) for r in cursor.fetchall()]
+        for m in movs:
+            producto_id = m.get('producto_id')
+            almacen = (m.get('almacen') or 'principal').strip()
+            cantidad = float(m.get('cantidad', 0) or 0)
+            if not producto_id or cantidad <= 0:
+                continue
+            cursor.execute("SELECT cantidad FROM existencias WHERE producto_id = ? AND almacen = ?",
+                           (producto_id, almacen))
+            row = cursor.fetchone()
+            cant_anterior = float(row['cantidad']) if row else 0.0
+            cant_nueva = cant_anterior + cantidad
+            obs = f"Devolucion venta #{venta_id}"
+            cursor.execute("""
+                INSERT INTO movimientos
+                (producto_id, venta_id, venta_sync_uuid, tipo, cantidad, cantidad_anterior, cantidad_nueva,
+                 peso_total, registrado_por, observaciones, almacen, fecha_movimiento, created_at, sincronizado)
+                VALUES (?, ?, ?, 'devolucion', ?, ?, ?, 0, ?, ?, ?, ?, ?, 0)
+            """, (producto_id, venta_id, venta_sync_uuid or None, cantidad, cant_anterior, cant_nueva,
+                  registrado_por, obs, almacen, now, now))
+            cursor.execute("""
+                UPDATE existencias SET cantidad = ? WHERE producto_id = ? AND almacen = ?
+            """, (cant_nueva, producto_id, almacen))
+        conn.commit()
+        conn.close()
 
     @staticmethod
     def get_pos_setting(key: str, default: str = None) -> str:
@@ -1913,6 +2611,29 @@ class LocalReplica:
         row = cursor.fetchone()
         conn.close()
         return row['value'] if row else default
+
+    @staticmethod
+    def get_tasa_cambio() -> Optional[float]:
+        """Tasa de cambio guardada (Bs por USD). None si no hay ninguna."""
+        val = LocalReplica.get_pos_setting('tasa_cambio')
+        if val is None:
+            return None
+        try:
+            return float(val)
+        except Exception:
+            return None
+
+    @staticmethod
+    def get_tasa_cambio_fecha() -> str:
+        return LocalReplica.get_pos_setting('tasa_cambio_actualizada_en', '') or ''
+
+    @staticmethod
+    def set_tasa_cambio(tasa: float, sync: bool = False) -> None:
+        """Guarda la tasa de cambio (Bs por USD) junto con la fecha de actualizacion."""
+        from datetime import datetime
+        LocalReplica.set_pos_setting('tasa_cambio', f"{float(tasa):.4f}", sync=sync)
+        LocalReplica.set_pos_setting('tasa_cambio_actualizada_en',
+                                     datetime.now().isoformat(timespec='seconds'), sync=sync)
 
     @staticmethod
     def set_pos_setting(key: str, value: str, sync: bool = True) -> None:

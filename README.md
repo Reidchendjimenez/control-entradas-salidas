@@ -289,6 +289,16 @@ Si se agregan nuevas dependencias en `requirements.txt`, se debe recompilar:
 
 ## Historial de Cambios
 
+### Version 2.5.0 (Julio 2026)
+- ✨ **Sync bidireccional de ventas y comandas POS**: `pos_comandas` y `pos_ventas` ahora se sincronizan con Supabase vía `POSSyncManager`. Cada comanda/venta tiene un `sync_uuid` estable (UUID hex) que permite enlazar entre dispositivos sin depender de IDs numéricos locales (`comanda_sync_uuid`, `venta_anula_sync_uuid` en ventas).
+- ✨ **`movimientos.venta_sync_uuid` + fix de `venta_id`**: Los movimientos de venta/devolución se suben con su `venta_sync_uuid` (nuevo campo remoto `movimientos.venta_sync_uuid`). Tras cada descarga de movimientos se ejecuta `relink_ventas_movimientos()` que restaura el `venta_id` local, que antes se perdía en el clear+reinsert.
+- ✨ **Tombstones de ventas**: Al eliminar una venta no impresa (`eliminar_venta_y_movimientos`) se registra el `sync_uuid` en `pos_sync_tombstones` y se encola el `DELETE` remoto, evitando que la descarga la resucite.
+- ✨ **Tasa de cambio oficial BCV**: `tasa_cambio.py` usa `https://bcv.today/api/v1/rate.json` (valor publicado por el BCV). Se descartó Yadio porque devuelve la tasa paralela (836 vs 746 Bs/$ el 31/07/2026). Botón "Actualizar tasa" en la vista de comanda.
+- ✨ **Total en Bs en ticket e historial**: La venta congela la tasa (`pos_ventas.tasa_bs`) y el ticket muestra `Tasa: 746,6297 Bs/$` y `TOTAL Bs:`; el historial de ventas muestra el equivalente en Bs bajo el total USD.
+- 🐛 **Alineación del ticket a 32 columnas**: Nombre del plato a la izquierda y precio a la derecha con relleno de espacios (sin código de alineación ESC/POS por línea de item); el nombre se trunca si no cabe.
+- ⚡ **`POSSyncManager` ampliado**: ahora maneja 10 tablas (`+ pos_comandas`, `pos_ventas`) y sube los movimientos de venta pendientes (`sincronizado=0`, tipo `venta`/`devolucion`) con dedup por `venta_sync_uuid`; `SyncManager` principal ignora estas tablas nuevas.
+- ⚡ **Migraciones remotas**: `pos_comandas`, `pos_ventas` (con `sync_uuid`, `comanda_sync_uuid`, `venta_anula_sync_uuid`, `tasa_bs`) e índices en Supabase; `movimientos.venta_sync_uuid` con `ADD COLUMN IF NOT EXISTS`.
+
 ### Version 2.4.0 (Julio 2026)
 - ✨ **Sync separado POS/Inventario**: Nuevo `POSSyncManager` en `usr/database/pos_sync.py`. Las 8 tablas POS se sincronizan con su propio gestor, el `SyncManager` principal las ignora.
 - ✨ **Impresora con membrete y correlativo**: Ticket ESC/POS ahora incluye nombre empresa, RIF, dirección, teléfono (configurable desde pestaña Impresora), número de comanda auto-incremental y precio por plato.

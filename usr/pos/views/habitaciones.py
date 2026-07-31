@@ -28,6 +28,7 @@ class HabitacionesView(ft.Container):
 
     def _load_habitaciones(self):
         self.grid.controls.clear()
+        self.ocupadas = LocalReplica.get_habitaciones_ocupadas() or set()
         habs = LocalReplica.get_pos_habitaciones()
         if not habs:
             self.grid.controls.append(ft.Container(
@@ -50,7 +51,11 @@ class HabitacionesView(ft.Container):
         piso = hab.get('piso') or ''
         tipo = hab.get('tipo') or ''
         info = ' - '.join(filter(None, [piso, tipo]))
-        color = HAB_COLOR
+        ocupada = int(hab.get('id') or 0) in (self.ocupadas or set())
+        color = "#EF5350" if ocupada else HAB_COLOR
+        badge_text = "Ocupada" if ocupada else "Disponible"
+        badge_color = "#EF5350" if ocupada else "#4CAF50"
+        badge_bg = "#B71C1C" if ocupada else "#1B5E20"
         card = ft.Container(
             bgcolor="#1E1E1E",
             border_radius=12, padding=12,
@@ -78,8 +83,8 @@ class HabitacionesView(ft.Container):
                     ),
                     ft.Container(height=6),
                     ft.Container(
-                        content=ft.Text("Disponible", size=9, weight="bold", color="#4CAF50"),
-                        bgcolor="#1B5E20", border_radius=10,
+                        content=ft.Text(badge_text, size=9, weight="bold", color=badge_color),
+                        bgcolor=badge_bg, border_radius=10,
                         padding=ft.padding.symmetric(horizontal=8, vertical=2),
                     ),
                     ft.Container(height=2),
@@ -93,7 +98,28 @@ class HabitacionesView(ft.Container):
             ),
         )
         card.on_hover = lambda e, c=card, cl=color: self._on_hover(e, c, cl)
+        card.on_click = lambda _, h=hab: self._go_comanda(h)
         return card
+
+    def _go_comanda(self, habitacion):
+        if self.page:
+            from usr.pos.views.comanda_view import ComandaPedidoView
+            v = ComandaPedidoView(
+                usuario=self.usuario, sesion_id=self.sesion_id,
+                habitacion=habitacion, on_logout=self.on_logout,
+                on_back=lambda: self._volver_habitaciones(),
+            )
+            self.page.clean()
+            self.page.add(v)
+            self.page.update()
+
+    def _volver_habitaciones(self):
+        if self.page:
+            from usr.pos.views.comandas import ComandasView
+            c = ComandasView(usuario=self.usuario, sesion_id=self.sesion_id, on_logout=self.on_logout)
+            self.page.clean()
+            self.page.add(c)
+            self.page.update()
 
     @staticmethod
     def _on_hover(e, card, color):

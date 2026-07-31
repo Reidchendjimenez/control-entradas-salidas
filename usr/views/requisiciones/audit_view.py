@@ -436,6 +436,8 @@ class AuditView(ft.Container):
             'tr_entrada': ('Tr. Entrada', ft.Colors.BLUE_400),
             'tr_salida': ('Tr. Salida', ft.Colors.PURPLE_400),
             'validacion': ('Validación', ft.Colors.TEAL_400),
+            'venta': ('Venta', ft.Colors.GREEN_400),
+            'devolucion': ('Devolución', ft.Colors.TEAL_400),
         }
 
         mov_rows = []

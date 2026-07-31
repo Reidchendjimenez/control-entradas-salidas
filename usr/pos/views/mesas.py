@@ -28,6 +28,7 @@ class MesasView(ft.Container):
 
     def _load_mesas(self):
         self.grid.controls.clear()
+        self.ocupadas = LocalReplica.get_mesas_ocupadas() or set()
         mesas = LocalReplica.get_pos_mesas()
         if not mesas:
             self.grid.controls.append(ft.Container(
@@ -50,7 +51,11 @@ class MesasView(ft.Container):
         nombre = mesa.get('nombre') or ''
         zona = mesa.get('zona') or ''
         info = ' - '.join(filter(None, [nombre, zona]))
-        color = MESA_COLOR
+        ocupada = int(mesa.get('id') or 0) in (self.ocupadas or set())
+        color = "#EF5350" if ocupada else MESA_COLOR
+        badge_text = "Ocupada" if ocupada else "Libre"
+        badge_color = "#EF5350" if ocupada else "#4CAF50"
+        badge_bg = "#B71C1C" if ocupada else "#1B5E20"
         card = ft.Container(
             bgcolor="#1E1E1E",
             border_radius=12, padding=12,
@@ -78,8 +83,8 @@ class MesasView(ft.Container):
                     ),
                     ft.Container(height=6),
                     ft.Container(
-                        content=ft.Text("Libre", size=9, weight="bold", color="#4CAF50"),
-                        bgcolor="#1B5E20", border_radius=10,
+                        content=ft.Text(badge_text, size=9, weight="bold", color=badge_color),
+                        bgcolor=badge_bg, border_radius=10,
                         padding=ft.padding.symmetric(horizontal=8, vertical=2),
                     ),
                     ft.Container(height=2),

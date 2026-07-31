@@ -652,8 +652,12 @@ def _find_printer_device_auto():
     return None
 
 
-def _escpos_ticket(lines: list, total: float = None, comanda_id: int = None, include_footer: bool = True) -> bytes:
-    """Genera los bytes ESC/POS para un ticket de comanda."""
+def _escpos_ticket(lines: list, total: float = None, comanda_id: int = None, include_footer: bool = True,
+                   correlativo: int = None, correccion_de: int = None, tasa: float = None) -> bytes:
+    """Genera los bytes ESC/POS para un ticket de comanda.
+    Si correlativo es None se asigna el siguiente automaticamente.
+    correccion_de: correlativo de la venta anulada que este ticket corrige.
+    tasa: tasa de cambio Bs por USD, para imprimir el total en bolivares."""
     from datetime import datetime
     cmd = b""
 
@@ -691,33 +695,44 @@ def _escpos_ticket(lines: list, total: float = None, comanda_id: int = None, inc
 
     # Correlativo
     if comanda_id is not None:
-        correlativo = _get_next_correlativo()
+        if correlativo is None:
+            correlativo = _get_next_correlativo()
         cmd += b"\x1b\x45\x01"  # negrita
         cmd += f"Comanda Nro: {correlativo:05d}\n".encode()
         cmd += b"\x1b\x45\x00"  # negrita off
+        if correccion_de is not None:
+            cmd += b"\x1b\x45\x01"  # negrita
+            cmd += f"* CORRECCION DE COMANDA {correccion_de:05d} *\n".encode()
+            cmd += b"\x1b\x45\x00"  # negrita off
 
     cmd += b"\x1b\x61\x00"  # izquierda
     cmd += f"{datetime.now():%d/%m/%Y %H:%M}\n".encode()
     cmd += b"--------------------------------\n"
     cmd += b"\n"
 
+    cols = 32
     for item in lines:
         cant = item.get('cantidad', 1)
         nombre = item.get('nombre', '?')
         precio = float(item.get('precio', 0))
         contornos = item.get('contornos', [])
 
-        # Negrita para cantidad + nombre
+        # Nombre alineado a la izquierda y precio a la derecha,
+        # rellenando con espacios (ESC/POS no alinea partes de una linea)
+        cant_str = f"{cant:g}x "
+        precio_str = f"${precio:.2f}"
+        nombre = nombre[:cols - len(precio_str) - 1 - len(cant_str)]
+        izquierda = cant_str + nombre
+        relleno = cols - len(izquierda) - len(precio_str)
+
         cmd += b"\x1b\x45\x01"
-        cmd += f"{cant}x ".encode()
+        cmd += cant_str.encode()
         cmd += b"\x1b\x45\x00"
-        cmd += f"{nombre}".encode()
-        # Precio a la derecha
-        cmd += b"\x1b\x61\x02"  # alinear derecha
+        cmd += nombre.encode()
+        cmd += b" " * relleno
         cmd += b"\x1b\x45\x01"
-        cmd += f" ${precio:.2f}\n".encode()
-        cmd += b"\x1b\x45\x00"
-        cmd += b"\x1b\x61\x00"  # izquierda
+        cmd += precio_str.encode()
+        cmd += b"\x1b\x45\x00\n"
 
         if contornos:
             for c in contornos:
@@ -732,6 +747,15 @@ def _escpos_ticket(lines: list, total: float = None, comanda_id: int = None, inc
         cmd += b"\x1b\x45\x00"
         cmd += b"\x1b\x61\x00"
 
+    if total is not None and tasa:
+        from usr.pos.tasa_cambio import convertir, formatear_bs, formatear_tasa
+        cmd += b"\x1b\x61\x02"  # derecha
+        cmd += f"Tasa: {formatear_tasa(tasa)} Bs/$\n".encode()
+        cmd += b"\x1b\x45\x01"
+        cmd += f"TOTAL Bs: {formatear_bs(convertir(total, tasa))}\n".encode()
+        cmd += b"\x1b\x45\x00"
+        cmd += b"\x1b\x61\x00"
+
     # --- Pie de pagina + QR (lado a lado como imagen raster) ---
     if include_footer:
         cmd = _append_footer(cmd)
@@ -742,7 +766,9 @@ def _escpos_ticket(lines: list, total: float = None, comanda_id: int = None, inc
     return cmd
 
 
-def imprimir_comanda(items: list, total: float = None, comanda_id: int = None) -> bool:
+def imprimir_comanda(items: list, total: float = None, comanda_id: int = None,
+                     correlativo: int = None, correccion_de: int = None,
+                     tasa: float = None) -> bool:
     """Imprime una comanda en la impresora configurada o auto-detectada.
     Retorna True si se imprimio, False si no hay impresora."""
     lines = []
@@ -755,7 +781,8 @@ def imprimir_comanda(items: list, total: float = None, comanda_id: int = None) -
         }
         lines.append(entry)
 
-    data = _escpos_ticket(lines, total, comanda_id)
+    data = _escpos_ticket(lines, total, comanda_id, correlativo=correlativo,
+                          correccion_de=correccion_de, tasa=tasa)
 
     printer = _find_printer_device()
     if printer is None:

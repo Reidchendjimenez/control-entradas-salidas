@@ -126,6 +126,13 @@ class ComandasView(ft.Container):
                     color="#4FC3F7",
                     on_click=lambda _: self._go_habitaciones(),
                 ),
+                self._build_entry_card(
+                    icon=ft.Icons.RECEIPT_LONG_ROUNDED,
+                    titulo="Ventas",
+                    subtitulo="Historial y devoluciones",
+                    color="#66BB6A",
+                    on_click=lambda _: self._go_ventas(),
+                ),
             ],
             alignment=ft.MainAxisAlignment.CENTER,
             spacing=30,
@@ -217,6 +224,19 @@ class ComandasView(ft.Container):
             )
             self.page.clean()
             self.page.add(config_view)
+            self.page.update()
+
+    def _go_ventas(self):
+        if self.page:
+            from usr.pos.views.ventas import VentasView
+            ventas_view = VentasView(
+                usuario=self.usuario,
+                sesion_id=self.sesion_id,
+                on_logout=self.on_logout,
+                on_back=lambda: self._volver_selector(),
+            )
+            self.page.clean()
+            self.page.add(ventas_view)
             self.page.update()
 
     def _volver_selector(self):

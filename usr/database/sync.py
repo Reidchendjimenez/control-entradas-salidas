@@ -274,6 +274,9 @@ class SyncManager:
                             if remote_requisicion_id:
                                 updates.append("requisicion_id = :rid")
                                 params['rid'] = remote_requisicion_id
+                            if mov.get('venta_sync_uuid'):
+                                updates.append("venta_sync_uuid = :vsu")
+                                params['vsu'] = mov.get('venta_sync_uuid')
                             if updates:
                                 conn.execute(
                                     text(f"UPDATE movimientos SET {', '.join(updates)} WHERE id = :id"),
@@ -286,6 +289,7 @@ class SyncManager:
                                 'producto_id': mov.get('producto_id'),
                                 'factura_id': remote_factura_id,
                                 'requisicion_id': remote_requisicion_id or mov.get('requisicion_id'),
+                                'venta_sync_uuid': mov.get('venta_sync_uuid') or None,
                                 'tipo': tipo,
                                 'cantidad': mov.get('cantidad'),
                                 'cantidad_anterior': mov.get('cantidad_anterior', 0),
@@ -407,6 +411,10 @@ class SyncManager:
                     elif local_table == 'movimientos':
                         LocalReplica.clear_movimientos()
                         LocalReplica.save_movimientos(data)
+                        try:
+                            LocalReplica.relink_ventas_movimientos()
+                        except Exception as e:
+                            print(f"[SYNC] Error relink ventas: {e}")
                     elif local_table == 'facturas':
                         LocalReplica.save_facturas(data)
                         LocalReplica.delete_orphaned_records('facturas', remote_ids, 'numero_factura')
@@ -508,7 +516,8 @@ class SyncManager:
         pending = [p for p in pending if not (p.get('table_name') == 'movimientos' and p.get('operation') != 'delete')]
         # Las tablas POS las maneja POSSyncManager por separado
         _POS_TABLES = {'pos_mesas','pos_habitaciones','pos_usuarios','pos_settings',
-                       'platos_categorias','platos','plato_ingredientes','plato_contornos'}
+                       'platos_categorias','platos','plato_ingredientes','plato_contornos',
+                       'pos_comandas','pos_ventas'}
         pending = [p for p in pending if p.get('table_name') not in _POS_TABLES]
         
         if pending:

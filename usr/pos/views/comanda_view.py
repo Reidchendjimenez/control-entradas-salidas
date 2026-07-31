@@ -1,10 +1,11 @@
 import flet as ft
 from usr.database.local_replica import LocalReplica
+from usr.pos.tasa_cambio import get_tasa
 
 
 class ComandaPedidoView(ft.Container):
     def __init__(self, usuario: dict = None, sesion_id: int = None, mesa: dict = None,
-                 on_logout=None, on_back=None):
+                 habitacion: dict = None, on_logout=None, on_back=None):
         super().__init__()
         self.expand = True
         self.bgcolor = "#121212"
@@ -12,12 +13,15 @@ class ComandaPedidoView(ft.Container):
         self.usuario = usuario
         self.sesion_id = sesion_id
         self.mesa = mesa
+        self.habitacion = habitacion
         self.on_logout = on_logout
         self.on_back = on_back
         self.items = []
         self.categoria_actual = None
+        self.tasa = get_tasa()
         self._build_ui()
         self._load_categorias()
+        self._load_comanda_existente()
 
     def _build_ui(self):
         top_bar = self._build_top_bar()
@@ -26,10 +30,19 @@ class ComandaPedidoView(ft.Container):
         # ---- Panel izquierdo: COMANDA ----
         self.lv_comanda = ft.ListView(expand=True, spacing=6, auto_scroll=False)
         self.txt_total = ft.Text("$ 0.00", size=22, weight=ft.FontWeight.BOLD, color="#4CAF50")
+        self.txt_total_bs = ft.Text("Bs --", size=15, weight=ft.FontWeight.BOLD, color="#26A69A")
+        self.txt_tasa_info = ft.Text("", size=11, color="#9E9E9E")
+        self.btn_actualizar_tasa = ft.IconButton(
+            icon=ft.Icons.SYNC_ROUNDED, icon_color="#FF9800", icon_size=18,
+            tooltip="Actualizar tasa de cambio", on_click=lambda _: self._actualizar_tasa(),
+        )
         self.txt_vacio = ft.Text("Seleccione productos", size=14, color="#9E9E9E", italic=True)
-        self.btn_comandar = ft.ElevatedButton("Comandar", icon=ft.Icons.ASSIGNMENT_ROUNDED,
-                                              bgcolor="#4CAF50", color=ft.Colors.WHITE,
-                                              disabled=True, on_click=lambda _: self._comandar())
+        self.btn_guardar = ft.ElevatedButton("Guardar", icon=ft.Icons.SAVE_ROUNDED,
+                                             bgcolor="#1E88E5", color=ft.Colors.WHITE,
+                                             disabled=True, on_click=lambda _: self._guardar())
+        self.btn_cobrar = ft.ElevatedButton("Cobrar", icon=ft.Icons.PAYMENTS_ROUNDED,
+                                            bgcolor="#4CAF50", color=ft.Colors.WHITE,
+                                            disabled=True, on_click=lambda _: self._cobrar())
 
         col_comanda = ft.Column([
             ft.Container(
@@ -39,10 +52,18 @@ class ComandaPedidoView(ft.Container):
             ft.Container(content=self.lv_comanda, expand=True),
             ft.Divider(height=1, color="#3D3D3D"),
             ft.Container(
-                content=ft.Row([
-                    ft.Text("TOTAL:", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-                    self.txt_total,
-                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                content=ft.Column([
+                    ft.Row([
+                        ft.Text("TOTAL:", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                        self.txt_total,
+                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    ft.Row([
+                        self.btn_actualizar_tasa,
+                        self.txt_tasa_info,
+                        ft.Container(expand=True),
+                        self.txt_total_bs,
+                    ], spacing=6, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                ], spacing=2),
                 padding=ft.padding.symmetric(horizontal=15, vertical=8),
             ),
             ft.Container(
@@ -51,8 +72,11 @@ class ComandaPedidoView(ft.Container):
                                       icon_color="#EF5350",
                                       style=ft.ButtonStyle(color="#EF5350"),
                                       on_click=lambda _: self._go_back()),
-                    self.btn_comandar,
-                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    ft.Container(expand=True),
+                    self.btn_guardar,
+                    ft.Container(width=8),
+                    self.btn_cobrar,
+                ], alignment=ft.MainAxisAlignment.END),
                 padding=ft.padding.symmetric(horizontal=10, vertical=8),
             ),
         ], expand=True, spacing=0)
@@ -86,9 +110,15 @@ class ComandaPedidoView(ft.Container):
             ft.Text("Administrador" if es_admin else f"Cajero #{self.usuario.get('id', '?')}" if self.usuario else "",
                     size=11, color="#FF9800" if es_admin else "#9E9E9E"),
         ], spacing=1, tight=True)
-        mesa_info = f"Mesa {self.mesa.get('numero', '?')}" if self.mesa else "Comanda"
-        if self.mesa and self.mesa.get('zona'):
-            mesa_info += f" - {self.mesa['zona']}"
+        mesa_info = f"Comanda"
+        if self.mesa:
+            mesa_info = f"Mesa {self.mesa.get('numero', '?')}"
+            if self.mesa.get('zona'):
+                mesa_info += f" - {self.mesa['zona']}"
+        elif self.habitacion:
+            mesa_info = f"Habitacion {self.habitacion.get('numero', '?')}"
+            if self.habitacion.get('tipo'):
+                mesa_info += f" - {self.habitacion['tipo']}"
         left = [
             ft.IconButton(icon=ft.Icons.ARROW_BACK_ROUNDED, icon_color=ft.Colors.WHITE,
                           tooltip="Volver", on_click=lambda _: self._go_back()),
@@ -258,7 +288,7 @@ class ComandaPedidoView(ft.Container):
             alignment=ft.alignment.center,
             border=ft.border.only(bottom=ft.BorderSide(3, color)),
             shadow=ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 3)),
-            on_click=lambda _, p=plato: self._agregar_item(p),
+            on_click=lambda _, p=plato: self._agregar_item(p, tipo='plato'),
             content=ft.Stack([
                 ft.Column([
                     ft.Container(
@@ -345,7 +375,7 @@ class ComandaPedidoView(ft.Container):
             alignment=ft.alignment.center,
             border=ft.border.only(bottom=ft.BorderSide(3, color)),
             shadow=ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 3)),
-            on_click=lambda _, p=cont: self._agregar_item(p),
+            on_click=lambda _, p=cont: self._agregar_item(p, tipo='contorno'),
             content=ft.Column([
                 ft.Container(
                     content=ft.Text(nombre[:2].upper(), size=22, weight="bold", color=ft.Colors.WHITE),
@@ -433,7 +463,7 @@ class ComandaPedidoView(ft.Container):
             border=ft.border.only(bottom=ft.BorderSide(3, "#4CAF50")),
             shadow=ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.2, "#4CAF50"), offset=ft.Offset(0, 3)),
             animate_scale=ft.Animation(400, ft.AnimationCurve.DECELERATE),
-            on_click=lambda _, p=prod: self._agregar_item(p),
+            on_click=lambda _, p=prod: self._agregar_item(p, tipo='producto'),
             content=ft.Column([
                 ft.Container(
                     content=ft.Text(nombre[:2].upper(), size=22, weight="bold", color=ft.Colors.WHITE),
@@ -460,7 +490,7 @@ class ComandaPedidoView(ft.Container):
             card.shadow = ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.1, "#4CAF50"), offset=ft.Offset(0, 0))
         card.update()
 
-    def _agregar_item(self, prod: dict):
+    def _agregar_item(self, prod: dict, tipo='producto'):
         if prod.get('lleva_contornos'):
             contornos = LocalReplica.get_contornos_activos()
             if contornos:
@@ -472,60 +502,158 @@ class ComandaPedidoView(ft.Container):
                 item['cantidad'] += 1
                 self._refrescar_comanda()
                 return
-        self.items.append({'producto': prod, 'cantidad': 1})
+        self.items.append({'producto': prod, 'cantidad': 1, 'tipo': tipo})
         self._refrescar_comanda()
 
-    def _comandar(self):
-        if not self.items:
-            return
-        mesa_id = self.mesa.get('id') if self.mesa else None
-        hab_id = None
-        total = sum(
-            item['cantidad'] * float(item['producto'].get('precio_venta', 0) or 0)
-            for item in self.items
-        )
+    def _load_comanda_existente(self):
+        comanda = None
+        if self.mesa:
+            comanda = LocalReplica.get_comanda_abierta(mesa_id=self.mesa.get('id'))
+        elif self.habitacion:
+            comanda = LocalReplica.get_comanda_abierta(habitacion_id=self.habitacion.get('id'))
+        if comanda and comanda.get('items'):
+            for it in comanda['items']:
+                prod = {
+                    'id': it.get('id'),
+                    'nombre': it.get('nombre', '?'),
+                    'precio_venta': it.get('precio', 0),
+                }
+                entry = {'producto': prod, 'cantidad': it.get('cantidad', 1)}
+                tipo = it.get('tipo')
+                if not tipo:
+                    tipo = 'producto' if LocalReplica.get_producto_by_id(it.get('id')) else 'plato'
+                entry['tipo'] = tipo
+                contornos = it.get('contornos') or []
+                if contornos:
+                    cids = it.get('contorno_ids') or []
+                    entry['contornos_info'] = [{'id': cid, 'nombre': nm} for cid, nm in zip(cids, contornos)]
+                    if not entry['contornos_info']:
+                        entry['contornos_info'] = [{'nombre': nm} for nm in contornos]
+                    entry['contornos_seleccionados'] = True
+                self.items.append(entry)
+            self._refrescar_comanda()
+
+    def _build_items_data(self):
         items_data = []
         for item in self.items:
             p = item['producto']
             entry = {
                 'id': p.get('id'),
+                'tipo': item.get('tipo', 'producto'),
                 'nombre': p.get('nombre'),
                 'precio': float(p.get('precio_venta', 0) or 0),
                 'cantidad': item['cantidad'],
             }
             if item.get('contornos_info'):
                 entry['contornos'] = [c.get('nombre') for c in item['contornos_info']]
+                cids = [c.get('id') for c in item['contornos_info'] if c.get('id')]
+                if cids:
+                    entry['contorno_ids'] = cids
             items_data.append(entry)
+        return items_data
+
+    def _guardar(self):
+        if not self.items:
+            return
+        mesa_id = self.mesa.get('id') if self.mesa else None
+        hab_id = self.habitacion.get('id') if self.habitacion else None
+        total = sum(
+            item['cantidad'] * float(item['producto'].get('precio_venta', 0) or 0)
+            for item in self.items
+        )
+        items_data = self._build_items_data()
 
         try:
             comanda_id = LocalReplica.save_comanda(
                 sesion_id=self.sesion_id, items=items_data, total=total,
                 mesa_id=mesa_id, habitacion_id=hab_id,
             )
-
-            from usr.pos.printer import imprimir_comanda
-            impreso = imprimir_comanda(items_data, total, comanda_id)
-
-            self.items.clear()
-            self._refrescar_comanda()
-            msg = f"Comanda #{comanda_id} guardada"
-            if not impreso:
-                msg += " (sin impresora)"
-            if self.page:
-                self.page.snack_bar = ft.SnackBar(
-                    content=ft.Text(msg), bgcolor="#4CAF50",
-                )
-                self.page.snack_bar.open = True
-                self.page.update()
+            self._show_snack(f"Comanda #{comanda_id} guardada", color="#4CAF50")
         except Exception as ex:
             import traceback as tb
             tb.print_exc()
-            if self.page:
-                self.page.snack_bar = ft.SnackBar(
-                    content=ft.Text(f"Error: {ex}"), bgcolor="#EF5350",
-                )
-                self.page.snack_bar.open = True
-                self.page.update()
+            self._show_snack(f"Error: {ex}", color="#EF5350")
+
+    def _cobrar(self):
+        if not self.items:
+            return
+        mesa_id = self.mesa.get('id') if self.mesa else None
+        hab_id = self.habitacion.get('id') if self.habitacion else None
+        total = sum(
+            item['cantidad'] * float(item['producto'].get('precio_venta', 0) or 0)
+            for item in self.items
+        )
+        items_data = self._build_items_data()
+        usuario = self.usuario or {}
+        registrado_por = usuario.get('nombre', 'POS')
+        usuario_id = usuario.get('id')
+
+        venta_id = None
+        try:
+            comanda_id = LocalReplica.save_comanda(
+                sesion_id=self.sesion_id, items=items_data, total=total,
+                mesa_id=mesa_id, habitacion_id=hab_id,
+            )
+
+            venta_anulada = LocalReplica.get_venta_anulada_by_comanda(comanda_id)
+            correccion_de = venta_anulada.get('correlativo') if venta_anulada else None
+            venta_anula_id = venta_anulada.get('id') if venta_anulada else None
+
+            from usr.pos.printer import imprimir_comanda, _get_next_correlativo
+            correlativo = _get_next_correlativo()
+
+            venta_id = LocalReplica.registrar_venta(
+                comanda_id=comanda_id, correlativo=correlativo, total=total,
+                items=items_data, mesa_id=mesa_id, habitacion_id=hab_id,
+                usuario_id=usuario_id, sesion_id=self.sesion_id,
+                venta_anula_id=venta_anula_id, tasa_bs=self.tasa or None,
+            )
+            movs = LocalReplica.resolver_movimientos_venta(items_data)
+            if movs:
+                LocalReplica.aplicar_movimientos_venta(venta_id, movs, registrado_por)
+
+            impreso = imprimir_comanda(items_data, total, comanda_id,
+                                       correlativo=correlativo, correccion_de=correccion_de,
+                                       tasa=self.tasa or None)
+            if not impreso:
+                LocalReplica.eliminar_venta_y_movimientos(venta_id)
+                venta_id = None
+                self._show_snack("No se encontro impresora; la venta no se registro", color="#EF5350")
+                return
+
+            LocalReplica.cerrar_comanda(comanda_id)
+            self.items.clear()
+            self._refrescar_comanda()
+            self._show_snack(f"Comanda #{correlativo:05d} cobrada", color="#4CAF50")
+        except Exception as ex:
+            import traceback as tb
+            tb.print_exc()
+            if venta_id is not None:
+                try:
+                    LocalReplica.eliminar_venta_y_movimientos(venta_id)
+                except Exception:
+                    pass
+            self._show_snack(f"Error: {ex}", color="#EF5350")
+
+    def _actualizar_tasa(self):
+        from usr.pos.tasa_cambio import actualizar_tasa, formatear_tasa
+        try:
+            tasa, cambiada, anterior = actualizar_tasa()
+        except Exception as ex:
+            self._show_snack(f"No se pudo consultar la tasa: {ex}", color="#EF5350")
+            return
+        self.tasa = tasa
+        self._refrescar_comanda()
+        if cambiada:
+            self._show_snack(f"Tasa actualizada a {formatear_tasa(tasa)} Bs/$", color="#4CAF50")
+        else:
+            self._show_snack(f"Tasa sin cambios ({formatear_tasa(tasa)} Bs/$)", color="#FF9800")
+
+    def _show_snack(self, msg, color="#4CAF50"):
+        if self.page:
+            self.page.snack_bar = ft.SnackBar(content=ft.Text(msg), bgcolor=color)
+            self.page.snack_bar.open = True
+            self.page.update()
 
     def _show_contornos_dialog(self, plato: dict, contornos: list):
         checks = {}
@@ -553,7 +681,7 @@ class ComandaPedidoView(ft.Container):
                     self._close_dialog()
                     return
             self.items.append({
-                'producto': plato, 'cantidad': 1,
+                'producto': plato, 'cantidad': 1, 'tipo': 'plato',
                 'contornos_seleccionados': selected,
                 'contornos_info': ci,
             })
@@ -607,7 +735,15 @@ class ComandaPedidoView(ft.Container):
                 bgcolor="#222222" if i % 2 == 0 else "#1A1A1A",
             ))
         self.txt_total.value = f"$ {total:.2f}"
-        self.btn_comandar.disabled = len(self.items) == 0
+        if self.tasa:
+            from usr.pos.tasa_cambio import convertir, formatear_bs, formatear_tasa
+            self.txt_total_bs.value = f"Bs {formatear_bs(convertir(total, self.tasa))}"
+            self.txt_tasa_info.value = f"Tasa: {formatear_tasa(self.tasa)} Bs/$"
+        else:
+            self.txt_total_bs.value = "Bs --"
+            self.txt_tasa_info.value = "Sin tasa"
+        self.btn_guardar.disabled = len(self.items) == 0
+        self.btn_cobrar.disabled = len(self.items) == 0
         if self.page:
             self.update()
 
