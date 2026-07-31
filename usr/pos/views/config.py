@@ -131,6 +131,10 @@ class ConfigPOSView(ft.Container):
             bgcolor="#1E88E5", color=ft.Colors.WHITE,
             on_click=lambda _: self._on_test_printer(),
         )
+        self._chk_test_footer = ft.Checkbox(
+            label="Incluir pie de pagina y QR en la prueba",
+            value=False,
+        )
         self._btn_refresh_printers = ft.IconButton(
             icon=ft.Icons.REFRESH_ROUNDED,
             icon_color=ft.Colors.WHITE,
@@ -217,7 +221,10 @@ class ConfigPOSView(ft.Container):
             ft.Container(height=10),
             self._printer_section,
             ft.Container(height=10),
-            self._btn_test,
+            ft.Column([
+                self._btn_test,
+                self._chk_test_footer,
+            ], spacing=4),
             ft.Divider(height=1, color="#3D3D3D"),
             ft.Container(height=5),
             ft.Text("MEMBRETE DE COMANDAS", size=14, weight=ft.FontWeight.BOLD, color="#BB86FC"),
@@ -389,7 +396,7 @@ class ConfigPOSView(ft.Container):
         """Prueba la impresion en la impresora configurada."""
         try:
             from usr.pos.printer import test_imprimir
-            result = test_imprimir()
+            result = test_imprimir(include_footer=self._chk_test_footer.value)
             if result:
                 snack = ft.SnackBar(
                     content=ft.Text("Impresion de prueba enviada"),

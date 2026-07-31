@@ -202,8 +202,9 @@ def _append_raster(cmd: bytes, img) -> bytes:
     """Agrega comandos ESC/POS raster (GS v 0) para una imagen PIL en modo '1'.
     Retorna cmd actualizado."""
     w, h = img.size
-    xL = w & 0xFF
-    xH = (w >> 8) & 0xFF
+    row_bytes = (w + 7) // 8
+    xL = row_bytes & 0xFF
+    xH = (row_bytes >> 8) & 0xFF
     yL = h & 0xFF
     yH = (h >> 8) & 0xFF
     cmd += b"\x1d\x76\x30\x00"
@@ -594,7 +595,7 @@ def _find_printer_device_auto():
     return None
 
 
-def _escpos_ticket(lines: list, total: float = None, comanda_id: int = None) -> bytes:
+def _escpos_ticket(lines: list, total: float = None, comanda_id: int = None, include_footer: bool = True) -> bytes:
     """Genera los bytes ESC/POS para un ticket de comanda."""
     from datetime import datetime
     cmd = b""
@@ -675,7 +676,8 @@ def _escpos_ticket(lines: list, total: float = None, comanda_id: int = None) -> 
         cmd += b"\x1b\x61\x00"
 
     # --- Pie de pagina + QR (lado a lado como imagen raster) ---
-    cmd = _append_footer(cmd)
+    if include_footer:
+        cmd = _append_footer(cmd)
 
     cmd += b"\n"
     cmd += b"\x1b\x64\x04"  # Avanzar 4 lineas
@@ -709,11 +711,14 @@ def imprimir_comanda(items: list, total: float = None, comanda_id: int = None) -
     return False
 
 
-def test_imprimir() -> bool:
-    """Imprime una pagina de prueba para verificar la impresora."""
+def test_imprimir(include_footer: bool = True) -> bool:
+    """Imprime una pagina de prueba para verificar la impresora.
+    Si include_footer es False, omite el pie de pagina + QR (raster)
+    para aislar problemas de compatibilidad del modo raster."""
     data = _escpos_ticket(
         [{'cantidad': 2, 'nombre': 'PRUEBA DE IMPRESION', 'precio': 1.50, 'contornos': []}],
-        total=3.0
+        total=3.0,
+        include_footer=include_footer,
     )
 
     printer = _find_printer_device()
