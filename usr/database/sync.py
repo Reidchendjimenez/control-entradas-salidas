@@ -1035,27 +1035,23 @@ class SyncManager:
                     elif table == 'platos_categorias':
                         cid = data.get('id')
                         vals = {
+                            'id': cid,
                             'nombre': data.get('nombre', ''),
                             'color': data.get('color', '#FF6F00'),
                             'activo': 1 if data.get('activo', True) else 0,
+                            'created_at': data.get('created_at', data.get('updated_at')),
                             'updated_at': data.get('updated_at'),
                         }
-                        if cid:
-                            cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
+                        exists = cid and conn.execute(
+                            text("SELECT id FROM platos_categorias WHERE id = :id"), {'id': cid}
+                        ).fetchone()
+                        if exists:
+                            cols = ", ".join([f"{k} = :{k}" for k in ['nombre','color','activo','updated_at']])
                             sql = text(f"UPDATE platos_categorias SET {cols} WHERE id = :id")
-                            vals['id'] = cid
                         else:
-                            check = conn.execute(text("SELECT id FROM platos_categorias WHERE nombre = :n"),
-                                                  {'n': data.get('nombre', '')}).fetchone()
-                            if check:
-                                cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
-                                sql = text(f"UPDATE platos_categorias SET {cols} WHERE id = :id")
-                                vals['id'] = check[0]
-                            else:
-                                cols = ", ".join(vals.keys())
-                                placeholders = ", ".join([f":{k}" for k in vals.keys()])
-                                vals['created_at'] = data.get('created_at', data.get('updated_at'))
-                                sql = text(f"INSERT INTO platos_categorias ({cols}, created_at) VALUES ({placeholders}, :created_at)")
+                            cols = ", ".join(vals.keys())
+                            placeholders = ", ".join([f":{k}" for k in vals.keys()])
+                            sql = text(f"INSERT INTO platos_categorias ({cols}) VALUES ({placeholders})")
                         conn.execute(sql, vals)
                         conn.commit()
                         queue.mark_completed(item['id'])
@@ -1065,30 +1061,26 @@ class SyncManager:
                     elif table == 'platos':
                         pid = data.get('id')
                         vals = {
+                            'id': pid,
                             'nombre': data.get('nombre', ''),
                             'categoria_id': data.get('categoria_id'),
                             'precio_venta': float(data.get('precio_venta', 0)),
                             'activo': 1 if data.get('activo', True) else 0,
                             'es_contorno': 1 if data.get('es_contorno', False) else 0,
                             'lleva_contornos': 1 if data.get('lleva_contornos', False) else 0,
+                            'created_at': data.get('created_at', data.get('updated_at')),
                             'updated_at': data.get('updated_at'),
                         }
-                        if pid:
-                            cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
+                        exists = pid and conn.execute(
+                            text("SELECT id FROM platos WHERE id = :id"), {'id': pid}
+                        ).fetchone()
+                        if exists:
+                            cols = ", ".join([f"{k} = :{k}" for k in ['nombre','categoria_id','precio_venta','activo','es_contorno','lleva_contornos','updated_at']])
                             sql = text(f"UPDATE platos SET {cols} WHERE id = :id")
-                            vals['id'] = pid
                         else:
-                            check = conn.execute(text("SELECT id FROM platos WHERE nombre = :n AND categoria_id = :c"),
-                                                  {'n': data.get('nombre', ''), 'c': data.get('categoria_id')}).fetchone()
-                            if check:
-                                cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
-                                sql = text(f"UPDATE platos SET {cols} WHERE id = :id")
-                                vals['id'] = check[0]
-                            else:
-                                cols = ", ".join(vals.keys())
-                                placeholders = ", ".join([f":{k}" for k in vals.keys()])
-                                vals['created_at'] = data.get('created_at', data.get('updated_at'))
-                                sql = text(f"INSERT INTO platos ({cols}, created_at) VALUES ({placeholders}, :created_at)")
+                            cols = ", ".join(vals.keys())
+                            placeholders = ", ".join([f":{k}" for k in vals.keys()])
+                            sql = text(f"INSERT INTO platos ({cols}) VALUES ({placeholders})")
                         conn.execute(sql, vals)
                         conn.commit()
                         queue.mark_completed(item['id'])
@@ -1141,28 +1133,25 @@ class SyncManager:
                     elif table == 'pos_mesas':
                         mid = data.get('id')
                         vals = {
+                            'id': mid,
                             'numero': data.get('numero', ''),
                             'nombre': data.get('nombre'),
                             'zona': data.get('zona'),
                             'activo': 1 if data.get('activo', True) else 0,
+                            'creado_en': data.get('creado_en', datetime.now().isoformat()),
                         }
-                        if mid:
-                            cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
+                        exists = mid and conn.execute(
+                            text("SELECT id FROM pos_mesas WHERE id = :id"), {'id': mid}
+                        ).fetchone()
+                        if exists:
+                            cols = ", ".join([f"{k} = :{k}" for k in ['numero','nombre','zona','activo']])
                             sql = text(f"UPDATE pos_mesas SET {cols} WHERE id = :id")
-                            vals['id'] = mid
+                            conn.execute(sql, vals)
                         else:
-                            check = conn.execute(text("SELECT id FROM pos_mesas WHERE numero = :n"),
-                                                  {'n': data.get('numero', '')}).fetchone()
-                            if check:
-                                cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
-                                sql = text(f"UPDATE pos_mesas SET {cols} WHERE id = :id")
-                                vals['id'] = check[0]
-                            else:
-                                cols = ", ".join(vals.keys())
-                                placeholders = ", ".join([f":{k}" for k in vals.keys()])
-                                vals['creado_en'] = data.get('creado_en', datetime.now().isoformat())
-                                sql = text(f"INSERT INTO pos_mesas ({cols}, creado_en) VALUES ({placeholders}, :creado_en)")
-                        conn.execute(sql, vals)
+                            cols = ", ".join(vals.keys())
+                            placeholders = ", ".join([f":{k}" for k in vals.keys()])
+                            sql = text(f"INSERT INTO pos_mesas ({cols}) VALUES ({placeholders})")
+                            conn.execute(sql, vals)
                         conn.commit()
                         queue.mark_completed(item['id'])
                         uploaded += 1
@@ -1171,28 +1160,25 @@ class SyncManager:
                     elif table == 'pos_habitaciones':
                         hid = data.get('id')
                         vals = {
+                            'id': hid,
                             'numero': data.get('numero', ''),
                             'piso': data.get('piso'),
                             'tipo': data.get('tipo'),
                             'activo': 1 if data.get('activo', True) else 0,
+                            'creado_en': data.get('creado_en', datetime.now().isoformat()),
                         }
-                        if hid:
-                            cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
+                        exists = hid and conn.execute(
+                            text("SELECT id FROM pos_habitaciones WHERE id = :id"), {'id': hid}
+                        ).fetchone()
+                        if exists:
+                            cols = ", ".join([f"{k} = :{k}" for k in ['numero','piso','tipo','activo']])
                             sql = text(f"UPDATE pos_habitaciones SET {cols} WHERE id = :id")
-                            vals['id'] = hid
+                            conn.execute(sql, vals)
                         else:
-                            check = conn.execute(text("SELECT id FROM pos_habitaciones WHERE numero = :n"),
-                                                  {'n': data.get('numero', '')}).fetchone()
-                            if check:
-                                cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
-                                sql = text(f"UPDATE pos_habitaciones SET {cols} WHERE id = :id")
-                                vals['id'] = check[0]
-                            else:
-                                cols = ", ".join(vals.keys())
-                                placeholders = ", ".join([f":{k}" for k in vals.keys()])
-                                vals['creado_en'] = data.get('creado_en', datetime.now().isoformat())
-                                sql = text(f"INSERT INTO pos_habitaciones ({cols}, creado_en) VALUES ({placeholders}, :creado_en)")
-                        conn.execute(sql, vals)
+                            cols = ", ".join(vals.keys())
+                            placeholders = ", ".join([f":{k}" for k in vals.keys()])
+                            sql = text(f"INSERT INTO pos_habitaciones ({cols}) VALUES ({placeholders})")
+                            conn.execute(sql, vals)
                         conn.commit()
                         queue.mark_completed(item['id'])
                         uploaded += 1
@@ -1201,28 +1187,25 @@ class SyncManager:
                     elif table == 'pos_usuarios':
                         uid = data.get('id')
                         vals = {
+                            'id': uid,
                             'nombre': data.get('nombre', ''),
                             'pin_hash': data.get('pin_hash'),
                             'es_admin': 1 if data.get('es_admin', False) else 0,
                             'activo': 1 if data.get('activo', True) else 0,
+                            'creado_en': data.get('creado_en', datetime.now().isoformat()),
                         }
-                        if uid:
-                            cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
+                        exists = uid and conn.execute(
+                            text("SELECT id FROM pos_usuarios WHERE id = :id"), {'id': uid}
+                        ).fetchone()
+                        if exists:
+                            cols = ", ".join([f"{k} = :{k}" for k in ['nombre','pin_hash','es_admin','activo']])
                             sql = text(f"UPDATE pos_usuarios SET {cols} WHERE id = :id")
-                            vals['id'] = uid
+                            conn.execute(sql, vals)
                         else:
-                            check = conn.execute(text("SELECT id FROM pos_usuarios WHERE nombre = :n"),
-                                                  {'n': data.get('nombre', '')}).fetchone()
-                            if check:
-                                cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
-                                sql = text(f"UPDATE pos_usuarios SET {cols} WHERE id = :id")
-                                vals['id'] = check[0]
-                            else:
-                                cols = ", ".join(vals.keys())
-                                placeholders = ", ".join([f":{k}" for k in vals.keys()])
-                                vals['creado_en'] = data.get('creado_en', datetime.now().isoformat())
-                                sql = text(f"INSERT INTO pos_usuarios ({cols}, creado_en) VALUES ({placeholders}, :creado_en)")
-                        conn.execute(sql, vals)
+                            cols = ", ".join(vals.keys())
+                            placeholders = ", ".join([f":{k}" for k in vals.keys()])
+                            sql = text(f"INSERT INTO pos_usuarios ({cols}) VALUES ({placeholders})")
+                            conn.execute(sql, vals)
                         conn.commit()
                         queue.mark_completed(item['id'])
                         uploaded += 1

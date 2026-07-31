@@ -196,7 +196,8 @@ class ConfigPOSView(ft.Container):
         except Exception as e:
             self._printer_status.value = f"Error: {e}"
             self._printer_status.color = "#EF5350"
-        self.update()
+        if self.page:
+            self.update()
 
     def _on_select_printer(self, printer: dict, selected: bool):
         """Selecciona o deselecciona una impresora."""
@@ -385,9 +386,17 @@ class ConfigPOSView(ft.Container):
                         size=12, color="#9E9E9E",
                     ),
                 ], spacing=2, expand=True),
+                ft.Row([
+                    ft.IconButton(ft.Icons.EDIT, icon_size=18, icon_color="#BB86FC",
+                                  tooltip="Editar",
+                                  on_click=lambda _, m=mesa: self._show_editar_mesa_dialog(m)),
+                    ft.IconButton(ft.Icons.DELETE, icon_size=18, icon_color="#EF5350",
+                                  tooltip="Eliminar",
+                                  on_click=lambda _, m=mesa: self._delete_mesa(m)),
+                ], spacing=0),
             ], spacing=15),
             bgcolor="#1E1E1E", border=ft.border.all(1,"#3D3D3D"),
-            border_radius=10, padding=15, ink=True,
+            border_radius=10, padding=15,
         )
 
     def _show_agregar_mesa_dialog(self):
@@ -419,6 +428,61 @@ class ConfigPOSView(ft.Container):
             print(f"[POS CONFIG] Error al crear mesa:\n{traceback_text}")
             self._show_error(self.mesa_numero, f"Error: {ex}")
 
+    def _show_editar_mesa_dialog(self, mesa: dict):
+        self.mesa_numero=ft.TextField(label="Numero de mesa", width=300, autofocus=True,
+                                      value=mesa.get('numero',''))
+        self.mesa_nombre=ft.TextField(label="Nombre (opcional)", width=300,
+                                      value=mesa.get('nombre',''))
+        self.mesa_zona=ft.TextField(label="Zona (opcional)", width=300,
+                                    value=mesa.get('zona',''))
+        self._editing_mesa_id = mesa['id']
+        self._show_dialog(
+            title="Editar Mesa",
+            content=ft.Column([self.mesa_numero, self.mesa_nombre, self.mesa_zona], tight=True),
+            on_save=self._do_editar_mesa,
+        )
+
+    def _do_editar_mesa(self):
+        import traceback as tb
+        numero=(self.mesa_numero.value or "").strip()
+        if not numero:
+            self._show_error(self.mesa_numero, "Ingrese el numero de mesa")
+            return
+        mid = getattr(self, '_editing_mesa_id', None)
+        if not mid:
+            return
+        try:
+            LocalReplica.update_pos_mesa(mid, numero=numero,
+                                          nombre=self.mesa_nombre.value,
+                                          zona=self.mesa_zona.value)
+            get_sync_queue().add_pending('pos_mesas', 'update', {
+                'id': mid, 'numero': numero,
+                'nombre': self.mesa_nombre.value, 'zona': self.mesa_zona.value, 'activo': 1,
+            })
+            self._close_dialog()
+            self._load_mesas()
+        except Exception as ex:
+            traceback_text=tb.format_exc()
+            print(f"[POS CONFIG] Error al editar mesa:\n{traceback_text}")
+            self._show_error(self.mesa_numero, f"Error: {ex}")
+
+    def _delete_mesa(self, mesa: dict):
+        def confirm():
+            try:
+                LocalReplica.delete_pos_mesa(mesa['id'])
+                get_sync_queue().add_pending('pos_mesas', 'delete', {'id': mesa['id']})
+                self._close_dialog()
+                self._load_mesas()
+            except Exception as ex:
+                print(f"[POS CONFIG] Error al eliminar mesa: {ex}")
+                self._close_dialog()
+        self._show_dialog(
+            title="Eliminar mesa",
+            content=ft.Text(f"¿Eliminar mesa '{mesa.get('numero')}'?", color=ft.Colors.WHITE),
+            on_save=confirm,
+            save_text="Eliminar",
+        )
+
     # ==================== HABITACIONES ====================
 
     def _load_habitaciones(self):
@@ -446,9 +510,17 @@ class ConfigPOSView(ft.Container):
                         size=12, color="#9E9E9E",
                     ),
                 ], spacing=2, expand=True),
+                ft.Row([
+                    ft.IconButton(ft.Icons.EDIT, icon_size=18, icon_color="#BB86FC",
+                                  tooltip="Editar",
+                                  on_click=lambda _, h=hab: self._show_editar_habitacion_dialog(h)),
+                    ft.IconButton(ft.Icons.DELETE, icon_size=18, icon_color="#EF5350",
+                                  tooltip="Eliminar",
+                                  on_click=lambda _, h=hab: self._delete_habitacion(h)),
+                ], spacing=0),
             ], spacing=15),
             bgcolor="#1E1E1E", border=ft.border.all(1,"#3D3D3D"),
-            border_radius=10, padding=15, ink=True,
+            border_radius=10, padding=15,
         )
 
     def _show_agregar_habitacion_dialog(self):
@@ -479,6 +551,61 @@ class ConfigPOSView(ft.Container):
             traceback_text=tb.format_exc()
             print(f"[POS CONFIG] Error al crear habitacion:\n{traceback_text}")
             self._show_error(self.hab_numero, f"Error: {ex}")
+
+    def _show_editar_habitacion_dialog(self, hab: dict):
+        self.hab_numero=ft.TextField(label="Numero de habitacion", width=300, autofocus=True,
+                                     value=hab.get('numero',''))
+        self.hab_piso=ft.TextField(label="Piso (opcional)", width=300,
+                                   value=hab.get('piso',''))
+        self.hab_tipo=ft.TextField(label="Tipo (ej: Suite, Estandar)", width=300,
+                                   value=hab.get('tipo',''))
+        self._editing_hab_id = hab['id']
+        self._show_dialog(
+            title="Editar Habitacion",
+            content=ft.Column([self.hab_numero, self.hab_piso, self.hab_tipo], tight=True),
+            on_save=self._do_editar_habitacion,
+        )
+
+    def _do_editar_habitacion(self):
+        import traceback as tb
+        numero=(self.hab_numero.value or "").strip()
+        if not numero:
+            self._show_error(self.hab_numero, "Ingrese el numero de habitacion")
+            return
+        hid = getattr(self, '_editing_hab_id', None)
+        if not hid:
+            return
+        try:
+            LocalReplica.update_pos_habitacion(hid, numero=numero,
+                                                piso=self.hab_piso.value,
+                                                tipo=self.hab_tipo.value)
+            get_sync_queue().add_pending('pos_habitaciones', 'update', {
+                'id': hid, 'numero': numero,
+                'piso': self.hab_piso.value, 'tipo': self.hab_tipo.value, 'activo': 1,
+            })
+            self._close_dialog()
+            self._load_habitaciones()
+        except Exception as ex:
+            traceback_text=tb.format_exc()
+            print(f"[POS CONFIG] Error al editar habitacion:\n{traceback_text}")
+            self._show_error(self.hab_numero, f"Error: {ex}")
+
+    def _delete_habitacion(self, hab: dict):
+        def confirm():
+            try:
+                LocalReplica.delete_pos_habitacion(hab['id'])
+                get_sync_queue().add_pending('pos_habitaciones', 'delete', {'id': hab['id']})
+                self._close_dialog()
+                self._load_habitaciones()
+            except Exception as ex:
+                print(f"[POS CONFIG] Error al eliminar habitacion: {ex}")
+                self._close_dialog()
+        self._show_dialog(
+            title="Eliminar habitacion",
+            content=ft.Text(f"¿Eliminar habitacion '{hab.get('numero')}'?", color=ft.Colors.WHITE),
+            on_save=confirm,
+            save_text="Eliminar",
+        )
 
     # ==================== PLATOS ====================
 
