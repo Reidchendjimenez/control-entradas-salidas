@@ -375,28 +375,32 @@ class POSSyncManager:
                         su = (data.get('sync_uuid') or '').strip()
                         if not su:
                             raise ValueError("pos_comandas sin sync_uuid")
-                        vals = {
-                            'sync_uuid': su,
-                            'sesion_id': data.get('sesion_id'),
-                            'mesa_id': data.get('mesa_id'),
-                            'habitacion_id': data.get('habitacion_id'),
-                            'estado': data.get('estado', 'abierta'),
-                            'total': float(data.get('total', 0) or 0),
-                            'items_json': data.get('items_json'),
-                            'created_at': data.get('created_at', data.get('updated_at')),
-                            'updated_at': data.get('updated_at'),
-                        }
-                        exists = conn.execute(
-                            text("SELECT id FROM pos_comandas WHERE sync_uuid = :su"), {'su': su}
-                        ).fetchone()
-                        if exists:
-                            cols = ", ".join([f"{k} = :{k}" for k in ['sesion_id','mesa_id','habitacion_id','estado','total','items_json','updated_at']])
-                            conn.execute(text(f"UPDATE pos_comandas SET {cols} WHERE sync_uuid = :sync_uuid"), vals)
+                        if op == 'delete':
+                            conn.execute(text("DELETE FROM pos_comandas WHERE sync_uuid = :su"), {'su': su})
+                            conn.commit()
                         else:
-                            cols = ", ".join(vals.keys())
-                            ph = ", ".join([f":{k}" for k in vals.keys()])
-                            conn.execute(text(f"INSERT INTO pos_comandas ({cols}) VALUES ({ph})"), vals)
-                        conn.commit()
+                            vals = {
+                                'sync_uuid': su,
+                                'sesion_id': data.get('sesion_id'),
+                                'mesa_id': data.get('mesa_id'),
+                                'habitacion_id': data.get('habitacion_id'),
+                                'estado': data.get('estado', 'abierta'),
+                                'total': float(data.get('total', 0) or 0),
+                                'items_json': data.get('items_json'),
+                                'created_at': data.get('created_at', data.get('updated_at')),
+                                'updated_at': data.get('updated_at'),
+                            }
+                            exists = conn.execute(
+                                text("SELECT id FROM pos_comandas WHERE sync_uuid = :su"), {'su': su}
+                            ).fetchone()
+                            if exists:
+                                cols = ", ".join([f"{k} = :{k}" for k in ['sesion_id','mesa_id','habitacion_id','estado','total','items_json','updated_at']])
+                                conn.execute(text(f"UPDATE pos_comandas SET {cols} WHERE sync_uuid = :sync_uuid"), vals)
+                            else:
+                                cols = ", ".join(vals.keys())
+                                ph = ", ".join([f":{k}" for k in vals.keys()])
+                                conn.execute(text(f"INSERT INTO pos_comandas ({cols}) VALUES ({ph})"), vals)
+                            conn.commit()
 
                     elif table == 'pos_ventas':
                         su = (data.get('sync_uuid') or '').strip()

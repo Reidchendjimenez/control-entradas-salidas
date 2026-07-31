@@ -2120,6 +2120,31 @@ class LocalReplica:
         except Exception:
             pass
 
+    @staticmethod
+    def eliminar_comanda(comanda_id: int) -> None:
+        """Elimina una comanda (debe estar abierta/sin cobrar) y encola el borrado para sync."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        sync_uuid = None
+        cursor.execute("SELECT sync_uuid FROM pos_comandas WHERE id = ?", (comanda_id,))
+        row = cursor.fetchone()
+        if row:
+            sync_uuid = row['sync_uuid']
+        cursor.execute("DELETE FROM pos_comandas WHERE id = ?", (comanda_id,))
+        if sync_uuid:
+            now = datetime.now().isoformat()
+            cursor.execute(
+                "INSERT OR IGNORE INTO pos_sync_tombstones (uuid, tabla, created_at) VALUES (?, 'pos_comandas', ?)",
+                (sync_uuid, now))
+        conn.commit()
+        conn.close()
+        if sync_uuid:
+            try:
+                from .sync_queue import get_sync_queue
+                get_sync_queue().add_pending('pos_comandas', 'delete', {'sync_uuid': sync_uuid})
+            except Exception:
+                pass
+
     # ==================== VENTAS (POS) ====================
 
     @staticmethod
@@ -2314,6 +2339,9 @@ class LocalReplica:
         for c in rows:
             sync_uuid = (c.get('sync_uuid') or '').strip()
             if not sync_uuid:
+                continue
+            cursor.execute("SELECT uuid FROM pos_sync_tombstones WHERE uuid = ? AND tabla = 'pos_comandas'", (sync_uuid,))
+            if cursor.fetchone():
                 continue
             cursor.execute("SELECT id FROM pos_comandas WHERE sync_uuid = ?", (sync_uuid,))
             existing = cursor.fetchone()

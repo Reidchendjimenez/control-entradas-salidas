@@ -209,10 +209,18 @@ class VentasView(ft.Container):
             self._load_ventas()
 
     def _show_snack(self, msg, color="#4CAF50"):
-        if self.page:
-            self.page.snack_bar = ft.SnackBar(content=ft.Text(msg), bgcolor=color)
-            self.page.snack_bar.open = True
-            self.page.update()
+        from usr.notifications import show_success, show_error, show_warning, show_info
+        try:
+            if color == "#4CAF50":
+                show_success(msg)
+            elif color == "#EF5350":
+                show_error(msg)
+            elif color == "#FF9800":
+                show_warning(msg)
+            else:
+                show_info(msg)
+        except Exception as e:
+            print(f"[VENTAS] Error mostrando snack: {e}")
 
     def _show_dialog(self, title, content, on_save, save_text="Guardar", save_bgcolor="#4CAF50"):
         self._close_dialog()

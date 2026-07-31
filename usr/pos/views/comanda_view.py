@@ -17,6 +17,7 @@ class ComandaPedidoView(ft.Container):
         self.on_logout = on_logout
         self.on_back = on_back
         self.items = []
+        self.comanda_id = None
         self.categoria_actual = None
         self.tasa = get_tasa()
         self._build_ui()
@@ -31,7 +32,8 @@ class ComandaPedidoView(ft.Container):
         self.lv_comanda = ft.ListView(expand=True, spacing=6, auto_scroll=False)
         self.txt_total = ft.Text("$ 0.00", size=22, weight=ft.FontWeight.BOLD, color="#4CAF50")
         self.txt_total_bs = ft.Text("Bs --", size=15, weight=ft.FontWeight.BOLD, color="#26A69A")
-        self.txt_tasa_info = ft.Text("", size=11, color="#9E9E9E")
+        self.txt_tasa_info = ft.Text("", size=11, color="#9E9E9E",
+                                     max_lines=1, overflow=ft.TextOverflow.ELLIPSIS)
         self.btn_actualizar_tasa = ft.IconButton(
             icon=ft.Icons.SYNC_ROUNDED, icon_color="#FF9800", icon_size=18,
             tooltip="Actualizar tasa de cambio", on_click=lambda _: self._actualizar_tasa(),
@@ -43,6 +45,11 @@ class ComandaPedidoView(ft.Container):
         self.btn_cobrar = ft.ElevatedButton("Cobrar", icon=ft.Icons.PAYMENTS_ROUNDED,
                                             bgcolor="#4CAF50", color=ft.Colors.WHITE,
                                             disabled=True, on_click=lambda _: self._cobrar())
+        self.btn_eliminar = ft.OutlinedButton(
+            "Eliminar", icon=ft.Icons.DELETE_OUTLINE_ROUNDED, icon_color="#EF5350",
+            style=ft.ButtonStyle(color="#EF5350"),
+            disabled=True, on_click=lambda _: self._eliminar_comanda(),
+        )
 
         col_comanda = ft.Column([
             ft.Container(
@@ -59,25 +66,12 @@ class ComandaPedidoView(ft.Container):
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                     ft.Row([
                         self.btn_actualizar_tasa,
-                        self.txt_tasa_info,
-                        ft.Container(expand=True),
+                        ft.Container(content=self.txt_tasa_info, expand=True,
+                                     padding=ft.padding.only(right=4)),
                         self.txt_total_bs,
                     ], spacing=6, vertical_alignment=ft.CrossAxisAlignment.CENTER),
                 ], spacing=2),
                 padding=ft.padding.symmetric(horizontal=15, vertical=8),
-            ),
-            ft.Container(
-                content=ft.Row([
-                    ft.OutlinedButton("Cancelar", icon=ft.Icons.CANCEL_ROUNDED,
-                                      icon_color="#EF5350",
-                                      style=ft.ButtonStyle(color="#EF5350"),
-                                      on_click=lambda _: self._go_back()),
-                    ft.Container(expand=True),
-                    self.btn_guardar,
-                    ft.Container(width=8),
-                    self.btn_cobrar,
-                ], alignment=ft.MainAxisAlignment.END),
-                padding=ft.padding.symmetric(horizontal=10, vertical=8),
             ),
         ], expand=True, spacing=0)
 
@@ -94,7 +88,25 @@ class ComandaPedidoView(ft.Container):
 
         fila = ft.Row([panel_izq, self.panel_derecho], expand=True, spacing=0)
 
-        self.content = ft.Column([top_bar, divider, fila], expand=True, spacing=0)
+        # ---- Franja inferior de acciones (a lo ancho de toda la vista) ----
+        franja_botones = ft.Container(
+            content=ft.Row([
+                ft.OutlinedButton("Cancelar", icon=ft.Icons.CANCEL_ROUNDED,
+                                  icon_color="#EF5350",
+                                  style=ft.ButtonStyle(color="#EF5350"),
+                                  on_click=lambda _: self._go_back()),
+                self.btn_eliminar,
+                ft.Container(expand=True),
+                self.btn_guardar,
+                ft.Container(width=8),
+                self.btn_cobrar,
+            ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            bgcolor="#1E1E1E",
+            border=ft.border.only(top=ft.BorderSide(1, "#3D3D3D")),
+            padding=ft.padding.symmetric(horizontal=15, vertical=10),
+        )
+
+        self.content = ft.Column([top_bar, divider, fila, franja_botones], expand=True, spacing=0)
 
     def _build_top_bar(self):
         nombre = self.usuario.get('nombre', 'Cajero') if self.usuario else 'Cajero'
@@ -511,6 +523,8 @@ class ComandaPedidoView(ft.Container):
             comanda = LocalReplica.get_comanda_abierta(mesa_id=self.mesa.get('id'))
         elif self.habitacion:
             comanda = LocalReplica.get_comanda_abierta(habitacion_id=self.habitacion.get('id'))
+        self.comanda_id = comanda.get('id') if comanda else None
+        self.btn_eliminar.disabled = self.comanda_id is None
         if comanda and comanda.get('items'):
             for it in comanda['items']:
                 prod = {
@@ -568,6 +582,7 @@ class ComandaPedidoView(ft.Container):
                 sesion_id=self.sesion_id, items=items_data, total=total,
                 mesa_id=mesa_id, habitacion_id=hab_id,
             )
+            self.comanda_id = comanda_id
             if self.on_back:
                 self.on_back()
             self._show_snack("Comanda guardada", color="#4CAF50")
@@ -596,6 +611,7 @@ class ComandaPedidoView(ft.Container):
                 sesion_id=self.sesion_id, items=items_data, total=total,
                 mesa_id=mesa_id, habitacion_id=hab_id,
             )
+            self.comanda_id = comanda_id
 
             venta_anulada = LocalReplica.get_venta_anulada_by_comanda(comanda_id)
             correccion_de = venta_anulada.get('correlativo') if venta_anulada else None
@@ -624,6 +640,7 @@ class ComandaPedidoView(ft.Container):
                 return
 
             LocalReplica.cerrar_comanda(comanda_id)
+            self.comanda_id = None
             self.items.clear()
             self._refrescar_comanda()
             self._show_snack(f"Comanda #{correlativo:05d} cobrada", color="#4CAF50")
@@ -652,10 +669,18 @@ class ComandaPedidoView(ft.Container):
             self._show_snack(f"Tasa sin cambios ({formatear_tasa(tasa)} Bs/$)", color="#FF9800")
 
     def _show_snack(self, msg, color="#4CAF50"):
-        if self.page:
-            self.page.snack_bar = ft.SnackBar(content=ft.Text(msg), bgcolor=color)
-            self.page.snack_bar.open = True
-            self.page.update()
+        from usr.notifications import show_success, show_error, show_warning, show_info
+        try:
+            if color == "#4CAF50":
+                show_success(msg)
+            elif color == "#EF5350":
+                show_error(msg)
+            elif color == "#FF9800":
+                show_warning(msg)
+            else:
+                show_info(msg)
+        except Exception as e:
+            print(f"[COMANDA] Error mostrando snack: {e}")
 
     def _show_contornos_dialog(self, plato: dict, contornos: list):
         checks = {}
@@ -746,6 +771,7 @@ class ComandaPedidoView(ft.Container):
             self.txt_tasa_info.value = "Sin tasa"
         self.btn_guardar.disabled = len(self.items) == 0
         self.btn_cobrar.disabled = len(self.items) == 0
+        self.btn_eliminar.disabled = self.comanda_id is None
         if self.page:
             self.update()
 
@@ -758,6 +784,39 @@ class ComandaPedidoView(ft.Container):
         if 0 <= idx < len(self.items):
             self.items.pop(idx)
             self._refrescar_comanda()
+
+    def _eliminar_comanda(self):
+        if self.comanda_id is None:
+            return
+        self._close_dialog()
+        self.active_dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Eliminar comanda"),
+            content=ft.Text("¿Eliminar esta comanda? Esta acción no se puede deshacer."),
+            actions=[
+                ft.TextButton("Cancelar", on_click=lambda _: self._close_dialog()),
+                ft.ElevatedButton("Eliminar", bgcolor="#EF5350", color=ft.Colors.WHITE,
+                                  on_click=lambda _: self._confirmar_eliminar()),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END)
+        if self.page:
+            self.page.overlay.append(self.active_dialog)
+            self.active_dialog.open = True
+            self.page.update()
+
+    def _confirmar_eliminar(self):
+        self._close_dialog()
+        try:
+            LocalReplica.eliminar_comanda(self.comanda_id)
+            self.comanda_id = None
+            self.items.clear()
+            if self.on_back:
+                self.on_back()
+            self._show_snack("Comanda eliminada", color="#4CAF50")
+        except Exception as ex:
+            import traceback as tb
+            tb.print_exc()
+            self._show_snack(f"Error: {ex}", color="#EF5350")
 
     # ==================== DIALOGOS ====================
 

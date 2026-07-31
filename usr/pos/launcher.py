@@ -129,6 +129,9 @@ async def main(page: ft.Page):
         if sm and sm.check_connection():
             sm.full_sync()
             print("[POS] Sync completado")
+        if sm:
+            sm.start_background_sync(15)
+            print("[POS] Sync en segundo plano cada 15s")
     except Exception as e:
         print(f"[POS] Error en sync: {e}")
 
