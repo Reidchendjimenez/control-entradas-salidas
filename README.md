@@ -45,13 +45,15 @@ El sistema incluye un **módulo de ventas** que se compila y ejecuta como aplica
 
 **Compilación**:
 ```bash
-pyinstaller --onefile --windowed --name "Lycoris POS" --add-data "assets:assets" main_pos.py
+pyinstaller --onefile --windowed --name "Lycoris POS" --icon "assets/icono.ico" --add-data "assets:assets" main_pos.py
 ```
+
+> En Windows usa `;` en `--add-data`: `--add-data "assets;assets"`.
 
 **Cómo compilar ambos .exe** (ejemplo con PyInstaller):
 ```bash
-pyinstaller --onefile --windowed --name "Lycoris Control" --add-data "assets:assets" main.py
-pyinstaller --onefile --windowed --name "Lycoris POS"    --add-data "assets:assets" main_pos.py
+pyinstaller --onefile --windowed --name "Lycoris Control" --icon "assets/icono.ico" --add-data "assets:assets" main.py
+pyinstaller --onefile --windowed --name "Lycoris POS"    --icon "assets/icono.ico" --add-data "assets:assets" main_pos.py
 ```
 
 ---

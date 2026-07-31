@@ -13,8 +13,10 @@ logger = get_logger(__name__)
 def _resource_path(relative_path: str) -> str:
     if hasattr(sys, '_MEIPASS'):
         return os.path.join(sys._MEIPASS, relative_path)
-    base = os.path.dirname(os.path.abspath(__file__))
-    return os.path.abspath(os.path.join(base, '../../' + relative_path))
+    d = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if os.path.basename(d) == 'app_updates':
+        d = os.path.dirname(d)
+    return os.path.abspath(os.path.join(d, relative_path))
 
 
 async def main(page: ft.Page):
@@ -23,9 +25,7 @@ async def main(page: ft.Page):
     page.bgcolor = "#121212"
     page.theme_mode = ft.ThemeMode.DARK
     page.assets_allow_override = True
-    icon_path = _resource_path("assets/icono.ico")
-    if os.path.exists(icon_path):
-        page.window.icon = icon_path
+    page.window.icon = _resource_path("assets/icono.ico")
 
     from usr.error_handler import set_page
     set_page(page)

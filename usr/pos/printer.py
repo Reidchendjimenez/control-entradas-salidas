@@ -429,6 +429,96 @@ def listar_impresoras():
     return printers
 
 
+def _get_usb_out_endpoint(dev):
+    """Obtiene el endpoint bulk OUT correcto del dispositivo USB."""
+    try:
+        import usb.util
+        for cfg in dev:
+            for intf in cfg:
+                for ep in intf:
+                    if (usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_OUT
+                            and usb.util.endpoint_type(ep.bmAttributes) == usb.util.ENDPOINT_TYPE_BULK):
+                        return ep.bEndpointAddress
+    except Exception:
+        pass
+    return 0x01  # fallback al endpoint comun
+
+
+def _write_data(printer: dict, data: bytes) -> bool:
+    """Escribe los bytes de impresion al dispositivo con reintentos y reset previo.
+    Retorna True si la impresion fue enviada."""
+    ptype = printer['type']
+    device = printer['device']
+
+    for attempt in range(2):
+        try:
+            if ptype == 'windows':
+                import win32print
+                handle = win32print.OpenPrinter(device)
+                try:
+                    win32print.StartDocPrinter(handle, 1, ("Comanda", None, "RAW"))
+                    win32print.StartPagePrinter(handle)
+                    win32print.WritePrinter(handle, b"\x1b\x40" + data)
+                    win32print.EndPagePrinter(handle)
+                finally:
+                    win32print.EndDocPrinter(handle)
+                    win32print.ClosePrinter(handle)
+                return True
+
+            elif isinstance(device, str):
+                # file / serial
+                with open(device, 'wb') as f:
+                    f.write(b"\x1b\x40" + data)
+                    f.flush()
+                return True
+
+            else:
+                # USB (pyusb)
+                import usb.util
+                out_ep = _get_usb_out_endpoint(device)
+                try:
+                    if device.is_kernel_driver_active(0):
+                        device.detach_kernel_driver(0)
+                except Exception:
+                    pass
+                try:
+                    device.set_configuration()
+                except Exception:
+                    pass
+                try:
+                    device.write(out_ep, b"\x1b\x40" + data, timeout=10000)
+                except Exception:
+                    # intentar re-claim del interface
+                    try:
+                        usb.util.claim_interface(device, 0)
+                        device.write(out_ep, b"\x1b\x40" + data, timeout=10000)
+                    finally:
+                        try:
+                            usb.util.release_interface(device, 0)
+                        except Exception:
+                            pass
+                return True
+        except Exception as e:
+            logger.error(f"Error escribiendo a impresora (intento {attempt+1}): {e}")
+            if attempt == 0:
+                try:
+                    import time
+                    time.sleep(0.5)
+                except Exception:
+                    pass
+
+    # Ultimo recurso en Windows: si el USB falla, usar la cola de impresion
+    if ptype != 'windows' and platform.system() == "Windows":
+        try:
+            win_printers = _find_windows_printers()
+            if win_printers:
+                logger.warning(f"USB fallo, reintentando via Windows: {win_printers[0]['device']}")
+                return _write_data({'type': 'windows', 'device': win_printers[0]['device']}, data)
+        except Exception as e:
+            logger.error(f"Fallback Windows fallo: {e}")
+    return False
+
+
 def _find_printer_device():
     """Busca la impresora usando la configuracion o auto-deteccion.
     Retorna un dict con 'type' y 'device' (o string para compatibilidad)."""
@@ -470,6 +560,16 @@ def _find_printer_device():
 
 def _find_printer_device_auto():
     """Auto-detecta la impresora por USB, device path, o Windows."""
+    system = platform.system()
+
+    # En Windows, preferir la cola de impresion (win32print):
+    # la impresora instalada ya tiene el driver que reclama el USB,
+    # asi que escribir por pyusb falla o produce salida corrupta.
+    if system == "Windows":
+        win_printers = _find_windows_printers()
+        if win_printers:
+            return {'type': 'windows', 'device': win_printers[0]['device']}
+
     usb_printers = _find_usb_printers()
     if usb_printers:
         return {'type': 'usb', 'device': usb_printers[0]['device']}
@@ -481,9 +581,8 @@ def _find_printer_device_auto():
         except Exception:
             pass
 
-    system = platform.system()
     if system == "Windows":
-        # Try serial ports first
+        # Try serial ports as last resort
         try:
             import serial.tools.list_ports
             ports = list(serial.tools.list_ports.comports())
@@ -491,10 +590,6 @@ def _find_printer_device_auto():
                 return {'type': 'serial', 'device': ports[0].device}
         except Exception:
             pass
-        # Then Windows printers
-        win_printers = _find_windows_printers()
-        if win_printers:
-            return {'type': 'windows', 'device': win_printers[0]['device']}
 
     return None
 
@@ -608,28 +703,10 @@ def imprimir_comanda(items: list, total: float = None, comanda_id: int = None) -
         logger.warning("No se encontro impresora termica")
         return False
 
-    try:
-        if printer['type'] == 'windows':
-            import win32print
-            handle = win32print.OpenPrinter(printer['device'])
-            try:
-                win32print.StartDocPrinter(handle, 1, ("Comanda", None, "RAW"))
-                win32print.StartPagePrinter(handle)
-                win32print.WritePrinter(handle, data)
-                win32print.EndPagePrinter(handle)
-            finally:
-                win32print.EndDocPrinter(handle)
-                win32print.ClosePrinter(handle)
-        elif isinstance(printer['device'], str):
-            with open(printer['device'], 'wb') as f:
-                f.write(data)
-        else:
-            printer['device'].write(1, data, timeout=5000)
+    if _write_data(printer, data):
         logger.info(f"Comanda impresa (id={comanda_id})")
         return True
-    except Exception as e:
-        logger.error(f"Error imprimiendo: {e}")
-        return False
+    return False
 
 
 def test_imprimir() -> bool:
@@ -643,27 +720,9 @@ def test_imprimir() -> bool:
     if printer is None:
         return False
 
-    try:
-        if printer['type'] == 'windows':
-            import win32print
-            handle = win32print.OpenPrinter(printer['device'])
-            try:
-                win32print.StartDocPrinter(handle, 1, ("Test", None, "RAW"))
-                win32print.StartPagePrinter(handle)
-                win32print.WritePrinter(handle, data)
-                win32print.EndPagePrinter(handle)
-            finally:
-                win32print.EndDocPrinter(handle)
-                win32print.ClosePrinter(handle)
-        elif isinstance(printer['device'], str):
-            with open(printer['device'], 'wb') as f:
-                f.write(data)
-        else:
-            printer['device'].write(1, data, timeout=5000)
+    if _write_data(printer, data):
         return True
-    except Exception as e:
-        logger.error(f"Error en test de impresion: {e}")
-        return False
+    return False
 
 
 def configurar_impresora(device_path: str) -> bool:
