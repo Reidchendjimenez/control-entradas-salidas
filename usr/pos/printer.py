@@ -91,14 +91,17 @@ def _find_serial_printers():
     system = platform.system()
 
     if system == "Windows":
-        import serial.tools.list_ports
-        for port in serial.tools.list_ports.comports():
-            printers.append({
-                'type': 'serial',
-                'device': port.device,
-                'name': port.description or port.device,
-                'path': port.device,
-            })
+        try:
+            import serial.tools.list_ports
+            for port in serial.tools.list_ports.comports():
+                printers.append({
+                    'type': 'serial',
+                    'device': port.device,
+                    'name': port.description or port.device,
+                    'path': port.device,
+                })
+        except ImportError:
+            pass
     elif system == "Linux":
         for path in _DEVICE_PATHS:
             if os.path.exists(path):
@@ -130,15 +133,39 @@ def _find_serial_printers():
     return printers
 
 
+def _find_windows_printers():
+    """Busca impresoras instaladas en Windows usando win32print."""
+    printers = []
+    if platform.system() != "Windows":
+        return printers
+    try:
+        import win32print
+        for p in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS):
+            name = p[2]
+            printers.append({
+                'type': 'windows',
+                'device': name,
+                'name': name,
+                'path': f"windows:{name}",
+            })
+    except ImportError:
+        pass
+    except Exception:
+        pass
+    return printers
+
+
 def listar_impresoras():
-    """Lista todas las impresoras disponibles (USB + serial)."""
+    """Lista todas las impresoras disponibles (USB + serial + Windows)."""
     printers = _find_usb_printers()
     printers.extend(_find_serial_printers())
+    printers.extend(_find_windows_printers())
     return printers
 
 
 def _find_printer_device():
-    """Busca la impresora usando la configuracion o auto-deteccion."""
+    """Busca la impresora usando la configuracion o auto-deteccion.
+    Retorna un dict con 'type' y 'device' (o string para compatibilidad)."""
     configured = _get_configured_device()
     if configured:
         if configured.startswith("usb:"):
@@ -159,13 +186,16 @@ def _find_printer_device():
                             dev.set_configuration()
                         except Exception:
                             pass
-                        return dev
+                        return {'type': 'usb', 'device': dev}
                 except Exception:
                     pass
+        elif configured.startswith("windows:"):
+            name = configured[len("windows:"):]
+            return {'type': 'windows', 'device': name}
         else:
             try:
                 open(configured, 'wb').close()
-                return configured
+                return {'type': 'file', 'device': configured}
             except Exception:
                 pass
 
@@ -173,27 +203,32 @@ def _find_printer_device():
 
 
 def _find_printer_device_auto():
-    """Auto-detecta la impresora por USB o device path."""
+    """Auto-detecta la impresora por USB, device path, o Windows."""
     usb_printers = _find_usb_printers()
     if usb_printers:
-        return usb_printers[0]['device']
+        return {'type': 'usb', 'device': usb_printers[0]['device']}
 
     for path in _DEVICE_PATHS:
         try:
             open(path, 'wb').close()
-            return path
+            return {'type': 'file', 'device': path}
         except Exception:
             pass
 
     system = platform.system()
     if system == "Windows":
+        # Try serial ports first
         try:
             import serial.tools.list_ports
             ports = list(serial.tools.list_ports.comports())
             if ports:
-                return ports[0].device
+                return {'type': 'serial', 'device': ports[0].device}
         except Exception:
             pass
+        # Then Windows printers
+        win_printers = _find_windows_printers()
+        if win_printers:
+            return {'type': 'windows', 'device': win_printers[0]['device']}
 
     return None
 
@@ -266,11 +301,22 @@ def imprimir_comanda(items: list, total: float = None, comanda_id: int = None) -
         return False
 
     try:
-        if isinstance(printer, str):
-            with open(printer, 'wb') as f:
+        if printer['type'] == 'windows':
+            import win32print
+            handle = win32print.OpenPrinter(printer['device'])
+            try:
+                win32print.StartDocPrinter(handle, 1, ("Comanda", None, "RAW"))
+                win32print.StartPagePrinter(handle)
+                win32print.WritePrinter(handle, data)
+                win32print.EndPagePrinter(handle)
+            finally:
+                win32print.EndDocPrinter(handle)
+                win32print.ClosePrinter(handle)
+        elif isinstance(printer['device'], str):
+            with open(printer['device'], 'wb') as f:
                 f.write(data)
         else:
-            printer.write(1, data, timeout=5000)
+            printer['device'].write(1, data, timeout=5000)
         logger.info(f"Comanda impresa (id={comanda_id})")
         return True
     except Exception as e:
@@ -290,11 +336,22 @@ def test_imprimir() -> bool:
         return False
 
     try:
-        if isinstance(printer, str):
-            with open(printer, 'wb') as f:
+        if printer['type'] == 'windows':
+            import win32print
+            handle = win32print.OpenPrinter(printer['device'])
+            try:
+                win32print.StartDocPrinter(handle, 1, ("Test", None, "RAW"))
+                win32print.StartPagePrinter(handle)
+                win32print.WritePrinter(handle, data)
+                win32print.EndPagePrinter(handle)
+            finally:
+                win32print.EndDocPrinter(handle)
+                win32print.ClosePrinter(handle)
+        elif isinstance(printer['device'], str):
+            with open(printer['device'], 'wb') as f:
                 f.write(data)
         else:
-            printer.write(1, data, timeout=5000)
+            printer['device'].write(1, data, timeout=5000)
         return True
     except Exception as e:
         logger.error(f"Error en test de impresion: {e}")

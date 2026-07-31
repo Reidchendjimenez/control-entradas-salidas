@@ -7,3 +7,6 @@ SQLAlchemy
 certifi
 google-genai>=2.0.0
 openpyxl
+pyserial
+pyusb
+pywin32; sys_platform == 'win32'
