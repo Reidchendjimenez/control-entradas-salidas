@@ -223,20 +223,46 @@ def _append_raster(cmd: bytes, img) -> bytes:
     return cmd
 
 
+def _load_footer_font(size: int):
+    """Carga una fuente para el pie de pagina. Intenta varias fuentes de
+    Windows y Linux; como ultimo recurso usa la fuente escalable de Pillow."""
+    try:
+        from PIL import ImageFont
+        for name in ("DejaVuSansMono.ttf", "DejaVuSans.ttf",
+                     "arial.ttf", "consola.ttf", "cour.ttf",
+                     "segoeui.ttf", "tahoma.ttf"):
+            try:
+                return ImageFont.truetype(name, size)
+            except Exception:
+                continue
+        try:
+            return ImageFont.truetype("C:/Windows/Fonts/arial.ttf", size)
+        except Exception:
+            pass
+        try:
+            return ImageFont.load_default(size)
+        except Exception:
+            return ImageFont.load_default()
+    except Exception:
+        from PIL import ImageFont
+        return ImageFont.load_default()
+
+
 def _append_footer(cmd: bytes) -> bytes:
     """Renderiza texto del pie de pagina + QR lado a lado como una sola imagen raster.
+    Si no hay QR asignado, dibuja un recuadro placeholder donde ira el QR.
     Si no hay ni texto ni QR, retorna cmd sin cambios."""
     pie = _get_pie_pagina()
     qr_path = _get_qr_path()
     if not pie and not qr_path:
         return cmd
     try:
-        from PIL import Image, ImageDraw, ImageFont
+        from PIL import Image, ImageDraw
         import os
 
         # Cargar QR
         qr_img = None
-        qr_w = qr_h = 0
+        qr_max = 160
         if qr_path and os.path.exists(qr_path):
             qr_img = Image.open(qr_path)
             if qr_img.mode == 'RGBA':
@@ -244,7 +270,6 @@ def _append_footer(cmd: bytes) -> bytes:
                 bg.paste(qr_img, mask=qr_img.split()[3])
                 qr_img = bg
             qr_img = qr_img.convert('1', dither=Image.NONE)
-            qr_max = 180
             if qr_img.width > qr_max:
                 r = qr_max / qr_img.width
                 qr_w = qr_max
@@ -252,26 +277,51 @@ def _append_footer(cmd: bytes) -> bytes:
                 qr_img = qr_img.resize((qr_w, qr_h), Image.LANCZOS)
             else:
                 qr_w, qr_h = qr_img.size
+        else:
+            # Recuadro placeholder donde ira el QR
+            qr_w = qr_h = 140
 
-        # Preparar texto
+        # Preparar texto: envolver lineas que no quepan al lado del QR
         lines = pie.split('\n') if pie else []
-        font_size = 22
-        try:
-            font = ImageFont.truetype("DejaVuSansMono.ttf", font_size)
-        except Exception:
-            font = ImageFont.load_default()
+        font_size = 24
+        font = _load_footer_font(font_size)
         margin = 8
-        spacing = 12
+        spacing = 16
+        avail_w = 384 - spacing - qr_w - margin * 3
+        if avail_w < 60:
+            avail_w = 60
+        wrapped = []
+        for line in lines:
+            if not line:
+                wrapped.append(line)
+                continue
+            if font.getbbox(line)[2] - font.getbbox(line)[0] <= avail_w:
+                wrapped.append(line)
+            else:
+                words = line.split(' ')
+                cur = ''
+                for wrd in words:
+                    test = (cur + ' ' + wrd).strip()
+                    if font.getbbox(test)[2] - font.getbbox(test)[0] <= avail_w:
+                        cur = test
+                    else:
+                        if cur:
+                            wrapped.append(cur)
+                        cur = wrd
+                if cur:
+                    wrapped.append(cur)
+        lines = wrapped
+
+        line_h = int(font_size * 1.3)
         text_w = 0
-        line_h = font_size + 4
         for line in lines:
             bbox = font.getbbox(line)
             text_w = max(text_w, bbox[2] - bbox[0])
         text_h = len(lines) * line_h + margin * 2
 
         # Dimensiones del composite
-        total_w = text_w + spacing + qr_w + margin * 3 if qr_img else text_w + margin * 2
-        composite_h = max(text_h, qr_h) + margin * 2 if qr_img else text_h
+        total_w = text_w + spacing + qr_w + margin * 3
+        composite_h = max(text_h, qr_h) + margin * 2
 
         # Limitar al ancho maximo de impresion
         max_w = 384
@@ -284,11 +334,8 @@ def _append_footer(cmd: bytes) -> bytes:
             if qr_img:
                 qr_img = qr_img.resize((qr_w, qr_h), Image.LANCZOS)
             font_size = max(10, int(font_size * scale))
-            try:
-                font = ImageFont.truetype("DejaVuSansMono.ttf", font_size)
-            except Exception:
-                font = ImageFont.load_default()
-            line_h = font_size + 4
+            font = _load_footer_font(font_size)
+            line_h = int(font_size * 1.3)
             text_h = len(lines) * line_h + margin * 2
 
         composite = Image.new('1', (total_w, composite_h), 255)
@@ -300,11 +347,21 @@ def _append_footer(cmd: bytes) -> bytes:
             draw.text((margin, y), line, font=font, fill=0)
             y += line_h
 
-        # QR a la derecha
+        # QR a la derecha (o recuadro placeholder)
+        qr_x = total_w - qr_w - margin
+        qr_y = (composite_h - qr_h) // 2
         if qr_img:
-            qr_x = total_w - qr_w - margin
-            qr_y = (composite_h - qr_h) // 2
             composite.paste(qr_img, (qr_x, qr_y))
+        else:
+            draw.rectangle([qr_x, qr_y, qr_x + qr_w - 1, qr_y + qr_h - 1], outline=0, width=2)
+            placeholder_font = _load_footer_font(max(12, int(qr_h * 0.18)))
+            qr_label = "QR"
+            bbox = draw.textbbox((0, 0), qr_label, font=placeholder_font)
+            tw = bbox[2] - bbox[0]
+            th = bbox[3] - bbox[1]
+            draw.text((qr_x + (qr_w - tw) // 2 - bbox[0],
+                       qr_y + (qr_h - th) // 2 - bbox[1]),
+                      qr_label, font=placeholder_font, fill=0)
 
         cmd = _append_raster(cmd, composite)
     except Exception as e:
