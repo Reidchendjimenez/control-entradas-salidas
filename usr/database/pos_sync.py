@@ -126,7 +126,7 @@ class POSSyncManager:
             # el modulo de inventario si se abre despues).
             try:
                 result = conn.execute(text(
-                    "SELECT * FROM categorias WHERE activo = 1 AND visible_en_pos = 1"
+                    "SELECT * FROM categorias WHERE activo = TRUE AND visible_en_pos = TRUE"
                 ))
                 rows = result.fetchall()
                 data = [dict_to_serializable(dict(row._mapping)) for row in rows]
