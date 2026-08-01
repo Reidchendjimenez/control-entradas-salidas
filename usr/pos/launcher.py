@@ -127,13 +127,20 @@ async def main(page: ft.Page):
         init_pos_sync_manager(get_engine)
         sm = get_pos_sync_manager()
         if sm and sm.check_connection():
-            sm.full_sync()
-            print("[POS] Sync completado")
+            try:
+                sm.full_sync()
+                print("[POS] Sync completado")
+            except Exception as e_full:
+                import traceback as tb
+                print(f"[POS] Error en full_sync: {e_full}")
+                tb.print_exc()
         if sm:
             sm.start_background_sync(15)
             print("[POS] Sync en segundo plano cada 15s")
     except Exception as e:
+        import traceback as tb
         print(f"[POS] Error en sync: {e}")
+        tb.print_exc()
 
     page.clean()
     from usr.pos.views.login import POSLoginView

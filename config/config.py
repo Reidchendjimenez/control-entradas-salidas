@@ -1,17 +1,25 @@
 import os
+import sys
 from typing import Optional
 from pathlib import Path
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
-# --- NUEVA LÓGICA DE BÚSQUEDA PARA ANDROID ---
-# Definimos las rutas donde el APK podría haber guardado el .env
+# --- BÚSQUEDA DEL .env (compatible con PyInstaller) ---
+# En modo compilado (PyInstaller), los datos empaquetados con --add-data
+# quedan en sys._MEIPASS. El .env se empaqueta en la raíz de _MEIPASS.
+_MEIPASS = getattr(sys, '_MEIPASS', None)
 basedir = Path(__file__).parent
 posibles_rutas = [
-    basedir.parent / ".env",   # Raíz del proyecto (../.env)
-    basedir / ".env",          # Dentro de la carpeta config/
+    basedir.parent / ".env",   # Raíz del proyecto (../.env) - desarrollo
+    basedir / ".env",          # Dentro de config/ - desarrollo
     Path.cwd() / ".env",       # Directorio de trabajo actual
 ]
+if _MEIPASS:
+    # PyInstaller: .env empaquetado con --add-data ".env;."  ->  _MEIPASS/.env
+    posibles_rutas.insert(0, Path(_MEIPASS) / ".env")
+    # Algunas configs lo coloca un nivel arriba (en el directorio del .exe)
+    posibles_rutas.insert(1, Path(_MEIPASS).parent / ".env")
 
 env_path = None
 for ruta in posibles_rutas:
