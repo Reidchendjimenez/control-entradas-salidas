@@ -120,6 +120,21 @@ class POSSyncManager:
                 except Exception:
                     conn.rollback()
 
+            # Categorias de inventario visibles en POS (no estan en _POS_TABLES,
+            # pero el POS las necesita para mostrar productos). Descarga solo las
+            # marcadas visible_en_pos=1 y activas; no poda (las demas las gestiona
+            # el modulo de inventario si se abre despues).
+            try:
+                result = conn.execute(text(
+                    "SELECT * FROM categorias WHERE activo = 1 AND visible_en_pos = 1"
+                ))
+                rows = result.fetchall()
+                data = [dict_to_serializable(dict(row._mapping)) for row in rows]
+                LocalReplica.save_categorias(data)
+                self._log(f"{len(data)} categorias (visibles en POS) descargadas")
+            except Exception as e:
+                self._log(f"Error descargando categorias: {e}")
+
             for local_table, server_table in _POS_TABLES:
                 try:
                     result = conn.execute(text(f"SELECT * FROM {server_table}"))
