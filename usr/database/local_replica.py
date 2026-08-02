@@ -3146,9 +3146,12 @@ class LocalReplica:
         cid = cat.get('id')
         if cid:
             cursor.execute("""
-                UPDATE platos_categorias SET nombre=?, color=?, activo=?, updated_at=? WHERE id=?
+                UPDATE platos_categorias SET nombre=?, color=?, activo=?,
+                       categoria_padre_id=?, pos_categoria_padre_id=?, updated_at=? WHERE id=?
             """, (cat.get('nombre'), cat.get('color', '#FF6F00'),
-                  1 if cat.get('activo', True) else 0, now, cid))
+                  1 if cat.get('activo', True) else 0,
+                  cat.get('categoria_padre_id'), cat.get('pos_categoria_padre_id'),
+                  now, cid))
         else:
             cursor.execute("""
                 INSERT INTO platos_categorias (nombre, color, activo, created_at, updated_at)
@@ -3323,7 +3326,7 @@ class LocalReplica:
         conn = get_local_conn()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT p.id, p.nombre, p.precio_venta,
+            SELECT p.id, p.nombre, p.precio_venta, p.categoria_id,
                    pc.nombre as categoria_nombre, pc.color as categoria_color
             FROM platos p
             INNER JOIN platos_categorias pc ON p.categoria_id = pc.id AND pc.activo = 1

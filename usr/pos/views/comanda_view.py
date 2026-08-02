@@ -185,7 +185,7 @@ class ComandaPedidoView(ft.Container):
             self.grid.controls.append(self._build_categoria_card(cat))
 
         platos_activos = LocalReplica.get_platos_pos()
-        plato_cats = LocalReplica.get_platos_categorias()
+        plato_cats = self._get_platos_categorias_pos()
         if plato_cats:
             self.grid.controls.append(self._build_platos_card())
 
@@ -219,10 +219,17 @@ class ComandaPedidoView(ft.Container):
         card.on_hover = lambda e, c=card: self._cat_hover(e, c, "#FF6F00")
         return card
 
+    def _get_platos_categorias_pos(self):
+        """Categorias de platos (sin padre) excluyendo las de contornos."""
+        contorno_cat_ids = {p.get('categoria_id') for p in LocalReplica.get_contornos_activos()}
+        return [c for c in LocalReplica.get_platos_categorias()
+                if not c.get('categoria_padre_id') and not c.get('pos_categoria_padre_id')
+                and c['id'] not in contorno_cat_ids]
+
     def _on_platos_seccion_click(self):
         self.categoria_actual = {"tipo": "platos"}
         self.grid.controls.clear()
-        pcats = LocalReplica.get_platos_categorias()
+        pcats = self._get_platos_categorias_pos()
         if not pcats:
             self.grid.controls.append(ft.Container(
                 content=ft.Column([
@@ -479,7 +486,7 @@ class ComandaPedidoView(ft.Container):
                 ))
             else:
                 for p in prods:
-                    self.grid.controls.append(self._build_producto_card(p))
+                    self.grid.controls.append(self._build_producto_card(p, color=cat.get('color', '#4CAF50')))
             self.panel_derecho.content = ft.Column([
                 ft.Row([
                     ft.IconButton(icon=ft.Icons.ARROW_BACK_ROUNDED, icon_color=ft.Colors.WHITE,
@@ -492,12 +499,22 @@ class ComandaPedidoView(ft.Container):
                 self.update()
 
     def _show_subcategorias(self, parent_cat: dict, sub_cats: list):
-        """Muestra las sub-categorias de una categoria padre."""
+        """Muestra las sub-categorias de una categoria padre junto a sus productos directos."""
         self.categoria_actual = parent_cat
         self.grid.controls.clear()
         for sc in sub_cats:
             sc['_parent'] = parent_cat  # guardar referencia al padre
             self.grid.controls.append(self._build_subcategoria_card(sc))
+
+        prods = LocalReplica.get_productos_pos(parent_cat['id'])
+        if prods:
+            self.grid.controls.append(ft.Container(
+                content=ft.Text("PRODUCTOS", size=11, weight=ft.FontWeight.BOLD, color="#4CAF50"),
+                padding=ft.padding.only(top=14, bottom=4),
+            ))
+            for p in prods:
+                self.grid.controls.append(self._build_producto_card(p, color=parent_cat.get('color', '#4CAF50')))
+
         self.panel_derecho.content = ft.Column([
             ft.Row([
                 ft.IconButton(icon=ft.Icons.ARROW_BACK_ROUNDED, icon_color=ft.Colors.WHITE,
@@ -539,18 +556,19 @@ class ComandaPedidoView(ft.Container):
         parent_cat = sc.get('_parent')
         self.categoria_actual = sc
         self.grid.controls.clear()
-        prods = LocalReplica.get_productos_pos(sc['id'])
-        if not prods:
+        platos = LocalReplica.get_platos_pos()
+        platos_filtrados = [p for p in platos if str(p.get('categoria_id')) == str(sc.get('id'))]
+        if not platos_filtrados:
             self.grid.controls.append(ft.Container(
                 content=ft.Column([
-                    ft.Icon(ft.Icons.INVENTORY_2_ROUNDED, size=50, color="#757575"),
-                    ft.Text("No hay productos en esta sub-categoria", size=14, color="#9E9E9E"),
+                    ft.Icon(ft.Icons.RAMEN_DINING, size=50, color="#757575"),
+                    ft.Text("No hay platos en esta sub-categoria", size=14, color="#9E9E9E"),
                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
                 padding=30, alignment=ft.alignment.center,
             ))
         else:
-            for p in prods:
-                self.grid.controls.append(self._build_producto_card(p))
+            for p in platos_filtrados:
+                self.grid.controls.append(self._build_plato_card(p))
         self.panel_derecho.content = ft.Column([
             ft.Row([
                 ft.IconButton(icon=ft.Icons.ARROW_BACK_ROUNDED, icon_color=ft.Colors.WHITE,
@@ -566,40 +584,40 @@ class ComandaPedidoView(ft.Container):
         if self.page:
             self.update()
 
-    def _build_producto_card(self, prod: dict):
+    def _build_producto_card(self, prod: dict, color: str = "#4CAF50"):
         precio = prod.get('precio_venta', 0) or 0
         nombre = prod.get('nombre', '?')
         card = ft.Container(
             bgcolor="#1E1E1E", border_radius=12, padding=12,
             alignment=ft.alignment.center,
-            border=ft.border.only(bottom=ft.BorderSide(3, "#4CAF50")),
-            shadow=ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.2, "#4CAF50"), offset=ft.Offset(0, 3)),
+            border=ft.border.only(bottom=ft.BorderSide(3, color)),
+            shadow=ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 3)),
             animate_scale=ft.Animation(400, ft.AnimationCurve.DECELERATE),
             on_click=lambda _, p=prod: self._agregar_item(p, tipo='producto'),
             content=ft.Column([
                 ft.Container(
                     content=ft.Text(nombre[:2].upper(), size=22, weight="bold", color=ft.Colors.WHITE),
                     alignment=ft.alignment.center, width=50, height=50,
-                    bgcolor="#4CAF50", shape=ft.BoxShape.CIRCLE,
-                    shadow=ft.BoxShadow(blur_radius=8, color=ft.Colors.with_opacity(0.3, "#4CAF50"), offset=ft.Offset(0, 3)),
+                    bgcolor=color, shape=ft.BoxShape.CIRCLE,
+                    shadow=ft.BoxShadow(blur_radius=8, color=ft.Colors.with_opacity(0.3, color), offset=ft.Offset(0, 3)),
                 ),
                 ft.Container(height=6),
                 ft.Text(nombre.upper(), size=10, weight="bold", color=ft.Colors.WHITE,
                         text_align=ft.TextAlign.CENTER, max_lines=2, overflow=ft.TextOverflow.ELLIPSIS),
-                ft.Text(f"$ {precio:.2f}", size=11, color="#4CAF50", weight=ft.FontWeight.BOLD),
+                ft.Text(f"$ {precio:.2f}", size=11, color=color, weight=ft.FontWeight.BOLD),
             ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, alignment=ft.MainAxisAlignment.CENTER),
         )
-        card.on_hover = lambda e, c=card: self._prod_hover(e, c)
+        card.on_hover = lambda e, c=card, cl=color: self._prod_hover(e, c, cl)
         return card
 
     @staticmethod
-    def _prod_hover(e, card):
+    def _prod_hover(e, card, color):
         if e.data == "true":
             card.scale = 1.05
-            card.shadow = ft.BoxShadow(blur_radius=15, color=ft.Colors.with_opacity(0.2, "#4CAF50"), offset=ft.Offset(0, 0))
+            card.shadow = ft.BoxShadow(blur_radius=15, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 0))
         else:
             card.scale = 1.0
-            card.shadow = ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.1, "#4CAF50"), offset=ft.Offset(0, 0))
+            card.shadow = ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.1, color), offset=ft.Offset(0, 0))
         card.update()
 
     def _agregar_item(self, prod: dict, tipo='producto'):

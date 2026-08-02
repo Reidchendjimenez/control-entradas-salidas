@@ -568,9 +568,86 @@ class ConfigPOSView(ft.Container):
                     ),
                     size=20, color="#FF9800" if es_admin else "#9E9E9E",
                 ),
+                ft.IconButton(
+                    ft.Icons.EDIT, icon_size=18, icon_color="#BB86FC",
+                    tooltip="Editar",
+                    on_click=lambda _, u=usuario: self._show_editar_dialog(u),
+                ),
+                ft.IconButton(
+                    ft.Icons.DELETE, icon_size=18, icon_color="#EF5350",
+                    tooltip="Eliminar",
+                    on_click=lambda _, u=usuario: self._show_eliminar_dialog(u),
+                ),
             ], spacing=15),
             bgcolor="#1E1E1E", border=ft.border.all(1,"#3D3D3D"),
             border_radius=10, padding=15, ink=True,
+        )
+
+    def _show_editar_dialog(self, usuario: dict):
+        self.nombre_input=ft.TextField(label="Nombre del cajero", width=300, autofocus=True,
+                                       value=usuario.get('nombre',''))
+        has_pin=bool(usuario.get('pin_hash'))
+        self.pin_check=ft.Checkbox(label="Proteger con PIN de 4 digitos", value=has_pin)
+        self.pin_input_new=ft.TextField(
+            label="Nuevo PIN (dejar vacio para no cambiar)", password=True, max_length=4,
+            keyboard_type=ft.KeyboardType.NUMBER, width=300, disabled=not has_pin,
+        )
+        def _on_pin_check_change(e):
+            self.pin_input_new.disabled=not e.control.value
+            self.pin_input_new.error_text=None
+            if self.page:
+                self.page.update()
+        self.pin_check.on_change=_on_pin_check_change
+        self.admin_check=ft.Checkbox(label="Es administrador (acceso a configuracion)",
+                                     value=bool(usuario.get('es_admin')))
+        self._show_dialog(
+            title="Editar Cajero",
+            content=ft.Column([
+                self.nombre_input, self.pin_check, self.pin_input_new,
+                ft.Container(height=5), ft.Divider(height=1, color="#3D3D3D"), self.admin_check,
+            ], tight=True),
+            on_save=lambda: self._do_editar(usuario),
+        )
+
+    def _do_editar(self, usuario: dict):
+        import traceback as tb
+        nombre=(self.nombre_input.value or "").strip()
+        if not nombre:
+            self._show_error(self.nombre_input, "Ingrese un nombre")
+            return
+        pin=self.pin_input_new.value if self.pin_check.value else ""
+        if self.pin_check.value and pin and (len(pin)!=4 or not pin.isdigit()):
+            self._show_error(self.pin_input_new, "PIN debe tener 4 digitos")
+            return
+        es_admin=self.admin_check.value
+        try:
+            LocalReplica.update_pos_usuario(
+                usuario['id'], nombre=nombre,
+                pin=pin if (self.pin_check.value and pin) else ("" if self.pin_check.value and not pin else None),
+                es_admin=es_admin,
+            )
+            get_sync_queue().add_pending('pos_usuarios', 'update', {
+                'id': usuario['id'], 'nombre': nombre,
+                'es_admin': 1 if es_admin else 0, 'activo': 1,
+            })
+            self._close_dialog()
+            self._load_usuarios()
+        except Exception as ex:
+            traceback_text=tb.format_exc()
+            print(f"[POS CONFIG] Error al editar cajero:\n{traceback_text}")
+            self._show_error(self.nombre_input, f"Error: {ex}")
+
+    def _show_eliminar_dialog(self, usuario: dict):
+        def confirm():
+            LocalReplica.delete_pos_usuario(usuario['id'])
+            get_sync_queue().add_pending('pos_usuarios', 'delete', {'id': usuario['id']})
+            self._close_dialog()
+            self._load_usuarios()
+        self._show_dialog(
+            title="Eliminar cajero",
+            content=ft.Text(f"¿Eliminar a '{usuario.get('nombre')}'?", color=ft.Colors.WHITE),
+            on_save=confirm,
+            save_text="Eliminar",
         )
 
     def _show_agregar_dialog(self):
@@ -949,24 +1026,60 @@ class ConfigPOSView(ft.Container):
             value=sc.get('color', '#FF6F00'), width=150,
         )
 
+        cats_inventario = LocalReplica.get_categorias_pos()
+        pos_cats = LocalReplica.get_pos_categorias(solo_activas=False)
+        current_parent = None
+        if sc.get('categoria_padre_id'):
+            current_parent = f"INV_{sc['categoria_padre_id']}"
+        elif sc.get('pos_categoria_padre_id'):
+            current_parent = f"POS_{sc['pos_categoria_padre_id']}"
+        padre_dd = ft.Dropdown(
+            label="Categoria padre (vacio = sin padre)",
+            width=350,
+            options=[ft.dropdown.Option("", "Sin padre")] + [
+                ft.dropdown.Option(f"INV_{c['id']}", f"INV: {c['nombre']}")
+                for c in cats_inventario
+            ] + [
+                ft.dropdown.Option(f"POS_{c['id']}", f"POS: {c['nombre']}")
+                for c in pos_cats
+            ],
+            value=current_parent or "",
+        )
+
         def save():
             nombre_val = (nombre.value or "").strip()
             if not nombre_val:
                 self._show_error(nombre, "Requerido")
                 return
+            parent = padre_dd.value or ""
+            if parent.startswith("INV_"):
+                cat_padre_id = int(parent.split("_")[1])
+                pos_padre_id = None
+            elif parent.startswith("POS_"):
+                cat_padre_id = None
+                pos_padre_id = int(parent.split("_")[1])
+            else:
+                cat_padre_id = None
+                pos_padre_id = None
             LocalReplica.save_plato_categoria({
                 'id': sc['id'], 'nombre': nombre_val,
                 'color': color_picker.value, 'activo': sc.get('activo', 1),
+                'categoria_padre_id': cat_padre_id,
+                'pos_categoria_padre_id': pos_padre_id,
             })
             get_sync_queue().add_pending('platos_categorias', 'update', {
                 'id': sc['id'], 'nombre': nombre_val,
                 'color': color_picker.value, 'activo': sc.get('activo', 1),
+                'categoria_padre_id': cat_padre_id,
+                'pos_categoria_padre_id': pos_padre_id,
             })
             self._close_dialog()
             self._load_pos_categorias()
 
         content = ft.Column([
             ft.Row([nombre, ft.Container(width=10), color_picker], spacing=6),
+            ft.Container(height=8),
+            padre_dd,
             ft.Container(height=8),
             ft.ElevatedButton("Guardar", on_click=lambda _: save(),
                               bgcolor="#4CAF50", color=ft.Colors.WHITE),
@@ -1167,10 +1280,6 @@ class ConfigPOSView(ft.Container):
                 on_click=lambda _: (setattr(self, '_mostrar_contornos', not getattr(self, '_mostrar_contornos', False)),
                                     self._load_platos()),
             ),
-            ft.OutlinedButton(
-                "Categorias", icon=ft.Icons.CATEGORY_ROUNDED,
-                on_click=lambda _: self._show_plato_categorias_dialog(),
-            ),
             ft.ElevatedButton(
                 "Nuevo plato", icon=ft.Icons.ADD_ROUNDED,
                 bgcolor="#4CAF50", color=ft.Colors.WHITE,
@@ -1239,79 +1348,6 @@ class ConfigPOSView(ft.Container):
             on_save=confirm,
             save_text="Eliminar",
         )
-
-    # ==================== CATEGORIAS DE PLATOS ====================
-
-    def _show_plato_categorias_dialog(self):
-        cats=LocalReplica.get_platos_categorias(solo_activas=False)
-        cat_list=ft.ListView(expand=True, spacing=6)
-        for c in cats:
-            cat_list.controls.append(self._build_pcat_card(c))
-        if not cats:
-            cat_list.controls.append(ft.Container(
-                content=ft.Text("Sin categorias", color="#9E9E9E", italic=True),
-                padding=10, alignment=ft.alignment.center,
-            ))
-
-        nombre_new=ft.TextField(label="Nueva categoria", width=250, autofocus=True)
-        color_picker=ft.Dropdown(
-            label="Color",
-            options=[ft.dropdown.Option(c[0], c[1]) for c in [
-                ("#FF6F00", "Naranja"), ("#E53935", "Rojo"), ("#43A047", "Verde"),
-                ("#1E88E5", "Azul"), ("#8E24AA", "Morado"), ("#00ACC1", "Cyan"),
-            ]],
-            value="#FF6F00", width=150,
-        )
-
-        def add_cat():
-            nombre=(nombre_new.value or "").strip()
-            if nombre:
-                cid = LocalReplica.save_plato_categoria({'nombre': nombre, 'color': color_picker.value})
-                get_sync_queue().add_pending('platos_categorias', 'insert', {
-                    'id': cid, 'nombre': nombre, 'color': color_picker.value, 'activo': 1,
-                })
-                nombre_new.value=""
-                self._show_plato_categorias_dialog()
-                if self.page:
-                    self.page.update()
-
-        content=ft.Column([
-            ft.Row([nombre_new, color_picker, ft.IconButton(ft.Icons.ADD_CIRCLE, icon_color="#4CAF50",
-                       icon_size=32, on_click=lambda _: add_cat())], spacing=6),
-            ft.Container(height=8),
-            ft.Container(content=cat_list, border=ft.border.all(1,"#3D3D3D"),
-                          border_radius=10, padding=10, height=300),
-        ], tight=True, scroll=ft.ScrollMode.AUTO, width=520)
-
-        self._show_dialog(title="Categorias", content=content, on_save=lambda: self._close_dialog(),
-                          save_text="Cerrar")
-
-    def _build_pcat_card(self, cat: dict):
-        return ft.Container(
-            content=ft.Row([
-                ft.Container(width=12, height=12, bgcolor=cat.get('color','#FF6F00'),
-                             border_radius=6),
-                ft.Text(cat['nombre'], size=14, color=ft.Colors.WHITE, expand=True),
-                ft.Switch(value=bool(cat.get('activo')),
-                          on_change=lambda e, c=cat: self._toggle_pcat(c, e.control.value)),
-                ft.IconButton(ft.Icons.DELETE, icon_size=18, icon_color="#EF5350",
-                              on_click=lambda _, c=cat: self._delete_pcat(c)),
-            ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=8, bgcolor="#1E1E1E", border_radius=8,
-        )
-
-    def _toggle_pcat(self, cat, activo):
-        LocalReplica.save_plato_categoria({'id': cat['id'], 'nombre': cat['nombre'],
-                                            'color': cat.get('color','#FF6F00'), 'activo': activo})
-        get_sync_queue().add_pending('platos_categorias', 'update', {
-            'id': cat['id'], 'nombre': cat['nombre'],
-            'color': cat.get('color','#FF6F00'), 'activo': activo,
-        })
-
-    def _delete_pcat(self, cat):
-        LocalReplica.delete_plato_categoria(cat['id'])
-        get_sync_queue().add_pending('platos_categorias', 'delete', {'id': cat['id']})
-        self._show_plato_categorias_dialog()
 
     # ==================== DIALOGO PLATO ====================
 
@@ -1465,14 +1501,14 @@ class ConfigPOSView(ft.Container):
 
     def _show_dialog(self, title, content, on_save, save_text="Guardar"):
         self._close_dialog()
+        actions = [ft.TextButton("Cancelar", on_click=lambda _: self._close_dialog())]
+        if save_text:
+            actions.append(ft.ElevatedButton(save_text, on_click=lambda _: on_save(),
+                                             bgcolor="#4CAF50", color=ft.Colors.WHITE))
         self.active_dialog=ft.AlertDialog(
             title=ft.Text(title),
             content=content,
-            actions=[
-                ft.TextButton("Cancelar", on_click=lambda _: self._close_dialog()),
-                ft.ElevatedButton(save_text, on_click=lambda _: on_save(),
-                                  bgcolor="#4CAF50", color=ft.Colors.WHITE),
-            ],
+            actions=actions,
         )
         if self.page:
             self.page.overlay.append(self.active_dialog)
