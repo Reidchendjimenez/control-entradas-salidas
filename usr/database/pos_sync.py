@@ -15,6 +15,7 @@ _POS_TABLES = [
     ('platos', 'platos'),
     ('plato_ingredientes', 'plato_ingredientes'),
     ('plato_contornos', 'plato_contornos'),
+    ('pos_categorias', 'pos_categorias'),
     ('pos_mesas', 'pos_mesas'),
     ('pos_habitaciones', 'pos_habitaciones'),
     ('pos_usuarios', 'pos_usuarios'),
@@ -104,6 +105,7 @@ class POSSyncManager:
                 "CREATE TABLE IF NOT EXISTS platos (id SERIAL PRIMARY KEY, nombre TEXT NOT NULL, categoria_id INTEGER NOT NULL, precio_venta REAL DEFAULT 0, activo INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT, es_contorno INTEGER DEFAULT 0, lleva_contornos INTEGER DEFAULT 0)",
                 "CREATE TABLE IF NOT EXISTS plato_ingredientes (id SERIAL PRIMARY KEY, plato_id INTEGER NOT NULL, producto_id INTEGER NOT NULL, cantidad REAL NOT NULL, unidad TEXT DEFAULT 'unidad')",
                 "CREATE TABLE IF NOT EXISTS plato_contornos (id SERIAL PRIMARY KEY, plato_id INTEGER NOT NULL, contorno_id INTEGER NOT NULL, max_seleccionar INTEGER DEFAULT 2)",
+                "CREATE TABLE IF NOT EXISTS pos_categorias (id SERIAL PRIMARY KEY, nombre TEXT NOT NULL, color TEXT DEFAULT '#FF6F00', icono TEXT, activo INTEGER DEFAULT 1, sync_uuid TEXT, created_at TEXT, updated_at TEXT)",
                 "CREATE TABLE IF NOT EXISTS pos_mesas (id SERIAL PRIMARY KEY, numero TEXT NOT NULL, nombre TEXT, zona TEXT, activo INTEGER DEFAULT 1, creado_en TEXT NOT NULL)",
                 "CREATE TABLE IF NOT EXISTS pos_habitaciones (id SERIAL PRIMARY KEY, numero TEXT NOT NULL, piso TEXT, tipo TEXT, activo INTEGER DEFAULT 1, creado_en TEXT NOT NULL)",
                 "CREATE TABLE IF NOT EXISTS pos_usuarios (id SERIAL PRIMARY KEY, nombre TEXT NOT NULL, pin_hash TEXT, es_admin INTEGER DEFAULT 0, activo INTEGER DEFAULT 1, creado_en TEXT NOT NULL)",
@@ -111,6 +113,9 @@ class POSSyncManager:
                 "CREATE TABLE IF NOT EXISTS pos_comandas (id SERIAL PRIMARY KEY, sesion_id INTEGER, mesa_id INTEGER, habitacion_id INTEGER, estado TEXT DEFAULT 'abierta', total REAL DEFAULT 0, items_json TEXT, sync_uuid TEXT, created_at TEXT NOT NULL, updated_at TEXT)",
                 "CREATE TABLE IF NOT EXISTS pos_ventas (id SERIAL PRIMARY KEY, comanda_id INTEGER, correlativo INTEGER, total REAL DEFAULT 0, items_json TEXT, mesa_id INTEGER, habitacion_id INTEGER, usuario_id INTEGER, sesion_id INTEGER, estado TEXT DEFAULT 'vigente', venta_anula_id INTEGER, motivo_anulacion TEXT, anulada_por TEXT, anulada_en TEXT, tasa_bs REAL, sync_uuid TEXT, comanda_sync_uuid TEXT, venta_anula_sync_uuid TEXT, created_at TEXT NOT NULL, updated_at TEXT)",
                 "ALTER TABLE movimientos ADD COLUMN IF NOT EXISTS venta_sync_uuid TEXT",
+                "ALTER TABLE platos_categorias ADD COLUMN IF NOT EXISTS categoria_padre_id INTEGER",
+                "ALTER TABLE platos_categorias ADD COLUMN IF NOT EXISTS pos_categoria_padre_id INTEGER",
+                "CREATE INDEX IF NOT EXISTS idx_pos_categorias_sync_uuid ON pos_categorias (sync_uuid)",
                 "CREATE INDEX IF NOT EXISTS idx_pos_comandas_sync_uuid ON pos_comandas (sync_uuid)",
                 "CREATE INDEX IF NOT EXISTS idx_pos_ventas_sync_uuid ON pos_ventas (sync_uuid)",
             ]:
@@ -135,6 +140,31 @@ class POSSyncManager:
             except Exception as e:
                 self._log(f"Error descargando categorias: {e}")
 
+            # Productos marcados para la venta (los que el POS muestra al tocar
+            # una categoria). No poda: el modulo de inventario gobierna el resto.
+            try:
+                result = conn.execute(text(
+                    "SELECT * FROM productos WHERE activo = TRUE AND tipo = 'Productos para la venta'"
+                ))
+                rows = result.fetchall()
+                data = [dict_to_serializable(dict(row._mapping)) for row in rows]
+                LocalReplica.save_productos(data)
+                self._log(f"{len(data)} productos (para la venta) descargados")
+            except Exception as e:
+                self._log(f"Error descargando productos: {e}")
+
+            # Categorias POS independientes (no están en _POS_TABLES pero el POS las necesita)
+            try:
+                result = conn.execute(text(
+                    "SELECT * FROM pos_categorias WHERE activo = TRUE"
+                ))
+                rows = result.fetchall()
+                data = [dict_to_serializable(dict(row._mapping)) for row in rows]
+                LocalReplica.save_pos_categorias(data)
+                self._log(f"{len(data)} categorias POS independientes descargadas")
+            except Exception as e:
+                self._log(f"Error descargando categorias POS: {e}")
+
             for local_table, server_table in _POS_TABLES:
                 try:
                     result = conn.execute(text(f"SELECT * FROM {server_table}"))
@@ -153,6 +183,9 @@ class POSSyncManager:
                         LocalReplica.save_plato_ingredientes(data)
                     elif local_table == 'plato_contornos':
                         LocalReplica.save_plato_contornos_bulk(data)
+                    elif local_table == 'pos_categorias':
+                        LocalReplica.save_pos_categorias(data)
+                        LocalReplica.delete_orphaned_records('pos_categorias', remote_ids, 'nombre')
                     elif local_table == 'pos_mesas':
                         LocalReplica.save_pos_mesas(data)
                         LocalReplica.delete_orphaned_records('pos_mesas', remote_ids)
@@ -252,6 +285,8 @@ class POSSyncManager:
                             'nombre': data.get('nombre', ''),
                             'color': data.get('color', '#FF6F00'),
                             'activo': 1 if data.get('activo', True) else 0,
+                            'categoria_padre_id': data.get('categoria_padre_id'),
+                            'pos_categoria_padre_id': data.get('pos_categoria_padre_id'),
                             'created_at': data.get('created_at', data.get('updated_at')),
                             'updated_at': data.get('updated_at'),
                         }
@@ -259,12 +294,35 @@ class POSSyncManager:
                             text("SELECT id FROM platos_categorias WHERE id = :id"), {'id': cid}
                         ).fetchone()
                         if exists:
-                            cols = ", ".join([f"{k} = :{k}" for k in ['nombre','color','activo','updated_at']])
+                            cols = ", ".join([f"{k} = :{k}" for k in ['nombre','color','activo','categoria_padre_id','pos_categoria_padre_id','updated_at']])
                             conn.execute(text(f"UPDATE platos_categorias SET {cols} WHERE id = :id"), vals)
                         else:
                             cols = ", ".join(vals.keys())
                             ph = ", ".join([f":{k}" for k in vals.keys()])
                             conn.execute(text(f"INSERT INTO platos_categorias ({cols}) VALUES ({ph})"), vals)
+                        conn.commit()
+
+                    elif table == 'pos_categorias':
+                        cid = data.get('id')
+                        vals = {
+                            'id': cid,
+                            'nombre': data.get('nombre', ''),
+                            'color': data.get('color', '#FF6F00'),
+                            'icono': data.get('icono'),
+                            'activo': 1 if data.get('activo', True) else 0,
+                            'created_at': data.get('created_at', data.get('updated_at')),
+                            'updated_at': data.get('updated_at'),
+                        }
+                        exists = cid and conn.execute(
+                            text("SELECT id FROM pos_categorias WHERE id = :id"), {'id': cid}
+                        ).fetchone()
+                        if exists:
+                            cols = ", ".join([f"{k} = :{k}" for k in ['nombre','color','icono','activo','updated_at']])
+                            conn.execute(text(f"UPDATE pos_categorias SET {cols} WHERE id = :id"), vals)
+                        else:
+                            cols = ", ".join(vals.keys())
+                            ph = ", ".join([f":{k}" for k in vals.keys()])
+                            conn.execute(text(f"INSERT INTO pos_categorias ({cols}) VALUES ({ph})"), vals)
                         conn.commit()
 
                     elif table == 'platos':

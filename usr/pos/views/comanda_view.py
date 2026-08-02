@@ -164,6 +164,7 @@ class ComandaPedidoView(ft.Container):
 
     def _load_categorias(self):
         self.grid.controls.clear()
+        # Categorias de inventario (visibles en POS)
         cats = LocalReplica.get_categorias_pos()
         if not cats:
             self.grid.controls.append(ft.Container(
@@ -176,6 +177,12 @@ class ComandaPedidoView(ft.Container):
         else:
             for cat in cats:
                 self.grid.controls.append(self._build_categoria_card(cat))
+
+        # Categorias POS independientes
+        pos_cats = LocalReplica.get_pos_categorias(solo_activas=True)
+        for cat in pos_cats:
+            cat['_tipo'] = 'pos'  # marcar como POS para el click handler
+            self.grid.controls.append(self._build_categoria_card(cat))
 
         platos_activos = LocalReplica.get_platos_pos()
         plato_cats = LocalReplica.get_platos_categorias()
@@ -441,14 +448,103 @@ class ComandaPedidoView(ft.Container):
         card.update()
 
     def _on_categoria_click(self, cat: dict):
-        self.categoria_actual = cat
+        # Verificar si tiene sub-categorias
+        sub_cats = []
+        if cat.get('categoria_padre_id'):
+            sub_cats = LocalReplica.get_subcategorias_by_categoria_padre(cat['id'])
+        elif cat.get('pos_categoria_padre_id'):
+            sub_cats = LocalReplica.get_subcategorias_by_pos_categoria_padre(cat.get('pos_categoria_padre_id'))
+        elif cat.get('_tipo') == 'pos':
+            # Categoria POS independiente
+            sub_cats = LocalReplica.get_subcategorias_by_pos_categoria_padre(cat['id'])
+        else:
+            # Categoria de inventario
+            sub_cats = LocalReplica.get_subcategorias_by_categoria_padre(cat['id'])
+
+        if sub_cats:
+            # Tiene sub-categorias: mostrarlas
+            self._show_subcategorias(cat, sub_cats)
+        else:
+            # Sin sub-categorias: mostrar productos directamente
+            self.categoria_actual = cat
+            self.grid.controls.clear()
+            prods = LocalReplica.get_productos_pos(cat['id'])
+            if not prods:
+                self.grid.controls.append(ft.Container(
+                    content=ft.Column([
+                        ft.Icon(ft.Icons.INVENTORY_2_ROUNDED, size=50, color="#757575"),
+                        ft.Text("No hay productos en esta categoria", size=14, color="#9E9E9E"),
+                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                    padding=30, alignment=ft.alignment.center,
+                ))
+            else:
+                for p in prods:
+                    self.grid.controls.append(self._build_producto_card(p))
+            self.panel_derecho.content = ft.Column([
+                ft.Row([
+                    ft.IconButton(icon=ft.Icons.ARROW_BACK_ROUNDED, icon_color=ft.Colors.WHITE,
+                                 tooltip="Volver a categorias", on_click=lambda _: self._build_panel_derecho()),
+                    ft.Text(cat.get('nombre', '').upper(), size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE, expand=True),
+                ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                self.grid,
+            ], expand=True, spacing=8)
+            if self.page:
+                self.update()
+
+    def _show_subcategorias(self, parent_cat: dict, sub_cats: list):
+        """Muestra las sub-categorias de una categoria padre."""
+        self.categoria_actual = parent_cat
         self.grid.controls.clear()
-        prods = LocalReplica.get_productos_pos(cat['id'])
+        for sc in sub_cats:
+            sc['_parent'] = parent_cat  # guardar referencia al padre
+            self.grid.controls.append(self._build_subcategoria_card(sc))
+        self.panel_derecho.content = ft.Column([
+            ft.Row([
+                ft.IconButton(icon=ft.Icons.ARROW_BACK_ROUNDED, icon_color=ft.Colors.WHITE,
+                             tooltip="Volver a categorias", on_click=lambda _: self._build_panel_derecho()),
+                ft.Text(f"{parent_cat.get('nombre', '').upper()} > Sub-categorias",
+                        size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE, expand=True),
+            ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            self.grid,
+        ], expand=True, spacing=8)
+        if self.page:
+            self.update()
+
+    def _build_subcategoria_card(self, sc: dict):
+        color = sc.get('color', '#FF6F00')
+        inicial = sc.get('nombre', '?')[0].upper()
+        card = ft.Container(
+            bgcolor="#1E1E1E", border_radius=12, padding=12,
+            alignment=ft.alignment.center,
+            border=ft.border.only(bottom=ft.BorderSide(3, color)),
+            shadow=ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 3)),
+            animate_scale=ft.Animation(400, ft.AnimationCurve.DECELERATE),
+            on_click=lambda _, c=sc: self._on_subcategoria_click(c),
+            content=ft.Column([
+                ft.Container(
+                    content=ft.Text(inicial, size=24, weight="bold", color=ft.Colors.WHITE),
+                    alignment=ft.alignment.center, width=50, height=50,
+                    bgcolor=color, shape=ft.BoxShape.CIRCLE,
+                    shadow=ft.BoxShadow(blur_radius=8, color=ft.Colors.with_opacity(0.3, color), offset=ft.Offset(0, 3)),
+                ),
+                ft.Container(height=8),
+                ft.Text(sc.get('nombre', '').upper(), size=11, weight="bold", color=ft.Colors.WHITE,
+                        text_align=ft.TextAlign.CENTER),
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, alignment=ft.MainAxisAlignment.CENTER),
+        )
+        card.on_hover = lambda e, c=card: self._cat_hover(e, c, color)
+        return card
+
+    def _on_subcategoria_click(self, sc: dict):
+        parent_cat = sc.get('_parent')
+        self.categoria_actual = sc
+        self.grid.controls.clear()
+        prods = LocalReplica.get_productos_pos(sc['id'])
         if not prods:
             self.grid.controls.append(ft.Container(
                 content=ft.Column([
                     ft.Icon(ft.Icons.INVENTORY_2_ROUNDED, size=50, color="#757575"),
-                    ft.Text("No hay productos en esta categoria", size=14, color="#9E9E9E"),
+                    ft.Text("No hay productos en esta sub-categoria", size=14, color="#9E9E9E"),
                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
                 padding=30, alignment=ft.alignment.center,
             ))
@@ -458,8 +554,12 @@ class ComandaPedidoView(ft.Container):
         self.panel_derecho.content = ft.Column([
             ft.Row([
                 ft.IconButton(icon=ft.Icons.ARROW_BACK_ROUNDED, icon_color=ft.Colors.WHITE,
-                             tooltip="Volver a categorias", on_click=lambda _: self._build_panel_derecho()),
-                ft.Text(cat.get('nombre', '').upper(), size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE, expand=True),
+                             tooltip="Volver a sub-categorias",
+                             on_click=lambda _: self._show_subcategorias(sc.get('_parent'), 
+                                 LocalReplica.get_subcategorias_by_categoria_padre(sc['_parent']['id']) 
+                                 if sc['_parent'].get('_tipo') != 'pos' 
+                                 else LocalReplica.get_subcategorias_by_pos_categoria_padre(sc['_parent']['id']))),
+                ft.Text(f"{sc.get('nombre', '').upper()}", size=13, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE, expand=True),
             ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
             self.grid,
         ], expand=True, spacing=8)

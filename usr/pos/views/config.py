@@ -18,6 +18,7 @@ class ConfigPOSView(ft.Container):
         self._load_mesas()
         self._load_habitaciones()
         self._load_platos()
+        self._load_pos_categorias()
 
     def _build_ui(self):
         btn_back=ft.IconButton(
@@ -37,6 +38,7 @@ class ConfigPOSView(ft.Container):
         self.lv_mesas=ft.ListView(expand=True, spacing=8, auto_scroll=False)
         self.lv_habitaciones=ft.ListView(expand=True, spacing=8, auto_scroll=False)
         self.lv_platos=ft.ListView(expand=True, spacing=8, auto_scroll=False)
+        self.lv_pos_categorias=ft.ListView(expand=True, spacing=8, auto_scroll=False)
         self.tabs=ft.Tabs(
             selected_index=0,
             animation_duration=300,
@@ -101,6 +103,28 @@ class ConfigPOSView(ft.Container):
                         ]),
                         ft.Container(height=10),
                         ft.Container(content=self.lv_platos, border=ft.border.all(1,"#3D3D3F"),
+                                      border_radius=10, padding=10, expand=True),
+                    ], expand=True),
+                ),
+                ft.Tab(
+                    text="Categorias POS",
+                    icon=ft.Icons.CATEGORY_ROUNDED,
+                    content=ft.Column([
+                        ft.Row([
+                            ft.ElevatedButton(
+                                "Nueva categoria POS", icon=ft.Icons.ADD_ROUNDED,
+                                bgcolor="#4CAF50", color=ft.Colors.WHITE,
+                                on_click=lambda _: self._show_pos_categoria_dialog(),
+                            ),
+                            ft.Container(expand=True),
+                            ft.ElevatedButton(
+                                "Sub-categorias", icon=ft.Icons.SUBDIRECTORY_ARROW_RIGHT_ROUNDED,
+                                bgcolor="#1E88E5", color=ft.Colors.WHITE,
+                                on_click=lambda _: self._show_subcategoria_dialog(),
+                            ),
+                        ]),
+                        ft.Container(height=10),
+                        ft.Container(content=self.lv_pos_categorias, border=ft.border.all(1,"#3D3D3F"),
                                       border_radius=10, padding=10, expand=True),
                     ], expand=True),
                 ),
@@ -845,7 +869,202 @@ class ConfigPOSView(ft.Container):
             save_text="Eliminar",
         )
 
-    # ==================== PLATOS ====================
+    # ==================== CATEGORIAS POS ====================
+
+    def _load_pos_categorias(self):
+        self.lv_pos_categorias.controls.clear()
+        pos_cats = LocalReplica.get_pos_categorias(solo_activas=False)
+        if not pos_cats:
+            self.lv_pos_categorias.controls.append(self._empty_placeholder("Sin categorias POS"))
+        else:
+            for c in pos_cats:
+                self.lv_pos_categorias.controls.append(self._build_pos_categoria_card(c))
+
+        header = ft.Row([
+            ft.Container(expand=True),
+            ft.ElevatedButton(
+                "Nueva categoria POS", icon=ft.Icons.ADD_ROUNDED,
+                bgcolor="#4CAF50", color=ft.Colors.WHITE,
+                on_click=lambda _: self._show_pos_categoria_dialog(),
+            ),
+            ft.Container(width=10),
+            ft.ElevatedButton(
+                "Sub-categorias", icon=ft.Icons.SUBDIRECTORY_ARROW_RIGHT_ROUNDED,
+                bgcolor="#1E88E5", color=ft.Colors.WHITE,
+                on_click=lambda _: self._show_subcategoria_dialog(),
+            ),
+        ], alignment=ft.MainAxisAlignment.START)
+        self.lv_pos_categorias.controls.insert(0, ft.Container(content=header, padding=ft.padding.only(bottom=10)))
+        if self.page:
+            self.update()
+
+    def _build_pos_categoria_card(self, cat: dict):
+        return ft.Container(
+            content=ft.Row([
+                ft.Container(width=12, height=12, bgcolor=cat.get('color','#FF6F00'),
+                             border_radius=6),
+                ft.Text(cat['nombre'], size=14, color=ft.Colors.WHITE, expand=True),
+                ft.IconButton(ft.Icons.EDIT, icon_size=18, icon_color="#BB86FC",
+                              tooltip="Editar",
+                              on_click=lambda _, c=cat: self._show_pos_categoria_dialog(c)),
+                ft.IconButton(ft.Icons.DELETE, icon_size=18, icon_color="#EF5350",
+                              tooltip="Eliminar",
+                              on_click=lambda _, c=cat: self._delete_pos_categoria(c)),
+            ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            padding=8, bgcolor="#1E1E1E", border_radius=8,
+        )
+
+    def _show_pos_categoria_dialog(self, cat: dict = None):
+        is_edit = cat is not None
+        nombre = ft.TextField(label="Nombre",
+                              value=cat.get('nombre','') if is_edit else '',
+                              width=350, autofocus=True)
+
+        color_picker = ft.Dropdown(
+            label="Color",
+            options=[ft.dropdown.Option(c[0], c[1]) for c in [
+                ("#FF6F00", "Naranja"), ("#E53935", "Rojo"), ("#43A047", "Verde"),
+                ("#1E88E5", "Azul"), ("#8E24AA", "Morado"), ("#00ACC1", "Cyan"),
+            ]],
+            value=cat.get('color','#FF6F00') if is_edit else "#FF6F00", width=150,
+        )
+
+        icon_picker = ft.TextField(label="Icono (opcional)", value=cat.get('icono','') if is_edit else '',
+                                    width=150, hint_text="ej: restaurant, coffee, local_dining")
+
+        def save_cat():
+            nombre_val = (nombre.value or "").strip()
+            if not nombre_val:
+                self._show_error(nombre, "Requerido")
+                return
+            try:
+                cid = LocalReplica.save_pos_categoria({
+                    'id': cat.get('id') if is_edit else None,
+                    'nombre': nombre_val,
+                    'color': color_picker.value,
+                    'icono': icon_picker.value or None,
+                    'activo': 1,
+                })
+                get_sync_queue().add_pending('pos_categorias', 'update' if is_edit else 'insert', {
+                    'id': cid, 'nombre': nombre_val, 'color': color_picker.value,
+                    'icono': icon_picker.value or None, 'activo': 1,
+                })
+                self._close_dialog()
+                self._load_pos_categorias()
+            except Exception as ex:
+                self._show_error(nombre, f"Error: {ex}")
+
+        content = ft.Column([
+            ft.Row([nombre, ft.Container(width=10), color_picker, ft.Container(width=10), icon_picker], spacing=6),
+            ft.Container(height=8),
+            ft.ElevatedButton("Guardar", on_click=lambda _: save_cat(),
+                              bgcolor="#4CAF50", color=ft.Colors.WHITE),
+        ], tight=True, spacing=10, width=550)
+
+        self._show_dialog(title="Nueva categoria POS" if not is_edit else "Editar categoria POS",
+                          content=content, on_save=lambda e: None, save_text="")
+
+    def _delete_pos_categoria(self, cat: dict):
+        def confirm():
+            try:
+                LocalReplica.delete_pos_categoria(cat['id'])
+                get_sync_queue().add_pending('pos_categorias', 'delete', {'id': cat['id']})
+                self._close_dialog()
+                self._load_pos_categorias()
+            except Exception as ex:
+                self._close_dialog()
+                self._show_error(None, f"Error: {ex}")
+        self._show_dialog(
+            title="Eliminar categoria POS",
+            content=ft.Text(f"¿Eliminar '{cat.get('nombre')}'?", color=ft.Colors.WHITE),
+            on_save=confirm,
+            save_text="Eliminar",
+            save_bgcolor="#EF5350",
+        )
+
+    # ==================== SUB-CATEGORIAS ====================
+
+    def _show_subcategoria_dialog(self):
+        # Cargar categorias de inventario y POS para elegir padre
+        cats_inventario = LocalReplica.get_categorias_pos()  # solo visibles
+        pos_cats = LocalReplica.get_pos_categorias(solo_activas=False)
+
+        padre_dd = ft.Dropdown(label="Categoria padre", width=350, autofocus=True,
+                               options=[
+                                   ft.dropdown.Option("INV", f"INV: {c['nombre']}")
+                                   for c in cats_inventario
+                               ] + [
+                                   ft.dropdown.Option(f"POS_{c['id']}", f"POS: {c['nombre']}")
+                                   for c in pos_cats
+                               ])
+        nombre = ft.TextField(label="Nombre sub-categoria", width=350, autofocus=True)
+        color_picker = ft.Dropdown(
+            label="Color",
+            options=[ft.dropdown.Option(c[0], c[1]) for c in [
+                ("#FF6F00", "Naranja"), ("#E53935", "Rojo"), ("#43A047", "Verde"),
+                ("#1E88E5", "Azul"), ("#8E24AA", "Morado"), ("#00ACC1", "Cyan"),
+            ]],
+            value="#FF6F00", width=150,
+        )
+
+        def add_sub():
+            if not padre_dd.value or not (nombre_sub.value or "").strip():
+                return
+            padre_val = padre_dd.value
+            nombre_val = (nombre_sub.value or "").strip()
+            if not nombre_val:
+                self._show_error(nombre_sub, "Requerido")
+                return
+            try:
+                # Determinar si es categoria de inventario o POS
+                if padre_val.startswith("INV_"):
+                    # Extraer id real de la categoria de inventario
+                    # Como usamos el nombre como value, buscamos el id
+                    cat_inv = next((c for c in cats_inventario if f"INV_{c['nombre']}" == padre_val), None)
+                    if not cat_inv:
+                        return
+                    cid = LocalReplica.save_plato_categoria({
+                        'nombre': nombre_sub.value.strip(),
+                        'color': color_picker.value,
+                        'categoria_padre_id': cat_inv['id'],
+                    })
+                    get_sync_queue().add_pending('platos_categorias', 'insert', {
+                        'id': cid, 'nombre': nombre_sub.value.strip(),
+                        'color': color_picker.value, 'activo': 1,
+                        'categoria_padre_id': cat_inv['id'],
+                    })
+                elif padre_val.startswith("POS_"):
+                    pos_id = int(padre_val.split("_")[1])
+                    cid = LocalReplica.save_plato_categoria({
+                        'nombre': nombre_sub.value.strip(),
+                        'color': color_picker.value,
+                        'pos_categoria_padre_id': pos_id,
+                    })
+                    get_sync_queue().add_pending('platos_categorias', 'insert', {
+                        'id': cid, 'nombre': nombre_sub.value.strip(),
+                        'color': color_picker.value, 'activo': 1,
+                        'pos_categoria_padre_id': pos_id,
+                    })
+                self._close_dialog()
+                self._load_pos_categorias()  # recarga lista principal
+            except Exception as ex:
+                self._show_error(nombre, f"Error: {ex}")
+
+        nombre_sub = ft.TextField(label="Nombre sub-categoria", width=350, autofocus=True)
+        content = ft.Column([
+            ft.Text("Crear sub-categoria", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+            ft.Container(height=8),
+            padre_dd,
+            ft.Container(height=6),
+            ft.Row([nombre_sub, ft.Container(width=10), color_picker], spacing=6),
+            ft.Container(height=8),
+            ft.ElevatedButton("Crear sub-categoria", on_click=lambda _: add_sub(),
+                              bgcolor="#1E88E5", color=ft.Colors.WHITE),
+        ], tight=True, spacing=10, width=550)
+
+        self._show_dialog(title="Nueva sub-categoria", content=content, on_save=lambda e: None, save_text="")
+
+    # ==================== DIALOGO PLATO ====================
 
     def _load_platos(self):
         self.lv_platos.controls.clear()

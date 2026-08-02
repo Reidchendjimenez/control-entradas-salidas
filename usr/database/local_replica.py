@@ -505,6 +505,33 @@ def init_local_db():
             FOREIGN KEY (contorno_id) REFERENCES platos(id)
         )
     """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS pos_categorias (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre TEXT NOT NULL,
+            color TEXT DEFAULT '#FF6F00',
+            icono TEXT,
+            activo INTEGER DEFAULT 1,
+            sync_uuid TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )
+    """)
+
+    # Migraciones de columnas para platos_categorias (sub-categorias de cualquier padre)
+    for _col, _tipo in [
+        ("categoria_padre_id", "INTEGER"),
+        ("pos_categoria_padre_id", "INTEGER"),
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE platos_categorias ADD COLUMN {_col} {_tipo}")
+        except Exception:
+            pass
+
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_pos_categorias_sync_uuid ON pos_categorias (sync_uuid)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_pcat_cat_padre ON platos_categorias (categoria_padre_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_pcat_pos_padre ON platos_categorias (pos_categoria_padre_id)")
     
     # Índices locales
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_mov_local_tipo_fecha ON movimientos (tipo, fecha_movimiento DESC)")
@@ -2780,6 +2807,98 @@ class LocalReplica:
         conn.close()
 
     @staticmethod
+    def save_pos_categorias(categorias: List[Dict]) -> None:
+        """Bulk upsert pos_categorias para sync (categorias POS independientes)."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        for cat in categorias:
+            cid = cat.get('id')
+            if cid and cursor.execute("SELECT id FROM pos_categorias WHERE id=?", (cid,)).fetchone():
+                cursor.execute("""
+                    UPDATE pos_categorias SET nombre=?, color=?, icono=?, activo=?, updated_at=? WHERE id=?
+                """, (cat.get('nombre'), cat.get('color', '#FF6F00'), cat.get('icono'),
+                      1 if cat.get('activo', True) else 0, cat.get('updated_at', now), cid))
+            else:
+                cursor.execute("""
+                    INSERT INTO pos_categorias (id, nombre, color, icono, activo, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """, (cid, cat.get('nombre'), cat.get('color', '#FF6F00'), cat.get('icono'),
+                      1 if cat.get('activo', True) else 0,
+                      cat.get('created_at', now), cat.get('updated_at', now)))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def get_pos_categorias(solo_activas: bool = True) -> List[Dict]:
+        """Obtiene categorías POS independientes."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        if solo_activas:
+            cursor.execute("SELECT * FROM pos_categorias WHERE activo = 1 ORDER BY nombre")
+        else:
+            cursor.execute("SELECT * FROM pos_categorias ORDER BY nombre")
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def save_pos_categoria(cat: Dict) -> int:
+        """Crea o actualiza una categoría POS independiente."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        cid = cat.get('id')
+        if cid:
+            cursor.execute("""
+                UPDATE pos_categorias SET nombre=?, color=?, icono=?, activo=?, updated_at=? WHERE id=?
+            """, (cat.get('nombre'), cat.get('color', '#FF6F00'), cat.get('icono'),
+                  1 if cat.get('activo', True) else 0, now, cid))
+        else:
+            cursor.execute("""
+                INSERT INTO pos_categorias (nombre, color, icono, activo, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (cat.get('nombre'), cat.get('color', '#FF6F00'), cat.get('icono'),
+                  1 if cat.get('activo', True) else 0, now, now))
+            cid = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return cid
+
+    @staticmethod
+    def delete_pos_categoria(cat_id: int) -> None:
+        """Elimina una categoría POS si no tiene sub-categorias."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM platos_categorias WHERE pos_categoria_padre_id = ?", (cat_id,))
+        if cursor.fetchone()[0] > 0:
+            conn.close()
+            raise ValueError("No se puede eliminar: tiene sub-categorias asociadas")
+        cursor.execute("DELETE FROM pos_categorias WHERE id = ?", (cat_id,))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def get_subcategorias_by_categoria_padre(categoria_padre_id: int) -> List[Dict]:
+        """Obtiene sub-categorias (platos_categorias) de una categoria de inventario."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM platos_categorias WHERE categoria_padre_id = ? AND activo = 1 ORDER BY nombre", (categoria_padre_id,))
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    @staticmethod
+    def get_subcategorias_by_pos_categoria_padre(pos_categoria_padre_id: int) -> List[Dict]:
+        """Obtiene sub-categorias (platos_categorias) de una categoria POS."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM platos_categorias WHERE pos_categoria_padre_id = ? AND activo = 1 ORDER BY nombre", (pos_categoria_padre_id,))
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    @staticmethod
     def save_platos_categorias(categorias: List[Dict]) -> None:
         """Bulk upsert platos_categorias para sync."""
         conn = get_local_conn()
@@ -2789,15 +2908,18 @@ class LocalReplica:
             cid = cat.get('id')
             if cid and cursor.execute("SELECT id FROM platos_categorias WHERE id=?", (cid,)).fetchone():
                 cursor.execute("""
-                    UPDATE platos_categorias SET nombre=?, color=?, activo=?, updated_at=? WHERE id=?
+                    UPDATE platos_categorias SET nombre=?, color=?, activo=?, categoria_padre_id=?, pos_categoria_padre_id=?, updated_at=? WHERE id=?
                 """, (cat.get('nombre'), cat.get('color', '#FF6F00'),
-                      1 if cat.get('activo', True) else 0, cat.get('updated_at', now), cid))
+                      1 if cat.get('activo', True) else 0,
+                      cat.get('categoria_padre_id'), cat.get('pos_categoria_padre_id'),
+                      cat.get('updated_at', now), cid))
             else:
                 cursor.execute("""
-                    INSERT INTO platos_categorias (id, nombre, color, activo, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO platos_categorias (id, nombre, color, activo, categoria_padre_id, pos_categoria_padre_id, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """, (cid, cat.get('nombre'), cat.get('color', '#FF6F00'),
                       1 if cat.get('activo', True) else 0,
+                      cat.get('categoria_padre_id'), cat.get('pos_categoria_padre_id'),
                       cat.get('created_at', now), cat.get('updated_at', now)))
         conn.commit()
         conn.close()
