@@ -750,7 +750,9 @@ class ComandaPedidoView(ft.Container):
 
             impreso = imprimir_comanda(items_data, total, comanda_id,
                                        correlativo=correlativo, correccion_de=correccion_de,
-                                       tasa=self.tasa or None)
+                                       tasa=self.tasa or None, cajero=registrado_por,
+                                       mesa=self._mesa_ticket_label(),
+                                       habitacion=self._habitacion_ticket_label())
             if not impreso:
                 LocalReplica.eliminar_venta_y_movimientos(venta_id)
                 venta_id = None
@@ -898,6 +900,28 @@ class ComandaPedidoView(ft.Container):
         if 0 <= idx < len(self.items):
             self.items[idx]['cantidad'] = max(1, self.items[idx]['cantidad'] + delta)
             self._refrescar_comanda()
+
+    def _mesa_ticket_label(self) -> str:
+        if not self.mesa:
+            return ""
+        numero = self.mesa.get('numero') or self.mesa.get('nombre') or ''
+        nombre = self.mesa.get('nombre')
+        if nombre and nombre != numero:
+            return f"{numero} - {nombre}" if numero else nombre
+        return numero or ""
+
+    def _habitacion_ticket_label(self) -> str:
+        if not self.habitacion:
+            return ""
+        numero = self.habitacion.get('numero') or ''
+        piso = self.habitacion.get('piso')
+        tipo = self.habitacion.get('tipo')
+        etiqueta = numero
+        if tipo:
+            etiqueta = f"{tipo} {etiqueta}".strip()
+        if piso:
+            etiqueta = f"{etiqueta} - Piso {piso}"
+        return etiqueta
 
     def _eliminar_item(self, idx):
         if 0 <= idx < len(self.items):

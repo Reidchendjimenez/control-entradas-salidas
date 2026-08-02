@@ -30,9 +30,7 @@ _COMANDA_HEADER_RIF = "comanda_header_rif"
 _COMANDA_HEADER_DIRECCION = "comanda_header_direccion"
 _COMANDA_HEADER_TELEFONO = "comanda_header_telefono"
 _COMANDA_CORRELATIVO = "comanda_correlativo"
-_COMANDA_PIE_PAGINA = "comanda_pie_pagina"
 _COMANDA_HEADER_SIZE = "comanda_header_size"
-_COMANDA_QR_PATH = "comanda_qr_path"
 
 
 def _get_configured_device():
@@ -117,42 +115,6 @@ def get_correlativo_actual() -> int:
         return 0
 
 
-def _get_pie_pagina() -> str:
-    """Obtiene el texto del pie de pagina del ticket."""
-    try:
-        from usr.database.local_replica import LocalReplica
-        return LocalReplica.get_pos_setting(_COMANDA_PIE_PAGINA, '') or ''
-    except Exception:
-        return ''
-
-
-def set_pie_pagina(texto: str):
-    """Guarda el texto del pie de pagina del ticket."""
-    try:
-        from usr.database.local_replica import LocalReplica
-        LocalReplica.set_pos_setting(_COMANDA_PIE_PAGINA, texto)
-    except Exception as e:
-        logger.error(f"Error guardando pie de pagina: {e}")
-
-
-def _get_qr_path() -> str:
-    """Obtiene la ruta de la imagen QR para el ticket."""
-    try:
-        from usr.database.local_replica import LocalReplica
-        return LocalReplica.get_pos_setting(_COMANDA_QR_PATH, '') or ''
-    except Exception:
-        return ''
-
-
-def set_qr_path(path: str):
-    """Guarda la ruta de la imagen QR para el ticket."""
-    try:
-        from usr.database.local_replica import LocalReplica
-        LocalReplica.set_pos_setting(_COMANDA_QR_PATH, path)
-    except Exception as e:
-        logger.error(f"Error guardando ruta QR: {e}")
-
-
 def _get_header_size() -> str:
     """Obtiene el tamaño del membrete: 'small', 'normal', 'large'."""
     try:
@@ -172,201 +134,6 @@ def set_header_size(size: str):
         LocalReplica.set_pos_setting(_COMANDA_HEADER_SIZE, size)
     except Exception as e:
         logger.error(f"Error guardando tamano del membrete: {e}")
-
-
-def _append_image(cmd: bytes, image_path: str, max_width: int = 384) -> bytes:
-    """Agrega comandos ESC/POS para imprimir una imagen.
-    Retorna los bytes actualizados. Si falla, retorna cmd sin cambios."""
-    try:
-        from PIL import Image
-        img = Image.open(image_path)
-        if img.mode == 'RGBA':
-            bg = Image.new('RGB', img.size, (255, 255, 255))
-            bg.paste(img, mask=img.split()[3])
-            img = bg
-        if img.mode != '1':
-            img = img.convert('1', dither=Image.NONE)
-        w, h = img.size
-        if w > max_width:
-            ratio = max_width / w
-            w = max_width
-            h = int(h * ratio)
-            img = img.resize((w, h), Image.LANCZOS)
-        cmd = _append_raster(cmd, img)
-    except Exception as e:
-        logger.error(f"Error agregando imagen al ticket: {e}")
-    return cmd
-
-
-def _append_raster(cmd: bytes, img) -> bytes:
-    """Agrega comandos ESC/POS raster (GS v 0) para una imagen PIL en modo '1'.
-    Retorna cmd actualizado."""
-    w, h = img.size
-    row_bytes = (w + 7) // 8
-    xL = row_bytes & 0xFF
-    xH = (row_bytes >> 8) & 0xFF
-    yL = h & 0xFF
-    yH = (h >> 8) & 0xFF
-    cmd += b"\x1d\x76\x30\x00"
-    cmd += bytes([xL, xH, yL, yH])
-    for y in range(h):
-        row = b""
-        for x in range(0, w, 8):
-            byte_val = 0
-            for bit in range(8):
-                if x + bit < w:
-                    pixel = img.getpixel((x + bit, y))
-                    if pixel == 0:
-                        byte_val |= (1 << (7 - bit))
-            row += bytes([byte_val])
-        cmd += row
-    return cmd
-
-
-def _load_footer_font(size: int):
-    """Carga una fuente para el pie de pagina. Intenta varias fuentes de
-    Windows y Linux; como ultimo recurso usa la fuente escalable de Pillow."""
-    try:
-        from PIL import ImageFont
-        for name in ("DejaVuSansMono.ttf", "DejaVuSans.ttf",
-                     "arial.ttf", "consola.ttf", "cour.ttf",
-                     "segoeui.ttf", "tahoma.ttf"):
-            try:
-                return ImageFont.truetype(name, size)
-            except Exception:
-                continue
-        try:
-            return ImageFont.truetype("C:/Windows/Fonts/arial.ttf", size)
-        except Exception:
-            pass
-        try:
-            return ImageFont.load_default(size)
-        except Exception:
-            return ImageFont.load_default()
-    except Exception:
-        from PIL import ImageFont
-        return ImageFont.load_default()
-
-
-def _append_footer(cmd: bytes) -> bytes:
-    """Renderiza texto del pie de pagina + QR lado a lado como una sola imagen raster.
-    Si no hay QR asignado, dibuja un recuadro placeholder donde ira el QR.
-    Si no hay ni texto ni QR, retorna cmd sin cambios."""
-    pie = _get_pie_pagina()
-    qr_path = _get_qr_path()
-    if not pie and not qr_path:
-        return cmd
-    try:
-        from PIL import Image, ImageDraw
-        import os
-
-        # Cargar QR
-        qr_img = None
-        qr_max = 160
-        if qr_path and os.path.exists(qr_path):
-            qr_img = Image.open(qr_path)
-            if qr_img.mode == 'RGBA':
-                bg = Image.new('RGB', qr_img.size, (255, 255, 255))
-                bg.paste(qr_img, mask=qr_img.split()[3])
-                qr_img = bg
-            qr_img = qr_img.convert('1', dither=Image.NONE)
-            if qr_img.width > qr_max:
-                r = qr_max / qr_img.width
-                qr_w = qr_max
-                qr_h = int(qr_img.height * r)
-                qr_img = qr_img.resize((qr_w, qr_h), Image.LANCZOS)
-            else:
-                qr_w, qr_h = qr_img.size
-        else:
-            # Recuadro placeholder donde ira el QR
-            qr_w = qr_h = 140
-
-        # Preparar texto: envolver lineas que no quepan al lado del QR
-        lines = pie.split('\n') if pie else []
-        font_size = 24
-        font = _load_footer_font(font_size)
-        margin = 8
-        spacing = 16
-        avail_w = 384 - spacing - qr_w - margin * 3
-        if avail_w < 60:
-            avail_w = 60
-        wrapped = []
-        for line in lines:
-            if not line:
-                wrapped.append(line)
-                continue
-            if font.getbbox(line)[2] - font.getbbox(line)[0] <= avail_w:
-                wrapped.append(line)
-            else:
-                words = line.split(' ')
-                cur = ''
-                for wrd in words:
-                    test = (cur + ' ' + wrd).strip()
-                    if font.getbbox(test)[2] - font.getbbox(test)[0] <= avail_w:
-                        cur = test
-                    else:
-                        if cur:
-                            wrapped.append(cur)
-                        cur = wrd
-                if cur:
-                    wrapped.append(cur)
-        lines = wrapped
-
-        line_h = int(font_size * 1.3)
-        text_w = 0
-        for line in lines:
-            bbox = font.getbbox(line)
-            text_w = max(text_w, bbox[2] - bbox[0])
-        text_h = len(lines) * line_h + margin * 2
-
-        # Dimensiones del composite
-        total_w = text_w + spacing + qr_w + margin * 3
-        composite_h = max(text_h, qr_h) + margin * 2
-
-        # Limitar al ancho maximo de impresion
-        max_w = 384
-        if total_w > max_w:
-            scale = max_w / total_w
-            total_w = max_w
-            text_w = int(text_w * scale)
-            qr_w = int(qr_w * scale)
-            qr_h = int(qr_h * scale)
-            if qr_img:
-                qr_img = qr_img.resize((qr_w, qr_h), Image.LANCZOS)
-            font_size = max(10, int(font_size * scale))
-            font = _load_footer_font(font_size)
-            line_h = int(font_size * 1.3)
-            text_h = len(lines) * line_h + margin * 2
-
-        composite = Image.new('1', (total_w, composite_h), 255)
-        draw = ImageDraw.Draw(composite)
-
-        # Texto a la izquierda
-        y = (composite_h - text_h) // 2
-        for line in lines:
-            draw.text((margin, y), line, font=font, fill=0)
-            y += line_h
-
-        # QR a la derecha (o recuadro placeholder)
-        qr_x = total_w - qr_w - margin
-        qr_y = (composite_h - qr_h) // 2
-        if qr_img:
-            composite.paste(qr_img, (qr_x, qr_y))
-        else:
-            draw.rectangle([qr_x, qr_y, qr_x + qr_w - 1, qr_y + qr_h - 1], outline=0, width=2)
-            placeholder_font = _load_footer_font(max(12, int(qr_h * 0.18)))
-            qr_label = "QR"
-            bbox = draw.textbbox((0, 0), qr_label, font=placeholder_font)
-            tw = bbox[2] - bbox[0]
-            th = bbox[3] - bbox[1]
-            draw.text((qr_x + (qr_w - tw) // 2 - bbox[0],
-                       qr_y + (qr_h - th) // 2 - bbox[1]),
-                      qr_label, font=placeholder_font, fill=0)
-
-        cmd = _append_raster(cmd, composite)
-    except Exception as e:
-        logger.error(f"Error renderizando footer compuesto: {e}")
-    return cmd
 
 
 def _find_usb_printers():
@@ -652,12 +419,16 @@ def _find_printer_device_auto():
     return None
 
 
-def _escpos_ticket(lines: list, total: float = None, comanda_id: int = None, include_footer: bool = True,
-                   correlativo: int = None, correccion_de: int = None, tasa: float = None) -> bytes:
+def _escpos_ticket(lines: list, total: float = None, comanda_id: int = None,
+                   correlativo: int = None, correccion_de: int = None, tasa: float = None,
+                   cajero: str = None, mesa: str = None, habitacion: str = None) -> bytes:
     """Genera los bytes ESC/POS para un ticket de comanda.
     Si correlativo es None se asigna el siguiente automaticamente.
     correccion_de: correlativo de la venta anulada que este ticket corrige.
-    tasa: tasa de cambio Bs por USD, para imprimir el total en bolivares."""
+    tasa: tasa de cambio Bs por USD, para imprimir el total en bolivares.
+    cajero: nombre del cajero que registra la venta.
+    mesa: etiqueta de la mesa (o None).
+    habitacion: etiqueta de la habitacion (o None)."""
     from datetime import datetime
     cmd = b""
 
@@ -694,6 +465,7 @@ def _escpos_ticket(lines: list, total: float = None, comanda_id: int = None, inc
         cmd += b"\x1b\x21\x00"
 
     # Correlativo
+    cmd += b"\x1b\x61\x00"  # izquierda
     if comanda_id is not None:
         if correlativo is None:
             correlativo = _get_next_correlativo()
@@ -707,6 +479,12 @@ def _escpos_ticket(lines: list, total: float = None, comanda_id: int = None, inc
 
     cmd += b"\x1b\x61\x00"  # izquierda
     cmd += f"{datetime.now():%d/%m/%Y %H:%M}\n".encode()
+    if cajero:
+        cmd += f"Cajero: {cajero}\n".encode()
+    if mesa:
+        cmd += f"Mesa: {mesa}\n".encode()
+    if habitacion:
+        cmd += f"Hab.: {habitacion}\n".encode()
     cmd += b"--------------------------------\n"
     cmd += b"\n"
 
@@ -720,7 +498,8 @@ def _escpos_ticket(lines: list, total: float = None, comanda_id: int = None, inc
         # Nombre alineado a la izquierda y precio a la derecha,
         # rellenando con espacios (ESC/POS no alinea partes de una linea)
         cant_str = f"{cant:g}x "
-        precio_str = f"${precio:.2f}"
+        subtotal = precio * cant
+        precio_str = f"${subtotal:.2f}"
         nombre = nombre[:cols - len(precio_str) - 1 - len(cant_str)]
         izquierda = cant_str + nombre
         relleno = cols - len(izquierda) - len(precio_str)
@@ -756,10 +535,6 @@ def _escpos_ticket(lines: list, total: float = None, comanda_id: int = None, inc
         cmd += b"\x1b\x45\x00"
         cmd += b"\x1b\x61\x00"
 
-    # --- Pie de pagina + QR (lado a lado como imagen raster) ---
-    if include_footer:
-        cmd = _append_footer(cmd)
-
     cmd += b"\n"
     cmd += b"\x1b\x64\x04"  # Avanzar 4 lineas
     cmd += b"\x1d\x56\x00"  # Corte parcial
@@ -768,7 +543,8 @@ def _escpos_ticket(lines: list, total: float = None, comanda_id: int = None, inc
 
 def imprimir_comanda(items: list, total: float = None, comanda_id: int = None,
                      correlativo: int = None, correccion_de: int = None,
-                     tasa: float = None) -> bool:
+                     tasa: float = None, cajero: str = None,
+                     mesa: str = None, habitacion: str = None) -> bool:
     """Imprime una comanda en la impresora configurada o auto-detectada.
     Retorna True si se imprimio, False si no hay impresora."""
     lines = []
@@ -782,7 +558,8 @@ def imprimir_comanda(items: list, total: float = None, comanda_id: int = None,
         lines.append(entry)
 
     data = _escpos_ticket(lines, total, comanda_id, correlativo=correlativo,
-                          correccion_de=correccion_de, tasa=tasa)
+                          correccion_de=correccion_de, tasa=tasa,
+                          cajero=cajero, mesa=mesa, habitacion=habitacion)
 
     printer = _find_printer_device()
     if printer is None:
@@ -795,14 +572,11 @@ def imprimir_comanda(items: list, total: float = None, comanda_id: int = None,
     return False
 
 
-def test_imprimir(include_footer: bool = True) -> bool:
-    """Imprime una pagina de prueba para verificar la impresora.
-    Si include_footer es False, omite el pie de pagina + QR (raster)
-    para aislar problemas de compatibilidad del modo raster."""
+def test_imprimir() -> bool:
+    """Imprime una pagina de prueba para verificar la impresora."""
     data = _escpos_ticket(
         [{'cantidad': 2, 'nombre': 'PRUEBA DE IMPRESION', 'precio': 1.50, 'contornos': []}],
         total=3.0,
-        include_footer=include_footer,
     )
 
     printer = _find_printer_device()
