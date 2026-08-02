@@ -221,10 +221,15 @@ class POSSyncManager:
                 result = conn.execute(text("SELECT * FROM movimientos ORDER BY id"))
                 rows = result.fetchall()
                 data = [dict_to_serializable(dict(row._mapping)) for row in rows]
-                LocalReplica.save_movimientos(data)
-                LocalReplica.relink_ventas_movimientos()
-                LocalReplica.recalculate_existencias()
-                self._log(f"{len(data)} movimientos descargados")
+                nuevos = LocalReplica.save_movimientos(data)
+                # Solo recalcular existencias si realmente llegaron movimientos nuevos;
+                # recalculate_existencias borra y reconstruye TODA la tabla existencias.
+                if nuevos:
+                    LocalReplica.relink_ventas_movimientos()
+                    LocalReplica.recalculate_existencias()
+                    self._log(f"{len(data)} movimientos descargados ({nuevos} nuevos)")
+                else:
+                    self._log(f"{len(data)} movimientos descargados (sin cambios)")
             except Exception as e:
                 self._log(f"Error descargando movimientos: {e}")
 

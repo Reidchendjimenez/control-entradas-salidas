@@ -70,14 +70,20 @@ def get_db_path() -> str:
 def get_local_conn() -> sqlite3.Connection:
     db_path = get_db_path()
     try:
-        conn = sqlite3.connect(db_path)
+        conn = sqlite3.connect(db_path, timeout=30)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=30000")
+        conn.execute("PRAGMA synchronous=NORMAL")
         return conn
     except sqlite3.OperationalError:
         # Si falla, intentamos la ruta relativa como último recurso
         fallback_path = str(Path(".") / "lycoris_local.db")
-        conn = sqlite3.connect(fallback_path)
+        conn = sqlite3.connect(fallback_path, timeout=30)
         conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=30000")
+        conn.execute("PRAGMA synchronous=NORMAL")
         return conn
 
 def get_cache_conn() -> sqlite3.Connection:

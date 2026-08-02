@@ -135,8 +135,8 @@ async def main(page: ft.Page):
                 print(f"[POS] Error en full_sync: {e_full}")
                 tb.print_exc()
         if sm:
-            sm.start_background_sync(15)
-            print("[POS] Sync en segundo plano cada 15s")
+            sm.start_background_sync(30)
+            print("[POS] Sync en segundo plano cada 30s")
     except Exception as e:
         import traceback as tb
         print(f"[POS] Error en sync: {e}")

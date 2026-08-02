@@ -1159,6 +1159,7 @@ class LocalReplica:
         conn.close()
         
         print(f"[SYNC] Movimientos guardados: {inserted_count} nuevos, {updated_count} saltados")
+        return inserted_count
     
     # ==================== FACTURAS ====================
     

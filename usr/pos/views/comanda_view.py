@@ -23,7 +23,6 @@ class ComandaPedidoView(ft.Container):
         self._build_ui()
         self._load_categorias()
         self._load_comanda_existente()
-        self._auto_actualizar_tasa()
 
     def _build_ui(self):
         top_bar = self._build_top_bar()
@@ -787,41 +786,6 @@ class ComandaPedidoView(ft.Container):
             self._show_snack(f"Tasa {formatear_tasa(tasa)} Bs/$ ({fuente})", color="#4CAF50")
         else:
             self._show_snack(f"Tasa sin cambios ({formatear_tasa(tasa)} Bs/$ · {fuente})", color="#FF9800")
-
-    def _auto_actualizar_tasa(self):
-        """Consulta la tasa mas reciente del BCV en segundo plano al abrir la comanda,
-        para usar siempre la ultima publicada sin requerir clic manual."""
-        import threading
-        try:
-            threading.Thread(target=self._fetch_tasa_fondo, daemon=True).start()
-        except Exception:
-            pass
-
-    def _fetch_tasa_fondo(self):
-        from usr.pos.tasa_cambio import actualizar_tasa, formatear_tasa, get_diagnostico
-        try:
-            tasa, cambiada, _ = actualizar_tasa()
-            print(f"[TASA] Tasa consultada: {tasa} (cambiada: {cambiada}) | {get_diagnostico()}")
-        except Exception as ex:
-            print(f"[TASA] Error consultando tasa: {ex}")
-            return
-
-        def _aplicar():
-            self.tasa = tasa
-            self._refrescar_comanda()
-            fuente = get_diagnostico().split("|")[0].replace("Fuente:", "").strip()
-            if cambiada:
-                self._show_snack(f"Tasa {formatear_tasa(tasa)} Bs/$ ({fuente})", color="#4CAF50")
-            else:
-                self._show_snack(f"Tasa sin cambios ({formatear_tasa(tasa)} Bs/$ · {fuente})", color="#FF9800")
-
-        try:
-            if self.page and hasattr(self.page, 'run_thread'):
-                self.page.run_thread(_aplicar)
-            else:
-                _aplicar()
-        except Exception as ex:
-            print(f"[TASA] Error aplicando tasa en la UI: {ex}")
 
     def _show_snack(self, msg, color="#4CAF50"):
         from usr.notifications import show_success, show_error, show_warning, show_info
