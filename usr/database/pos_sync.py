@@ -153,18 +153,6 @@ class POSSyncManager:
             except Exception as e:
                 self._log(f"Error descargando productos: {e}")
 
-            # Categorias POS independientes (no están en _POS_TABLES pero el POS las necesita)
-            try:
-                result = conn.execute(text(
-                    "SELECT * FROM pos_categorias WHERE activo = TRUE"
-                ))
-                rows = result.fetchall()
-                data = [dict_to_serializable(dict(row._mapping)) for row in rows]
-                LocalReplica.save_pos_categorias(data)
-                self._log(f"{len(data)} categorias POS independientes descargadas")
-            except Exception as e:
-                self._log(f"Error descargando categorias POS: {e}")
-
             for local_table, server_table in _POS_TABLES:
                 try:
                     result = conn.execute(text(f"SELECT * FROM {server_table}"))
