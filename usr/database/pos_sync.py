@@ -202,6 +202,11 @@ class POSSyncManager:
                         for row in data:
                             if row.get('key') in pending_keys:
                                 continue
+                            # La tasa de cambio se obtiene de la API del BCV y se guarda
+                            # localmente (sync=False). No debe sobrescribirse con la del
+                            # servidor (que puede estar desactualizada).
+                            if row.get('key') in ('tasa_cambio', 'tasa_cambio_actualizada_en'):
+                                continue
                             LocalReplica.set_pos_setting(row['key'], row['value'], sync=False)
                     elif local_table == 'pos_comandas':
                         LocalReplica.save_comandas_sync(data)

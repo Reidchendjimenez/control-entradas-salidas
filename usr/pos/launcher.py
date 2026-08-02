@@ -142,6 +142,24 @@ async def main(page: ft.Page):
         print(f"[POS] Error en sync: {e}")
         tb.print_exc()
 
+    # Actualizar la tasa de cambio BCV al arrancar, en segundo plano,
+    # para que al abrir la comanda ya esté cargada la más reciente.
+    try:
+        import threading
+        def _actualizar_tasa_inicio():
+            from usr.pos.tasa_cambio import actualizar_tasa, get_diagnostico
+            try:
+                tasa, cambiada, _ = actualizar_tasa()
+                print(f"[POS] Tasa al arranque: {tasa} (cambiada: {cambiada}) | {get_diagnostico()}")
+            except Exception as ex:
+                print(f"[POS] Error actualizando tasa al arranque: {ex}")
+        threading.Thread(target=_actualizar_tasa_inicio, daemon=True).start()
+        print("[POS] Actualizando tasa BCV al arranque...")
+    except Exception as e:
+        import traceback as tb
+        print(f"[POS] Error lanzando actualizacion de tasa: {e}")
+        tb.print_exc()
+
     page.clean()
     from usr.pos.views.login import POSLoginView
     from usr.pos.views.comandas import ComandasView
