@@ -103,6 +103,13 @@ def build_sistema_tab(view):
                             ft.Text("Permitir stock negativo en salidas:", size=14, color=colors['text_secondary'], expand=True),
                             _build_negativo_switch(),
                         ], spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                        ft.Container(height=15),
+                        ft.Text(
+                            "Almacén por defecto para el descargo de materia prima en producciones:",
+                            size=14, color=colors['text_secondary'],
+                        ),
+                        ft.Container(height=10),
+                        _build_almacen_produccion_dd(),
                         ft.Divider(height=30, color=colors['border']),
                         ft.Text(
                             "Gestion de Operador",
@@ -148,6 +155,36 @@ def _build_negativo_switch():
     except Exception:
         activo = False
     return ft.Switch(value=activo, on_change=_on_change)
+
+
+def _build_almacen_produccion_dd():
+    from usr.database.local_replica import LocalReplica
+    from usr.views.producciones.data import almacen_produccion_default
+
+    almacenes = []
+    try:
+        almacenes = LocalReplica.get_almacenes() or []
+    except Exception:
+        almacenes = []
+    if not almacenes:
+        almacenes = ['principal', 'restaurante']
+
+    def _on_change(e):
+        try:
+            LocalReplica.set_pos_setting('almacen_produccion', e.control.value or 'restaurante')
+            show_success("Almacén de descargo de producción actualizado")
+        except Exception as ex:
+            show_error(f"Error al guardar la configuración: {ex}")
+
+    actual = almacen_produccion_default()
+    if actual not in almacenes:
+        actual = almacenes[0]
+    return ft.Dropdown(
+        value=actual,
+        options=[ft.dropdown.Option(a, a.capitalize()) for a in almacenes],
+        on_change=_on_change,
+        width=300,
+    )
 
 
 def test_connection_action(view, e):

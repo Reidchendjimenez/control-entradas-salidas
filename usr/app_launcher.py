@@ -157,22 +157,10 @@ async def main(page: ft.Page):
         except Exception as e:
             print(f"[WARN] Error ensure_local_db: {e}")
 
-        logo = ft.Column([
-            ft.Image(src="icono.png", width=120, height=120, fit=ft.ImageFit.CONTAIN, error_content=ft.Text("Logo no encontrado", color=ft.Colors.RED)),
-            ft.Text("Lycoris", size=32, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-            ft.Text("Control de Entradas y Salidas", size=16, color="#9E9E9E"),
-        ], horizontal_alignment="center", spacing=10)
-
-        progress = ft.ProgressRing(width=60, height=60, stroke_width=5, color="#BB86FC", bgcolor="#2D2D2D")
-        step_text = ft.Text("Cargando...", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE)
-        status_text = ft.Text("Inicializando...", size=14, color="#9E9E9E")
-
-        loading = ft.Container(
-            content=ft.Column([logo, ft.Container(height=40), progress, ft.Container(height=20), step_text, status_text], horizontal_alignment="center", spacing=0),
-            alignment=ft.alignment.center,
-            expand=True,
-            bgcolor="#121212",
-        )
+        from usr.views.splash import LoadingSplash
+        loading = LoadingSplash(page)
+        step_text = loading.step_text
+        status_text = loading.status_text
 
         page.add(loading)
         page.update()
@@ -279,6 +267,9 @@ async def main(page: ft.Page):
 
         sync_manager = init_sync_manager(get_engine)
         sync_manager.set_session_local_getter(get_session)
+        sincprog = getattr(sync_manager, 'set_sync_progress_callback', None)
+        if sincprog and hasattr(loading, 'set_progress'):
+            sincprog(loading.set_progress)
 
         is_online = check_connection()
         print(f"[MAIN] check_connection(): {is_online}")

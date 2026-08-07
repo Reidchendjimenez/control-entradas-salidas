@@ -75,6 +75,7 @@ def init_local_db():
         ("productos", "precio_venta", "REAL DEFAULT 0"),
         ("categorias", "visible_en_pos", "INTEGER DEFAULT 1"),
         ("receta_componentes", "peso_variable", "INTEGER DEFAULT 0"),
+        ("producciones", "cocineros", "TEXT"),
     ]
     for tabla, col, tipo in _migraciones:
         try:
@@ -1001,6 +1002,26 @@ class LocalReplica:
         
         return [dict(row) for row in rows]
     
+    @staticmethod
+    def get_almacenes() -> List[str]:
+        """Devuelve la lista de almacenes existentes (valores únicos)."""
+        result = []
+        try:
+            conn = get_local_conn()
+            cur = conn.cursor()
+            for (a,) in cur.execute("SELECT DISTINCT almacen FROM existencias WHERE almacen IS NOT NULL AND almacen <> ''").fetchall():
+                if a and a not in result:
+                    result.append(a)
+            for (a,) in cur.execute("SELECT DISTINCT almacen_predeterminado FROM productos WHERE almacen_predeterminado IS NOT NULL AND almacen_predeterminado <> ''").fetchall():
+                if a and a not in result:
+                    result.append(a)
+            conn.close()
+        except Exception:
+            pass
+        if not result:
+            result = ['principal', 'restaurante']
+        return sorted(result)
+
     @staticmethod
     def get_existencias_by_producto_almacen(producto_id: int, almacen: str) -> Optional[Dict]:
         """Obtiene existencia por producto y almacén."""
@@ -3518,7 +3539,8 @@ class LocalReplica:
         conn = get_local_conn()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT rc.*, p.nombre as producto_nombre, p.tipo as producto_tipo
+            SELECT rc.*, p.nombre as producto_nombre, p.tipo as producto_tipo,
+                   p.es_pesable as producto_es_pesable
             FROM receta_componentes rc
             LEFT JOIN productos p ON rc.producto_id = p.id
             WHERE rc.receta_id = ?
@@ -3609,12 +3631,13 @@ class LocalReplica:
         cursor = conn.cursor()
         now = datetime.now().isoformat()
         cursor.execute("""
-            INSERT INTO producciones (receta_id, cantidad, estado, usuario, observaciones, fecha_produccion, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO producciones (receta_id, cantidad, estado, usuario, observaciones, fecha_produccion, cocineros, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             produccion.get('receta_id'), produccion.get('cantidad'),
             produccion.get('estado', 'completado'), produccion.get('usuario'),
-            produccion.get('observaciones'), produccion.get('fecha_produccion', now), now
+            produccion.get('observaciones'), produccion.get('fecha_produccion', now),
+            produccion.get('cocineros'), now
         ))
         prod_id = cursor.lastrowid
         conn.commit()
@@ -3630,6 +3653,7 @@ class LocalReplica:
                 'usuario': produccion.get('usuario'),
                 'observaciones': produccion.get('observaciones'),
                 'fecha_produccion': produccion.get('fecha_produccion', now),
+                'cocineros': produccion.get('cocineros'),
                 'created_at': now,
             })
         except Exception:
@@ -3637,7 +3661,7 @@ class LocalReplica:
         return prod_id
 
     @staticmethod
-    def update_produccion_estado(produccion_id: int, estado: str, observaciones: str = None) -> None:
+    def update_produccion_estado(produccion_id: int, estado: str, observaciones: str = None, cocineros: str = None) -> None:
         """Actualiza el estado de una producción y encola el cambio para sync."""
         conn = get_local_conn()
         cursor = conn.cursor()
@@ -3649,9 +3673,11 @@ class LocalReplica:
         p = dict(row)
         if observaciones is None:
             observaciones = p.get('observaciones')
+        if cocineros is None:
+            cocineros = p.get('cocineros')
         cursor.execute(
-            "UPDATE producciones SET estado = ?, observaciones = ? WHERE id = ?",
-            (estado, observaciones, produccion_id)
+            "UPDATE producciones SET estado = ?, observaciones = ?, cocineros = ? WHERE id = ?",
+            (estado, observaciones, cocineros, produccion_id)
         )
         conn.commit()
         conn.close()
@@ -3665,6 +3691,7 @@ class LocalReplica:
                 'usuario': p.get('usuario'),
                 'observaciones': observaciones,
                 'fecha_produccion': p.get('fecha_produccion'),
+                'cocineros': cocineros,
                 'created_at': p.get('created_at'),
             })
         except Exception:
@@ -3712,21 +3739,21 @@ class LocalReplica:
                 if cursor.fetchone():
                     cursor.execute("""
                         UPDATE producciones SET receta_id=?, cantidad=?, estado=?, usuario=?,
-                        observaciones=?, fecha_produccion=?, created_at=?
+                        observaciones=?, fecha_produccion=?, cocineros=?, created_at=?
                         WHERE id=?
                     """, (
                         p.get('receta_id'), p.get('cantidad'), p.get('estado', 'completado'),
                         p.get('usuario'), p.get('observaciones'), p.get('fecha_produccion', now),
-                        p.get('created_at', now), pid
+                        p.get('cocineros'), p.get('created_at', now), pid
                     ))
                     continue
             cursor.execute("""
-                INSERT INTO producciones (id, receta_id, cantidad, estado, usuario, observaciones, fecha_produccion, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO producciones (id, receta_id, cantidad, estado, usuario, observaciones, fecha_produccion, cocineros, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 pid, p.get('receta_id'), p.get('cantidad'), p.get('estado', 'completado'),
                 p.get('usuario'), p.get('observaciones'), p.get('fecha_produccion', now),
-                p.get('created_at', now)
+                p.get('cocineros'), p.get('created_at', now)
             ))
         conn.commit()
         conn.close()

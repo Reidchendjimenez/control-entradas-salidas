@@ -53,6 +53,7 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
     items = planificar_descargo(receta, produccion)
 
     cantidad_fields = []
+    stock_fields = []
 
     def _build_field_row(item):
         unidad_label = 'kg' if item['es_pesable'] else item['unidad']
@@ -71,14 +72,20 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
             cant_field.disabled = False  # editable también, por si la cantidad real varía
             cant_field.hint_text = "Sugerido"
 
+        stock_text = ft.Text("—", size=11, color=colors['text_secondary'])
+
         row = ft.Container(
             content=ft.Row([
                 ft.Column([
                     ft.Text(item['nombre'], weight=ft.FontWeight.BOLD, color=colors['text_primary']),
-                    ft.Text(
-                        f"Variable · {unidad_label}" if item['peso_variable'] else f"Sugerido · {unidad_label}",
-                        size=11, color=colors['text_secondary'],
-                    ),
+                    ft.Row([
+                        ft.Text(
+                            f"Variable · {unidad_label}" if item['peso_variable'] else f"Sugerido · {unidad_label}",
+                            size=11, color=colors['text_secondary'],
+                        ),
+                        ft.Text("·", size=11, color=colors['border']),
+                        stock_text,
+                    ], spacing=4),
                 ], expand=True, spacing=2),
                 cant_field,
             ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
@@ -95,6 +102,11 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
             'unidad': unidad_label,
             'field': cant_field,
         })
+        stock_fields.append({
+            'producto_id': item['producto_id'],
+            'unidad': unidad_label,
+            'text': stock_text,
+        })
         return row
 
     if not items:
@@ -109,18 +121,91 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
 
     rows = [_build_field_row(i) for i in items]
 
+    # Almacén del descargo: usa el almacén de producción configurado por defecto.
+    from usr.views.producciones.data import almacen_produccion_default, productos_producidos
+    from usr.database.local_replica import LocalReplica
+
+    producidos = productos_producidos(produccion)
+    if not producidos:
+        producidos = [{
+            'producto_id': receta.get('producto_final_id'),
+            'nombre': receta.get('nombre', '?'),
+            'cantidad': float(produccion.get('cantidad', 1)),
+            'unidad': 'unidad',
+        }]
+
+    cocineros_field = ft.TextField(
+        label="Cocineros",
+        hint_text="Nombre del cocinero que realizó la producción",
+        width=220,
+    )
+
+    almacenes = []
+    try:
+        almacenes = LocalReplica.get_almacenes() or []
+    except Exception:
+        almacenes = []
+    if not almacenes:
+        almacenes = ['principal', 'restaurante']
+    almacen_default = almacen_produccion_default()
+    if almacen_default not in almacenes:
+        almacen_default = almacenes[0] if almacenes else 'principal'
+
+    def _fmt_stock(cant):
+        s = f"{float(cant):.2f}".rstrip('0').rstrip('.')
+        return s if s else '0'
+
+    def _actualizar_stock(almacen):
+        for sf in stock_fields:
+            cant = 0.0
+            try:
+                exc = LocalReplica.get_existencias_by_producto_almacen(sf['producto_id'], almacen)
+                if exc:
+                    cant = float(exc.get('cantidad', 0) or 0)
+            except Exception:
+                cant = 0.0
+            color = '#C62828' if cant <= 0 else '#2E7D32'
+            sf['text'].value = f"Stock disponible: {_fmt_stock(cant)} {sf['unidad']}"
+            sf['text'].color = color
+
+    almacen_dd = ft.Dropdown(
+        label="Almacén",
+        value=almacen_default,
+        options=[ft.dropdown.Option(a, a.capitalize()) for a in almacenes],
+        width=180,
+        on_change=lambda e: _actualizar_stock(e.control.value),
+    )
+
+    producidos_list = ft.Column([
+        *[
+            ft.Row([
+                ft.Icon(ft.Icons.CHECK_CIRCLE_OUTLINE, size=16, color='#4CAF50'),
+                ft.Text(p['nombre'], size=12, color=colors['text_primary'], weight=ft.FontWeight.BOLD, expand=True),
+                ft.Text(f"{p['cantidad']:.2f}".rstrip('0').rstrip('.') + f" {p['unidad']}".rstrip(),
+                        size=12, color=colors['accent'], weight=ft.FontWeight.BOLD),
+            ], spacing=6, vertical_alignment=ft.CrossAxisAlignment.CENTER)
+        for p in producidos
+    ]], spacing=4)
+
     content = ft.Column([
         ft.Text(
             f"Receta: {receta.get('nombre', '')} · Producción #{produccion['id']}",
             weight=ft.FontWeight.BOLD, color=colors['text_primary'],
         ),
-        ft.Text(
-            f"Cantidad producida: {produccion.get('cantidad', 1)}",
-            size=12, color=colors['text_secondary'],
-        ),
+        ft.Row([
+            ft.Text('Cantidades producidas:', size=12, color=colors['text_secondary'], weight=ft.FontWeight.BOLD),
+            ft.Container(expand=True),
+            ft.Text('Almacén:', size=12, color=colors['text_secondary']),
+            almacen_dd,
+        ], spacing=6, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+        producidos_list,
+        ft.Row([
+            ft.Text('Cocineros:', size=12, color=colors['text_secondary']),
+            cocineros_field,
+        ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
         ft.Divider(height=1, color=colors['border']),
         ft.Text(
-            "Ingresa el peso/cantidad real usado de cada ingrediente:",
+            'Ingresa el peso/cantidad real usado de cada ingrediente:',
             size=12, color=colors['text_secondary'],
         ),
         *rows,
@@ -129,6 +214,7 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
     def _confirmar(e):
         items_cantidades = []
         errores = []
+        almacen_salida = almacen_dd.value or almacenes[0] if almacenes else 'principal'
         for entry in cantidad_fields:
             try:
                 cantidad = float((entry['field'].value or '').replace(',', '.').strip() or 0)
@@ -142,7 +228,7 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
                 'producto_id': entry['producto_id'],
                 'cantidad': cantidad,
                 'es_pesable': entry['es_pesable'],
-                'almacen': entry['almacen'],
+                'almacen': almacen_salida,
                 'unidad': entry['unidad'],
             })
         if errores:
@@ -150,7 +236,7 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
             return
 
         try:
-            ok, errs = ejecutar_descargo(page, produccion, receta, items_cantidades)
+            ok, errs = ejecutar_descargo(page, produccion, receta, items_cantidades, cocineros=cocineros_field.value or None)
         except Exception as ex:
             show_error(f"Error al ejecutar descargo: {ex}")
             return
@@ -182,6 +268,7 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
         actions_alignment=ft.MainAxisAlignment.END,
     )
     page.open(dialog)
+    _actualizar_stock(almacen_dd.value or almacen_default)
     dialog.update()
 
 

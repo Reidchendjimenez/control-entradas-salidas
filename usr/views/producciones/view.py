@@ -92,19 +92,24 @@ class ProduccionesView(ft.Container):
             padding=ft.padding.only(left=20, top=20, right=20, bottom=10),
         )
 
-        self.recetas_container.content = ft.Stack([
-            ft.Container(content=self.recetas_list, expand=True, padding=ft.padding.all(20)),
+        self.recetas_container.content = ft.Column([
             ft.Container(
                 content=ft.Row([
-                    ft.Container(expand=True),
-                    ft.FloatingActionButton(
+                    ft.Text("", expand=True),
+                    ft.ElevatedButton(
+                        text="+ Nueva Receta",
                         icon=ft.Icons.ADD,
-                        text="Nueva Receta",
                         bgcolor=colors['accent'],
+                        color=colors.get('white', ft.Colors.WHITE),
                         on_click=lambda _: self._open_nueva_receta(),
                     ),
-                ]),
-                bottom=20, right=20,
+                ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                padding=ft.padding.only(left=20, top=10, right=20, bottom=4),
+            ),
+            ft.Container(
+                content=self.recetas_list,
+                expand=True,
+                padding=ft.padding.only(left=20, top=0, right=20, bottom=20),
             ),
         ])
         self.pendientes_container.content = build_pendientes_tab(self.page, on_change=self._on_pendiente_change)

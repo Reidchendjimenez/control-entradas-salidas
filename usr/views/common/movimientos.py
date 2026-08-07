@@ -66,6 +66,9 @@ def build_movimiento_card(m, colors, producto=None, page=None):
         cant_medio = cant
         unidad_medio = ''
 
+    if tipo in ('salida', 'salida_produccion', 'venta'):
+        cant_medio = -abs(cant_medio)
+
     sign_color = colors.get('success', ft.Colors.GREEN_400) if cant_medio >= 0 else ft.Colors.RED_400
     sign = '+' if cant_medio >= 0 else ''
 

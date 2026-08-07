@@ -190,28 +190,39 @@ class RequisicionesView(ft.Container):
     def _build_ui(self):
         self.colors = _colors(self.page)
         header = ft.Container(
-            content=ft.Row([
-                ft.Column([
-                    ft.Text("Requisiciones", size=26, weight="bold", color=self.colors['text_primary']),
-                    ft.Text("Gestión de traslados", size=13, color=self.colors['text_secondary']),
-                ], expand=True, spacing=0),
-                self._sync_indicator(),
-                ft.IconButton(
-                    ft.Icons.REFRESH_ROUNDED,
-                    icon_color=self.colors['white'],
-                    bgcolor=self.colors['surface'],
-                    on_click=lambda _: self._on_refresh(),
-                    tooltip="Actualizar desde Supabase",
+            content=ft.ResponsiveRow([
+                ft.Container(
+                    content=ft.Row([
+                        ft.Column([
+                            ft.Text("Requisiciones", size=26, weight="bold", color=self.colors['text_primary']),
+                            ft.Text("Gestión de traslados", size=13, color=self.colors['text_secondary']),
+                        ], spacing=0),
+                        ft.Container(expand=True),
+                        self._sync_indicator(),
+                    ], alignment=ft.MainAxisAlignment.START),
+                    col={"xs": 12, "sm": 8},
                 ),
-                ft.IconButton(
-                    ft.Icons.ADD_ROUNDED,
-                    icon_color=self.colors['white'],
-                    bgcolor=self.colors['accent'],
-                    on_click=lambda _: self._show_crear_vista(),
-                    tooltip="Nueva requisición",
+                ft.Container(
+                    content=ft.Row([
+                        ft.IconButton(
+                            ft.Icons.REFRESH_ROUNDED,
+                            icon_color=self.colors['white'],
+                            bgcolor=self.colors['surface'],
+                            on_click=lambda _: self._on_refresh(),
+                            tooltip="Actualizar desde Supabase",
+                        ),
+                        ft.IconButton(
+                            ft.Icons.ADD_ROUNDED,
+                            icon_color=self.colors['white'],
+                            bgcolor=self.colors['accent'],
+                            on_click=lambda _: self._show_crear_vista(),
+                            tooltip="Nueva requisición",
+                        ),
+                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, spacing=4),
+                    col={"xs": 12, "sm": 4},
                 ),
-            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-            padding=ft.padding.only(left=20, right=20, top=20, bottom=10),
+            ], spacing=4, alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            padding=ft.padding.only(left=16, right=16, top=16, bottom=10),
             bgcolor=self.colors['surface'],
         )
 

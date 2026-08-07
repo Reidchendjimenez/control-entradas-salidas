@@ -34,12 +34,13 @@ class RecetaEditor(ft.Container):
         self._nombre = ft.Ref[ft.TextField]()
         self._cant_prod = ft.Ref[ft.TextField]()
         self._tipo_seg = ft.Ref[ft.SegmentedButton]()
-        self._base_dd = ft.Ref[ft.Dropdown]()
-        self._final_dd = ft.Ref[ft.Dropdown]()
         self._componentes_column = ft.Ref[ft.Column]()
         self._resumen_text = ft.Ref[ft.Text]()
         self._tipo_label = ft.Ref[ft.Text]()
         self._add_btn_text = ft.Ref[ft.Text]()
+        self._comp_title = ft.Ref[ft.Text]()
+        self._comp_sub = ft.Ref[ft.Text]()
+        self._add_button = ft.Ref[ft.OutlinedButton]()
 
         self._build()
 
@@ -156,28 +157,26 @@ class RecetaEditor(ft.Container):
 
     def _build_section_producto(self, colors):
         receta = self._receta
-        is_compuesta = (receta and receta.get('tipo') == 'compuesta') or not receta
+        is_simple = bool(receta) and receta.get('tipo') == 'simple'
 
-        base_dd = ft.Dropdown(
-            ref=self._base_dd,
-            label="Producto Base (origen)",
-            hint_text="Producto que se va a partir/descomponer",
-            options=self._product_options(),
-            value=str(receta.get('producto_base_id')) if receta and receta.get('producto_base_id') else None,
+        base_init = receta.get('producto_base_id') if (receta and receta.get('producto_base_id')) else None
+        final_init = receta.get('producto_final_id') if (receta and receta.get('producto_final_id')) else None
+
+        self._base_sel = self._build_producto_selector(
+            colors, 'Producto Base (origen)', 'Producto que se va a partir/descomponer', base_init,
         )
-        final_dd = ft.Dropdown(
-            ref=self._final_dd,
-            label="Producto Final (resultado)",
-            hint_text="Producto que se obtiene al fabricar",
-            options=self._product_options(),
-            value=str(receta.get('producto_final_id')) if receta and receta.get('producto_final_id') else None,
+        self._final_sel = self._build_producto_selector(
+            colors, 'Producto Final (resultado)', 'Producto que se obtiene al fabricar', final_init,
         )
 
-        self._base_dd_ref = base_dd
-        self._final_dd_ref = final_dd
-
-        self._base_container = ft.Container(content=base_dd, col={"xs": 12, "sm": 6}, visible=is_compuesta is False or (receta and receta.get('tipo') == 'simple'))
-        self._final_container = ft.Container(content=final_dd, col={"xs": 12, "sm": 6}, visible=is_compuesta)
+        self._base_container = ft.Container(
+            content=self._base_sel, col={"xs": 12, "sm": 6},
+            visible=is_simple,
+        )
+        self._final_container = ft.Container(
+            content=self._final_sel, col={"xs": 12, "sm": 6},
+            visible=not is_simple,
+        )
 
         sec = ft.Container(
             content=ft.Column([
@@ -197,6 +196,121 @@ class RecetaEditor(ft.Container):
         )
         return sec
 
+    def _build_producto_selector(self, colors, label, hint, initial_id):
+        """Selector de producto con buscador (estilo sección de componentes).
+
+        Muestra un campo de búsqueda; los aciertos aparecen debajo para elegir
+        uno (selección única). Retorna un Container con el buscador y la selección.
+        """
+        state = {'id': None, 'nombre': ''}
+        if initial_id:
+            p = next((x for x in self._productos if x['id'] == int(initial_id)), None)
+            if p:
+                state['id'] = p['id']
+                state['nombre'] = p.get('nombre', '')
+
+        search = ft.TextField(
+            label=hint or "Buscar producto...",
+            hint_text="Escribe el nombre...",
+            prefix_icon=ft.Icons.SEARCH,
+            expand=True,
+        )
+        results = ft.Column(spacing=4)
+
+        def _on_type(e):
+            texto = (e.control.value or "").lower().strip()
+            results.controls.clear()
+            resultados = []
+            if texto:
+                for p in self._productos:
+                    if p.get('activo') and texto in p.get('nombre', '').lower():
+                        resultados.append(p)
+            for p in resultados[:6]:
+                stock = self._stock_total(p['id'])
+                results.controls.append(
+                    ft.Container(
+                        content=ft.Row([
+                            ft.Column([
+                                ft.Text(p.get('nombre', ''), weight=ft.FontWeight.W_500),
+                                ft.Text(
+                                    f"Stock: {stock:.2f} {p.get('unidad_medida', 'unidad')}",
+                                    size=11, color=colors['text_hint'],
+                                ),
+                            ], spacing=2, expand=True),
+                            ft.Icon(ft.Icons.CHECK_CIRCLE_OUTLINE, size=18, color=colors['accent']),
+                        ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                        padding=ft.padding.symmetric(horizontal=10, vertical=6),
+                        border_radius=6,
+                        border=ft.border.all(1, colors['border']),
+                        ink=True,
+                        on_click=lambda _, prod=p: _elegir(prod),
+                    )
+                )
+            if not resultados:
+                results.controls.append(
+                    ft.Container(
+                        content=ft.Text("Sin resultados", size=12, color=colors['text_hint']),
+                        padding=ft.padding.all(8),
+                    )
+                )
+            self._safe_update(results)
+
+        def _elegir(prod):
+            state['id'] = prod['id']
+            state['nombre'] = prod.get('nombre', '')
+            selector._sel_id = state['id']
+            selector._sel_nombre = state['nombre']
+            search.value = prod.get('nombre', '')
+            results.controls.clear()
+            self._safe_update(search)
+            self._safe_update(results)
+            self._safe_update(selected_row)
+
+        def _limpiar(e=None):
+            state['id'] = None
+            state['nombre'] = ''
+            selector._sel_id = None
+            selector._sel_nombre = ''
+            search.value = ''
+            results.controls.clear()
+            self._safe_update(search)
+            self._safe_update(results)
+            self._safe_update(selected_row)
+
+        selected_row = ft.Container(
+            content=ft.Row([
+                ft.Icon(ft.Icons.INVENTORY_2_OUTLINED, size=16, color=colors['accent']),
+                ft.Text(
+                    state['nombre'] if state['id'] else "Ninguno seleccionado",
+                    size=13, weight=ft.FontWeight.W_500,
+                    color=colors['text_primary'],
+                    expand=True,
+                ),
+                ft.IconButton(
+                    icon=ft.Icons.CLOSE,
+                    tooltip="Limpiar selección",
+                    on_click=_limpiar,
+                    visible=bool(state['id']),
+                ),
+            ], spacing=6, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            padding=ft.padding.symmetric(horizontal=10, vertical=6),
+            bgcolor=colors['card_hover'],
+            border_radius=8,
+        )
+
+        search.on_change = _on_type
+
+        selector = ft.Column([
+            search,
+            results,
+            ft.Container(height=4),
+            selected_row,
+        ], spacing=6, tight=True, visible=True)
+        selector._sel_id = state['id']
+        selector._sel_nombre = state['nombre']
+
+        return selector
+
     def _build_section_componentes(self, colors):
         receta = self._receta
 
@@ -214,16 +328,34 @@ class RecetaEditor(ft.Container):
         self._componentes_list_ref = ft.Column(spacing=6, ref=self._componentes_column)
         self._render_component_rows()
 
+        is_simple = self._current_tipo() == 'simple'
+        comp_title = ft.Text(
+            "🎯 Producto final" if is_simple else "🧩 Ingredientes",
+            size=15, weight=ft.FontWeight.BOLD, color=colors['text_primary'],
+            ref=self._comp_title,
+        )
+        comp_sub = ft.Text(
+            "Productos resultantes (lo que se obtiene)" if is_simple
+            else "Ingredientes (lo que se consume)",
+            size=12, color=colors['text_hint'], italic=True,
+            ref=self._comp_sub,
+        )
+        add_btn = ft.OutlinedButton(
+            icon=ft.Icons.ADD,
+            content=ft.Text(
+                "+ Agregar ingrediente" if is_simple else "+ Agregar manualmente",
+                ref=self._add_btn_text,
+            ),
+            on_click=lambda _: self._add_empty_row(),
+            ref=self._add_button,
+        )
+
         sec = ft.Container(
             content=ft.Column([
-                self._section_title("🧩 Componentes", colors),
+                comp_title,
                 ft.Row([
                     ft.Icon(ft.Icons.INFO_OUTLINE, size=14, color=colors['text_hint']),
-                    ft.Text(
-                        "Productos resultantes (lo que se obtiene)" if not receta or receta.get('tipo') == 'simple'
-                        else "Ingredientes (lo que se consume)",
-                        size=12, color=colors['text_hint'], italic=True,
-                    ),
+                    comp_sub,
                 ], spacing=4),
                 ft.Container(height=8),
                 ft.Row([self._buscador], spacing=8),
@@ -233,11 +365,7 @@ class RecetaEditor(ft.Container):
                     content=self._componentes_list_ref,
                     padding=ft.padding.only(top=4),
                 ),
-                ft.OutlinedButton(
-                    icon=ft.Icons.ADD,
-                    content=ft.Text("+ Agregar manualmente", ref=self._add_btn_text),
-                    on_click=lambda _: self._add_empty_row(),
-                ),
+                add_btn,
             ], spacing=8),
             padding=ft.padding.all(16),
             bgcolor=colors['surface'],
@@ -254,23 +382,31 @@ class RecetaEditor(ft.Container):
         self._resumen_text_ref = resumen_text
 
         footer = ft.Container(
-            content=ft.Row([
+            content=ft.Column([
                 resumen_text,
-                ft.Container(expand=True),
-                ft.OutlinedButton(
-                    text="Cancelar",
-                    on_click=lambda _: self._cancel(),
-                ),
-                ft.Container(width=8),
-                ft.ElevatedButton(
-                    text="💾 Guardar Receta",
-                    icon=ft.Icons.SAVE_OUTLINED,
-                    bgcolor=colors['accent'],
-                    color=colors.get('white', ft.Colors.WHITE),
-                    on_click=lambda _: self._save(),
-                ),
-            ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=ft.padding.only(left=20, right=20, top=12, bottom=12),
+                ft.ResponsiveRow([
+                    ft.Container(
+                        content=ft.OutlinedButton(
+                            text="Cancelar",
+                            on_click=lambda _: self._cancel(),
+                            expand=True,
+                        ),
+                        col={"xs": 6, "sm": 2},
+                    ),
+                    ft.Container(
+                        content=ft.ElevatedButton(
+                            text="💾 Guardar Receta",
+                            icon=ft.Icons.SAVE_OUTLINED,
+                            bgcolor=colors['accent'],
+                            color=colors.get('white', ft.Colors.WHITE),
+                            on_click=lambda _: self._save(),
+                            expand=True,
+                        ),
+                        col={"xs": 6, "sm": 4},
+                    ),
+                ], spacing=8, alignment=ft.MainAxisAlignment.END),
+            ], spacing=6),
+            padding=ft.padding.only(left=16, right=16, top=12, bottom=12),
             bgcolor=colors['surface'],
             border=ft.border.only(top=ft.BorderSide(1, colors['border'])),
         )
@@ -385,7 +521,6 @@ class RecetaEditor(ft.Container):
 
     def _add_row(self, item):
         is_simple = self._current_tipo() == 'simple'
-        tipo_comp = item.get('tipo_componente') or ('RESULTADO' if is_simple else 'INGREDIENTE')
 
         prod_dd = ft.Dropdown(
             options=self._product_options(),
@@ -397,18 +532,13 @@ class RecetaEditor(ft.Container):
         cant_field = ft.TextField(
             value=str(item.get('cantidad', 1)),
             keyboard_type=ft.KeyboardType.NUMBER,
-            width=100,
+            width=110,
             hint_text="Cant.",
-            disabled=bool(item.get('peso_variable')),
         )
         unidad_field = ft.TextField(
             value=item.get('unidad', 'unidad'),
             width=100,
             hint_text="unidad",
-        )
-        peso_var_check = ft.Checkbox(
-            value=bool(item.get('peso_variable')),
-            tooltip="Peso variable: se ingresa al descargar",
         )
 
         def _remove(e):
@@ -417,31 +547,11 @@ class RecetaEditor(ft.Container):
                 self._componentes_list_ref.update()
             self._update_resumen()
 
-        def _on_peso_var(e):
-            cant_field.disabled = peso_var_check.value
-            if peso_var_check.value:
-                cant_field.value = ""
-            else:
-                cant_field.value = "1"
-            if self.page:
-                cant_field.update()
-            self._update_resumen()
-
-        peso_var_check.on_change = _on_peso_var
-
         row = ft.Container(
             content=ft.ResponsiveRow([
-                ft.Container(content=prod_dd, col={"xs": 12, "sm": 5}),
-                ft.Container(content=cant_field, col={"xs": 4, "sm": 2}),
+                ft.Container(content=prod_dd, col={"xs": 12, "sm": 6}),
+                ft.Container(content=cant_field, col={"xs": 6, "sm": 2}),
                 ft.Container(content=unidad_field, col={"xs": 4, "sm": 2}),
-                ft.Container(
-                    content=ft.Row([
-                        ft.Icon(ft.Icons.SCALE, size=16, color=_colors(self.page)['text_secondary']),
-                        peso_var_check,
-                    ], spacing=2, tight=True),
-                    col={"xs": 2, "sm": 2},
-                    padding=ft.padding.only(top=12),
-                ),
                 ft.Container(
                     content=ft.IconButton(
                         icon=ft.Icons.DELETE_OUTLINE,
@@ -449,7 +559,7 @@ class RecetaEditor(ft.Container):
                         tooltip="Quitar",
                         on_click=_remove,
                     ),
-                    col={"xs": 2, "sm": 1},
+                    col={"xs": 2, "sm": 2},
                     alignment=ft.alignment.center_right,
                 ),
             ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
@@ -470,12 +580,7 @@ class RecetaEditor(ft.Container):
 
     def _update_resumen(self):
         total = len(self._componentes_list_ref.controls)
-        variables = sum(
-            1 for r in self._componentes_list_ref.controls
-            if r.content.controls[3].content.controls[1].value
-        )
-        fijos = total - variables
-        txt = f"📊 {total} componentes  ·  {fijos} fijos  ·  {variables} variables"
+        txt = f"📊 {total} componentes · cantidad editable al descargar"
         self._resumen_text_ref.value = txt
         self._safe_update(self._resumen_text_ref)
 
@@ -491,9 +596,18 @@ class RecetaEditor(ft.Container):
         is_simple = self._current_tipo() == 'simple'
         self._base_container.visible = is_simple
         self._final_container.visible = not is_simple
+        if self._comp_title.current:
+            self._comp_title.current.value = "🎯 Producto final" if is_simple else "🧩 Ingredientes"
+        if self._comp_sub.current:
+            self._comp_sub.current.value = \
+                "Productos resultantes (lo que se obtiene)" if is_simple \
+                else "Ingredientes (lo que se consume)"
+        if self._add_btn_text.current:
+            self._add_btn_text.current.value = "+ Agregar ingrediente" if is_simple else "+ Agregar manualmente"
         if self.page:
-            self._base_container.update()
-            self._final_container.update()
+            for c in (self._base_container, self._final_container,
+                      self._comp_title, self._comp_sub, self._add_btn_text):
+                c.current.update() if c.current else None
 
         if self._componentes_list_ref.controls:
             show_warning("Cambiar de tipo puede requerir redefinir los componentes.")
@@ -526,18 +640,18 @@ class RecetaEditor(ft.Container):
         }
 
         if is_simple:
-            if not self._base_dd_ref.value:
-                self._base_dd_ref.error_text = "Selecciona el producto base"
-                self._base_dd_ref.update()
+            base_id = self._base_sel._sel_id
+            if not base_id:
+                show_warning("Selecciona el producto base")
                 return
-            receta_data['producto_base_id'] = int(self._base_dd_ref.value)
+            receta_data['producto_base_id'] = base_id
             receta_data['producto_final_id'] = None
         else:
-            if not self._final_dd_ref.value:
-                self._final_dd_ref.error_text = "Selecciona el producto final"
-                self._final_dd_ref.update()
+            final_id = self._final_sel._sel_id
+            if not final_id:
+                show_warning("Selecciona el producto final")
                 return
-            receta_data['producto_final_id'] = int(self._final_dd_ref.value)
+            receta_data['producto_final_id'] = final_id
             receta_data['producto_base_id'] = None
 
         if self.is_edit:
@@ -550,15 +664,14 @@ class RecetaEditor(ft.Container):
             prod_dd = rr.controls[0].content
             cant_field = rr.controls[1].content
             unidad_field = rr.controls[2].content
-            peso_var = rr.controls[3].content.controls[1].value
             if not prod_dd.value:
                 continue
             componentes.append({
                 'producto_id': int(prod_dd.value),
-                'cantidad': 0.0 if peso_var else float(cant_field.value or 1),
+                'cantidad': float(cant_field.value or 1),
                 'unidad': (unidad_field.value or 'unidad').strip() or 'unidad',
                 'tipo_componente': 'RESULTADO' if is_simple else 'INGREDIENTE',
-                'peso_variable': 1 if peso_var else 0,
+                'peso_variable': 0,
             })
 
         receta_data['_componentes'] = componentes

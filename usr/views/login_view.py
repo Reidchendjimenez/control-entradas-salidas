@@ -177,66 +177,100 @@ class LoginView(ft.Container):
     
     async def _go_to_main(self, nombre):
         try:
-            if self.page:
-                self.page.session.set("username", nombre)
-                self.page.clean()
-                
-                # Configurar path de BD primero
-                import os
-                from usr.database.conn import set_db_path
-                db_dir = self.page.session.get("_db_dir") or "."
-                db_path = os.path.join(db_dir, "lycoris_local.db")
-                set_db_path(db_path)
-                
-                # Asegurar que la BD local existe
-                from usr.database.local_replica import ensure_local_db
-                ensure_local_db()
-                
-                # Importar aquí para evitar efectos secundarios
-                from usr.database.base import get_engine, get_session, check_connection, init_local_tables
-                from usr.database.sync import init_sync_manager
-                from config.config import get_settings
-                from usr.app_controller import ControlEntradasSalidasApp
-                
-                # Resetear el engine para que use el path correcto
-                from usr.database import base
-                base._local_engine = None
-                base._local_session_local = None
-                
-                # Inicializar tablas SQLAlchemy
-                init_local_tables()
-                
-                # Sincronizar datos de Supabase
-                sync_manager = init_sync_manager(get_engine)
-                sync_manager.set_session_local_getter(get_session)
-                
-                settings = get_settings()
-                
-                if check_connection():
-                    try:
-                        import asyncio
-                        from concurrent.futures import ThreadPoolExecutor
-                        loop = asyncio.get_event_loop()
-                        
-                        def run_sync():
-                            return sync_manager.full_sync()
-                        
-                        with ThreadPoolExecutor() as pool:
-                            await loop.run_in_executor(pool, run_sync)
-                        logger.info("Sync completado desde login")
-                    except Exception as sync_err:
-                        logger.error(f"Error en sync: {sync_err}")
-                
-                app_instance = ControlEntradasSalidasApp()
-                
-                # Arrancar la interfaz (crea las vistas internamente)
-                await app_instance.arrancar_interfaz(self.page, settings, None)
-                
+            if not self.page:
+                return
+            self.page.session.set("username", nombre)
+
+            # Ruta principal: app_launcher está esperando a que este callback
+            # (after_login -> setup_done) se dispare para continuar con un único
+            # sync + arranque de la interfaz (evita el sync duplicado).
+            if self.on_success_callback is not None:
+                await self._run_callback()
+                return
+
+            # Fallback conservador (LoginView usado sin callback): hace el flujo
+            # completo por su cuenta.
+            self.page.clean()
+
+            # Configurar path de BD primero
+            import os
+            from usr.database.conn import set_db_path
+            db_dir = self.page.session.get("_db_dir") or "."
+            db_path = os.path.join(db_dir, "lycoris_local.db")
+            set_db_path(db_path)
+
+            # Asegurar que la BD local existe
+            from usr.database.local_replica import ensure_local_db
+            ensure_local_db()
+
+            # Importar aquí para evitar efectos secundarios
+            from usr.database.base import get_engine, get_session, check_connection, init_local_tables
+            from usr.database.sync import init_sync_manager
+            from config.config import get_settings
+            from usr.app_controller import ControlEntradasSalidasApp
+
+            # Resetear el engine para que use el path correcto
+            from usr.database import base
+            base._local_engine = None
+            base._local_session_local = None
+
+            # Iniciar tablas sync
+            init_local_tables()
+
+            # Sincronizar datos de Supabase
+            settings = get_settings()
+
+            # Mostrar pantalla de carga animada con progreso mientras el sync
+            # descarga los datos (evita la pantalla negra inicial).
+            from usr.views.splash import LoadingSplash
+            splash = LoadingSplash(self.page)
+            self.page.add(splash)
+            self.page.update()
+
+            sync_manager = init_sync_manager(get_engine)
+            sync_manager.set_session_local_getter(get_session)
+            sync_manager.set_sync_progress_callback(splash.set_progress)
+
+            if check_connection():
+                try:
+                    import asyncio
+                    from concurrent.futures import ThreadPoolExecutor
+                    loop = asyncio.get_event_loop()
+
+                    def run_sync():
+                        return sync_manager.full_sync()
+
+                    with ThreadPoolExecutor() as pool:
+                        await loop.run_in_executor(pool, run_sync)
+                    logger.info("Sync completado desde login")
+                except Exception as sync_err:
+                    logger.error(f"Error en sync: {sync_err}")
+
+            splash.finish()
+            self.page.controls.remove(splash)
+            self.page.update()
+
+            app_instance = ControlEntradasSalidasApp()
+
+            # Arrancar la interfaz (crea las vistas internamente)
+            await app_instance.arrancar_interfaz(self.page, settings, None)
+
         except Exception as e:
             logger.error(f"Error al cargar app: {e}")
             import traceback
             traceback.print_exc()
             self._show_error(f"Error: {str(e)}")
+
+    async def _run_callback(self):
+        cb = self.on_success_callback
+        try:
+            result = cb()
+            if hasattr(result, '__await__'):
+                await result
+        except Exception as e:
+            logger.error(f"Error en callback post-login: {e}")
+            import traceback
+            traceback.print_exc()
     
     def _show_error(self, message):
         self.error_text.value = message

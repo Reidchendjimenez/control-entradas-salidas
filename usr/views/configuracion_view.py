@@ -200,19 +200,35 @@ class ConfiguracionView(ft.Container):
             ft.Icon(ft.Icons.ADD_BOX, size=20),
             ft.Text("Nuevo Producto" if not self.is_mobile else "Nuevo", weight=ft.FontWeight.BOLD),
         ], alignment=ft.MainAxisAlignment.CENTER, spacing=8)
+
+        fab_btn = ft.Container(
+            content=fab_content,
+            bgcolor=colors['success'],
+            padding=ft.padding.symmetric(horizontal=20, vertical=12),
+            border_radius=30,
+            on_click=lambda _: show_producto_dialog(self),
+        )
+
+        if self.is_mobile:
+            self.producto_cat_filter.width = None
+            self.producto_cat_filter.expand = True
+            filtros_col = ft.Column([
+                self.producto_cat_filter,
+                ft.Row([
+                    self.producto_search,
+                    fab_btn,
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            ], spacing=10)
+        else:
+            filtros_col = ft.Row([
+                self.producto_cat_filter,
+                self.producto_search,
+                fab_btn,
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER)
+
         return ft.Container(
             content=ft.Column([
-                ft.Row([
-                    self.producto_cat_filter,
-                    self.producto_search,
-                    ft.Container(
-                        content=fab_content,
-                        bgcolor=colors['success'],
-                        padding=ft.padding.symmetric(horizontal=20, vertical=12),
-                        border_radius=30,
-                        on_click=lambda _: show_producto_dialog(self),
-                    ),
-                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                filtros_col,
                 ft.Divider(height=1, color=colors['border']),
             ], spacing=15),
             padding=ft.padding.only(bottom=10),

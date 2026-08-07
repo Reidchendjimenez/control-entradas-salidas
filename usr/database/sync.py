@@ -79,8 +79,8 @@ class SyncManager:
         url = get_settings().DATABASE_URL
         # Timeout de 15s para no bloquear si Supabase no responde
         if 'pg8000' in url:
-            return create_engine(url, connect_args={'timeout': 15})
-        return create_engine(url, connect_args={'connect_timeout': 15})
+            return create_engine(url, connect_args={'timeout': 60})
+        return create_engine(url, connect_args={'connect_timeout': 30})
     
     def check_connection(self) -> bool:
         """Verifica si hay conexión a la base de datos remota."""
@@ -374,42 +374,57 @@ class SyncManager:
         settings = get_settings()
         remote_engine = self._create_remote_engine()
         
+# --- Migración remota en su PROPIA conexión/transacción ---
+        # Cada DDL se ejecuta en una transacción que SIEMPRE commitea o hace
+        # rollback y cierra la sesión. Si un ALTER no obtiene el AccessExclusiveLock
+        # (p.ej. por un lock de una sesión anterior), lock_timeout lo aborta a los
+        # 3s en vez de dejar "idle in transaction" reteniendo el lock y bloqueando
+        # las lecturas de TODOS los dispositivos.
+        migraciones = [
+            "ALTER TABLE requisicion_detalles ADD COLUMN IF NOT EXISTS verificado INTEGER DEFAULT 0",
+            "ALTER TABLE categorias ADD COLUMN IF NOT EXISTS visible_en_pos INTEGER DEFAULT 1",
+            "ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_venta REAL DEFAULT 0",
+            "CREATE TABLE IF NOT EXISTS recetas (id SERIAL PRIMARY KEY, nombre TEXT NOT NULL, tipo TEXT NOT NULL, producto_base_id INTEGER, producto_final_id INTEGER, cantidad_producida REAL DEFAULT 1, activo INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT)",
+            "CREATE TABLE IF NOT EXISTS receta_componentes (id SERIAL PRIMARY KEY, receta_id INTEGER NOT NULL, producto_id INTEGER NOT NULL, cantidad REAL NOT NULL, unidad TEXT DEFAULT 'unidad', tipo_componente TEXT NOT NULL, peso_variable INTEGER DEFAULT 0)",
+            "CREATE TABLE IF NOT EXISTS producciones (id SERIAL PRIMARY KEY, receta_id INTEGER NOT NULL, cantidad REAL NOT NULL, estado TEXT DEFAULT 'completado', usuario TEXT, observaciones TEXT, fecha_produccion TEXT, cocineros TEXT, created_at TEXT)",
+            "CREATE TABLE IF NOT EXISTS produccion_detalles (id SERIAL PRIMARY KEY, produccion_id INTEGER NOT NULL, producto_id INTEGER NOT NULL, tipo TEXT NOT NULL, cantidad REAL NOT NULL, unidad TEXT DEFAULT 'unidad', movimiento_id INTEGER)",
+            "CREATE TABLE IF NOT EXISTS movimientos_archivo (id INTEGER PRIMARY KEY, producto_id INTEGER NOT NULL, factura_id INTEGER, requisicion_id INTEGER, tipo TEXT NOT NULL, cantidad REAL NOT NULL, cantidad_anterior REAL DEFAULT 0, cantidad_nueva REAL DEFAULT 0, peso_total REAL DEFAULT 0, registrado_por TEXT, observaciones TEXT, almacen TEXT, fecha_movimiento TEXT, created_at TEXT)",
+            "CREATE TABLE IF NOT EXISTS stock_checkpoint (producto_id INTEGER NOT NULL, almacen TEXT NOT NULL, cantidad REAL DEFAULT 0, PRIMARY KEY (producto_id, almacen))",
+            "CREATE TABLE IF NOT EXISTS periodos (id SERIAL PRIMARY KEY, periodo TEXT NOT NULL UNIQUE, fecha_apertura TEXT NOT NULL, registrado_por TEXT)",
+            "ALTER TABLE movimientos_archivo ADD COLUMN IF NOT EXISTS requisicion_id INTEGER",
+            "ALTER TABLE receta_componentes ADD COLUMN IF NOT EXISTS peso_variable INTEGER DEFAULT 0",
+            "ALTER TABLE producciones ADD COLUMN IF NOT EXISTS cocineros TEXT",
+            "ALTER TABLE movimientos ALTER COLUMN tipo TYPE VARCHAR(30)",
+            "ALTER TABLE movimientos_archivo ALTER COLUMN tipo TYPE VARCHAR(30)",
+        ]
+        for migracion in migraciones:
+            try:
+                with remote_engine.connect() as mig:
+                    try:
+                        mig.exec_driver_sql("SET LOCAL lock_timeout = '3s'")
+                    except Exception:
+                        pass
+                    mig.execute(text(migracion))
+                    mig.commit()
+            except Exception as pe:
+                self._log(f"[SYNC] Migración remota omitida ({str(pe)[:80]}): {migracion[:60]}")
+
         with remote_engine.connect() as conn:
-            # Migración remota: asegurar existencias de tablas
-            for migracion in [
-                "ALTER TABLE requisicion_detalles ADD COLUMN IF NOT EXISTS verificado INTEGER DEFAULT 0",
-                "ALTER TABLE categorias ADD COLUMN IF NOT EXISTS visible_en_pos INTEGER DEFAULT 1",
-                "ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_venta REAL DEFAULT 0",
-                "CREATE TABLE IF NOT EXISTS recetas (id SERIAL PRIMARY KEY, nombre TEXT NOT NULL, tipo TEXT NOT NULL, producto_base_id INTEGER, producto_final_id INTEGER, cantidad_producida REAL DEFAULT 1, activo INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT)",
-                "CREATE TABLE IF NOT EXISTS receta_componentes (id SERIAL PRIMARY KEY, receta_id INTEGER NOT NULL, producto_id INTEGER NOT NULL, cantidad REAL NOT NULL, unidad TEXT DEFAULT 'unidad', tipo_componente TEXT NOT NULL, peso_variable INTEGER DEFAULT 0)",
-                "CREATE TABLE IF NOT EXISTS producciones (id SERIAL PRIMARY KEY, receta_id INTEGER NOT NULL, cantidad REAL NOT NULL, estado TEXT DEFAULT 'completado', usuario TEXT, observaciones TEXT, fecha_produccion TEXT, created_at TEXT)",
-                "CREATE TABLE IF NOT EXISTS produccion_detalles (id SERIAL PRIMARY KEY, produccion_id INTEGER NOT NULL, producto_id INTEGER NOT NULL, tipo TEXT NOT NULL, cantidad REAL NOT NULL, unidad TEXT DEFAULT 'unidad', movimiento_id INTEGER)",
-                "CREATE TABLE IF NOT EXISTS movimientos_archivo (id INTEGER PRIMARY KEY, producto_id INTEGER NOT NULL, factura_id INTEGER, requisicion_id INTEGER, tipo TEXT NOT NULL, cantidad REAL NOT NULL, cantidad_anterior REAL DEFAULT 0, cantidad_nueva REAL DEFAULT 0, peso_total REAL DEFAULT 0, registrado_por TEXT, observaciones TEXT, almacen TEXT, fecha_movimiento TEXT, created_at TEXT)",
-                "CREATE TABLE IF NOT EXISTS stock_checkpoint (producto_id INTEGER NOT NULL, almacen TEXT NOT NULL, cantidad REAL DEFAULT 0, PRIMARY KEY (producto_id, almacen))",
-                "CREATE TABLE IF NOT EXISTS periodos (id SERIAL PRIMARY KEY, periodo TEXT NOT NULL UNIQUE, fecha_apertura TEXT NOT NULL, registrado_por TEXT)",
-            ]:
-                try:
-                    conn.execute(text(migracion))
-                    conn.commit()
-                except Exception:
-                    conn.rollback()
-            try:
-                conn.execute(text("ALTER TABLE movimientos_archivo ADD COLUMN requisicion_id INTEGER"))
-                conn.commit()
-            except Exception:
-                conn.rollback()
-            try:
-                conn.execute(text("ALTER TABLE receta_componentes ADD COLUMN IF NOT EXISTS peso_variable INTEGER DEFAULT 0"))
-                conn.commit()
-            except Exception:
-                conn.rollback()
-            
             for local_table, server_table in tables_to_sync:
+                # Reintento por tabla: la conexión a Supabase puede ser inestable
+                # y un timeout transitorio de lectura no debe tumbar la tabla.
+                for intento in range(3):
+                    try:
+                        conn.rollback()
+                        result = conn.execute(text(f"SELECT * FROM {server_table}"))
+                        rows = result.fetchall()
+                        data = [dict_to_serializable(dict(row._mapping)) for row in rows]
+                        break
+                    except Exception:
+                        if intento == 2:
+                            raise
+                        continue
                 try:
-                    result = conn.execute(text(f"SELECT * FROM {server_table}"))
-                    rows = result.fetchall()
-                    data = [dict_to_serializable(dict(row._mapping)) for row in rows]
-                    
                     remote_ids = [r['id'] for r in data if r.get('id') is not None]
                     
                     if local_table == 'categorias':
@@ -424,6 +439,36 @@ class SyncManager:
                     elif local_table == 'existencias':
                         LocalReplica.save_existencias(data)
                     elif local_table == 'movimientos':
+                        # Descarga paginada en rangos de id para evitar timeouts en
+                        # tablas grandes. Lee en bloques de N movimientos hasta
+                        # agotar la tabla remota.
+                        remote_ids = []
+                        data = []
+                        pag_tam = 5000
+                        pagina = 0
+                        while True:
+                            min_id = pagina * pag_tam
+                            max_id = min_id + pag_tam - 1
+                            try:
+                                result = conn.execute(text(
+                                    "SELECT * FROM movimientos WHERE id BETWEEN :min_id AND :max_id ORDER BY id"
+                                ), {"min_id": min_id, "max_id": max_id})
+                                chunk = result.fetchall()
+                                conn.rollback()
+                            except Exception as pe:
+                                try:
+                                    conn.rollback()
+                                except Exception:
+                                    pass
+                                self._log(f"[SYNC] Error descargando movimientos (página {pagina}): {pe}")
+                                break
+                            if not chunk:
+                                break
+                            data.extend(dict_to_serializable(dict(r._mapping)) for r in chunk)
+                            remote_ids.extend(r['id'] for r in chunk if r['id'] is not None)
+                            pagina += 1
+                            if len(chunk) < pag_tam:
+                                break
                         LocalReplica.clear_movimientos()
                         LocalReplica.save_movimientos(data)
                         try:
@@ -467,6 +512,15 @@ class SyncManager:
 
                 except Exception as e:
                     self._log(f"[SYNC] Error descargando {local_table}: {e}")
+                    # Ante un timeout/error de lectura, la transacción remota
+                    # queda en estado fallido. Hacer rollback permite que la
+                    # conexión reutilizable siga sirviendo la siguiente tabla;
+                    # de lo contrario todas las posteriores fallan con
+                    # "Can't reconnect until invalid transaction is rolled back".
+                    try:
+                        conn.rollback()
+                    except Exception:
+                        pass
         
         remote_engine.dispose()
         
@@ -1082,6 +1136,7 @@ class SyncManager:
                             'usuario': data.get('usuario'),
                             'observaciones': data.get('observaciones'),
                             'fecha_produccion': data.get('fecha_produccion'),
+                            'cocineros': data.get('cocineros'),
                             'created_at': data.get('created_at'),
                         }
                         existing = None

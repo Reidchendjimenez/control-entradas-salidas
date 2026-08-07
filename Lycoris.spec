@@ -74,7 +74,7 @@ pos_exe = EXE(
     pos_a.datas,
     [],
     name='Lycoris_POS',
-    console=True,
+    console=False
     icon='assets/icono.ico',
 )
 

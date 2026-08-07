@@ -46,6 +46,8 @@ def build_historial_tab(page):
                     ]),
                     ft.Text(fmt_fecha(produccion.get('fecha_produccion', '')), size=12, color=colors['text_secondary']),
                     ft.Text(f"Por: {produccion.get('usuario', 'Sistema')}", size=12, color=colors['text_secondary']),
+                    *([ft.Text(f"Cocineros: {produccion.get('cocineros')}", size=12, color=colors['text_secondary'])]
+                      if produccion.get('cocineros') else []),
                     ft.Row([
                         ft.Container(
                             content=ft.Column([

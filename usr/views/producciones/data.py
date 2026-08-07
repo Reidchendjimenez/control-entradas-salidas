@@ -25,8 +25,24 @@ def stock_total_producto(producto_id: int) -> float:
     return sum(float(e.get('cantidad', 0) or 0) for e in existencias)
 
 
+def almacen_produccion_default() -> str:
+    """Almacén por defecto para la descarga de materia prima de una producción.
+
+    Se lee del setting `almacen_produccion` (pos_settings), default 'restaurante'.
+    Solo aplica al descargo (salida) de la materia prima, no a las entradas.
+    """
+    try:
+        val = (LocalReplica.get_pos_setting('almacen_produccion', 'restaurante') or 'restaurante').strip()
+    except Exception:
+        val = 'restaurante'
+    return val if val else 'restaurante'
+
+
 def load_componentes(receta_id):
-    return LocalReplica.get_componentes_by_receta(receta_id) or []
+    comps = LocalReplica.get_componentes_by_receta(receta_id) or []
+    for c in comps:
+        c['es_pesable'] = bool(c.get('producto_es_pesable'))
+    return comps
 
 
 def load_producciones(estado=None, limit=50):
@@ -47,6 +63,25 @@ def load_pendientes_de_receta(receta_id):
 
 def load_detalle(produccion_id):
     return LocalReplica.get_detalles_by_produccion(produccion_id) or []
+
+
+def productos_producidos(produccion):
+    """Productos resultantes de una producción = detalles tipo 'entrada'.
+
+    Retorna lista de {producto_id, nombre, cantidad, unidad}. Una receta simple
+    puede producir varios RESULTADO, cada uno con su cantidad.
+    """
+    detalles = load_detalle(produccion.get('id'))
+    entradas = [d for d in detalles if d.get('tipo') == 'entrada']
+    resultado = []
+    for d in entradas:
+        resultado.append({
+            'producto_id': d.get('producto_id'),
+            'nombre': d.get('producto_nombre') or f"#{d.get('producto_id')}",
+            'cantidad': float(d.get('cantidad', 0) or 0),
+            'unidad': d.get('unidad', 'unidad'),
+        })
+    return resultado
 
 
 # ----------------------- persistencia de recetas -----------------------
@@ -138,6 +173,7 @@ def planificar_descargo(receta, produccion):
     produccion_cantidad = float(produccion.get('cantidad', 1))
     cantidad_base_receta = float(receta.get('cantidad_producida', 1)) or 1.0
     factor = produccion_cantidad / cantidad_base_receta
+    almacen_descargo = almacen_produccion_default()
 
     items = []
     if es_compuesta:
@@ -147,15 +183,16 @@ def planificar_descargo(receta, produccion):
             prod = LocalReplica.get_producto_by_id(comp['producto_id'])
             if not prod:
                 continue
-            peso_var = bool(comp.get('peso_variable'))
             items.append({
                 'producto_id': prod['id'],
                 'nombre': prod.get('nombre', f"#{prod['id']}"),
-                'cantidad_sugerida': 0.0 if peso_var else float(comp['cantidad'] or 0) * factor,
-                'peso_variable': peso_var,
+                # Todos los ingredientes llevan su cantidad base (escala por
+                # factor de producción) y quedan editables al descargar.
+                'cantidad_sugerida': float(comp['cantidad'] or 0) * factor,
+                'peso_variable': False,
                 'unidad': comp.get('unidad') or prod.get('unidad_medida', 'unidad'),
                 'es_pesable': bool(prod.get('es_pesable')),
-                'almacen': prod.get('almacen_predeterminado', 'principal') or 'principal',
+                'almacen': almacen_descargo,
             })
     else:
         if receta.get('producto_base_id'):
@@ -170,13 +207,13 @@ def planificar_descargo(receta, produccion):
                     'peso_variable': pesable,
                     'unidad': 'kg' if pesable else prod.get('unidad_medida', 'unidad'),
                     'es_pesable': pesable,
-                    'almacen': prod.get('almacen_predeterminado', 'principal') or 'principal',
+                    'almacen': almacen_descargo,
                 })
 
     return items
 
 
-def ejecutar_descargo(page, produccion, receta, items_cantidades):
+def ejecutar_descargo(page, produccion, receta, items_cantidades, cocineros=None):
     """Etapa 2: registra salida_produccion por cada ingrediente y marca completado.
 
     items_cantidades: lista de {producto_id, cantidad, es_pesable, almacen}
@@ -228,6 +265,7 @@ def ejecutar_descargo(page, produccion, receta, items_cantidades):
         produccion['id'],
         'completado',
         observaciones=f"Descargado por {usuario} el {fecha[:19]}",
+        cocineros=cocineros,
     )
     return True, []
 
@@ -264,7 +302,7 @@ def cancelar_produccion(page, produccion, receta):
         # para conocer el peso.
         peso_total = 0.0
         if entrada.get('movimiento_id'):
-            session = get_session()
+            session = get_session()()
             try:
                 mov = session.execute(
                     select(Movimiento).where(Movimiento.id == entrada['movimiento_id'])

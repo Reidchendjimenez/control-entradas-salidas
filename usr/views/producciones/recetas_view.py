@@ -82,7 +82,7 @@ def render_recetas(page, recetas, productos, recetas_list, on_change, on_edit):
                 content=ft.Column([
                     ft.Icon(ft.Icons.DESCRIPTION_OUTLINED, size=48, color=colors['text_hint']),
                     ft.Text("No hay recetas aún", size=16, color=colors['text_hint']),
-                    ft.Text("Presiona el botón + para crear una", size=13, color=colors['text_hint']),
+                    ft.Text("Presiona '+ Nueva Receta' para crear una", size=13, color=colors['text_hint']),
                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10),
                 padding=ft.padding.all(40),
             )
