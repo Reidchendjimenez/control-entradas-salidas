@@ -8,5 +8,7 @@ from .existencia import Existencia
 from .requisicion import Requisicion, RequisicionDetalle
 from .compra_lista import CompraListaItem
 from .movimiento_archivo import MovimientoArchivo
+from .receta import Receta, RecetaComponente
+from .produccion import Produccion, ProduccionDetalle
 
-__all__ = ['Categoria', 'Producto', 'Proveedor', 'Factura', 'FacturaPago', 'Movimiento', 'Existencia', 'Requisicion', 'RequisicionDetalle', 'CompraListaItem', 'MovimientoArchivo']
+__all__ = ['Categoria', 'Producto', 'Proveedor', 'Factura', 'FacturaPago', 'Movimiento', 'Existencia', 'Requisicion', 'RequisicionDetalle', 'CompraListaItem', 'MovimientoArchivo', 'Receta', 'RecetaComponente', 'Produccion', 'ProduccionDetalle']

@@ -34,6 +34,7 @@ class RecetaComponente(Base):
     cantidad = Column(Float, nullable=False)
     unidad = Column(String(20), default="unidad")
     tipo_componente = Column(String(20), nullable=False)
+    peso_variable = Column(Integer, default=0)
 
     receta = relationship("Receta", back_populates="componentes")
     producto = relationship("Producto")

@@ -408,6 +408,7 @@ class AuditView(ft.Container):
     async def _do_show_movimientos_historial(self, item):
         import asyncio
         from usr.database.local_replica import LocalReplica
+        from usr.views.common.movimientos import build_historial_dialog, preguntar_almacen, TODOS_ALMACENES
 
         producto_id = item['producto_id']
         nombre = item['ingrediente']
@@ -420,179 +421,48 @@ class AuditView(ft.Container):
         almacenes = sorted(set(m.get('almacen') for m in movs if m.get('almacen')))
 
         if len(almacenes) > 1:
-            selected = await self._preguntar_almacen(nombre, almacenes)
+            selected = await preguntar_almacen(self.page, self.colors, nombre, almacenes)
             if selected is None:
                 return
         else:
-            selected = almacenes[0]
+            selected = almacenes[0] if almacenes else TODOS_ALMACENES
 
-        movs_filtrados = [m for m in movs if m.get('almacen') == selected]
+        if selected == TODOS_ALMACENES:
+            movs_filtrados = movs
+            titulo = f"Historial: {nombre}"
+        else:
+            movs_filtrados = [m for m in movs if m.get('almacen') == selected]
+            titulo = f"Historial: {nombre} - {selected}"
         movs_filtrados.sort(key=lambda m: m.get('fecha_movimiento', ''), reverse=True)
 
-        tipo_labels = {
-            'entrada': ('Entrada', self.colors['success']),
-            'salida': ('Salida', ft.Colors.RED_400),
-            'ajuste': ('Ajuste', ft.Colors.ORANGE_400),
-            'tr_entrada': ('Tr. Entrada', ft.Colors.BLUE_400),
-            'tr_salida': ('Tr. Salida', ft.Colors.PURPLE_400),
-            'validacion': ('Validación', ft.Colors.TEAL_400),
-            'venta': ('Venta', ft.Colors.GREEN_400),
-            'devolucion': ('Devolución', ft.Colors.TEAL_400),
-        }
-
-        mov_rows = []
-        for m in movs_filtrados:
-            tipo_info = tipo_labels.get(m.get('tipo', ''), (m.get('tipo', '?'), ft.Colors.GREY_400))
-            cant_anterior = m.get('cantidad_anterior', 0)
-            cant = m.get('cantidad', 0)
-            cant_nueva = m.get('cantidad_nueva', 0)
-            fecha_raw = m.get('fecha_movimiento', '')
-            fecha = (fecha_raw[:10] + ' ' + fecha_raw[11:16]) if len(fecha_raw) >= 16 else (fecha_raw or '')[:16]
-            obs = (m.get('observaciones') or '').strip()
-            usuario = m.get('registrado_por') or '?'
-            alm = m.get('almacen') or ''
-
-            info_parts = [usuario]
-            if alm:
-                info_parts.append(alm)
-            info_line = ' · '.join(info_parts)
-
-            sign_color = self.colors['success'] if cant >= 0 else ft.Colors.RED_400
-            sign = '+' if cant >= 0 else ''
-
-            rows_in_card = [
-                ft.Row([
-                    ft.Text(fecha, size=10, color=self.colors['text_secondary']),
-                    ft.Container(
-                        content=ft.Text(tipo_info[0], size=9, color='white', weight='bold'),
-                        bgcolor=tipo_info[1], padding=ft.padding.only(4, 1, 4, 1), border_radius=3,
-                    ),
-                ], spacing=6),
-                ft.Row([
-                    ft.Text(info_line, size=10, color=self.colors['text_secondary']),
-                ], spacing=6),
-            ]
-
-            if obs:
-                rows_in_card.append(
-                    ft.Text(obs, size=9, color=self.colors['text_primary'], max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
-                )
-
-            rows_in_card.append(
-                ft.Container(
-                    content=ft.Row([
-                        ft.Text(f"{cant_anterior:.1f}", size=11, color=self.colors['text_secondary'], text_align=ft.TextAlign.CENTER, expand=True),
-                        ft.Text("→", size=10, color=self.colors['text_secondary']),
-                        ft.Text(f"{sign}{cant:.1f}", size=12, weight='bold', color=sign_color, text_align=ft.TextAlign.CENTER, expand=True),
-                        ft.Text("→", size=10, color=self.colors['text_secondary']),
-                        ft.Text(f"{cant_nueva:.1f}", size=12, weight='bold', color=self.colors['text_primary'], text_align=ft.TextAlign.CENTER, expand=True),
-                    ], spacing=2, alignment=ft.MainAxisAlignment.CENTER),
-                    bgcolor=self.colors['bg'], padding=ft.padding.only(4, 3, 4, 3), border_radius=5,
-                ),
-            )
-
-            mov_rows.append(ft.Container(
-                content=ft.Column(rows_in_card, spacing=3),
-                padding=8, border_radius=7,
-                bgcolor=self.colors['card'],
-                border=ft.border.all(1, self.colors['border']),
-            ))
-
-        dlg = ft.AlertDialog(
-            title=ft.Text(f"Historial: {nombre} - {selected}", size=15, weight='bold'),
-            content=ft.Container(
-                content=ft.Column(mov_rows, spacing=4, scroll=ft.ScrollMode.AUTO),
-                height=400,
-            ),
-            actions=[ft.TextButton("Cerrar", on_click=lambda _: self._close_dialog(dlg))],
-            actions_alignment=ft.MainAxisAlignment.END,
+        dlg = build_historial_dialog(
+            titulo,
+            movs_filtrados,
+            self.colors,
+            on_close=lambda _: self._close_dialog(dlg),
+            page=self.page,
         )
         self.page.overlay.append(dlg)
         dlg.open = True
         self.page.update()
-
-    async def _preguntar_almacen(self, nombre: str, almacenes: list):
-        import asyncio
-        """Pregunta al usuario qué almacén filtrar. Retorna el seleccionado o None si cancela."""
-        ev = asyncio.Event()
-        result = [None]
-
-        def on_click(alm):
-            result[0] = alm
-            dlg.open = False
-            self.page.update()
-            ev.set()
-
-        options = [ft.ElevatedButton(
-            a, icon=ft.Icons.WAREHOUSE, expand=True,
-            style=ft.ButtonStyle(color=self.colors['text_primary'], bgcolor=self.colors['surface']),
-            on_click=lambda e, a=a: on_click(a)
-        ) for a in almacenes]
-
-        dlg = ft.AlertDialog(
-            title=ft.Text(f"Filtrar historial de {nombre}", size=15, weight='bold'),
-            content=ft.Column([
-                ft.Text("Seleccione el almacén:", size=13, color=self.colors['text_secondary']),
-                ft.Container(height=10),
-                *options,
-            ], spacing=8, tight=True),
-            actions=[ft.TextButton("Cancelar", on_click=lambda _: on_click(None))],
-            actions_alignment=ft.MainAxisAlignment.END,
-        )
-        self.page.overlay.append(dlg)
-        dlg.open = True
-        self.page.update()
-
-        await ev.wait()
-        return result[0]
 
     def _on_guardar(self, _):
         self.page.run_task(self._do_guardar)
 
     async def _do_guardar(self):
-        self._set_loading_overlay(True, "Guardando auditoría...")
         import asyncio
-        ok = await asyncio.to_thread(_forzar_sync)
-        if ok:
+        import threading
+        # marcar_detalle_verificado ya guarda localmente y encola el sync; este
+        # botón solo fuerza una subida best-effort sin bloquear la navegación.
+        self._set_loading_overlay(True, "Guardando auditoría...")
+        try:
+            ok = await asyncio.to_thread(_forzar_sync)
+        finally:
             self._set_loading_overlay(False)
+        if ok:
             show_success("Progreso de auditoría guardado y sincronizado")
         else:
-            await self._preguntar_reintentar("guardar")
-
-    async def _preguntar_reintentar(self, accion: str):
-        self._set_loading_overlay(False)
-        dlg = ft.AlertDialog(
-            modal=True,
-            title=ft.Text("Error de sincronización"),
-            content=ft.Text("No se pudo sincronizar. ¿Reintentar?"),
-            actions=[
-                ft.TextButton("No", on_click=lambda e: self._cerrar_dialogo(dlg)),
-                ft.ElevatedButton("Reintentar", bgcolor=ft.Colors.BLUE_600, color="white",
-                    on_click=lambda e: self._cerrar_dialogo(dlg) or self.page.run_task(self._reintentar_sync, accion)),
-            ],
-            actions_alignment=ft.MainAxisAlignment.END,
-        )
-        self.page.overlay.append(dlg)
-        dlg.open = True
-        self.page.update()
-
-    def _cerrar_dialogo(self, dlg):
-        dlg.open = False
-        try:
-            self.page.overlay.remove(dlg)
-        except Exception:
-            pass
-        self.page.update()
-
-    async def _reintentar_sync(self, accion: str):
-        self._set_loading_overlay(True, "Reintentando sincronización...")
-        import asyncio
-        ok = await asyncio.to_thread(_forzar_sync)
-        if ok:
-            self._set_loading_overlay(False)
-            show_success("Sincronización completada")
-        else:
-            await self._preguntar_reintentar(accion)
+            show_warning("Guardado local. La sincronización se reintentará automáticamente")
 
     def _on_totalizar(self, _):
         if getattr(self, '_totalizando', False):
@@ -606,22 +476,22 @@ class AuditView(ft.Container):
         self.page.run_task(self._do_totalizar)
 
     async def _do_totalizar(self):
-        self._set_loading_overlay(True, "Totalizando requisición...")
         import asyncio
+        import threading
+        self._set_loading_overlay(True, "Totalizando requisición...")
         try:
+            # totalizar_requisicion es offline-first: hace commit local SIEMPRE y
+            # encola el sync a Supabase (no revierte por errores de red).
             result = await asyncio.to_thread(totalizar_requisicion, self.req_id)
+            self._set_loading_overlay(False)
             if result:
                 show_success("Requisición totalizada y stock trasladado")
-                self._set_loading_overlay(True, "Sincronizando...")
-                ok = await asyncio.to_thread(_forzar_sync)
-                if ok:
-                    self._set_loading_overlay(False)
-                    self.on_back()
-                else:
-                    await self._preguntar_reintentar("totalizar")
+                # Sync de fondo best-effort: no bloquea la navegación ni obliga a
+                # reintentar. Si falla, el sync_queue lo sube en el siguiente ciclo.
+                threading.Thread(target=_forzar_sync, daemon=True).start()
+                self.on_back()
             else:
                 self._totalizando = False
-                self._set_loading_overlay(False)
                 show_error("No se pudo totalizar la requisición")
         except Exception as e:
             self._totalizando = False

@@ -426,12 +426,34 @@ class StockView(ft.Container):
             self.update()
 
     def _show_producto_details(self, producto: Producto):
+        self.page.run_task(self._do_show_producto_details, producto)
+
+    async def _do_show_producto_details(self, producto: Producto):
         try:
             from usr.views.stock.dialogs import build_producto_historial_dialog
-            
-            movimientos = get_producto_historial(producto.id, limit=100)
-            
-            self.active_dialog = build_producto_historial_dialog(producto, movimientos)
+            from usr.views.common.movimientos import preguntar_almacen, TODOS_ALMACENES
+
+            movimientos = await asyncio.to_thread(get_producto_historial, producto.id, limit=100)
+            if not movimientos:
+                show_info("No hay movimientos para este producto")
+                return
+
+            almacenes = sorted(set(getattr(m, 'almacen', None) for m in movimientos if getattr(m, 'almacen', None)))
+            if not almacenes:
+                selected = TODOS_ALMACENES
+            else:
+                selected = await preguntar_almacen(self.page, get_safe_colors(self.page), producto.nombre, almacenes)
+                if selected is None:
+                    return
+
+            if selected == TODOS_ALMACENES:
+                movs_filtrados = movimientos
+                titulo = f"Historial: {producto.nombre}"
+            else:
+                movs_filtrados = [m for m in movimientos if getattr(m, 'almacen', None) == selected]
+                titulo = f"Historial: {producto.nombre} - {selected}"
+
+            self.active_dialog = build_producto_historial_dialog(producto, movs_filtrados, page=self.page, titulo=titulo)
             self.active_dialog.actions[0].on_click = self._close_dialog
             
             self.page.overlay.append(self.active_dialog)

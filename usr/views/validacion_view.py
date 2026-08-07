@@ -285,8 +285,15 @@ class ValidacionView(ft.Container):
                                     prod = LocalReplica.get_producto_by_id(pid)
                                     if prod:
                                         nom = prod.get('nombre', 'Producto') if isinstance(prod, dict) else getattr(prod, 'nombre', 'Producto')
-                                        nombres.append(nom)
-                                productos_str = ", ".join(nombres) if nombres else "Productos variados"
+                                        cant = m.get('cantidad') if isinstance(m, dict) else getattr(m, 'cantidad', 0)
+                                        peso = m.get('peso_total') if isinstance(m, dict) else getattr(m, 'peso_total', 0) or 0
+                                        es_pesable = prod.get('es_pesable', False) if isinstance(prod, dict) else getattr(prod, 'es_pesable', False)
+                                        if es_pesable and peso and peso > 0:
+                                            nombres.append(f"{nom}: {float(peso):.2f} kg")
+                                        else:
+                                            unidad = prod.get('unidad_medida') or 'uds' if isinstance(prod, dict) else getattr(prod, 'unidad_medida', 'uds') or 'uds'
+                                            nombres.append(f"{nom}: {int(float(cant or 0))} {unidad}")
+                                productos_str = "\n".join(nombres) if nombres else "Productos variados"
                                 if fechas:
                                     fecha_entrada = min(fechas)
                             finally:

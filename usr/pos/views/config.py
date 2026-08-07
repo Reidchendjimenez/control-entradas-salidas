@@ -398,28 +398,45 @@ class ConfigPOSView(ft.Container):
 
     def _on_refresh(self):
         """Fuerza sync con Supabase y recarga todos los datos POS."""
-        try:
-            from usr.database.base import is_online as base_is_online
-            from usr.database.pos_sync import get_pos_sync_manager
-            online = base_is_online()
-            if online:
-                sync_mgr = get_pos_sync_manager()
-                if sync_mgr:
-                    sync_mgr.force_sync_now()
-        except Exception as e:
-            print(f"[POS CONFIG] Error al forzar sync: {e}")
-        self._load_usuarios()
-        self._load_mesas()
-        self._load_habitaciones()
-        self._load_platos()
-        if self.page:
-            snack = ft.SnackBar(
-                content=ft.Text("Sincronizacion completada"),
-                bgcolor=ft.Colors.BLUE_600, duration=1500,
-            )
-            self.page.overlay.append(snack)
-            snack.open = True
-            self.page.update()
+        import threading
+        from usr.pos.sync_indicator import get_pos_sync_indicator
+        indicator = get_pos_sync_indicator()
+        if indicator:
+            indicator.set_active(True)
+
+        def _sync_and_reload():
+            try:
+                from usr.database.base import is_online as base_is_online
+                from usr.database.pos_sync import get_pos_sync_manager
+                online = base_is_online()
+                if online:
+                    sync_mgr = get_pos_sync_manager()
+                    if sync_mgr:
+                        sync_mgr.force_sync_now()
+            except Exception as e:
+                print(f"[POS CONFIG] Error al forzar sync: {e}")
+            try:
+                self._load_usuarios()
+                self._load_mesas()
+                self._load_habitaciones()
+                self._load_platos()
+            except Exception as e:
+                print(f"[POS CONFIG] Error recargando datos: {e}")
+            if indicator:
+                indicator.set_active(False)
+            if self.page:
+                try:
+                    snack = ft.SnackBar(
+                        content=ft.Text("Sincronizacion completada"),
+                        bgcolor=ft.Colors.BLUE_600, duration=1500,
+                    )
+                    self.page.overlay.append(snack)
+                    snack.open = True
+                    self.page.update()
+                except Exception:
+                    pass
+
+        threading.Thread(target=_sync_and_reload, daemon=True).start()
 
     # ==================== USUARIOS ====================
 

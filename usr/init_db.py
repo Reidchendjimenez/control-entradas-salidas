@@ -7,6 +7,7 @@ para reconstruir la base de datos con la estructura actualizada.
 
 from usr.database.base import engine, Base
 from usr.models import Categoria, Producto, Movimiento, Factura
+from usr.models import Receta, RecetaComponente, Produccion, ProduccionDetalle
 from sqlalchemy import text, inspect
 
 def reset_database():

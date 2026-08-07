@@ -1,0 +1,162 @@
+"""Orquestador del módulo Producciones.
+
+Delega la lógica a submódulos:
+- helpers.py: colores y utilidades
+- data.py: carga y operaciones de negocio
+- dialogs.py: diálogos
+- recetas_view.py: tab Recetas
+- pendientes_view.py: tab En Producción
+- historial_view.py: tab Historial
+"""
+import flet as ft
+
+from usr.database.base import check_connection
+from usr.views.producciones import data
+from usr.views.producciones.helpers import colors as _colors
+from usr.views.producciones.recetas_view import render_recetas
+from usr.views.producciones.pendientes_view import build_pendientes_tab
+from usr.views.producciones.historial_view import build_historial_tab
+
+
+class ProduccionesView(ft.Container):
+    def __init__(self):
+        super().__init__()
+        self.visible = False
+        self.expand = True
+        self.bgcolor = '#1A1A1A'
+        self.padding = ft.padding.all(0)
+        self._running = False
+
+        self._recetas = []
+        self._productos = []
+
+        self.tabs = ft.Tabs(
+            selected_index=0,
+            animation_duration=300,
+            tabs=[
+                ft.Tab(text="Recetas", icon=ft.Icons.DESCRIPTION_OUTLINED),
+                ft.Tab(text="En Producción", icon=ft.Icons.PENDING_ACTIONS),
+                ft.Tab(text="Historial", icon=ft.Icons.HISTORY_OUTLINED),
+            ],
+            on_change=self._on_tab_change,
+        )
+
+        self.recetas_container = ft.Container(expand=True, padding=ft.padding.all(0))
+        self.recetas_list = ft.Column(spacing=8, scroll=ft.ScrollMode.ALWAYS, expand=True)
+        self.pendientes_container = ft.Container(expand=True, padding=ft.padding.all(20), visible=False)
+        self.historial_container = ft.Container(expand=True, padding=ft.padding.all(20), visible=False)
+
+        self._connection_indicator = ft.Icon(
+            ft.Icons.CLOUD_OFF, size=20, icon_color='#F44336', tooltip="Sin conexión",
+        )
+
+    def did_mount(self):
+        self._running = True
+        self._build_ui()
+        if self.page:
+            self.page.run_task(self._load_data)
+        self._update_connection_indicator()
+
+    def will_unmount(self):
+        self._running = False
+
+    def on_theme_change(self):
+        self._update_colors()
+
+    def _update_colors(self):
+        colors = _colors(self.page)
+        self.bgcolor = colors.get('bg', '#1A1A1A')
+
+    def _update_connection_indicator(self):
+        try:
+            is_online = check_connection()
+            self._connection_indicator.icon = ft.Icons.CLOUD_DONE if is_online else ft.Icons.CLOUD_OFF
+            self._connection_indicator.icon_color = '#4CAF50' if is_online else '#F44336'
+            self._connection_indicator.tooltip = "Conectado" if is_online else "Sin conexión"
+            if self.page:
+                self.page.update()
+        except Exception:
+            pass
+
+    def _build_ui(self):
+        colors = _colors(self.page)
+
+        header = ft.Container(
+            content=ft.Row([
+                ft.Icon(ft.Icons.FACTORY_OUTLINED, size=28, color=colors['accent']),
+                ft.Text("Producciones", size=22, weight=ft.FontWeight.BOLD, color=colors['text_primary']),
+                ft.Container(expand=True),
+                self._connection_indicator,
+            ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            padding=ft.padding.only(left=20, top=20, right=20, bottom=10),
+        )
+
+        self.recetas_container.content = ft.Stack([
+            ft.Container(content=self.recetas_list, expand=True, padding=ft.padding.all(20)),
+            ft.Container(
+                content=ft.Row([
+                    ft.Container(expand=True),
+                    ft.FloatingActionButton(
+                        icon=ft.Icons.ADD,
+                        text="Nueva Receta",
+                        bgcolor=colors['accent'],
+                        on_click=lambda _: self._open_nueva_receta(),
+                    ),
+                ]),
+                bottom=20, right=20,
+            ),
+        ])
+        self.pendientes_container.content = build_pendientes_tab(self.page, on_change=self._on_pendiente_change)
+        self.historial_container.content = build_historial_tab(self.page)
+
+        self.content = ft.Column([
+            header,
+            self.tabs,
+            ft.Container(
+                content=ft.Stack([
+                    self.recetas_container,
+                    self.pendientes_container,
+                    self.historial_container,
+                ]),
+                expand=True,
+            ),
+        ], expand=True, spacing=0)
+
+    def _open_nueva_receta(self):
+        from usr.views.producciones.dialogs import receta_dialog
+        receta_dialog(self.page, self._productos, on_saved=self._refresh_recetas)
+
+    def _on_pendiente_change(self):
+        """Tras descargar/cancelar, refrescar pendientes y recetas (dropdown)."""
+        self.pendientes_container.content = build_pendientes_tab(self.page, on_change=self._on_pendiente_change)
+        if self.page:
+            self.page.update()
+
+    def _on_tab_change(self, e):
+        idx = self.tabs.selected_index
+        self.recetas_container.visible = idx == 0
+        self.pendientes_container.visible = idx == 1
+        self.historial_container.visible = idx == 2
+        if idx == 2 and self.page:
+            self.historial_container.content = build_historial_tab(self.page)
+        if self.page:
+            self.page.update()
+
+    async def _load_data(self):
+        self._recetas = data.load_recetas()
+        self._productos = data.load_productos()
+        render_recetas(self.page, self._recetas, self._productos, self.recetas_list, on_change=self._refresh_recetas)
+        self._update_connection_indicator()
+
+    def _refresh_recetas(self):
+        self._recetas = data.load_recetas()
+        render_recetas(self.page, self._recetas, self._productos, self.recetas_list, on_change=self._refresh_recetas)
+        if self.page:
+            self.page.update()
+
+    def on_sync_complete(self):
+        self._refresh_recetas()
+        if self.tabs.selected_index == 2:
+            self.historial_container.content = build_historial_tab(self.page)
+        elif self.tabs.selected_index == 1:
+            self.pendientes_container.content = build_pendientes_tab(self.page, on_change=self._on_pendiente_change)

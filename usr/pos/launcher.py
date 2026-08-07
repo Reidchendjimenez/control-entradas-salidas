@@ -142,6 +142,14 @@ async def main(page: ft.Page):
         print(f"[POS] Error en sync: {e}")
         tb.print_exc()
 
+    # Barra de progreso global de sync (parte superior, visible en todas las pantallas)
+    try:
+        from usr.pos.sync_indicator import init_pos_sync_indicator
+        pos_sync_indicator = init_pos_sync_indicator(page)
+        pos_sync_indicator.register()
+    except Exception as e:
+        print(f"[POS] Error registrando barra de sync: {e}")
+
     # Actualizar la tasa de cambio BCV al arrancar, en segundo plano,
     # para que al abrir la comanda ya esté cargada la más reciente.
     try:

@@ -104,19 +104,25 @@ def marcar_detalle_verificado(detalle_id, estado):
             detalle.verificado = estado
             db.commit()
             
-            # Encolar sync para propagar el cambio a otros dispositivos
-            from usr.database.sync_queue import get_sync_queue
-            queue = get_sync_queue()
-            req_num = detalle.requisicion.numero if detalle.requisicion else None
-            queue.add_pending('requisicion_detalles', 'update', {
-                'id': detalle.id,
-                'verificado': 1 if estado else 0,
-                'numero': req_num,
-                'requisicion_id': detalle.requisicion_id,
-                'producto_id': detalle.producto_id,
-                'ingrediente': detalle.ingrediente,
-                'cantidad': detalle.cantidad,
-            })
+            # Re-encolar la requisición COMPLETA (cabecera + detalles con verificado).
+            # La subida de 'requisiciones' hace upsert por `numero` y ya crea/mapea IDs,
+            # así un detalle verificado se propaga aunque la requisición no exista aún
+            # en Supabase. Un update suelto de 'requisicion_detalles' fallaba porque el
+            # servidor busca la requisición por número.
+            if detalle.requisicion:
+                req = detalle.requisicion
+                detalles_orm = db.query(RequisicionDetalle).filter(
+                    RequisicionDetalle.requisicion_id == req.id
+                ).all()
+                items = [{
+                    'producto_id': d.producto_id,
+                    'ingrediente': d.ingrediente,
+                    'cantidad': d.cantidad,
+                    'unidad': d.unidad,
+                    'es_pesable': False,
+                    'verificado': bool(d.verificado),
+                } for d in detalles_orm]
+                _encolar_requisicion_sync(req, items)
             
             return True
         return False
@@ -307,6 +313,7 @@ def totalizar_requisicion(req_id, usuario="Admin"):
             detalles_data.append({
                 'producto_id': det.producto_id, 'ingrediente': det.ingrediente,
                 'cantidad': det.cantidad, 'unidad': det.unidad, 'es_pesable': False,
+                'verificado': bool(det.verificado),
             })
             stocks_sync.append((det.producto_id, req.origen, cant_orig_nueva, req.destino, cant_dest_nueva))
 
@@ -322,19 +329,38 @@ VALUES (:p, :t, :c, :ca, :cn, :pt, :rp, :obs, :al, :fm, :ca2, :dv, 0, :rid)"""),
                     mov_params[i:i + chunk_size]
                 )
 
-        # Sincronizar existencias a Supabase ANTES de commit.
-        # Si Supabase está online y falla, se revierte todo.
-        _sync_existencias_supabase_batch(stocks_sync)
-
+        # Commit local SIEMPRE (offline-first). El sync a Supabase se encola y no
+        # bloquea ni revierte el totalizado ante errores transitorios de red.
         req.estado = 'completada'
         req.procesada_por = usuario
         req.fecha_procesamiento = datetime.now()
         db.commit()
 
+        # Encolar existencias actualizadas para subirlas a Supabase.
+        try:
+            from usr.database.sync_queue import get_sync_queue
+            queue = get_sync_queue()
+            for (pid, alm_orig, stock_orig, alm_dest, stock_dest) in stocks_sync:
+                queue.add_pending('existencias', 'upsert',
+                                  {'producto_id': pid, 'almacen': alm_orig,
+                                   'cantidad': stock_orig, 'unidad': 'unidad'})
+                queue.add_pending('existencias', 'upsert',
+                                  {'producto_id': pid, 'almacen': alm_dest,
+                                   'cantidad': stock_dest, 'unidad': 'unidad'})
+        except Exception as e:
+            print(f"[REQ] Error encolando existencias sync: {e}")
+
         try:
             _encolar_requisicion_sync(req, detalles_data)
         except Exception as e:
             print(f"[REQ] Error encolando requisicion sync: {e}")
+
+        # Best-effort: intentar subir existencias a Supabase ahora si hay red.
+        # Si falla, el sync_queue lo recupera en el siguiente ciclo.
+        try:
+            _sync_existencias_supabase_batch(stocks_sync)
+        except Exception as e:
+            print(f"[REQ] Sync inmediato de existencias fallo (queda encolado): {e}")
 
         return True
     except Exception as e:
@@ -488,13 +514,13 @@ def guardar_requisicion(origen, destino, observaciones, detalles,
 
 
 def _sync_existencias_supabase_batch(stocks):
-    """Sincroniza existencias a Supabase antes de commit local.
-    
+    """Best-effort: sincroniza existencias a Supabase tras el commit local.
+
     Args:
         stocks: list of (producto_id, almacen_origen, stock_origen, almacen_destino, stock_destino)
-    
-    Si está online y falla, levanta excepción para que el caller haga rollback.
-    Si está offline, retorna sin error (sync async lo recupera).
+
+    Si está online y falla, levanta excepción para que el caller lo registre.
+    Si está offline, retorna sin error (sync_queue lo recupera).
     """
     from usr.database.base import is_online
     if not is_online():

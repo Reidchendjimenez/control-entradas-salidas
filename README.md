@@ -27,14 +27,34 @@ El módulo de requisiciones implementa un proceso de control de calidad:
 - **Auditoría**: Vista de verificación donde se compara el stock físico vs sistema. Permite realizar **Ajustes de Stock** inmediatos. Incluye botón de **Historial** (🕐) por producto que muestra el detalle de movimientos en cards.
 - **Totalización**: Trasladar físicamente el stock (Origen $\rightarrow$ Destino) y marca la requisición como `completada`.
 
-### 4. Sistema de Periodos y Archivado
+### 4. Módulo de Producciones (Recetas en 2 etapas)
+El módulo de producciones permite fabricar productos a partir de ingredientes, separando la entrada del producto final del descargo de ingredientes para soportar **ingredientes de peso variable** (ej.: jamón entero por pieza, donde el peso real solo se conoce al cortar).
+- **Receta** (`recetas` + `receta_componentes`):
+  - Dos tipos: **Simple** (salida de producto base + entradas de RESULTADO) y **Compuesta** (salidas de INGREDIENTE + entrada de producto final).
+  - Cada componente tiene flag `peso_variable`: si está activo, la cantidad se ignora y se ingresa al momento de la descarga.
+- **Etapa 1 — Registro de producción (desde Inventario)**:
+  - Al hacer una **entrada** de un producto que aparece como `producto_final` de alguna receta, el diálogo ofrece un toggle "Registrar como producción" + dropdown de receta.
+  - Al confirmarlo: se registra un movimiento tipo `entrada_produccion` (sube stock), se crea una `produccion` con `estado='pendiente'` y se guarda un `produccion_detalle` tipo `entrada` enlazado al movimiento.
+  - **No aparece en la lista de validación** (el filtro `tipo == 'entrada'` la excluye automáticamente).
+- **Etapa 2 — Descargo (desde Producciones → En Producción)**:
+  - Lista producciones con `estado='pendiente'`.
+  - Botón "Descargar" abre diálogo con los ingredientes: los de `peso_variable` muestran campo vacío (autofocus), los fijos aparecen prellenados como sugerencia (editables). Soporta pesables (kg).
+  - Al confirmar: registra `salida_produccion` por cada ingrediente (descuenta stock), guarda detalles tipo `salida` y marca la producción como `completado`.
+- **Cancelar**: revierte el stock del producto final (registra `salida_produccion` opuesta) y marca la producción como `cancelada`. Mantiene audit trail.
+- **Tipos de movimiento nuevos**:
+  - `entrada_produccion` (sube stock, como `entrada`).
+  - `salida_produccion` (baja stock, como `salida`).
+  - Excluidos de la lista de validación automáticamente.
+- **Sync**: producciones, `produccion_detalles` y `peso_variable` se sincronizan bidireccionalmente; los movimientos de producción se suben por el mecanismo genérico de `_upload_pending_movimientos`.
+
+### 5. Sistema de Periodos y Archivado
 El sistema incluye un mecanismo de **apertura de periodos mensuales** para mantener la base de datos liviana:
 - **Apertura**: Un dispositivo apertura el periodo desde Configuración → Periodos. Esto archiva movimientos >3 meses (`movimientos` $\rightarrow$ `movimientos_archivo`) tanto localmente como en Supabase.
 - **Checkpoint**: Al archivar, se guarda el stock actual como punto de partida (`stock_checkpoint`). Los demás dispositivos descargan este checkpoint vía sync y no necesitan escanear `movimientos_archivo`.
 - **Cálculo optimizado**: `recalculate_existencias()` usa el delta `cantidad_nueva - cantidad_anterior` (corrige productos pesables) y solo escanea `movimientos` si hay checkpoint; si no, escanea `movimientos` + `movimientos_archivo`.
 - **Sincronización**: La tabla `periodos` se sincroniza entre dispositivos. La tabla `movimientos_archivo` **no se descarga** a los dispositivos — se consulta directamente en Supabase solo cuando se necesita.
 
-### 5. Módulo POS (Point of Sale) — Independiente
+### 6. Módulo POS (Point of Sale) — Independiente
 El sistema incluye un **módulo de ventas** que se compila y ejecuta como aplicación **independiente** del sistema principal:
 - **Entry point separado**: `main_pos.py` se compila como `Lycoris POS.exe` (mientras `main.py` sigue siendo `Lycoris Control.exe`).
 - **BD compartida**: Ambos módulos leen de la **misma BD SQLite** (`lycoris_local.db`), por lo que el POS ve productos, existencias y precios del inventario automáticamente.
@@ -112,8 +132,8 @@ control-entradas-salidas/
 │   │   ├── existencia.py           # Existencia por producto + almacén
 │   │   ├── requisicion.py          # Requisición y Detalle (incluye verificado, order_by id)
 │   │   ├── compra_lista.py        # Item de lista de compras
-│   │   ├── receta.py               # Receta y componentes
-│   │   └── produccion.py           # Producción y detalles
+│   │   ├── receta.py               # Receta y componentes (peso_variable)
+│   │   └── produccion.py           # Producción y detalles (estado: pendiente/completado/cancelada)
 │   │
 │   └── views/                     # UI (Flet)
 │       ├── configuracion/
@@ -157,7 +177,17 @@ control-entradas-salidas/
 │       │   ├── dialogs.py           # Diálogos
 │       │   └── helpers.py
 │       ├── requisiciones_view.py  # Vista principal de requisiciones
-│       ├── producciones_view.py   # Vista de producciones (recetas)
+│       ├── producciones/          # Módulo Producciones (modular, estilo requisiciones)
+│       │   ├── view.py           # Orquestador (ProduccionesView + tabs + carga)
+│       │   ├── data.py           # Capa de negocio (load_recetas, load_pendientes,
+│       │   │                       #  registrar_produccion_pendiente, planificar_descargo,
+│       │   │                       #  ejecutar_descargo, cancelar_produccion)
+│       │   ├── dialogs.py        # Diálogos (receta_dialog, descargo_dialog, cancelar)
+│       │   ├── helpers.py        # Colores, fmt_fecha, now_iso, usuario_actual
+│       │   ├── recetas_view.py   # Tab Recetas (cards + FAB)
+│       │   ├── pendientes_view.py # Tab En Producción (lista pendientes + Descargar/Cancelar)
+│       │   └── historial_view.py # Tab Historial (estado: pendiente/completado/cancelada)
+│       ├── producciones_view.py  # Shim re-exporta ProduccionesView desde producciones/
 │       ├── historial_facturas_view.py # Historial de facturas
 │       ├── login_view.py          # Login y registro de operador (muestra Bienvenido, {nombre})
 │       └── whatsapp_bandeja_view.py # Bandeja de mensajes WhatsApp
@@ -266,7 +296,7 @@ Si se agregan nuevas dependencias en `requirements.txt`, se debe recompilar:
 - **Solo existe una cola activa**: `sync_queue`. La tabla `pending_operations` fue eliminada porque nunca se procesaba.
 - Al eliminar un movimiento via SQLAlchemy, también elimínalo del SQLite local raw si usas ambos sistemas.
 - `LocalReplica.save_movimiento()` ya no tiene lógica de sync propia. Delega al llamante (`registrar_movimiento` o `save_movimiento_with_sync`).
-- **Tablas que sincroniza el SyncManager (inventario)**: `categorias`, `productos`, `proveedores`, `existencias`, `movimientos`, `facturas`, `factura_pagos`, `requisiciones`, `requisicion_detalles`, `stock_checkpoint`, `periodos`, `recetas`, `receta_componentes`.
+- **Tablas que sincroniza el SyncManager (inventario)**: `categorias`, `productos`, `proveedores`, `existencias`, `movimientos`, `facturas`, `factura_pagos`, `requisiciones`, `requisicion_detalles`, `stock_checkpoint`, `periodos`, `recetas`, `receta_componentes`, `producciones`, `produccion_detalles`. Movimientos tipo `entrada_produccion` y `salida_produccion` se suben por el mecanismo genérico.
 - **Tablas que sincroniza el POSSyncManager (POS)**: `platos_categorias`, `platos`, `plato_ingredientes`, `plato_contornos`, `pos_mesas`, `pos_habitaciones`, `pos_usuarios`, `pos_settings`. El `SyncManager` principal ignora estas tablas.
 - **`movimientos_archivo` NO se descarga** a los dispositivos. Se consulta directamente en Supabase cuando se necesita historial.
 - **Migraciones remotas**: Al descargar, `_download_all_from_server()` ejecuta `ALTER TABLE`/`CREATE TABLE` en Supabase para asegurar que las tablas tengan las columnas necesarias (ej: `requisicion_id` en `movimientos_archivo`, tabla `stock_checkpoint`, tabla `periodos`).
@@ -288,6 +318,17 @@ Si se agregan nuevas dependencias en `requirements.txt`, se debe recompilar:
 ---
 
 ## Historial de Cambios
+
+### Version 2.6.0 (Agosto 2026)
+- ✨ **Módulo de Producciones en 2 etapas**: Flujo completo para fabricar productos con ingredientes de peso variable. Etapa 1 (entrada del producto final) se registra desde Inventario con tipo `entrada_produccion` y queda como `produccion` con `estado='pendiente'`. Etapa 2 (descargo de ingredientes) se hace desde el nuevo tab "En Producción" con tipo `salida_produccion` y marca la producción como `completado`. Las entradas de producción NO aparecen en la lista de validación (filtro `tipo == 'entrada'`).
+- ✨ **Ingredientes de peso variable**: Nueva columna `receta_componentes.peso_variable` (local + Supabase + modelo SQLAlchemy). En el editor de recetas, un checkbox por ingrediente deshabilita la cantidad cuando se marca; al descargar, los ingredientes variables piden peso real (autofocus) y los fijos aparecen como sugerencia editable.
+- ✨ **Soporte para cancelar producciones pendientes**: registra un movimiento opuesto para revertir el stock del producto final y marca la producción como `cancelada`, conservando el audit trail.
+- ✨ **Tipos de movimiento nuevos**: `entrada_produccion` y `salida_produccion` (labels "Ent. Producción" / "Sal. Producción" en cards de historial). Soportan pesables (kg) y se sincronizan por el mecanismo genérico.
+- ✨ **Sync bidireccional de recetas y producciones**: `producciones` y `produccion_detalles` agregadas a `tables_to_sync`, con migraciones remotas (`CREATE TABLE IF NOT EXISTS`) y branches de push/pull. `peso_variable` incluido en la subida/descarga. Las operaciones creadas desde la UI (`save_receta`, `save_componentes`, `delete_receta`, `save_produccion`, `save_produccion_detalle`) ahora encolan en `sync_queue` para subir offline-first.
+- 🐛 **Corregido**: `save_recetas` / `save_receta_componentes` / `save_producciones` / `save_produccion_detalles` (bulk) hacían `UPDATE` por id sin verificar existencia, fallando en dispositivos nuevos donde la fila no existía. Ahora son upsert real (`SELECT` → UPDATE o `INSERT` con id explícito).
+- ⚡ **Modularización de la vista Producciones** (estilo `requisiciones/`): `usr/views/producciones_view.py` pasó de 849 líneas a un orquestador de ~145 líneas + 7 módulos especializados (`view.py`, `data.py`, `dialogs.py`, `helpers.py`, `recetas_view.py`, `pendientes_view.py`, `historial_view.py`). Import externo (`from usr.views import ProduccionesView`) preservado sin cambios.
+- ⚡ **Fix Flet thread safety**: handlers que llaman corrutinas reemplazaron `asyncio.create_task()` por `page.run_task()` (corrige `RuntimeError: no running event loop` en `_on_tab_change` de Producciones).
+- 🔧 **Validación al cambiar tipo de receta**: advertencia al pasar de Simple ↔ Compuesta porque se vacía la lista de componentes.
 
 ### Version 2.5.0 (Julio 2026)
 - ✨ **Sync bidireccional de ventas y comandas POS**: `pos_comandas` y `pos_ventas` ahora se sincronizan con Supabase vía `POSSyncManager`. Cada comanda/venta tiene un `sync_uuid` estable (UUID hex) que permite enlazar entre dispositivos sin depender de IDs numéricos locales (`comanda_sync_uuid`, `venta_anula_sync_uuid` en ventas).

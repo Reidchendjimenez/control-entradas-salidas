@@ -5,7 +5,7 @@ from usr.notifications import show_success, show_error as show_error_notif
 from usr.views.inventario.helpers import get_attr
 
 
-def registrar_movimiento(page, producto_seleccionado, tipo, cantidad, peso_total=0.0, almacen=None):
+def registrar_movimiento(page, producto_seleccionado, tipo, cantidad, peso_total=0.0, almacen=None, observaciones=""):
     producto_id = get_attr(producto_seleccionado, 'id')
     almacen_seleccionado = (almacen or get_attr(producto_seleccionado, "almacen_predeterminado", "principal") or "principal").strip()
 
@@ -28,7 +28,7 @@ def registrar_movimiento(page, producto_seleccionado, tipo, cantidad, peso_total
         cantidad_a_mover = cantidad
         unidad = get_attr(producto_seleccionado, 'unidad_medida', 'unidad')
 
-    if tipo == "entrada" or tipo == "ajuste":
+    if tipo in ("entrada", "entrada_produccion", "ajuste"):
         cant_nueva = cant_anterior + cantidad_a_mover
     else:
         if cant_anterior < cantidad_a_mover:
@@ -45,14 +45,13 @@ def registrar_movimiento(page, producto_seleccionado, tipo, cantidad, peso_total
         "peso_total": peso_total,
         "almacen": almacen_seleccionado,
         "registrado_por": user_id,
-        "observaciones": "",
+        "observaciones": observaciones or "",
         "fecha_movimiento": datetime.now().isoformat(),
     }
 
-    LocalReplica.save_movimiento(movimiento_data, skip_sync=True)
+    local_id = LocalReplica.save_movimiento(movimiento_data, skip_sync=True)
+    movimiento_data['id'] = local_id
     LocalReplica.update_existencia(producto_id, almacen_seleccionado, cant_nueva, unidad)
-
-    local_id = movimiento_data.get('id')
 
     sync_mgr = None
     try:
@@ -97,8 +96,15 @@ def registrar_movimiento(page, producto_seleccionado, tipo, cantidad, peso_total
     else:
         _encolar_sync(movimiento_data)
 
-    show_success(f"{tipo.capitalize()} registrada: {cantidad}")
-    return True
+    labels = {
+        'entrada': 'Entrada',
+        'salida': 'Salida',
+        'ajuste': 'Ajuste',
+        'entrada_produccion': 'Entrada de producción',
+        'salida_produccion': 'Salida de producción',
+    }
+    show_success(f"{labels.get(tipo, tipo.capitalize())} registrada: {cantidad}")
+    return local_id
 
 
 def _encolar_sync(movimiento_data):

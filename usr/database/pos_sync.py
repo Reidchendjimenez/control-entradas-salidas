@@ -35,9 +35,18 @@ class POSSyncManager:
         self._background_sync_enabled = False
         self._on_sync_complete_callbacks = []
         self._on_sync_complete = None
+        self._on_sync_progress = None  # Callback(msg: str) para barra de progreso global
 
     def _log(self, msg: str):
         print(f"[POS-SYNC] {msg}")
+        if self._on_sync_progress:
+            try:
+                self._on_sync_progress(msg)
+            except Exception:
+                pass
+
+    def set_sync_progress_callback(self, callback):
+        self._on_sync_progress = callback
 
     def _create_remote_engine(self):
         from sqlalchemy import create_engine

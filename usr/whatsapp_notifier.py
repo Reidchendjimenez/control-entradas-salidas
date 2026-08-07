@@ -310,9 +310,17 @@ def format_validation_message(producto_nombre: str, cantidad: float, factura: st
         fecha_str = fecha_dt.strftime('%d/%m %H:%M')
     else:
         fecha_str = datetime.datetime.now().strftime('%d/%m %H:%M')
+
+    if producto_nombre and '\n' in producto_nombre:
+        productos_block = "📦 *Cargo productos:*\n" + "\n".join(
+            f"• {linea}" for linea in producto_nombre.split('\n')
+        )
+    else:
+        productos_block = f"📦 *Cargo productos:* {producto_nombre}"
+
     return f"""✅ *Entrada Validada* ✅
 
-📦 *Cargo productos:* {producto_nombre}
+{productos_block}
 🏢 *Proveedor:* {proveedor}
 📃 *Factura:* {factura}
 🕐 *Fecha:* {fecha_str}

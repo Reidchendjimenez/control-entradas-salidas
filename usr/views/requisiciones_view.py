@@ -60,6 +60,133 @@ class RequisicionesView(ft.Container):
         except Exception:
             pass
 
+    def _sync_indicator(self):
+        """Indicador de estado de la cola de sync (pendientes/fallidos/ok)."""
+        self.sync_indicator = ft.Container(
+            content=ft.Row(
+                [ft.Icon(ft.Icons.CLOUD_SYNC, size=18, color=self.colors['text_secondary']),
+                 ft.Text("—", size=12, color=self.colors['text_secondary'], weight="w500")],
+                spacing=5, tight=True,
+            ),
+            padding=ft.padding.only(10, 6, 10, 6),
+            border_radius=15,
+            bgcolor=self.colors['bg'],
+            tooltip="Estado de sincronización",
+            on_click=self._on_sync_indicator_click,
+        )
+        self._update_sync_indicator()
+        return self.sync_indicator
+
+    def _on_sync_indicator_click(self, e):
+        """Al pulsar: refresca el estado y muestra los errores si hay fallidos."""
+        try:
+            self._update_sync_indicator()
+            if not hasattr(self, 'page') or not self.page:
+                return
+            from usr.database.sync_queue import get_sync_queue
+            from usr.database.conn import get_local_conn
+            conn = get_local_conn()
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT table_name, operation, last_error, retries
+                FROM sync_queue
+                WHERE status = 'failed'
+                ORDER BY created_at DESC
+                LIMIT 10
+            """)
+            rows = cursor.fetchall()
+            conn.close()
+            if not rows:
+                self._show_sync_estado_dialog()
+                return
+            lines = []
+            for r in rows:
+                nombre = r['table_name'] or '?'
+                op = r['operation'] or '?'
+                err = (r['last_error'] or 'error desconocido').split('\\n')[0][:80]
+                lines.append(f"• {nombre} ({op}): {err}")
+            dlg = ft.AlertDialog(
+                title=ft.Text(f"Errores de sincronización ({len(rows)})", size=16, weight="bold"),
+                content=ft.Column(
+                    [ft.Text(ln, size=12, color=self.colors.get('error', ft.Colors.RED_400)) for ln in lines],
+                    scroll=ft.ScrollMode.AUTO, tight=True, spacing=6,
+                ),
+                actions=[
+                    ft.TextButton("Cerrar", on_click=lambda _: self._close_sync_dialog(dlg)),
+                    ft.ElevatedButton("Reintentar ahora", on_click=lambda _: self._retry_sync(dlg)),
+                ],
+                actions_alignment=ft.MainAxisAlignment.END,
+            )
+            self.page.overlay.append(dlg)
+            dlg.open = True
+            self.page.update()
+        except Exception as e:
+            print(f"[REQ] Error en click indicador sync: {e}")
+
+    def _close_sync_dialog(self, dlg):
+        dlg.open = False
+        try:
+            self.page.overlay.remove(dlg)
+        except Exception:
+            pass
+        self.page.update()
+
+    def _retry_sync(self, dlg):
+        try:
+            self._close_sync_dialog(dlg)
+            self._on_refresh()
+        except Exception as e:
+            print(f"[REQ] Error reintentando sync: {e}")
+
+    def _show_sync_estado_dialog(self):
+        if not hasattr(self, 'page') or not self.page:
+            return
+        dlg = ft.AlertDialog(
+            title=ft.Text("Estado de sincronización", size=16, weight="bold"),
+            content=ft.Text("Todo sincronizado correctamente.", size=13),
+            actions=[ft.TextButton("OK", on_click=lambda _: self._close_sync_dialog(dlg))],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        self.page.overlay.append(dlg)
+        dlg.open = True
+        self.page.update()
+
+    def _update_sync_indicator(self):
+        """Lee la cola de sync y pinta el indicador: ok / pendientes / fallidos."""
+        try:
+            from usr.database.sync_queue import get_sync_queue
+            status = get_sync_queue().get_status()
+            pending = status.get('pending', 0)
+            failed = status.get('failed', 0)
+
+            if failed > 0:
+                icon = ft.Icons.ERROR_ROUNDED
+                color = ft.Colors.RED_400
+                text = f"{failed} error(es)"
+                tip = f"{failed} operaciones fallaron y se reintentarán. Pulse para ver."
+            elif pending > 0:
+                icon = ft.Icons.CLOUD_UPLOAD
+                color = ft.Colors.AMBER_400
+                text = f"{pending} pendiente(s)"
+                tip = f"{pending} cambios sin subir a Supabase todavía."
+            else:
+                last = status.get('last_sync')
+                if last and len(last) >= 16:
+                    last = last[:16]
+                icon = ft.Icons.CLOUD_DONE
+                color = ft.Colors.GREEN_400
+                text = "sincronizado"
+                tip = f"Todo subido. Último sync: {last}" if last else "Todo subido."
+            self.sync_indicator.content = ft.Row(
+                [ft.Icon(icon, size=18, color=color),
+                 ft.Text(text, size=12, color=color, weight="w500")],
+                spacing=5, tight=True,
+            )
+            self.sync_indicator.tooltip = tip
+            self.update()
+        except Exception as e:
+            print(f"[REQ] Error actualizando indicador sync: {e}")
+
     def _build_ui(self):
         self.colors = _colors(self.page)
         header = ft.Container(
@@ -68,6 +195,7 @@ class RequisicionesView(ft.Container):
                     ft.Text("Requisiciones", size=26, weight="bold", color=self.colors['text_primary']),
                     ft.Text("Gestión de traslados", size=13, color=self.colors['text_secondary']),
                 ], expand=True, spacing=0),
+                self._sync_indicator(),
                 ft.IconButton(
                     ft.Icons.REFRESH_ROUNDED,
                     icon_color=self.colors['white'],
@@ -115,6 +243,10 @@ class RequisicionesView(ft.Container):
 
     def _on_sync_complete(self):
         if hasattr(self, 'page') and self.page and self.visible:
+            try:
+                self._update_sync_indicator()
+            except Exception:
+                pass
             if self._vista_actual == "lista":
                 async def _reload():
                     await asyncio.to_thread(self._load_requisiciones)
@@ -140,9 +272,11 @@ class RequisicionesView(ft.Container):
                 sync_mgr = get_sync_manager()
                 if sync_mgr:
                     await asyncio.to_thread(sync_mgr.force_sync_now)
+                await asyncio.to_thread(self._load_requisiciones)
             else:
                 await asyncio.to_thread(self._load_requisiciones)
-                show_success("Requisiciones actualizadas")
+            self._update_sync_indicator()
+            show_success("Requisiciones actualizadas")
         except Exception as e:
             logger.error(f"Error en _do_refresh de RequisicionesView: {e}")
             show_error("Error al actualizar requisiciones", e)

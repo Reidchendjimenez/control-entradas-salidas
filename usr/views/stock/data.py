@@ -129,7 +129,9 @@ def get_existencias_producto(producto_id):
 def get_producto_historial(producto_id, limit=100):
     db = next(get_db_adaptive())
     try:
-        movimientos = db.query(Movimiento).options(joinedload(Movimiento.factura)).filter(Movimiento.producto_id == producto_id).order_by(Movimiento.fecha_movimiento.desc()).limit(limit).all()
+        movimientos = db.query(Movimiento).options(
+            joinedload(Movimiento.factura), joinedload(Movimiento.producto)
+        ).filter(Movimiento.producto_id == producto_id).order_by(Movimiento.fecha_movimiento.desc()).limit(limit).all()
         return movimientos
     finally:
         db.close()

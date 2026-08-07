@@ -74,6 +74,7 @@ def init_local_db():
         ("productos", "tipo", "TEXT"),
         ("productos", "precio_venta", "REAL DEFAULT 0"),
         ("categorias", "visible_en_pos", "INTEGER DEFAULT 1"),
+        ("receta_componentes", "peso_variable", "INTEGER DEFAULT 0"),
     ]
     for tabla, col, tipo in _migraciones:
         try:
@@ -243,6 +244,59 @@ def init_local_db():
         cursor.execute("ALTER TABLE movimientos_archivo ADD COLUMN requisicion_id INTEGER")
     except Exception:
         pass  # Ya existe
+
+    # Migración: pos_ventas.comanda_id remoto es nullable (ventas que llegan de
+    # otros dispositivos sin comanda resuelta). Reconstruir la tabla local para
+    # permitir NULL y que la descarga no falle con NOT NULL constraint.
+    try:
+        cursor.execute("PRAGMA table_info(pos_ventas)")
+        cols = [row[1] for row in cursor.fetchall()]
+        if 'comanda_id' in cols:
+            cursor.execute("PRAGMA table_info(pos_ventas)")
+            not_null = [row for row in cursor.fetchall() if row[1] == 'comanda_id' and row[3] == 1]
+            if not_null:
+                cursor.execute("ALTER TABLE pos_ventas RENAME TO pos_ventas_old")
+                cursor.execute("""
+                    CREATE TABLE pos_ventas (
+                        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                        comanda_id      INTEGER,
+                        correlativo     INTEGER,
+                        total           REAL DEFAULT 0,
+                        items_json      TEXT,
+                        mesa_id         INTEGER,
+                        habitacion_id   INTEGER,
+                        usuario_id      INTEGER,
+                        sesion_id       INTEGER,
+                        estado          TEXT DEFAULT 'vigente',
+                        venta_anula_id  INTEGER,
+                        motivo_anulacion TEXT,
+                        anulada_por     TEXT,
+                        anulada_en      TEXT,
+                        tasa_bs         REAL,
+                        sync_uuid       TEXT,
+                        comanda_sync_uuid TEXT,
+                        venta_anula_sync_uuid TEXT,
+                        created_at      TEXT NOT NULL,
+                        updated_at      TEXT
+                    )
+                """)
+                cursor.execute("""
+                    INSERT INTO pos_ventas
+                        (id, comanda_id, correlativo, total, items_json, mesa_id,
+                         habitacion_id, usuario_id, sesion_id, estado, venta_anula_id,
+                         motivo_anulacion, anulada_por, anulada_en, tasa_bs, sync_uuid,
+                         comanda_sync_uuid, venta_anula_sync_uuid, created_at, updated_at)
+                    SELECT
+                        id, comanda_id, correlativo, total, items_json, mesa_id,
+                        habitacion_id, usuario_id, sesion_id, estado, venta_anula_id,
+                        motivo_anulacion, anulada_por, anulada_en, tasa_bs, sync_uuid,
+                        comanda_sync_uuid, venta_anula_sync_uuid, created_at, updated_at
+                    FROM pos_ventas_old
+                """)
+                cursor.execute("DROP TABLE pos_ventas_old")
+                print("[DB] Migracion: pos_ventas.comanda_id ahora es nullable")
+    except Exception as e:
+        print(f"[DB] Error migrando pos_ventas: {e}")
 
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS sync_metadata (
@@ -426,11 +480,40 @@ def init_local_db():
             cantidad REAL NOT NULL,
             unidad TEXT DEFAULT 'unidad',
             tipo_componente TEXT NOT NULL,
+            peso_variable INTEGER DEFAULT 0,
             FOREIGN KEY (receta_id) REFERENCES recetas(id),
             FOREIGN KEY (producto_id) REFERENCES productos(id)
         )
     """)
     
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS producciones (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            receta_id INTEGER NOT NULL,
+            cantidad REAL NOT NULL,
+            estado TEXT DEFAULT 'completado',
+            usuario TEXT,
+            observaciones TEXT,
+            fecha_produccion TEXT,
+            created_at TEXT,
+            FOREIGN KEY (receta_id) REFERENCES recetas(id)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS produccion_detalles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            produccion_id INTEGER NOT NULL,
+            producto_id INTEGER NOT NULL,
+            tipo TEXT NOT NULL,
+            cantidad REAL NOT NULL,
+            unidad TEXT DEFAULT 'unidad',
+            movimiento_id INTEGER,
+            FOREIGN KEY (produccion_id) REFERENCES producciones(id),
+            FOREIGN KEY (producto_id) REFERENCES productos(id)
+        )
+    """)
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS periodos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1020,21 +1103,36 @@ class LocalReplica:
     
     @staticmethod
     def get_movimientos(producto_id: int = None, limit: int = 100) -> List[Dict]:
-        """Obtiene movimientos de la BD local."""
+        """Obtiene movimientos de la BD local (con numero de documento de la factura si aplica)."""
         conn = get_local_conn()
         cursor = conn.cursor()
-        
+
         if producto_id:
             cursor.execute(
-                "SELECT * FROM movimientos WHERE producto_id = ? ORDER BY fecha_movimiento DESC LIMIT ?",
+                """
+                SELECT m.*, f.numero_factura, f.tipo_documento,
+                       p.es_pesable AS es_pesable
+                FROM movimientos m
+                LEFT JOIN facturas f ON f.id = m.factura_id
+                LEFT JOIN productos p ON p.id = m.producto_id
+                WHERE m.producto_id = ?
+                ORDER BY m.fecha_movimiento DESC LIMIT ?
+                """,
                 (producto_id, limit)
             )
         else:
             cursor.execute(
-                "SELECT * FROM movimientos ORDER BY fecha_movimiento DESC LIMIT ?",
+                """
+                SELECT m.*, f.numero_factura, f.tipo_documento,
+                       p.es_pesable AS es_pesable
+                FROM movimientos m
+                LEFT JOIN facturas f ON f.id = m.factura_id
+                LEFT JOIN productos p ON p.id = m.producto_id
+                ORDER BY m.fecha_movimiento DESC LIMIT ?
+                """,
                 (limit,)
             )
-        
+
         rows = cursor.fetchall()
         conn.close()
         
@@ -1914,9 +2012,9 @@ class LocalReplica:
         conn = get_local_conn()
         cursor = conn.cursor()
         if solo_activos:
-            cursor.execute("SELECT * FROM pos_habitaciones WHERE activo = 1 ORDER BY piso, numero")
+            cursor.execute("SELECT * FROM pos_habitaciones WHERE activo = 1 ORDER BY CAST(numero AS INTEGER), numero")
         else:
-            cursor.execute("SELECT * FROM pos_habitaciones ORDER BY piso, numero")
+            cursor.execute("SELECT * FROM pos_habitaciones ORDER BY CAST(numero AS INTEGER), numero")
         rows = cursor.fetchall()
         conn.close()
         return [dict(row) for row in rows]
@@ -2755,29 +2853,31 @@ class LocalReplica:
         for r in recetas:
             rid = r.get('id')
             if rid:
-                cursor.execute("""
-                    UPDATE recetas SET nombre=?, tipo=?, producto_base_id=?, producto_final_id=?,
-                    cantidad_producida=?, activo=?, updated_at=?
-                    WHERE id=?
-                """, (
-                    r.get('nombre'), r.get('tipo'),
-                    r.get('producto_base_id'), r.get('producto_final_id'),
-                    r.get('cantidad_producida', 1),
-                    1 if r.get('activo', True) else 0,
-                    r.get('updated_at', now), rid
-                ))
-            else:
-                cursor.execute("""
-                    INSERT INTO recetas (nombre, tipo, producto_base_id, producto_final_id,
-                    cantidad_producida, activo, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    r.get('nombre'), r.get('tipo'),
-                    r.get('producto_base_id'), r.get('producto_final_id'),
-                    r.get('cantidad_producida', 1),
-                    1 if r.get('activo', True) else 0,
-                    r.get('created_at', now), r.get('updated_at', now)
-                ))
+                cursor.execute("SELECT id FROM recetas WHERE id = ?", (rid,))
+                if cursor.fetchone():
+                    cursor.execute("""
+                        UPDATE recetas SET nombre=?, tipo=?, producto_base_id=?, producto_final_id=?,
+                        cantidad_producida=?, activo=?, updated_at=?
+                        WHERE id=?
+                    """, (
+                        r.get('nombre'), r.get('tipo'),
+                        r.get('producto_base_id'), r.get('producto_final_id'),
+                        r.get('cantidad_producida', 1),
+                        1 if r.get('activo', True) else 0,
+                        r.get('updated_at', now), rid
+                    ))
+                    continue
+            cursor.execute("""
+                INSERT INTO recetas (id, nombre, tipo, producto_base_id, producto_final_id,
+                cantidad_producida, activo, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                rid, r.get('nombre'), r.get('tipo'),
+                r.get('producto_base_id'), r.get('producto_final_id'),
+                r.get('cantidad_producida', 1),
+                1 if r.get('activo', True) else 0,
+                r.get('created_at', now), r.get('updated_at', now)
+            ))
         conn.commit()
         conn.close()
 
@@ -2789,21 +2889,25 @@ class LocalReplica:
         for c in componentes:
             cid = c.get('id')
             if cid:
-                cursor.execute("""
-                    UPDATE receta_componentes SET receta_id=?, producto_id=?, cantidad=?,
-                    unidad=?, tipo_componente=? WHERE id=?
-                """, (
-                    c.get('receta_id'), c.get('producto_id'), c.get('cantidad'),
-                    c.get('unidad', 'unidad'), c.get('tipo_componente'), cid
-                ))
-            else:
-                cursor.execute("""
-                    INSERT INTO receta_componentes (receta_id, producto_id, cantidad, unidad, tipo_componente)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (
-                    c.get('receta_id'), c.get('producto_id'), c.get('cantidad'),
-                    c.get('unidad', 'unidad'), c.get('tipo_componente')
-                ))
+                cursor.execute("SELECT id FROM receta_componentes WHERE id = ?", (cid,))
+                if cursor.fetchone():
+                    cursor.execute("""
+                        UPDATE receta_componentes SET receta_id=?, producto_id=?, cantidad=?,
+                        unidad=?, tipo_componente=?, peso_variable=? WHERE id=?
+                    """, (
+                        c.get('receta_id'), c.get('producto_id'), c.get('cantidad'),
+                        c.get('unidad', 'unidad'), c.get('tipo_componente'),
+                        1 if c.get('peso_variable') else 0, cid
+                    ))
+                    continue
+            cursor.execute("""
+                INSERT INTO receta_componentes (id, receta_id, producto_id, cantidad, unidad, tipo_componente, peso_variable)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                cid, c.get('receta_id'), c.get('producto_id'), c.get('cantidad'),
+                c.get('unidad', 'unidad'), c.get('tipo_componente'),
+                1 if c.get('peso_variable') else 0
+            ))
         conn.commit()
         conn.close()
 
@@ -3111,6 +3215,22 @@ class LocalReplica:
             receta_id = cursor.lastrowid
         conn.commit()
         conn.close()
+
+        try:
+            from .sync_queue import get_sync_queue
+            get_sync_queue().add_pending('recetas', 'insert', {
+                'id': receta_id,
+                'nombre': receta.get('nombre'),
+                'tipo': receta.get('tipo'),
+                'producto_base_id': receta.get('producto_base_id'),
+                'producto_final_id': receta.get('producto_final_id'),
+                'cantidad_producida': receta.get('cantidad_producida', 1),
+                'activo': 1 if receta.get('activo', True) else 0,
+                'created_at': now,
+                'updated_at': now,
+            })
+        except Exception:
+            pass
         return receta_id
 
     @staticmethod
@@ -3122,6 +3242,12 @@ class LocalReplica:
         cursor.execute("DELETE FROM recetas WHERE id = ?", (receta_id,))
         conn.commit()
         conn.close()
+        try:
+            from .sync_queue import get_sync_queue
+            get_sync_queue().add_pending('recetas', 'delete', {'id': receta_id})
+            get_sync_queue().add_pending('receta_componentes', 'delete', {'receta_id': receta_id})
+        except Exception:
+            pass
 
     # ==================== PLATOS (tablas separadas de inventario) ====================
 
@@ -3390,21 +3516,60 @@ class LocalReplica:
         return [dict(row) for row in rows]
 
     @staticmethod
+    def get_recetas_que_producen(producto_id: int) -> List[Dict]:
+        """Recetas cuyo resultado es el producto dado (compuesta: producto_final; simple: componente RESULTADO)."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT DISTINCT r.* FROM recetas r
+            WHERE r.activo = 1 AND (
+                (r.tipo = 'compuesta' AND r.producto_final_id = ?)
+                OR (r.tipo = 'simple' AND EXISTS (
+                    SELECT 1 FROM receta_componentes rc
+                    WHERE rc.receta_id = r.id AND rc.tipo_componente = 'RESULTADO' AND rc.producto_id = ?
+                ))
+            )
+            ORDER BY r.nombre
+        """, (producto_id, producto_id))
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(row) for row in rows]
+
+    @staticmethod
     def save_componentes(receta_id: int, componentes: List[Dict]) -> None:
         """Reemplaza todos los componentes de una receta."""
         conn = get_local_conn()
         cursor = conn.cursor()
         cursor.execute("DELETE FROM receta_componentes WHERE receta_id = ?", (receta_id,))
+        comp_ids = []
         for comp in componentes:
             cursor.execute("""
-                INSERT INTO receta_componentes (receta_id, producto_id, cantidad, unidad, tipo_componente)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO receta_componentes (receta_id, producto_id, cantidad, unidad, tipo_componente, peso_variable)
+                VALUES (?, ?, ?, ?, ?, ?)
             """, (
                 receta_id, comp.get('producto_id'), comp.get('cantidad'),
-                comp.get('unidad', 'unidad'), comp.get('tipo_componente')
+                comp.get('unidad', 'unidad'), comp.get('tipo_componente'),
+                1 if comp.get('peso_variable') else 0
             ))
+            comp_ids.append(cursor.lastrowid)
         conn.commit()
         conn.close()
+
+        try:
+            from .sync_queue import get_sync_queue
+            get_sync_queue().add_pending('receta_componentes', 'delete', {'receta_id': receta_id})
+            for i, comp in enumerate(componentes):
+                get_sync_queue().add_pending('receta_componentes', 'insert', {
+                    'id': comp_ids[i] if i < len(comp_ids) else None,
+                    'receta_id': receta_id,
+                    'producto_id': comp.get('producto_id'),
+                    'cantidad': comp.get('cantidad'),
+                    'unidad': comp.get('unidad', 'unidad'),
+                    'tipo_componente': comp.get('tipo_componente'),
+                    'peso_variable': 1 if comp.get('peso_variable') else 0,
+                })
+        except Exception:
+            pass
 
     # ==================== PRODUCCIONES ====================
 
@@ -3441,7 +3606,88 @@ class LocalReplica:
         prod_id = cursor.lastrowid
         conn.commit()
         conn.close()
+
+        try:
+            from .sync_queue import get_sync_queue
+            get_sync_queue().add_pending('producciones', 'insert', {
+                'id': prod_id,
+                'receta_id': produccion.get('receta_id'),
+                'cantidad': produccion.get('cantidad'),
+                'estado': produccion.get('estado', 'completado'),
+                'usuario': produccion.get('usuario'),
+                'observaciones': produccion.get('observaciones'),
+                'fecha_produccion': produccion.get('fecha_produccion', now),
+                'created_at': now,
+            })
+        except Exception:
+            pass
         return prod_id
+
+    @staticmethod
+    def update_produccion_estado(produccion_id: int, estado: str, observaciones: str = None) -> None:
+        """Actualiza el estado de una producción y encola el cambio para sync."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM producciones WHERE id = ?", (produccion_id,))
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return
+        p = dict(row)
+        if observaciones is None:
+            observaciones = p.get('observaciones')
+        cursor.execute(
+            "UPDATE producciones SET estado = ?, observaciones = ? WHERE id = ?",
+            (estado, observaciones, produccion_id)
+        )
+        conn.commit()
+        conn.close()
+        try:
+            from .sync_queue import get_sync_queue
+            get_sync_queue().add_pending('producciones', 'insert', {
+                'id': produccion_id,
+                'receta_id': p.get('receta_id'),
+                'cantidad': p.get('cantidad'),
+                'estado': estado,
+                'usuario': p.get('usuario'),
+                'observaciones': observaciones,
+                'fecha_produccion': p.get('fecha_produccion'),
+                'created_at': p.get('created_at'),
+            })
+        except Exception:
+            pass
+
+    @staticmethod
+    def save_producciones(producciones: List[Dict]) -> None:
+        """Guarda lista de producciones (bulk upsert para sync)."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        now = datetime.now().isoformat()
+        for p in producciones:
+            pid = p.get('id')
+            if pid:
+                cursor.execute("SELECT id FROM producciones WHERE id = ?", (pid,))
+                if cursor.fetchone():
+                    cursor.execute("""
+                        UPDATE producciones SET receta_id=?, cantidad=?, estado=?, usuario=?,
+                        observaciones=?, fecha_produccion=?, created_at=?
+                        WHERE id=?
+                    """, (
+                        p.get('receta_id'), p.get('cantidad'), p.get('estado', 'completado'),
+                        p.get('usuario'), p.get('observaciones'), p.get('fecha_produccion', now),
+                        p.get('created_at', now), pid
+                    ))
+                    continue
+            cursor.execute("""
+                INSERT INTO producciones (id, receta_id, cantidad, estado, usuario, observaciones, fecha_produccion, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                pid, p.get('receta_id'), p.get('cantidad'), p.get('estado', 'completado'),
+                p.get('usuario'), p.get('observaciones'), p.get('fecha_produccion', now),
+                p.get('created_at', now)
+            ))
+        conn.commit()
+        conn.close()
 
     @staticmethod
     def save_produccion_detalle(detalle: Dict) -> int:
@@ -3459,7 +3705,49 @@ class LocalReplica:
         det_id = cursor.lastrowid
         conn.commit()
         conn.close()
+
+        try:
+            from .sync_queue import get_sync_queue
+            get_sync_queue().add_pending('produccion_detalles', 'insert', {
+                'id': det_id,
+                'produccion_id': detalle.get('produccion_id'),
+                'producto_id': detalle.get('producto_id'),
+                'tipo': detalle.get('tipo'),
+                'cantidad': detalle.get('cantidad'),
+                'unidad': detalle.get('unidad', 'unidad'),
+                'movimiento_id': detalle.get('movimiento_id'),
+            })
+        except Exception:
+            pass
         return det_id
+
+    @staticmethod
+    def save_produccion_detalles(detalles: List[Dict]) -> None:
+        """Guarda lista de detalles de producción (bulk upsert para sync)."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        for d in detalles:
+            did = d.get('id')
+            if did:
+                cursor.execute("SELECT id FROM produccion_detalles WHERE id = ?", (did,))
+                if cursor.fetchone():
+                    cursor.execute("""
+                        UPDATE produccion_detalles SET produccion_id=?, producto_id=?, tipo=?,
+                        cantidad=?, unidad=?, movimiento_id=? WHERE id=?
+                    """, (
+                        d.get('produccion_id'), d.get('producto_id'), d.get('tipo'),
+                        d.get('cantidad'), d.get('unidad', 'unidad'), d.get('movimiento_id'), did
+                    ))
+                    continue
+            cursor.execute("""
+                INSERT INTO produccion_detalles (id, produccion_id, producto_id, tipo, cantidad, unidad, movimiento_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                did, d.get('produccion_id'), d.get('producto_id'), d.get('tipo'),
+                d.get('cantidad'), d.get('unidad', 'unidad'), d.get('movimiento_id')
+            ))
+        conn.commit()
+        conn.close()
 
     @staticmethod
     def get_detalles_by_produccion(produccion_id: int) -> List[Dict]:

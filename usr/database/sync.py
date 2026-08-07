@@ -264,6 +264,12 @@ class SyncManager:
                             'a': mov.get('almacen'),
                         }).fetchone()
 
+                        # Si tiene requisicion_id y no se pudo resolver, postergar
+                        # SIN intentar insertar con el id local (no existe en Supabase).
+                        if local_requisicion_id and not remote_requisicion_id and tipo in ('tr_salida', 'tr_entrada'):
+                            print(f"[SYNC] Movimiento {mov_id} postergado: requisicion_id={local_requisicion_id} no resuelto en Supabase")
+                            continue
+
                         if match:
                             remote_mov_id = match[0]
                             updates = []
@@ -359,6 +365,8 @@ class SyncManager:
             ('periodos', 'periodos'),
             ('recetas', 'recetas'),
             ('receta_componentes', 'receta_componentes'),
+            ('producciones', 'producciones'),
+            ('produccion_detalles', 'produccion_detalles'),
         ]
         
         from sqlalchemy import create_engine
@@ -373,7 +381,9 @@ class SyncManager:
                 "ALTER TABLE categorias ADD COLUMN IF NOT EXISTS visible_en_pos INTEGER DEFAULT 1",
                 "ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_venta REAL DEFAULT 0",
                 "CREATE TABLE IF NOT EXISTS recetas (id SERIAL PRIMARY KEY, nombre TEXT NOT NULL, tipo TEXT NOT NULL, producto_base_id INTEGER, producto_final_id INTEGER, cantidad_producida REAL DEFAULT 1, activo INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT)",
-                "CREATE TABLE IF NOT EXISTS receta_componentes (id SERIAL PRIMARY KEY, receta_id INTEGER NOT NULL, producto_id INTEGER NOT NULL, cantidad REAL NOT NULL, unidad TEXT DEFAULT 'unidad', tipo_componente TEXT NOT NULL)",
+                "CREATE TABLE IF NOT EXISTS receta_componentes (id SERIAL PRIMARY KEY, receta_id INTEGER NOT NULL, producto_id INTEGER NOT NULL, cantidad REAL NOT NULL, unidad TEXT DEFAULT 'unidad', tipo_componente TEXT NOT NULL, peso_variable INTEGER DEFAULT 0)",
+                "CREATE TABLE IF NOT EXISTS producciones (id SERIAL PRIMARY KEY, receta_id INTEGER NOT NULL, cantidad REAL NOT NULL, estado TEXT DEFAULT 'completado', usuario TEXT, observaciones TEXT, fecha_produccion TEXT, created_at TEXT)",
+                "CREATE TABLE IF NOT EXISTS produccion_detalles (id SERIAL PRIMARY KEY, produccion_id INTEGER NOT NULL, producto_id INTEGER NOT NULL, tipo TEXT NOT NULL, cantidad REAL NOT NULL, unidad TEXT DEFAULT 'unidad', movimiento_id INTEGER)",
                 "CREATE TABLE IF NOT EXISTS movimientos_archivo (id INTEGER PRIMARY KEY, producto_id INTEGER NOT NULL, factura_id INTEGER, requisicion_id INTEGER, tipo TEXT NOT NULL, cantidad REAL NOT NULL, cantidad_anterior REAL DEFAULT 0, cantidad_nueva REAL DEFAULT 0, peso_total REAL DEFAULT 0, registrado_por TEXT, observaciones TEXT, almacen TEXT, fecha_movimiento TEXT, created_at TEXT)",
                 "CREATE TABLE IF NOT EXISTS stock_checkpoint (producto_id INTEGER NOT NULL, almacen TEXT NOT NULL, cantidad REAL DEFAULT 0, PRIMARY KEY (producto_id, almacen))",
                 "CREATE TABLE IF NOT EXISTS periodos (id SERIAL PRIMARY KEY, periodo TEXT NOT NULL UNIQUE, fecha_apertura TEXT NOT NULL, registrado_por TEXT)",
@@ -385,6 +395,11 @@ class SyncManager:
                     conn.rollback()
             try:
                 conn.execute(text("ALTER TABLE movimientos_archivo ADD COLUMN requisicion_id INTEGER"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+            try:
+                conn.execute(text("ALTER TABLE receta_componentes ADD COLUMN IF NOT EXISTS peso_variable INTEGER DEFAULT 0"))
                 conn.commit()
             except Exception:
                 conn.rollback()
@@ -439,6 +454,10 @@ class SyncManager:
                         LocalReplica.save_recetas(data)
                     elif local_table == 'receta_componentes':
                         LocalReplica.save_receta_componentes(data)
+                    elif local_table == 'producciones':
+                        LocalReplica.save_producciones(data)
+                    elif local_table == 'produccion_detalles':
+                        LocalReplica.save_produccion_detalles(data)
 
                     
                     self._log(f"[SYNC] {len(data)} {local_table} baixats")
@@ -961,6 +980,16 @@ class SyncManager:
                             self._log(f"[SYNC] Detalle no encontrado en Supabase para req={req_num}")
 
                     elif table == 'recetas':
+                        if operation == 'delete':
+                            rid = data.get('id')
+                            if rid:
+                                conn.execute(text("DELETE FROM receta_componentes WHERE receta_id = :id"), {'id': rid})
+                                conn.execute(text("DELETE FROM recetas WHERE id = :id"), {'id': rid})
+                                conn.commit()
+                                queue.mark_completed(item['id'])
+                                uploaded += 1
+                            continue
+
                         rid = data.get('id')
                         nombre = data.get('nombre', '')
                         vals = {
@@ -972,10 +1001,14 @@ class SyncManager:
                             'activo': data.get('activo', 1),
                             'updated_at': data.get('updated_at'),
                         }
+                        existing = None
                         if rid:
+                            existing = conn.execute(text("SELECT id FROM recetas WHERE id = :id"),
+                                                    {'id': rid}).fetchone()
+                        if existing:
                             cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
                             sql = text(f"UPDATE recetas SET {cols} WHERE id = :id")
-                            vals['id'] = rid
+                            vals['id'] = existing[0]
                         else:
                             check = conn.execute(text("SELECT id FROM recetas WHERE nombre = :n AND tipo = :t"),
                                                   {'n': nombre, 't': data.get('tipo', '')}).fetchone()
@@ -984,10 +1017,17 @@ class SyncManager:
                                 sql = text(f"UPDATE recetas SET {cols} WHERE id = :id")
                                 vals['id'] = check[0]
                             else:
-                                cols = ", ".join(vals.keys())
-                                placeholders = ", ".join([f":{k}" for k in vals.keys()])
-                                vals['created_at'] = data.get('created_at', data.get('updated_at'))
-                                sql = text(f"INSERT INTO recetas ({cols}, created_at) VALUES ({placeholders}, :created_at)")
+                                if rid:
+                                    vals['id'] = rid
+                                    cols = ", ".join(vals.keys())
+                                    placeholders = ", ".join([f":{k}" for k in vals.keys()])
+                                    vals['created_at'] = data.get('created_at', data.get('updated_at'))
+                                    sql = text(f"INSERT INTO recetas ({cols}, created_at) VALUES ({placeholders}, :created_at)")
+                                else:
+                                    cols = ", ".join(vals.keys())
+                                    placeholders = ", ".join([f":{k}" for k in vals.keys()])
+                                    vals['created_at'] = data.get('created_at', data.get('updated_at'))
+                                    sql = text(f"INSERT INTO recetas ({cols}, created_at) VALUES ({placeholders}, :created_at)")
                         conn.execute(sql, vals)
                         conn.commit()
                         queue.mark_completed(item['id'])
@@ -995,6 +1035,16 @@ class SyncManager:
                         self._log(f"[SYNC] Receta '{nombre}' sincronizada")
 
                     elif table == 'receta_componentes':
+                        if operation == 'delete':
+                            receta_id = data.get('receta_id')
+                            if receta_id:
+                                conn.execute(text("DELETE FROM receta_componentes WHERE receta_id = :rid"),
+                                             {'rid': receta_id})
+                                conn.commit()
+                                queue.mark_completed(item['id'])
+                                uploaded += 1
+                            continue
+
                         cid = data.get('id')
                         vals = {
                             'receta_id': data.get('receta_id'),
@@ -1002,12 +1052,19 @@ class SyncManager:
                             'cantidad': data.get('cantidad', 1),
                             'unidad': data.get('unidad', 'unidad'),
                             'tipo_componente': data.get('tipo_componente', 'INGREDIENTE'),
+                            'peso_variable': data.get('peso_variable', 0),
                         }
+                        existing = None
                         if cid:
+                            existing = conn.execute(text("SELECT id FROM receta_componentes WHERE id = :id"),
+                                                    {'id': cid}).fetchone()
+                        if existing:
                             cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
                             sql = text(f"UPDATE receta_componentes SET {cols} WHERE id = :id")
-                            vals['id'] = cid
+                            vals['id'] = existing[0]
                         else:
+                            if cid:
+                                vals['id'] = cid
                             cols = ", ".join(vals.keys())
                             placeholders = ", ".join([f":{k}" for k in vals.keys()])
                             sql = text(f"INSERT INTO receta_componentes ({cols}) VALUES ({placeholders})")
@@ -1015,6 +1072,85 @@ class SyncManager:
                         conn.commit()
                         queue.mark_completed(item['id'])
                         uploaded += 1
+
+                    elif table == 'producciones':
+                        pid = data.get('id')
+                        vals = {
+                            'receta_id': data.get('receta_id'),
+                            'cantidad': float(data.get('cantidad', 1)),
+                            'estado': data.get('estado', 'completado'),
+                            'usuario': data.get('usuario'),
+                            'observaciones': data.get('observaciones'),
+                            'fecha_produccion': data.get('fecha_produccion'),
+                            'created_at': data.get('created_at'),
+                        }
+                        existing = None
+                        if pid:
+                            existing = conn.execute(text("SELECT id FROM producciones WHERE id = :id"),
+                                                    {'id': pid}).fetchone()
+                        if existing:
+                            cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
+                            sql = text(f"UPDATE producciones SET {cols} WHERE id = :id")
+                            vals['id'] = existing[0]
+                        else:
+                            if pid:
+                                vals['id'] = pid
+                            cols = ", ".join(vals.keys())
+                            placeholders = ", ".join([f":{k}" for k in vals.keys()])
+                            sql = text(f"INSERT INTO producciones ({cols}) VALUES ({placeholders})")
+                        conn.execute(sql, vals)
+                        conn.commit()
+                        queue.mark_completed(item['id'])
+                        uploaded += 1
+                        self._log(f"[SYNC] Producción #{pid or 'nueva'} sincronizada")
+
+                    elif table == 'produccion_detalles':
+                        did = data.get('id')
+                        vals = {
+                            'produccion_id': data.get('produccion_id'),
+                            'producto_id': data.get('producto_id'),
+                            'tipo': data.get('tipo'),
+                            'cantidad': float(data.get('cantidad', 1)),
+                            'unidad': data.get('unidad', 'unidad'),
+                            'movimiento_id': data.get('movimiento_id'),
+                        }
+                        existing = None
+                        if did:
+                            existing = conn.execute(text("SELECT id FROM produccion_detalles WHERE id = :id"),
+                                                    {'id': did}).fetchone()
+                        if existing:
+                            cols = ", ".join([f"{k} = :{k}" for k in vals.keys()])
+                            sql = text(f"UPDATE produccion_detalles SET {cols} WHERE id = :id")
+                            vals['id'] = existing[0]
+                        else:
+                            if did:
+                                vals['id'] = did
+                            cols = ", ".join(vals.keys())
+                            placeholders = ", ".join([f":{k}" for k in vals.keys()])
+                            sql = text(f"INSERT INTO produccion_detalles ({cols}) VALUES ({placeholders})")
+                        conn.execute(sql, vals)
+                        conn.commit()
+                        queue.mark_completed(item['id'])
+                        uploaded += 1
+
+                    elif table == 'existencias':
+                        vals = {
+                            'producto_id': data.get('producto_id'),
+                            'almacen': data.get('almacen'),
+                            'cantidad': float(data.get('cantidad', 0)),
+                            'unidad': data.get('unidad', 'unidad'),
+                        }
+                        conn.execute(
+                            text("""INSERT INTO existencias (producto_id, almacen, cantidad, unidad)
+VALUES (:producto_id, :almacen, :cantidad, :unidad)
+ON CONFLICT (producto_id, almacen)
+DO UPDATE SET cantidad = :cantidad, unidad = :unidad"""),
+                            vals
+                        )
+                        conn.commit()
+                        queue.mark_completed(item['id'])
+                        uploaded += 1
+                        self._log(f"[SYNC] Existencias actualizadas ({vals['almacen']})")
                 except Exception as e:
                     try:
                         conn.rollback()  # Reset transacción para que el siguiente item funcione

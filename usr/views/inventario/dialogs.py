@@ -96,6 +96,37 @@ def show_cantidad_dialog(view, producto, tipo, on_success=None):
         bgcolor=colors['card_hover'], padding=12, border_radius=10,
     )
 
+    # Opción de producción (solo para entradas)
+    recetas_produccion = []
+    es_produccion = ft.Column(
+        visible=False,
+        spacing=8,
+        controls=[],
+    )
+    if tipo == "entrada":
+        pid = get_attr(producto, 'id')
+        if pid:
+            recetas_produccion = LocalReplica.get_recetas_que_producen(pid)
+        if recetas_produccion:
+            prod_check = ft.Checkbox(
+                label="Registrar como producción",
+                value=False,
+                on_change=lambda e: (_toggle_prod_ui(e.control.value), receta_dd.update(), prod_dd_cont.update()),
+            )
+            receta_dd = ft.Dropdown(
+                label="Seleccionar receta",
+                hint_text="Elige la receta...",
+                options=[ft.dropdown.Option(key=str(r['id']), text=r['nombre']) for r in recetas_produccion],
+                expand=True,
+            )
+            prod_dd_cont = ft.Container(content=receta_dd, visible=False)
+            es_produccion.controls = [prod_check, prod_dd_cont]
+            es_produccion.visible = True
+
+            def _toggle_prod_ui(val):
+                prod_dd_cont.visible = val
+                prod_dd_cont.update()
+
     def _al_confirmar(e):
         if es_pesable:
             try:
@@ -124,14 +155,52 @@ def show_cantidad_dialog(view, producto, tipo, on_success=None):
             peso_total = 0.0
 
         almacen = almacen_dropdown.value or "principal"
+
+        # Producción opcional (solo para entradas): si el toggle está activo, registramos
+        # la entrada como entrada_produccion y creamos una producción pendiente.
+        es_produccion_activa = False
+        receta_id = None
+        if tipo == "entrada" and recetas_produccion:
+            try:
+                es_produccion_activa = bool(prod_check.value)
+                if es_produccion_activa and receta_dd.value:
+                    receta_id = int(receta_dd.value)
+            except Exception:
+                es_produccion_activa = False
+
         view._close_dialog()
         try:
-            if es_pesable:
-                from usr.views.inventario.movements import registrar_movimiento
-                registrar_movimiento(view.page, producto, tipo, cant_und, peso_total=peso_total, almacen=almacen)
+            from usr.views.inventario.movements import registrar_movimiento
+            if es_produccion_activa and receta_id:
+                # Buscar receta y producto en formato dict para data.py
+                from usr.views.producciones import data as _prod_data
+                from usr.database.local_replica import LocalReplica as _LR
+                receta = next((r for r in _prod_data.load_recetas() if r['id'] == receta_id), None)
+                if not receta:
+                    show_error_notif("Receta no encontrada")
+                    return
+                # producto debe ser dict para data.py
+                prod_dict = _LR.get_producto_by_id(get_attr(producto, 'id'))
+                if not prod_dict:
+                    show_error_notif("Producto no encontrado")
+                    return
+                cant = float(cantidad_a_guardar or cant_und or 0)
+                if es_pesable:
+                    cant_kg = float(peso_total)
+                    _prod_data.registrar_produccion_pendiente(
+                        view.page, prod_dict, receta, cant_kg,
+                        peso_total=cant_kg, almacen=almacen,
+                    )
+                else:
+                    _prod_data.registrar_produccion_pendiente(
+                        view.page, prod_dict, receta, cant,
+                        peso_total=0.0, almacen=almacen,
+                    )
             else:
-                from usr.views.inventario.movements import registrar_movimiento
-                registrar_movimiento(view.page, producto, tipo, cantidad_a_guardar, almacen=almacen)
+                if es_pesable:
+                    registrar_movimiento(view.page, producto, tipo, cant_und, peso_total=peso_total, almacen=almacen)
+                else:
+                    registrar_movimiento(view.page, producto, tipo, cantidad_a_guardar, almacen=almacen)
             if on_success:
                 on_success()
         finally:
