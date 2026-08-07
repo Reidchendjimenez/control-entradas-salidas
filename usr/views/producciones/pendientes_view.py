@@ -31,6 +31,13 @@ def build_pendientes_tab(page, on_change):
             detalles = data.load_detalle(produccion['id'])
             entradas = [d for d in detalles if d.get('tipo') == 'entrada']
 
+            entradas_txt = "Sin detalles de entrada"
+            if entradas:
+                entradas_txt = ", ".join(
+                    f"{d.get('producto_nombre', '?')}: {d.get('cantidad', 0)} {d.get('unidad', '')}".rstrip()
+                    for d in entradas
+                )
+
             card = ft.Container(
                 content=ft.Column([
                     ft.Row([
@@ -59,7 +66,7 @@ def build_pendientes_tab(page, on_change):
                     ]),
                     ft.Container(height=5),
                     ft.Text(
-                        f"Entrada registrada: {entradas[0].get('cantidad', 0)} {entradas[0].get('unidad', '')}".rstrip() if entradas else "Sin detalles de entrada",
+                        f"Entradas del lote ({len(entradas)}): {entradas_txt}",
                         size=12, color=colors['text_secondary'],
                     ),
                     ft.Container(height=8),

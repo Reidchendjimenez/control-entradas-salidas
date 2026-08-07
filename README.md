@@ -31,16 +31,22 @@ El módulo de requisiciones implementa un proceso de control de calidad:
 El módulo de producciones permite fabricar productos a partir de ingredientes, separando la entrada del producto final del descargo de ingredientes para soportar **ingredientes de peso variable** (ej.: jamón entero por pieza, donde el peso real solo se conoce al cortar).
 - **Receta** (`recetas` + `receta_componentes`):
   - Dos tipos: **Simple** (salida de producto base + entradas de RESULTADO) y **Compuesta** (salidas de INGREDIENTE + entrada de producto final).
+  - En una receta **simple**, el producto base es la materia prima (ej.: jamón entero) y los RESULTADO son los productos que se obtienen de ella (ej.: jamón rebanado, tetas de jamón picadillo).
   - Cada componente tiene flag `peso_variable`: si está activo, la cantidad se ignora y se ingresa al momento de la descarga.
+- **Producto tipo "producción"** (Configuración → Productos → Tipo):
+  - Los productos que son resultado de una receta se marcan con el tipo **"producción"**.
 - **Etapa 1 — Registro de producción (desde Inventario)**:
-  - Al hacer una **entrada** de un producto que aparece como `producto_final` de alguna receta, el diálogo ofrece un toggle "Registrar como producción" + dropdown de receta.
-  - Al confirmarlo: se registra un movimiento tipo `entrada_produccion` (sube stock), se crea una `produccion` con `estado='pendiente'` y se guarda un `produccion_detalle` tipo `entrada` enlazado al movimiento.
+  - Al hacer una **entrada** de un producto de tipo **"producción"**, el sistema lo **detecta automáticamente** (sin toggle manual): registra un movimiento tipo `entrada_produccion` (sube stock), crea una `produccion` con `estado='pendiente'` y guarda un `produccion_detalle` tipo `entrada` enlazado al movimiento.
+  - Si hay varias recetas que producen ese producto, se muestra un dropdown para elegir cuál usar.
+  - **Agrupamiento por lote**: si la receta ya tiene una producción **pendiente**, un selector permite vincular la nueva entrada a esa misma producción (lote) en lugar de crear una. La cantidad del lote pasa a ser la **suma de todas sus entradas**. Ej.: la pieza de jamón produce jamón rebanado + tetas de jamón; ambas entradas quedan bajo el mismo lote.
   - **No aparece en la lista de validación** (el filtro `tipo == 'entrada'` la excluye automáticamente).
 - **Etapa 2 — Descargo (desde Producciones → En Producción)**:
   - Lista producciones con `estado='pendiente'`.
   - Botón "Descargar" abre diálogo con los ingredientes: los de `peso_variable` muestran campo vacío (autofocus), los fijos aparecen prellenados como sugerencia (editables). Soporta pesables (kg).
   - Al confirmar: registra `salida_produccion` por cada ingrediente (descuenta stock), guarda detalles tipo `salida` y marca la producción como `completado`.
-- **Cancelar**: revierte el stock del producto final (registra `salida_produccion` opuesta) y marca la producción como `cancelada`. Mantiene audit trail.
+- **Stock negativo configurable** (Configuración → Sistema → Control de Inventario):
+  - Por defecto las salidas **no** dejan stock negativo. Se puede habilitar "Permitir stock negativo en salidas" (se guarda en `pos_settings.permitir_stock_negativo`).
+- **Cancelar**: revierte el stock de **cada una** de las entradas del lote (registra una `salida_produccion` por cada producto resultante) y marca la producción como `cancelada`. Mantiene audit trail.
 - **Tipos de movimiento nuevos**:
   - `entrada_produccion` (sube stock, como `entrada`).
   - `salida_produccion` (baja stock, como `salida`).
@@ -325,6 +331,9 @@ Si se agregan nuevas dependencias en `requirements.txt`, se debe recompilar:
 - ✨ **Soporte para cancelar producciones pendientes**: registra un movimiento opuesto para revertir el stock del producto final y marca la producción como `cancelada`, conservando el audit trail.
 - ✨ **Tipos de movimiento nuevos**: `entrada_produccion` y `salida_produccion` (labels "Ent. Producción" / "Sal. Producción" en cards de historial). Soportan pesables (kg) y se sincronizan por el mecanismo genérico.
 - ✨ **Sync bidireccional de recetas y producciones**: `producciones` y `produccion_detalles` agregadas a `tables_to_sync`, con migraciones remotas (`CREATE TABLE IF NOT EXISTS`) y branches de push/pull. `peso_variable` incluido en la subida/descarga. Las operaciones creadas desde la UI (`save_receta`, `save_componentes`, `delete_receta`, `save_produccion`, `save_produccion_detalle`) ahora encolan en `sync_queue` para subir offline-first.
+- ✨ **Detección automática de producción por tipo**: Los productos de tipo **"producción"** (nuevo tipo en Configuración → Productos) convierten cualquier entrada en una producción pendiente automáticamente, sin toggle manual. Si hay varias recetas para el mismo producto, se elige una con dropdown.
+- ✨ **Stock negativo configurable**: Nuevo interruptor "Permitir stock negativo en salidas" en Configuración → Sistema → Control de Inventario (guardado en `pos_settings.permitir_stock_negativo`, default **bloqueado**).
+- ✨ **Agrupamiento de entradas por lote**: Una producción pendiente puede agrupar varias entradas de productos resultantes de la misma receta (ej.: jamón rebanado + tetas de jamón de la misma pieza). El selector "Vincular a producción" permite crear un lote nuevo o agregar la entrada a uno pendiente existente (default: el más reciente). La cantidad del lote = suma de sus entradas, y la cancelación revierte cada entrada del lote.
 - 🐛 **Corregido**: `save_recetas` / `save_receta_componentes` / `save_producciones` / `save_produccion_detalles` (bulk) hacían `UPDATE` por id sin verificar existencia, fallando en dispositivos nuevos donde la fila no existía. Ahora son upsert real (`SELECT` → UPDATE o `INSERT` con id explícito).
 - ⚡ **Modularización de la vista Producciones** (estilo `requisiciones/`): `usr/views/producciones_view.py` pasó de 849 líneas a un orquestador de ~145 líneas + 7 módulos especializados (`view.py`, `data.py`, `dialogs.py`, `helpers.py`, `recetas_view.py`, `pendientes_view.py`, `historial_view.py`). Import externo (`from usr.views import ProduccionesView`) preservado sin cambios.
 - ⚡ **Fix Flet thread safety**: handlers que llaman corrutinas reemplazaron `asyncio.create_task()` por `page.run_task()` (corrige `RuntimeError: no running event loop` en `_on_tab_change` de Producciones).

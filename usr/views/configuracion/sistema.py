@@ -89,11 +89,26 @@ def build_sistema_tab(view):
                         ),
                         ft.Divider(height=30, color=colors['border']),
                         ft.Text(
-                            "Gestion de Operador",
+                            "Control de Inventario",
                             weight=ft.FontWeight.BOLD,
                             size=14
                         ),
                         ft.Text(
+                            "Permite que las salidas dejen el stock en negativo (por defecto está desactivado).",
+                            size=12,
+                            color=colors['text_secondary'],
+                        ),
+                        ft.Container(height=10),
+                        ft.Row([
+                            ft.Text("Permitir stock negativo en salidas:", size=14, color=colors['text_secondary'], expand=True),
+                            _build_negativo_switch(),
+                        ], spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                        ft.Divider(height=30, color=colors['border']),
+                        ft.Text(
+                            "Gestion de Operador",
+                            weight=ft.FontWeight.BOLD,
+                            size=14
+                        ),                        ft.Text(
                             "Cambie el operador registrado en este dispositivo.",
                             size=12,
                             color=colors['text_secondary'],
@@ -114,6 +129,25 @@ def build_sistema_tab(view):
         padding=20,
         expand=True,
     )
+
+
+def _build_negativo_switch():
+    from usr.database.local_replica import LocalReplica
+
+    def _on_change(e):
+        valor = "1" if e.control.value else "0"
+        try:
+            LocalReplica.set_pos_setting('permitir_stock_negativo', valor)
+            show_success("Stock negativo " + ("permitido" if e.control.value else "bloqueado") + " en salidas")
+        except Exception as ex:
+            show_error(f"Error al guardar la configuración: {ex}")
+
+    try:
+        val = LocalReplica.get_pos_setting('permitir_stock_negativo', '0') or '0'
+        activo = str(val).strip().lower() in ('1', 'true', 'si', 'sí', 'yes')
+    except Exception:
+        activo = False
+    return ft.Switch(value=activo, on_change=_on_change)
 
 
 def test_connection_action(view, e):

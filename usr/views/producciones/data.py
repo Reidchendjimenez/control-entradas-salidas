@@ -19,6 +19,12 @@ def load_productos():
     return LocalReplica.get_productos() or []
 
 
+def stock_total_producto(producto_id: int) -> float:
+    """Suma de existencias de un producto en todos los almacenes."""
+    existencias = LocalReplica.get_existencias_by_producto(producto_id) or []
+    return sum(float(e.get('cantidad', 0) or 0) for e in existencias)
+
+
 def load_componentes(receta_id):
     return LocalReplica.get_componentes_by_receta(receta_id) or []
 
@@ -32,6 +38,11 @@ def load_producciones(estado=None, limit=50):
 
 def load_pendientes():
     return load_producciones(estado='pendiente')
+
+
+def load_pendientes_de_receta(receta_id):
+    """Producciones pendientes de una receta, más reciente primero."""
+    return [p for p in load_pendientes() if p.get('receta_id') == receta_id]
 
 
 def load_detalle(produccion_id):
@@ -56,8 +67,12 @@ def eliminar_receta(receta_id):
 
 # ----------------------- flujo 2 etapas -----------------------
 
-def registrar_produccion_pendiente(page, producto, receta, cantidad, peso_total=0.0, almacen=None):
+def registrar_produccion_pendiente(page, producto, receta, cantidad, peso_total=0.0, almacen=None, produccion_id=None):
     """Etapa 1: registra entrada_produccion + producción pendiente + detalle.
+
+    Si `produccion_id` es None se crea una producción nueva (lote). Si se pasa
+    un id, la entrada se VINCULA a ese lote existente (misma pieza/materia
+    prima), y la cantidad del lote pasa a ser la suma de todas sus entradas.
 
     Retorna (produccion_id, movimiento_id). Stock del producto final sube.
     La producción queda en estado 'pendiente' para su descargo.
@@ -66,7 +81,11 @@ def registrar_produccion_pendiente(page, producto, receta, cantidad, peso_total=
 
     usuario = usuario_actual(page)
     fecha = now_iso()
-    observaciones = f"Producción pendiente - Receta '{receta.get('nombre', '')}'"
+
+    if produccion_id is None:
+        observaciones = f"Producción pendiente - Receta '{receta.get('nombre', '')}'"
+    else:
+        observaciones = f"Entrada vinculada al lote #{produccion_id} - Receta '{receta.get('nombre', '')}'"
 
     movimiento_id = registrar_movimiento(
         page,
@@ -80,14 +99,21 @@ def registrar_produccion_pendiente(page, producto, receta, cantidad, peso_total=
     if not movimiento_id:
         return None, None
 
-    produccion_id = LocalReplica.save_produccion({
-        'receta_id': receta['id'],
-        'cantidad': cantidad,
-        'estado': 'pendiente',
-        'usuario': usuario,
-        'observaciones': '',
-        'fecha_produccion': fecha,
-    })
+    if produccion_id is None:
+        produccion_id = LocalReplica.save_produccion({
+            'receta_id': receta['id'],
+            'cantidad': cantidad,
+            'estado': 'pendiente',
+            'usuario': usuario,
+            'observaciones': observaciones,
+            'fecha_produccion': fecha,
+        })
+    else:
+        # Vincular entrada al lote existente y recalcular cantidad = suma de entradas
+        detalles = load_detalle(produccion_id)
+        entradas = [d for d in detalles if d.get('tipo') == 'entrada']
+        total = float(cantidad or 0) + sum(float(d.get('cantidad', 0) or 0) for d in entradas)
+        LocalReplica.update_produccion_cantidad(produccion_id, total)
 
     LocalReplica.save_produccion_detalle({
         'produccion_id': produccion_id,
@@ -135,13 +161,15 @@ def planificar_descargo(receta, produccion):
         if receta.get('producto_base_id'):
             prod = LocalReplica.get_producto_by_id(receta['producto_base_id'])
             if prod:
+                pesable = bool(prod.get('es_pesable'))
                 items.append({
                     'producto_id': prod['id'],
                     'nombre': prod.get('nombre', f"#{prod['id']}"),
-                    'cantidad_sugerida': produccion_cantidad,
-                    'peso_variable': False,
-                    'unidad': prod.get('unidad_medida', 'unidad'),
-                    'es_pesable': bool(prod.get('es_pesable')),
+                    # base pesable (ej. pieza de jamón): peso variable, se pide al descargar
+                    'cantidad_sugerida': 0.0 if pesable else produccion_cantidad,
+                    'peso_variable': pesable,
+                    'unidad': 'kg' if pesable else prod.get('unidad_medida', 'unidad'),
+                    'es_pesable': pesable,
                     'almacen': prod.get('almacen_predeterminado', 'principal') or 'principal',
                 })
 
@@ -205,10 +233,11 @@ def ejecutar_descargo(page, produccion, receta, items_cantidades):
 
 
 def cancelar_produccion(page, produccion, receta):
-    """Revierte la entrada original y marca la producción como cancelada.
+    """Revierte todas las entradas del lote y marca la producción como cancelada.
 
-    Estrategia: registra una salida_produccion que devuelve el stock del producto
-    final (etapa 1 había subido). Mantiene audit trail.
+    Estrategia: registra una salida_produccion por cada entrada del lote para
+    devolver el stock de los productos resultantes (etapa 1 había subido cada uno).
+    Mantiene audit trail.
     """
     from usr.views.inventario.movements import registrar_movimiento
     from usr.database.base import get_session
@@ -216,47 +245,48 @@ def cancelar_produccion(page, produccion, receta):
     from sqlalchemy import select
 
     detalles = load_detalle(produccion['id'])
-    entrada = next((d for d in detalles if d.get('tipo') == 'entrada'), None)
-    if not entrada:
+    entradas = [d for d in detalles if d.get('tipo') == 'entrada']
+    if not entradas:
         LocalReplica.update_produccion_estado(produccion['id'], 'cancelada')
         return True
 
-    prod = LocalReplica.get_producto_by_id(entrada['producto_id'])
-    if not prod:
-        LocalReplica.update_produccion_estado(produccion['id'], 'cancelada')
-        return True
+    for entrada in entradas:
+        prod = LocalReplica.get_producto_by_id(entrada['producto_id'])
+        if not prod:
+            continue
 
-    cantidad = float(entrada.get('cantidad', 0))
-    es_pesable = bool(prod.get('es_pesable'))
-    unidad = entrada.get('unidad') or prod.get('unidad_medida', 'unidad')
-    almacen = prod.get('almacen_predeterminado', 'principal') or 'principal'
+        cantidad = float(entrada.get('cantidad', 0))
+        es_pesable = bool(prod.get('es_pesable'))
+        unidad = entrada.get('unidad') or prod.get('unidad_medida', 'unidad')
+        almacen = prod.get('almacen_predeterminado', 'principal') or 'principal'
 
-    # La entrada original fue pesable (peso_total > 0)? Buscar el movimiento original
-    # para conocer el peso.
-    peso_total = 0.0
-    if entrada.get('movimiento_id'):
-        session = get_session()
-        try:
-            mov = session.execute(
-                select(Movimiento).where(Movimiento.id == entrada['movimiento_id'])
-            ).scalar_one_or_none()
-            if mov:
-                peso_total = float(getattr(mov, 'peso_total', 0) or 0)
-                if mov.almacen:
-                    almacen = mov.almacen
-        except Exception:
-            pass
-        finally:
-            session.close()
+        # La entrada original fue pesable (peso_total > 0)? Buscar el movimiento original
+        # para conocer el peso.
+        peso_total = 0.0
+        if entrada.get('movimiento_id'):
+            session = get_session()
+            try:
+                mov = session.execute(
+                    select(Movimiento).where(Movimiento.id == entrada['movimiento_id'])
+                ).scalar_one_or_none()
+                if mov:
+                    peso_total = float(getattr(mov, 'peso_total', 0) or 0) if es_pesable else 0.0
+                    if mov.almacen:
+                        almacen = mov.almacen
+            except Exception:
+                pass
+            finally:
+                session.close()
 
-    registrar_movimiento(
-        page,
-        prod,
-        'salida_produccion',
-        cantidad,
-        peso_total=peso_total,
-        almacen=almacen,
-        observaciones=f"Cancelación Producción #{produccion['id']} - {receta.get('nombre', '')}",
-    )
+        registrar_movimiento(
+            page,
+            prod,
+            'salida_produccion',
+            cantidad,
+            peso_total=peso_total,
+            almacen=almacen,
+            observaciones=f"Cancelación Producción #{produccion['id']} - {receta.get('nombre', '')}",
+        )
+
     LocalReplica.update_produccion_estado(produccion['id'], 'cancelada')
     return True

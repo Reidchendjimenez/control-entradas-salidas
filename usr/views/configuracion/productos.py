@@ -98,6 +98,7 @@ def show_producto_dialog(view, producto=None):
 
         tipo_options = [
             ft.dropdown.Option("feria"),
+            ft.dropdown.Option("producción"),
             ft.dropdown.Option("productos para uso Interno"),
             ft.dropdown.Option("Productos para la venta"),
             ft.dropdown.Option("ninguno"),
@@ -359,9 +360,10 @@ def create_producto_item(view, p):
     )
 
     tipo_txt = getattr(p, 'tipo', 'ninguno') or 'ninguno'
+    tipo_txt_l = tipo_txt.lower()
     tipo_badge = ft.Container(
         content=ft.Text(tipo_txt.upper(), size=9, color=colors['white'], weight=ft.FontWeight.BOLD),
-        bgcolor=colors.get('warning' if tipo_txt.lower() == 'feria' else 'secondary'),
+        bgcolor=colors.get('warning' if tipo_txt_l == 'feria' else 'error' if tipo_txt_l == 'producción' else 'secondary'),
         padding=ft.padding.symmetric(horizontal=6, vertical=2),
         border_radius=4,
     )

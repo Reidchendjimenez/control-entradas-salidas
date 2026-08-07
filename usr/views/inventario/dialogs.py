@@ -96,36 +96,95 @@ def show_cantidad_dialog(view, producto, tipo, on_success=None):
         bgcolor=colors['card_hover'], padding=12, border_radius=10,
     )
 
-    # Opción de producción (solo para entradas)
+    # Detección automática de producción (solo entradas de productos tipo "producción").
+    # Si el producto tiene ese tipo, la entrada SIEMPRE es una producción pendiente
+    # (no hay checkbox). El usuario solo elige la receta si hay más de una que produce
+    # este producto.
+    es_produccion_activa = False
     recetas_produccion = []
-    es_produccion = ft.Column(
-        visible=False,
-        spacing=8,
-        controls=[],
-    )
     if tipo == "entrada":
         pid = get_attr(producto, 'id')
-        if pid:
+        tipo_prod = (str(get_attr(producto, 'tipo', '') or '')).lower()
+        if pid and 'producci' in tipo_prod:
+            es_produccion_activa = True
             recetas_produccion = LocalReplica.get_recetas_que_producen(pid)
-        if recetas_produccion:
-            prod_check = ft.Checkbox(
-                label="Registrar como producción",
-                value=False,
-                on_change=lambda e: (_toggle_prod_ui(e.control.value), receta_dd.update(), prod_dd_cont.update()),
-            )
-            receta_dd = ft.Dropdown(
-                label="Seleccionar receta",
-                hint_text="Elige la receta...",
-                options=[ft.dropdown.Option(key=str(r['id']), text=r['nombre']) for r in recetas_produccion],
-                expand=True,
-            )
-            prod_dd_cont = ft.Container(content=receta_dd, visible=False)
-            es_produccion.controls = [prod_check, prod_dd_cont]
-            es_produccion.visible = True
 
-            def _toggle_prod_ui(val):
-                prod_dd_cont.visible = val
-                prod_dd_cont.update()
+    receta_dd = ft.Dropdown(
+        label="Seleccionar receta",
+        hint_text="Elige la receta...",
+        options=[ft.dropdown.Option(key=str(r['id']), text=r['nombre']) for r in recetas_produccion],
+        expand=True,
+        visible=es_produccion_activa and len(recetas_produccion) > 1,
+    )
+    receta_dd_cont = ft.Container(content=receta_dd, visible=es_produccion_activa and len(recetas_produccion) > 1)
+
+    # Selector de lote: si ya hay producciones pendientes de la receta seleccionada,
+    # permite vincular esta entrada a una existente (default: la más reciente).
+    from usr.views.producciones import data as _prod_data
+
+    lote_dd = ft.Dropdown(
+        label="Vincular a producción",
+        hint_text="Lote al que pertenece esta entrada",
+        options=[ft.dropdown.Option(key="nuevo", text="➕ Nueva producción (crear lote)")],
+        expand=True,
+    )
+    lote_dd_cont = ft.Container(content=lote_dd, visible=False)
+
+    def _receta_actual():
+        if not es_produccion_activa:
+            return None
+        if len(recetas_produccion) == 1:
+            return recetas_produccion[0]
+        if receta_dd.value:
+            return next((r for r in recetas_produccion if str(r['id']) == str(receta_dd.value)), None)
+        return None
+
+    def _refresh_lote():
+        receta = _receta_actual()
+        if not receta:
+            lote_dd_cont.visible = False
+            if lote_dd.page:
+                lote_dd_cont.update()
+            return
+        try:
+            pendientes = _prod_data.load_pendientes_de_receta(receta['id'])
+        except Exception:
+            pendientes = []
+        opts = [ft.dropdown.Option(key="nuevo", text="➕ Nueva producción (crear lote)")]
+        for p in pendientes:
+            opts.append(ft.dropdown.Option(
+                key=str(p['id']),
+                text=f"Producción #{p['id']} · {p.get('usuario', '') or 'Sistema'}",
+            ))
+        lote_dd.options = opts
+        lote_dd.value = str(pendientes[0]['id']) if pendientes else "nuevo"
+        lote_dd_cont.visible = True
+        if lote_dd.page:
+            lote_dd.update()
+            lote_dd_cont.update()
+
+    receta_dd.on_change = lambda _: _refresh_lote()
+
+    produccion_info = ft.Column(
+        visible=es_produccion_activa,
+        spacing=8,
+        controls=[
+            ft.Container(
+                content=ft.Row([
+                    ft.Icon(ft.Icons.FACTORY_OUTLINED, size=18, color=colors['accent']),
+                    ft.Text(
+                        "Producto de producción: se registrará como producción pendiente",
+                        size=12, color=colors['text_secondary'],
+                    ),
+                ], spacing=6),
+                bgcolor=colors['card_hover'], padding=10, border_radius=8,
+            ),
+            receta_dd_cont,
+            lote_dd_cont,
+        ],
+    )
+    if es_produccion_activa:
+        _refresh_lote()
 
     def _al_confirmar(e):
         if es_pesable:
@@ -156,22 +215,31 @@ def show_cantidad_dialog(view, producto, tipo, on_success=None):
 
         almacen = almacen_dropdown.value or "principal"
 
-        # Producción opcional (solo para entradas): si el toggle está activo, registramos
-        # la entrada como entrada_produccion y creamos una producción pendiente.
-        es_produccion_activa = False
+        # Producción automática (solo entradas de productos tipo "producción"):
+        # la entrada SIEMPRE se registra como entrada_produccion y se crea una
+        # producción pendiente o se vincula a un lote existente (selector).
         receta_id = None
-        if tipo == "entrada" and recetas_produccion:
+        produccion_id = None
+        if es_produccion_activa:
             try:
-                es_produccion_activa = bool(prod_check.value)
-                if es_produccion_activa and receta_dd.value:
-                    receta_id = int(receta_dd.value)
+                receta = _receta_actual()
+                if receta:
+                    receta_id = int(receta['id'])
+                if lote_dd.value and str(lote_dd.value) != 'nuevo':
+                    produccion_id = int(lote_dd.value)
             except Exception:
-                es_produccion_activa = False
+                receta_id = None
 
         view._close_dialog()
         try:
             from usr.views.inventario.movements import registrar_movimiento
-            if es_produccion_activa and receta_id:
+            if es_produccion_activa:
+                if not receta_id:
+                    show_error_notif(
+                        "Este producto es de producción pero no tiene una receta asociada. "
+                        "Créala primero en Producciones > Recetas."
+                    )
+                    return
                 # Buscar receta y producto en formato dict para data.py
                 from usr.views.producciones import data as _prod_data
                 from usr.database.local_replica import LocalReplica as _LR
@@ -190,11 +258,13 @@ def show_cantidad_dialog(view, producto, tipo, on_success=None):
                     _prod_data.registrar_produccion_pendiente(
                         view.page, prod_dict, receta, cant_kg,
                         peso_total=cant_kg, almacen=almacen,
+                        produccion_id=produccion_id,
                     )
                 else:
                     _prod_data.registrar_produccion_pendiente(
                         view.page, prod_dict, receta, cant,
                         peso_total=0.0, almacen=almacen,
+                        produccion_id=produccion_id,
                     )
             else:
                 if es_pesable:
@@ -226,6 +296,7 @@ def show_cantidad_dialog(view, producto, tipo, on_success=None):
                 ft.Column([peso_x_unidad_input], col={"xs": 12, "sm": 6}),
                 ft.Column([peso_total_input], col={"xs": 12, "sm": 6}),
             ], spacing=10),
+            produccion_info,
         ], tight=True, spacing=5)
     else:
         dialog_content = ft.Column([
@@ -238,6 +309,7 @@ def show_cantidad_dialog(view, producto, tipo, on_success=None):
                 ft.Column([almacen_dropdown], col={"xs": 12, "sm": 6}),
                 ft.Column([cant_input_normal], col={"xs": 12, "sm": 6}),
             ], spacing=10),
+            produccion_info,
         ], tight=True, spacing=5)
 
     dialog_width = max(400, int(view.page.width * 0.4)) if view.page else 400

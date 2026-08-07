@@ -45,9 +45,10 @@ class ProduccionesView(ft.Container):
         self.recetas_list = ft.Column(spacing=8, scroll=ft.ScrollMode.ALWAYS, expand=True)
         self.pendientes_container = ft.Container(expand=True, padding=ft.padding.all(20), visible=False)
         self.historial_container = ft.Container(expand=True, padding=ft.padding.all(20), visible=False)
+        self.editor_container = ft.Container(expand=True, padding=0, bgcolor='#1A1A1A', visible=False)
 
         self._connection_indicator = ft.Icon(
-            ft.Icons.CLOUD_OFF, size=20, icon_color='#F44336', tooltip="Sin conexión",
+            ft.Icons.CLOUD_OFF, size=20, color='#F44336', tooltip="Sin conexión",
         )
 
     def did_mount(self):
@@ -71,7 +72,7 @@ class ProduccionesView(ft.Container):
         try:
             is_online = check_connection()
             self._connection_indicator.icon = ft.Icons.CLOUD_DONE if is_online else ft.Icons.CLOUD_OFF
-            self._connection_indicator.icon_color = '#4CAF50' if is_online else '#F44336'
+            self._connection_indicator.color = '#4CAF50' if is_online else '#F44336'
             self._connection_indicator.tooltip = "Conectado" if is_online else "Sin conexión"
             if self.page:
                 self.page.update()
@@ -117,14 +118,58 @@ class ProduccionesView(ft.Container):
                     self.recetas_container,
                     self.pendientes_container,
                     self.historial_container,
+                    self.editor_container,
                 ]),
                 expand=True,
             ),
         ], expand=True, spacing=0)
 
     def _open_nueva_receta(self):
-        from usr.views.producciones.dialogs import receta_dialog
-        receta_dialog(self.page, self._productos, on_saved=self._refresh_recetas)
+        self._open_editor(None)
+
+    def _open_edit_receta(self, receta):
+        self._open_editor(receta)
+
+    def _open_editor(self, receta):
+        from usr.views.producciones.receta_editor import RecetaEditor
+        editor = RecetaEditor(
+            self.page,
+            self._productos,
+            receta=receta,
+            on_saved=self._on_editor_saved,
+            on_cancel=self._on_editor_cancel,
+        )
+        self.editor_container.content = editor
+        self.editor_container.bgcolor = editor.bgcolor
+        self.editor_container.visible = True
+        self.recetas_container.visible = False
+        self.pendientes_container.visible = False
+        self.historial_container.visible = False
+        self.tabs.visible = False
+        # Forzar actualización del Stack y refresco total de la página
+        if self.page:
+            try:
+                self.editor_container.update()
+            except Exception:
+                pass
+            self.page.update()
+
+    def _on_editor_saved(self):
+        self.editor_container.visible = False
+        self.editor_container.content = None
+        self.tabs.visible = True
+        self.recetas_container.visible = True
+        self._refresh_recetas()
+        if self.page:
+            self.page.update()
+
+    def _on_editor_cancel(self):
+        self.editor_container.visible = False
+        self.editor_container.content = None
+        self.tabs.visible = True
+        self.recetas_container.visible = True
+        if self.page:
+            self.page.update()
 
     def _on_pendiente_change(self):
         """Tras descargar/cancelar, refrescar pendientes y recetas (dropdown)."""
@@ -145,12 +190,22 @@ class ProduccionesView(ft.Container):
     async def _load_data(self):
         self._recetas = data.load_recetas()
         self._productos = data.load_productos()
-        render_recetas(self.page, self._recetas, self._productos, self.recetas_list, on_change=self._refresh_recetas)
+        render_recetas(
+            self.page, self._recetas, self._productos,
+            self.recetas_list,
+            on_change=self._refresh_recetas,
+            on_edit=self._open_edit_receta,
+        )
         self._update_connection_indicator()
 
     def _refresh_recetas(self):
         self._recetas = data.load_recetas()
-        render_recetas(self.page, self._recetas, self._productos, self.recetas_list, on_change=self._refresh_recetas)
+        render_recetas(
+            self.page, self._recetas, self._productos,
+            self.recetas_list,
+            on_change=self._refresh_recetas,
+            on_edit=self._open_edit_receta,
+        )
         if self.page:
             self.page.update()
 

@@ -32,8 +32,9 @@ def registrar_movimiento(page, producto_seleccionado, tipo, cantidad, peso_total
         cant_nueva = cant_anterior + cantidad_a_mover
     else:
         if cant_anterior < cantidad_a_mover:
-            show_error_notif("Stock insuficiente")
-            return False
+            if not _permite_stock_negativo():
+                show_error_notif("Stock insuficiente")
+                return False
         cant_nueva = cant_anterior - cantidad_a_mover
 
     movimiento_data = {
@@ -105,6 +106,18 @@ def registrar_movimiento(page, producto_seleccionado, tipo, cantidad, peso_total
     }
     show_success(f"{labels.get(tipo, tipo.capitalize())} registrada: {cantidad}")
     return local_id
+
+
+def _permite_stock_negativo() -> bool:
+    """Lee el setting `permitir_stock_negativo` (default: desactivado).
+
+    Si está activo, las salidas pueden dejar el stock en negativo.
+    """
+    try:
+        val = LocalReplica.get_pos_setting('permitir_stock_negativo', '0') or '0'
+        return str(val).strip().lower() in ('1', 'true', 'si', 'sí', 'yes')
+    except Exception:
+        return False
 
 
 def _encolar_sync(movimiento_data):

@@ -1006,16 +1006,29 @@ class LocalReplica:
         """Obtiene existencia por producto y almacén."""
         conn = get_local_conn()
         cursor = conn.cursor()
-        
+
         cursor.execute(
             "SELECT * FROM existencias WHERE producto_id = ? AND almacen = ?",
             (producto_id, almacen)
         )
         row = cursor.fetchone()
         conn.close()
-        
+
         return dict(row) if row else None
-    
+
+    @staticmethod
+    def get_existencias_by_producto(producto_id: int) -> List[Dict]:
+        """Obtiene todas las existencias de un producto (sumadas por almacén)."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM existencias WHERE producto_id = ?",
+            (producto_id,)
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+
     @staticmethod
     def update_existencia(producto_id: int, almacen: str, cantidad: float, unidad: str = None) -> None:
         """Actualiza la existencia existente o la crea si no existe (sin duplicar)."""
@@ -3651,6 +3664,35 @@ class LocalReplica:
                 'estado': estado,
                 'usuario': p.get('usuario'),
                 'observaciones': observaciones,
+                'fecha_produccion': p.get('fecha_produccion'),
+                'created_at': p.get('created_at'),
+            })
+        except Exception:
+            pass
+
+    @staticmethod
+    def update_produccion_cantidad(produccion_id: int, cantidad: float) -> None:
+        """Actualiza la cantidad de una producción (ej: suma de entradas del lote)."""
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM producciones WHERE id = ?", (produccion_id,))
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return
+        p = dict(row)
+        cursor.execute("UPDATE producciones SET cantidad = ? WHERE id = ?", (cantidad, produccion_id))
+        conn.commit()
+        conn.close()
+        try:
+            from .sync_queue import get_sync_queue
+            get_sync_queue().add_pending('producciones', 'insert', {
+                'id': produccion_id,
+                'receta_id': p.get('receta_id'),
+                'cantidad': cantidad,
+                'estado': p.get('estado'),
+                'usuario': p.get('usuario'),
+                'observaciones': p.get('observaciones'),
                 'fecha_produccion': p.get('fecha_produccion'),
                 'created_at': p.get('created_at'),
             })
