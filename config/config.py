@@ -27,6 +27,22 @@ for ruta in posibles_rutas:
         env_path = str(ruta)
         load_dotenv(env_path)
         break
+
+# --- FALLBACK: credenciales empaquetadas (config/db_config.py) ---
+# En los builds compilados (Windows exe / APK) el archivo .env puede no
+# viajar dentro del bundle (archivo oculto/gitignored). db_config.py es un
+# módulo Python normal que SIEMPRE se empaqueta; si no se cargó .env,
+# inyectamos esas variables en el entorno para que Settings las lea.
+if not os.getenv("DB_PASSWORD"):
+    try:
+        from config import db_config as _db_config
+        for _key in ("DB_TYPE", "DB_HOST", "DB_PORT", "DB_NAME",
+                     "DB_USER", "DB_PASSWORD", "SQLITE_PATH"):
+            _val = getattr(_db_config, _key, None)
+            if _val and not os.getenv(_key):
+                os.environ[_key] = _val
+    except Exception as _e:
+        print(f"⚠️ No se pudo cargar config/db_config.py: {_e}")
 # ---------------------------------------------
 
 class Settings(BaseSettings):

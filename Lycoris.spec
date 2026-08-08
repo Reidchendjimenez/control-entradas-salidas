@@ -12,7 +12,7 @@ from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 datas = [('assets', 'assets'), ('assets_pos', 'assets_pos'), ('.env', '.')]
 binaries = []
-hiddenimports = ['sqlalchemy.dialects.postgresql', 'pg8000']
+hiddenimports = ['sqlalchemy.dialects.postgresql', 'pg8000', 'config.db_config']
 
 # Recolectar dependencias de configuracion (pydantic_settings SI se usa en config)
 for pkg in ('pydantic_settings',):

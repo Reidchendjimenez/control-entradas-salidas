@@ -56,6 +56,20 @@ jobs:
 
           mkdir -p config
           cp .env config/.env
+
+          # Credenciales empaquetadas: config/db_config.py es un módulo Python
+          # normal que SIEMPRE viaja dentro del APK (a diferencia de .env, un
+          # archivo oculto que el empaquetado puede descartar). config/config.py
+          # lo usa como respaldo si no encuentra el .env.
+          cat << EOF > config/db_config.py
+          DB_TYPE = "postgresql"
+          DB_HOST = "${{ secrets.DB_HOST }}"
+          DB_PORT = "6543"
+          DB_NAME = "${{ secrets.DB_NAME }}"
+          DB_USER = "${{ secrets.DB_USER }}"
+          DB_PASSWORD = "${{ secrets.DB_PASSWORD }}"
+          SQLITE_PATH = "./control_entradas_salidas.db"
+          EOF
           
           # 3. Requirements limpios
           cat << EOF > requirements.txt
