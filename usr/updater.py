@@ -91,7 +91,7 @@ async def comprobar_y_aplicar_actualizaciones(page: ft.Page, status_text: ft.Tex
         status_text.value = "Sin URL de actualización configurada"
         status_text.color = "#9E9E9E"
         page.update()
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.15)
         return
 
     status_text.value = "Buscando actualizaciones..."
@@ -109,7 +109,7 @@ async def comprobar_y_aplicar_actualizaciones(page: ft.Page, status_text: ft.Tex
 
     try:
         # 3. Consultar versión remota (en executor para no bloquear)
-        raw = await asyncio.to_thread(_fetch_url, update_url, 4)
+        raw = await asyncio.to_thread(_fetch_url, update_url, 2)
         remote_info = json.loads(raw.decode('utf-8'))
 
         remote_version = remote_info.get("version", "1.0.0")
@@ -119,7 +119,7 @@ async def comprobar_y_aplicar_actualizaciones(page: ft.Page, status_text: ft.Tex
             status_text.value = f"Aplicación al día (v{local_version})"
             status_text.color = "#4CAF50"
             page.update()
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.15)
             return
 
         if not zip_url:
@@ -189,7 +189,7 @@ async def comprobar_y_aplicar_actualizaciones(page: ft.Page, status_text: ft.Tex
         if not proceed:
             status_text.value = "Actualización omitida"
             page.update()
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.15)
             return
 
         # 5. Descargar (en executor para no bloquear el event loop)

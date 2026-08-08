@@ -14,8 +14,8 @@ datas = [('assets', 'assets'), ('assets_pos', 'assets_pos'), ('.env', '.')]
 binaries = []
 hiddenimports = ['sqlalchemy.dialects.postgresql', 'pg8000']
 
-# Recolectar dependencias de Supabase y configuracion
-for pkg in ('supabase', 'pydantic_settings'):
+# Recolectar dependencias de configuracion (pydantic_settings SI se usa en config)
+for pkg in ('pydantic_settings',):
     d, b, h = collect_all(pkg)
     datas += d
     binaries += b
@@ -23,6 +23,13 @@ for pkg in ('supabase', 'pydantic_settings'):
 
 # Submodulos de sqlalchemy
 hiddenimports += collect_submodules('sqlalchemy')
+
+# Librerias pesadas que NO se usan en la app: no empaquetarlas para que el
+# .exe sea mas liviano y arranque mas rapido en Windows.
+_excludes = [
+    'tkinter', 'matplotlib', 'numpy', 'pandas', 'scipy', 'PIL',
+    'unittest', 'pydoc', 'test', 'email.message', 'http.cookiejar',
+]
 
 # --- 1) Analisis del modulo principal (Control de inventario) ---
 control_a = Analysis(
@@ -33,7 +40,7 @@ control_a = Analysis(
     hiddenimports=list(hiddenimports),
     hookspath=[],
     runtime_hooks=[],
-    excludes=[],
+    excludes=list(_excludes),
     noarchive=False,
 )
 
@@ -60,7 +67,7 @@ pos_a = Analysis(
     hiddenimports=list(hiddenimports),
     hookspath=[],
     runtime_hooks=[],
-    excludes=[],
+    excludes=list(_excludes),
     noarchive=False,
 )
 

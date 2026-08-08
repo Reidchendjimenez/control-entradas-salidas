@@ -76,17 +76,23 @@ def check_connection() -> bool:
     No bloquea operaciones - SQLite siempre está disponible."""
     import socket
     try:
-        socket.create_connection(('8.8.8.8', 53), timeout=3)
+        socket.create_connection(('8.8.8.8', 53), timeout=2)
         return True
     except:
         pass
     # Fallback: intentar conexión HTTP (más fiable en Android)
     try:
         import urllib.request
-        urllib.request.urlopen('https://www.google.com', timeout=3)
+        urllib.request.urlopen('https://www.google.com', timeout=2)
         return True
     except:
         return False
+
+async def check_connection_async() -> bool:
+    """Versión async de check_connection: corre en un hilo para no bloquear
+    el event loop de Flet durante el arranque (timeout total ~4s máx)."""
+    import asyncio
+    return await asyncio.to_thread(check_connection)
 
 def is_online() -> bool:
     """Alias de check_connection() para compatibilidad."""

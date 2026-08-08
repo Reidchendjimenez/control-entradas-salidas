@@ -213,25 +213,25 @@ async def main(page: ft.Page):
                     print(f"[LAUNCHER] Error leyendo app_updates/local_replica.py: {_e_read}")
             print(f"[LAUNCHER] Cargando código actualizado desde {updates_dir}")
 
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.15)
 
         step_text.value = "2/5"
         status_text.value = "Configurando..."
         page.update()
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.15)
 
         from config.config import get_settings
         settings = get_settings()
         status_text.value = "✓ Lista"
         page.update()
 
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.15)
 
         step_text.value = "3/5"
         status_text.value = "Base de datos..."
         page.update()
 
-        from usr.database.base import get_engine, get_session, init_local_tables, check_connection
+        from usr.database.base import get_engine, get_session, init_local_tables, check_connection_async
         from usr.database.local_replica import LocalReplica
         from usr.database.sync import init_sync_manager
 
@@ -266,7 +266,7 @@ async def main(page: ft.Page):
         else:
             status_text.value = f"✓ Hola, {page.session.get('username', 'Usuario')}"
         page.update()
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.15)
 
         sync_manager = init_sync_manager(get_engine)
         sync_manager.set_session_local_getter(get_session)
@@ -274,7 +274,7 @@ async def main(page: ft.Page):
         if sincprog and hasattr(loading, 'set_progress'):
             sincprog(loading.set_progress)
 
-        is_online = check_connection()
+        is_online = await check_connection_async()
         print(f"[MAIN] check_connection(): {is_online}")
 
         if is_online:
@@ -284,7 +284,7 @@ async def main(page: ft.Page):
 
         page.update()
 
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.15)
 
         step_text.value = "4/5"
         status_text.value = "Sincronizando..."
@@ -301,13 +301,13 @@ async def main(page: ft.Page):
             status_text.value = " Error de sync"
         page.update()
 
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.15)
 
         step_text.value = "5/5"
         status_text.value = "Modulos..."
         page.update()
 
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.15)
         from usr.views import InventarioView, ValidacionView, StockView, ProduccionesView, ConfiguracionView, HistorialFacturasView, RequisicionesView, BandejaWhatsAppView
         status_text.value = "✓ Cargado"
         page.update()
@@ -317,15 +317,15 @@ async def main(page: ft.Page):
         status_text.value = "✓ Creado"
         page.update()
 
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.15)
 
         step_text.value = "Listo!!!"
         page.update()
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.15)
 
         status_text.value = "Iniciando..."
         page.update()
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.15)
 
         await app_instance.arrancar_interfaz(page, settings, None)
 
