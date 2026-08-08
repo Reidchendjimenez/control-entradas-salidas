@@ -10,7 +10,7 @@
 
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
-datas = [('assets', 'assets'), ('.env', '.')]
+datas = [('assets', 'assets'), ('assets_pos', 'assets_pos'), ('.env', '.')]
 binaries = []
 hiddenimports = ['sqlalchemy.dialects.postgresql', 'pg8000']
 
@@ -74,8 +74,8 @@ pos_exe = EXE(
     pos_a.datas,
     [],
     name='Lycoris_POS',
-    console=False
-    icon='assets/icono.ico',
+    console=False,
+    icon='assets/icono_azul.ico',
 )
 
 # --- Carpeta onedir compartida: ambos ejecutables viven en dist/Lycoris/ ---

@@ -10,6 +10,7 @@ El fondo es una imagen estática distinta según la orientación:
 import os
 import threading
 import time
+from typing import Optional
 
 import flet as ft
 
@@ -47,6 +48,29 @@ _STAGES = [
 ]
 
 
+# Etapas del sync POS (pos_sync emite mensajes con el patrón "N <tabla> descargados").
+# Refleja el orden real del flujo para que el % avance con cada paso.
+_POS_STAGES = [
+    ("Iniciando sincronizacion POS...", 6, "Conectando con el servidor…"),
+    ("categorias (visibles en POS) descargadas", 12, "Sincronizando categorías…"),
+    ("productos (para la venta) descargados", 18, "Sincronizando productos…"),
+    ("platos_categorias descargados", 26, "Sincronizando categorías de platos…"),
+    ("platos descargados", 34, "Sincronizando platos…"),
+    ("plato_ingredientes descargados", 38, "Sincronizando ingredientes…"),
+    ("plato_contornos descargados", 42, "Sincronizando contornos…"),
+    ("pos_categorias descargados", 46, "Sincronizando categorías POS…"),
+    ("pos_mesas descargados", 50, "Sincronizando mesas…"),
+    ("pos_habitaciones descargados", 54, "Sincronizando habitaciones…"),
+    ("pos_usuarios descargados", 58, "Sincronizando usuarios…"),
+    ("pos_settings descargados", 62, "Sincronizando configuración…"),
+    ("pos_comandas descargados", 74, "Sincronizando comandas…"),
+    ("pos_ventas descargados", 80, "Sincronizando ventas…"),
+    ("movimientos descargados", 88, "Sincronizando movimientos…"),
+    ("Descarga POS completada", 95, "Aplicando cambios…"),
+    ("Sincronizacion POS finalizada", 100, "¡Todo listo!"),
+]
+
+
 def _find_background_image(page=None):
     """Devuelve el 'src' de la imagen de fondo (estática) a usar, o None.
 
@@ -76,19 +100,21 @@ def _find_background_image(page=None):
 class LoadingSplash(ft.Container):
     """Splash a pantalla completa con fondo (imagen estática) y UI animada."""
 
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: ft.Page, title: str = "Control de Entradas y Salidas",
+                 logo_src: str = "icono.png", stages: Optional[list] = None):
         super().__init__()
         self._page = page
         self.expand = True
         self.bgcolor = DARK['bg']
         self.alignment = ft.alignment.center
         self._valor = 0.0
+        self._stages = stages if stages is not None else _STAGES
 
         self._fondo_src = _find_background_image(page=page)
 
         self._logo = ft.Container(
             content=ft.Image(
-                src="icono.png", width=84, height=84,
+                src=logo_src, width=84, height=84,
                 fit=ft.ImageFit.CONTAIN,
                 error_content=ft.Icon(ft.Icons.FACTORY_OUTLINED, size=48, color="#BB86FC"),
             ),
@@ -119,7 +145,7 @@ class LoadingSplash(ft.Container):
         self.content = ft.Column([
             anillo,
             ft.Container(height=8),
-            ft.Text("Control de Entradas y Salidas", size=16, weight="bold", color="#FFFFFF"),
+            ft.Text(title, size=16, weight="bold", color="#FFFFFF"),
             ft.Container(height=18),
             self._porcentaje,
             ft.Container(height=6),
@@ -182,6 +208,25 @@ class LoadingSplash(ft.Container):
         sentido = 1.0
         while not self._stop_ring.is_set():
             if self._tiene_progreso:
+                try:
+                    self._ring.value = self._valor
+                    self._porcentaje.value = f"{int(self._valor * 100)}%"
+                    if self._page is not None:
+                        self._page.update()
+                except Exception:
+                    pass
+                time.sleep(0.1)
+                continue
+            pct_paso = self._pct_paso()
+            if pct_paso is not None:
+                v = pct_paso / 100.0
+                try:
+                    self._ring.value = v
+                    self._porcentaje.value = f"{int(pct_paso)}%"
+                    if self._page is not None:
+                        self._page.update()
+                except Exception:
+                    pass
                 time.sleep(0.1)
                 continue
             self._cuadro += (0.02 * sentido)
@@ -198,6 +243,20 @@ class LoadingSplash(ft.Container):
             except Exception:
                 pass
             time.sleep(0.04)
+
+    # -- % derivado del paso humano "X/Y" (ej. '3/5') previo al sync ----------
+    def _pct_paso(self):
+        text = (self._paso.value or "").strip()
+        if "/" in text:
+            try:
+                cur, total = text.split("/")
+                total = int(total)
+                cur = int(cur)
+                if total > 0:
+                    return max(0, min(100, round(cur / total * 100)))
+            except (ValueError, TypeError):
+                pass
+        return None
 
     # -- animación del logo (pulso de escala) --------------------------------
     def _pulso(self):
@@ -223,7 +282,7 @@ class LoadingSplash(ft.Container):
     def _parse(self, msg: str):
         pct = None
         label = None
-        for sub, p, lbl in _STAGES:
+        for sub, p, lbl in self._stages:
             if sub in (msg or ""):
                 if lbl:
                     label = lbl

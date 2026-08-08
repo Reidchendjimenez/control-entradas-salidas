@@ -697,6 +697,10 @@ class POSSyncManager:
 
     def _background_sync_loop(self, interval):
         while not self._stop_event.is_set():
+            # Esperar primero el intervalo: evita ejecutar un sync inmediato
+            # duplicando el full_sync() manual del arranque.
+            if self._stop_event.wait(interval):
+                break
             try:
                 if self.check_connection():
                     self._process_sync_queue()
@@ -704,7 +708,6 @@ class POSSyncManager:
                     self._notify_sync_complete()
             except Exception as e:
                 self._log(f"Error en sync loop: {e}")
-            self._stop_event.wait(interval)
 
 
 _pos_sync_manager_instance = None

@@ -164,6 +164,9 @@ async def main(page: ft.Page):
 
         page.add(loading)
         page.update()
+        step_text.value = "1/5"
+        status_text.value = "Verificando..."
+        page.update()
 
         from usr.updater import comprobar_y_aplicar_actualizaciones, _get_app_dir
 

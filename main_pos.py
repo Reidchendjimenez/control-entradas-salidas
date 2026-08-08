@@ -24,6 +24,16 @@ def resource_path(relative_path: str) -> str:
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
 
 
+def assets_dir_path() -> str:
+    """Directorio de assets del POS.
+
+    El favicon del navegador se sirve de assets_dir/favicon.png (el HTML de Flet
+    apunta fijo a /favicon.png). Para que el POS tenga su propio icono azul
+    (distinto del modulo de control de inventario) usamos una carpeta dedicada.
+    """
+    return resource_path("assets_pos")
+
+
 _app_dir = os.path.dirname(os.path.abspath(__file__))
 _updates_dir = os.path.join(_app_dir, "app_updates")
 if os.path.exists(_updates_dir):
@@ -42,4 +52,4 @@ async def main(page: ft.Page) -> None:
 
 
 if __name__ == "__main__":
-    ft.app(target=main, assets_dir=resource_path("assets"))
+    ft.app(target=main, assets_dir=assets_dir_path())

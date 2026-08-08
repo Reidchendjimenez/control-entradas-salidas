@@ -25,7 +25,7 @@ async def main(page: ft.Page):
     page.bgcolor = "#121212"
     page.theme_mode = ft.ThemeMode.DARK
     page.assets_allow_override = True
-    page.window.icon = _resource_path("assets/icono.ico")
+    page.window.icon = _resource_path("assets/icono_azul.ico")
 
     from usr.error_handler import set_page
     set_page(page)
@@ -51,24 +51,16 @@ async def main(page: ft.Page):
     app_dir = _get_app_dir()
     updates_dir = os.path.join(app_dir, "app_updates")
 
-    # Mostrar pantalla de carga con logo
-    logo_img = None
-    logo_path = _resource_path("assets/icon.png")
-    if os.path.exists(logo_path):
-        logo_img = ft.Image(
-            src=logo_path,
-            width=120, height=120,
-            fit=ft.ImageFit.CONTAIN,
-        )
-    status_text = ft.Text("Iniciando...", size=14, color="#9E9E9E")
-    loading_items = []
-    if logo_img:
-        loading_items.append(logo_img)
-        loading_items.append(ft.Container(height=10))
-    loading_items.append(ft.ProgressRing(width=40, height=40, color="#4CAF50"))
-    loading_items.append(ft.Container(height=10))
-    loading_items.append(status_text)
-    loading = ft.Column(loading_items, horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+    # Mostrar pantalla de carga (misma implementación que el módulo de control)
+    from usr.views.splash import LoadingSplash, _POS_STAGES
+    loading = LoadingSplash(
+        page,
+        title="Lycoris POS",
+        logo_src="icono_azul.png",
+        stages=_POS_STAGES,
+    )
+    step_text = loading.step_text
+    status_text = loading.status_text
     page.add(loading)
     page.update()
 
@@ -126,9 +118,18 @@ async def main(page: ft.Page):
         from usr.database.pos_sync import init_pos_sync_manager, get_pos_sync_manager
         init_pos_sync_manager(get_engine)
         sm = get_pos_sync_manager()
+        if sm:
+            # El splash avanza con cada paso del sync (los _log de pos_sync
+            # disparan el callback de progreso).
+            sincprog = getattr(sm, 'set_sync_progress_callback', None)
+            if sincprog and hasattr(loading, 'set_progress'):
+                sincprog(loading.set_progress)
         if sm and sm.check_connection():
             try:
-                sm.full_sync()
+                # Correr el sync en un hilo (asyncio.to_thread): así el callback
+                # de progreso se dispara sin bloquear el event loop de Flet y la
+                # pantalla de carga puede refrescar el % en cada paso.
+                await asyncio.to_thread(sm.full_sync)
                 print("[POS] Sync completado")
             except Exception as e_full:
                 import traceback as tb
