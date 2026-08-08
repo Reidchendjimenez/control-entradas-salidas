@@ -455,17 +455,20 @@ class SyncManager:
                                 ), {"min_id": min_id, "max_id": max_id})
                                 chunk = result.fetchall()
                                 conn.rollback()
+                                chunk_dicts = [dict_to_serializable(dict(r._mapping)) for r in chunk]
+                                data.extend(chunk_dicts)
+                                remote_ids.extend(r['id'] for r in chunk_dicts if r.get('id') is not None)
                             except Exception as pe:
                                 try:
                                     conn.rollback()
                                 except Exception:
                                     pass
                                 self._log(f"[SYNC] Error descargando movimientos (página {pagina}): {pe}")
+                                import traceback
+                                print(traceback.format_exc())
                                 break
                             if not chunk:
                                 break
-                            data.extend(dict_to_serializable(dict(r._mapping)) for r in chunk)
-                            remote_ids.extend(r['id'] for r in chunk if r['id'] is not None)
                             pagina += 1
                             if len(chunk) < pag_tam:
                                 break
@@ -474,7 +477,8 @@ class SyncManager:
                         try:
                             LocalReplica.relink_ventas_movimientos()
                         except Exception as e:
-                            print(f"[SYNC] Error relink ventas: {e}")
+                            import traceback
+                            print(f"[SYNC] Error relink ventas: {e}\n{traceback.format_exc()}")
                     elif local_table == 'facturas':
                         LocalReplica.save_facturas(data)
                         LocalReplica.delete_orphaned_records('facturas', remote_ids, 'numero_factura')

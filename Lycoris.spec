@@ -26,9 +26,11 @@ hiddenimports += collect_submodules('sqlalchemy')
 
 # Librerias pesadas que NO se usan en la app: no empaquetarlas para que el
 # .exe sea mas liviano y arranque mas rapido en Windows.
+# IMPORTANTE: no excluir submodulos de la stdlib usados en cadena por flet/urllib
+# (ej. email.message, http.cookiejar), porque rompen el arranque del cliente desktop.
 _excludes = [
-    'tkinter', 'matplotlib', 'numpy', 'pandas', 'scipy', 'PIL',
-    'unittest', 'pydoc', 'test', 'email.message', 'http.cookiejar',
+    'tkinter', 'matplotlib', 'numpy', 'pandas', 'scipy',
+    'unittest', 'pydoc', 'test',
 ]
 
 # --- 1) Analisis del modulo principal (Control de inventario) ---
@@ -38,10 +40,10 @@ control_a = Analysis(
     binaries=binaries,
     datas=list(datas),
     hiddenimports=list(hiddenimports),
-    hookspath=[],
-    runtime_hooks=[],
-    excludes=list(_excludes),
-    noarchive=False,
+        hookspath=[],
+        runtime_hooks=['_frozen_runtime_hook.py'],
+        excludes=list(_excludes),
+        noarchive=False,
 )
 
 control_pyz = PYZ(control_a.pure)
@@ -65,10 +67,10 @@ pos_a = Analysis(
     binaries=binaries,
     datas=list(datas),
     hiddenimports=list(hiddenimports),
-    hookspath=[],
-    runtime_hooks=[],
-    excludes=list(_excludes),
-    noarchive=False,
+        hookspath=[],
+        runtime_hooks=['_frozen_runtime_hook.py'],
+        excludes=list(_excludes),
+        noarchive=False,
 )
 
 pos_pyz = PYZ(pos_a.pure)
