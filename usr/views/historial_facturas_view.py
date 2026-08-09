@@ -166,6 +166,7 @@ class HistorialFacturasView(ft.Container):
         )
 
         self.content = ft.Column([header, tabs], expand=True, spacing=0)
+        self.update()
         
         # Agregar file_picker a la página (solo si no está ya)
         if self.page and self.file_picker not in self.page.overlay:
@@ -243,7 +244,7 @@ class HistorialFacturasView(ft.Container):
             ], spacing=4),
             padding=ft.Padding.symmetric(horizontal=15, vertical=8),
             bgcolor=colors['card'],
-            margin=ft.margin.symmetric(horizontal=10),
+            margin=ft.Margin.symmetric(horizontal=10),
             border_radius=12,
             border=ft.Border.all(1, colors['border']),
         )
@@ -316,28 +317,39 @@ class HistorialFacturasView(ft.Container):
     #  LOGICA DE DATOS
     # ══════════════════════════════════════════════════════════════
     def did_mount(self):
-        from usr.error_handler import show_error
+        if getattr(self, '_mounted', False):
+            return
         try:
-            self._build_ui()
-            self.page.run_task(self._initial_load)
+            try:
+                page = self.page
+            except RuntimeError:
+                return
+            from usr.error_handler import show_error
+            try:
+                self._build_ui()
+                page.run_task(self._initial_load)
+            except Exception as e:
+                show_error("Error al montar vista", e, "historial_facturas_view.did_mount")
+
+            # Loop de monitoreo asíncrono
+            async def check_conn_loop():
+                self._conn_check_active = True
+                while self._conn_check_active:
+                    await asyncio.sleep(10)
+                    if self._conn_check_active:
+                        self._update_connection_indicator()
+                        try: page.update()
+                        except Exception:
+                            pass
+
+            page.run_task(check_conn_loop)
+
+            # Registrar callback para sync automático
+            register_sync_callback(self._on_sync_complete)
+            self._mounted = True
         except Exception as e:
-            show_error("Error al montar vista", e, "historial_facturas_view.did_mount")
-
-        # Loop de monitoreo asíncrono
-        async def check_conn_loop():
-            self._conn_check_active = True
-            while self._conn_check_active:
-                await asyncio.sleep(10)
-                if self.page and self._conn_check_active:
-                    self._update_connection_indicator()
-                    try: self.page.update()
-                    except Exception:
-                        pass
-
-        self.page.run_task(check_conn_loop)
-
-        # Registrar callback para sync automático
-        register_sync_callback(self._on_sync_complete)
+            self._mounted = False
+            logger.error(f"Error en did_mount de HistorialFacturasView: {e}", exc_info=True)
 
     async def _initial_load(self):
         try:
@@ -366,20 +378,24 @@ class HistorialFacturasView(ft.Container):
                 logger.error(f"Error limpiando overlay en will_unmount: {e}")
     
     def _on_sync_complete(self):
-        if hasattr(self, 'page') and self.page and self.visible:
+        try:
+            page = self.page
+        except RuntimeError:
+            return
+        if page and self.visible:
             async def _reload():
                 try:
                     await asyncio.to_thread(self._load_facturas)
                     await asyncio.to_thread(self._load_entradas_por_fecha)
-                    if self.page and self.visible:
+                    if page and self.visible:
                         try:
-                            self.page.update()
+                            page.update()
                         except Exception:
                             pass
                 except Exception as e:
                     logger.error(f"Error en _reload de sync: {e}")
 
-            self.page.run_task(_reload)
+            page.run_task(_reload)
     
     def on_sync_complete(self):
         self._on_sync_complete()
@@ -414,7 +430,12 @@ class HistorialFacturasView(ft.Container):
     def _update_connection_indicator(self):
         from usr.database import get_pending_movimientos_count
         from usr.database.base import is_online
-        if not hasattr(self, '_connection_indicator'): return
+        if not hasattr(self, '_connection_indicator'):
+            return
+        try:
+            _ = self._connection_indicator.page
+        except RuntimeError:
+            return
         pending = get_pending_movimientos_count()
         online = is_online()
         if online:

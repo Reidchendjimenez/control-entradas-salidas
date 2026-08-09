@@ -52,13 +52,28 @@ class ProduccionesView(ft.Container):
         self._connection_indicator = ft.Icon(
             ft.Icons.CLOUD_OFF, size=20, color='#F44336', tooltip="Sin conexión",
         )
+        try:
+            self._build_ui()
+        except Exception as e:
+            logger.warning(f"Error construyendo UI en __init__ de ProduccionesView: {e}")
 
     def did_mount(self):
-        self._running = True
-        self._build_ui()
-        if self.page:
-            self.page.run_task(self._load_data)
-        self._update_connection_indicator()
+        if getattr(self, '_mounted', False):
+            return
+        try:
+            try:
+                page = self.page
+            except RuntimeError:
+                return
+            self._running = True
+            self._build_ui()
+            if page:
+                page.run_task(self._load_data)
+            self._update_connection_indicator()
+            self._mounted = True
+        except Exception as e:
+            self._mounted = False
+            logger.error(f"Error en did_mount de ProduccionesView: {e}", exc_info=True)
 
     def will_unmount(self):
         self._running = False
@@ -76,8 +91,11 @@ class ProduccionesView(ft.Container):
             self._connection_indicator.icon = ft.Icons.CLOUD_DONE if is_online else ft.Icons.CLOUD_OFF
             self._connection_indicator.color = '#4CAF50' if is_online else '#F44336'
             self._connection_indicator.tooltip = "Conectado" if is_online else "Sin conexión"
-            if self.page:
-                self.page.update()
+            try:
+                _ = self._connection_indicator.page
+                self._connection_indicator.update()
+            except RuntimeError:
+                pass
         except Exception:
             pass
 

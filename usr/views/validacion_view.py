@@ -43,21 +43,35 @@ class ValidacionView(ft.Container):
         register_sync_callback(self._on_sync_complete)
 
     def did_mount(self):
-        self._build_controls()
-        if self.page and self.page.client_storage:
-            self.page.run_task(self._load_entradas_pendientes)
-            if self.page:
+        if getattr(self, '_mounted', False):
+            return
+        try:
+            try:
+                page = self.page
+            except RuntimeError:
+                return
+            self._build_controls()
+            if page and page.client_storage:
+                page.run_task(self._load_entradas_pendientes)
                 self.update()
-        
-        self._update_connection_indicator()
-        self._start_connection_monitor()
+            
+            self._update_connection_indicator()
+            self._start_connection_monitor()
+            self._mounted = True
+        except Exception as e:
+            self._mounted = False
+            logger.error(f"Error en did_mount de ValidacionView: {e}", exc_info=True)
 
     def will_unmount(self):
         unregister_sync_callback(self._on_sync_complete)
 
     def _on_sync_complete(self):
-        if hasattr(self, 'page') and self.page and self.visible:
-            self.page.run_task(self._load_entradas_pendientes)
+        try:
+            page = self.page
+        except RuntimeError:
+            return
+        if page and self.visible:
+            page.run_task(self._load_entradas_pendientes)
 
     def _update_connection_indicator(self):
         if not hasattr(self, '_connection_indicator') or not self._connection_indicator:
@@ -70,8 +84,11 @@ class ValidacionView(ft.Container):
                 size=18
             )
             self._connection_indicator.tooltip = "Conectado" if online else "Sin conexión"
-            if self.page and self._connection_indicator.page:
+            try:
+                _ = self._connection_indicator.page
                 self._connection_indicator.update()
+            except RuntimeError:
+                pass
         except:
             pass
 
@@ -80,17 +97,24 @@ class ValidacionView(ft.Container):
         def loop():
             while True:
                 time.sleep(10)
-                if hasattr(self, 'page') and self.page:
-                    self._update_connection_indicator()
-                    try:
-                        self.page.update()
-                    except:
-                        pass
+                try:
+                    page = self.page
+                except RuntimeError:
+                    continue
+                self._update_connection_indicator()
+                try:
+                    page.update()
+                except:
+                    pass
         self._connection_thread = threading.Thread(target=loop, daemon=True)
         self._connection_thread.start()
 
     def _set_loading_overlay(self, visible: bool, message: str = "Procesando..."):
-        if not self.page: return
+        try:
+            page = self.page
+        except RuntimeError:
+            return
+        if not page: return
         
         if visible:
             if self.loading_overlay:
@@ -192,6 +216,7 @@ class ValidacionView(ft.Container):
         )
         
         self.content = ft.Column([header, controls, self.entradas_list], spacing=0, expand=True)
+        self.update()
 
     def _on_sync_indicator_click(self, e=None):
         from usr.database import get_sync_manager

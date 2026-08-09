@@ -49,6 +49,10 @@ class RequisicionesView(ft.Container):
         self._productos_lista_req = None
         self._bs_buscador = None
         self.loading_overlay = None
+        try:
+            self._build_ui()
+        except Exception as e:
+            logger.warning(f"Error construyendo UI en __init__ de RequisicionesView: {e}")
 
     def on_theme_change(self):
         if not self.page:
@@ -80,8 +84,12 @@ class RequisicionesView(ft.Container):
     def _on_sync_indicator_click(self, e):
         """Al pulsar: refresca el estado y muestra los errores si hay fallidos."""
         try:
+            try:
+                page = self.page
+            except RuntimeError:
+                return
             self._update_sync_indicator()
-            if not hasattr(self, 'page') or not self.page:
+            if not page:
                 return
             from usr.database.sync_queue import get_sync_queue
             from usr.database.conn import get_local_conn
@@ -117,9 +125,9 @@ class RequisicionesView(ft.Container):
                 ],
                 actions_alignment=ft.MainAxisAlignment.END,
             )
-            self.page.overlay.append(dlg)
+            page.overlay.append(dlg)
             dlg.open = True
-            self.page.update()
+            page.update()
         except Exception as e:
             print(f"[REQ] Error en click indicador sync: {e}")
 
@@ -139,7 +147,11 @@ class RequisicionesView(ft.Container):
             print(f"[REQ] Error reintentando sync: {e}")
 
     def _show_sync_estado_dialog(self):
-        if not hasattr(self, 'page') or not self.page:
+        try:
+            page = self.page
+        except RuntimeError:
+            return
+        if not page:
             return
         dlg = ft.AlertDialog(
             title=ft.Text("Estado de sincronización", size=16, weight="bold"),
@@ -147,9 +159,9 @@ class RequisicionesView(ft.Container):
             actions=[ft.TextButton("OK", on_click=lambda _: self._close_sync_dialog(dlg))],
             actions_alignment=ft.MainAxisAlignment.END,
         )
-        self.page.overlay.append(dlg)
+        page.overlay.append(dlg)
         dlg.open = True
-        self.page.update()
+        page.update()
 
     def _update_sync_indicator(self):
         """Lee la cola de sync y pinta el indicador: ok / pendientes / fallidos."""
@@ -242,18 +254,30 @@ class RequisicionesView(ft.Container):
         self._load_requisiciones()
 
     def did_mount(self):
+        if getattr(self, '_mounted', False):
+            return
         try:
+            try:
+                page = self.page
+            except RuntimeError:
+                return
             self._build_ui()
             register_sync_callback(self._on_sync_complete)
+            self._mounted = True
         except Exception as e:
+            self._mounted = False
             from usr.error_handler import show_error
-            show_error("Error al montar vista de requisiciones", e, "requisiciones_view.did_mount")
+            logger.error(f"Error en did_mount de RequisicionesView: {e}", exc_info=True)
 
     def will_unmount(self):
         unregister_sync_callback(self._on_sync_complete)
 
     def _on_sync_complete(self):
-        if hasattr(self, 'page') and self.page and self.visible:
+        try:
+            page = self.page
+        except RuntimeError:
+            return
+        if page and self.visible:
             try:
                 self._update_sync_indicator()
             except Exception:
@@ -261,7 +285,7 @@ class RequisicionesView(ft.Container):
             if self._vista_actual == "lista":
                 async def _reload():
                     await asyncio.to_thread(self._load_requisiciones)
-                self.page.run_task(_reload)
+                page.run_task(_reload)
 
     def on_sync_complete(self):
         self._on_sync_complete()
@@ -509,7 +533,7 @@ class RequisicionesView(ft.Container):
                         padding=ft.Padding.symmetric(horizontal=12, vertical=6),
                         bgcolor=colors['card'],
                         border_radius=8,
-                        margin=ft.margin.only(bottom=4),
+                        margin=ft.Margin.only(bottom=4),
                     )
                 )
 

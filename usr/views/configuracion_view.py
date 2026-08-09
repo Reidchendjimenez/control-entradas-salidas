@@ -47,14 +47,30 @@ class ConfiguracionView(ft.Container):
             color=ft.Colors.GREEN_400 if is_online_flag else ft.Colors.RED_400,
             weight=ft.FontWeight.BOLD,
         )
+        try:
+            self._build_ui()
+        except Exception as e:
+            logger.warning(f"Error construyendo UI en __init__ de ConfiguracionView: {e}")
 
     def did_mount(self):
-        if self.page:
-            self.is_mobile = self.page.width < 768
-            self.page.on_resize = self._on_resize
-        self._build_ui()
-        if self.page:
-            self._load_data()
+        if getattr(self, '_mounted', False):
+            return
+        try:
+            try:
+                page = self.page
+            except RuntimeError:
+                return
+            if page:
+                self.is_mobile = (page.width < 768) if page.width else False
+                page.on_resize = self._on_resize
+            if not self.content:
+                self._build_ui()
+            if page:
+                self._load_data()
+            self._mounted = True
+        except Exception as e:
+            self._mounted = False
+            logger.error(f"Error en did_mount de ConfiguracionView: {e}", exc_info=True)
 
     def on_theme_change(self):
         if not self.page:
@@ -64,8 +80,9 @@ class ConfiguracionView(ft.Container):
         self.update()
 
     def _on_resize(self, e):
-        self.is_mobile = self.page.width < 768
-        self.update()
+        if self.page and self.page.width:
+            self.is_mobile = self.page.width < 768
+            self.update()
 
     def _build_ui(self):
         colors = _colors(self.page)
@@ -86,7 +103,7 @@ class ConfiguracionView(ft.Container):
             ], spacing=8),
             padding=ft.Padding.only(left=20, right=20, top=20, bottom=15),
             bgcolor=colors['surface'],
-            border_radius=ft.border_radius.only(bottom_left=20, bottom_right=20),
+            border_radius=ft.BorderRadius.only(bottom_left=20, bottom_right=20),
         )
 
         self.tabs = ft.Tabs(
@@ -124,6 +141,7 @@ class ConfiguracionView(ft.Container):
         )
 
         self.content = ft.Column([header, self.tabs], expand=True, spacing=0)
+        self.update()
 
     def _build_categorias_tab(self):
         colors = _colors(self.page)

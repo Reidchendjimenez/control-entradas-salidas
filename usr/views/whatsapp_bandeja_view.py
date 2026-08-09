@@ -38,10 +38,18 @@ class BandejaWhatsAppView(ft.Container):
             _notify_error("Error inicializando bandeja", ex)
 
     def did_mount(self):
+        if getattr(self, '_mounted', False):
+            return
         try:
+            try:
+                page = self.page
+            except RuntimeError:
+                return
             self._build_ui()
             self._load_messages()
+            self._mounted = True
         except Exception as ex:
+            self._mounted = False
             print(f"[BANDEJA] Error en did_mount: {ex}")
             import traceback; traceback.print_exc()
             _notify_error("Error al montar bandeja", ex)
@@ -61,6 +69,7 @@ class BandejaWhatsAppView(ft.Container):
             ft.Divider(height=1),
             self._list_view,
         ], expand=True, spacing=10)
+        self.update()
 
     def _load_messages(self):
         try:

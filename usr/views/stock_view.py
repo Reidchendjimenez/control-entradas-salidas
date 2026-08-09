@@ -40,18 +40,29 @@ class StockView(ft.Container):
         self.stock_bajo_text = ft.Text("0", size=24, weight=ft.FontWeight.BOLD)
         self.sin_stock_text = ft.Text("0", size=24, weight=ft.FontWeight.BOLD)
         self.active_dialog = None
-
-    def did_mount(self):
         try:
             self._build_ui()
-            self.page.run_task(self._initial_load)
-            self.page.run_task(self._start_connection_monitor)
+        except Exception as e:
+            logger.warning(f"Error construyendo UI en __init__ de StockView: {e}")
+
+    def did_mount(self):
+        if getattr(self, '_mounted', False):
+            return
+        try:
+            try:
+                page = self.page
+            except RuntimeError:
+                return
+            self._build_ui()
+            page.run_task(self._initial_load)
+            page.run_task(self._start_connection_monitor)
             
             from usr.database.sync_callbacks import register_sync_callback
             register_sync_callback(self._on_sync_complete)
+            self._mounted = True
         except Exception as e:
+            self._mounted = False
             logger.error(f"Error en did_mount de StockView: {e}", exc_info=True)
-            show_error("Error al iniciar la vista de Stock", e)
 
     def will_unmount(self):
         self._conn_check_active = False
@@ -70,21 +81,30 @@ class StockView(ft.Container):
         self._conn_check_active = True
         while self._conn_check_active:
             await asyncio.sleep(10)
-            if self.page and self._conn_check_active:
-                try:
-                    self._update_connection_indicator()
-                    self.page.update()
-                except Exception:
-                    pass
+            if not self._conn_check_active:
+                break
+            try:
+                page = self.page
+            except RuntimeError:
+                continue
+            try:
+                self._update_connection_indicator()
+                page.update()
+            except Exception:
+                pass
 
     def _on_sync_complete(self):
-        if hasattr(self, 'page') and self.page and self.visible:
+        try:
+            page = self.page
+        except RuntimeError:
+            return
+        if page and self.visible:
             async def _reload():
                 try:
                     await asyncio.to_thread(self._load_productos)
                 except Exception as e:
                     logger.error(f"Error recargando stock tras sync: {e}")
-            self.page.run_task(_reload)
+            page.run_task(_reload)
 
     def on_sync_complete(self):
         self._on_sync_complete()
@@ -126,7 +146,12 @@ class StockView(ft.Container):
             from usr.database.base import is_online as base_is_online
             from usr.database import get_pending_movimientos_count
             
-            if not hasattr(self, '_connection_indicator'): return
+            if not hasattr(self, '_connection_indicator'):
+                return
+            try:
+                _ = self._connection_indicator.page
+            except RuntimeError:
+                return
             
             pending = get_pending_movimientos_count()
             online = base_is_online()
@@ -261,6 +286,7 @@ class StockView(ft.Container):
         ], spacing=0, expand=True)
         self.content.bgcolor = colors['bg']
         self.content.bgcolor = colors['bg']
+        self.update()
 
     def _load_categorias(self):
         try:

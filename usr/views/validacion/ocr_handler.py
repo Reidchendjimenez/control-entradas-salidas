@@ -54,7 +54,7 @@ class OCRHandler:
             bgcolor=self.theme_colors.get('surface_variant', '#1e1e1e'),
             border=ft.Border.all(1, self.theme_colors.get('border')),
             border_radius=12,
-            margin=ft.margin.only(bottom=5)
+            margin=ft.Margin.only(bottom=5)
         )
 
         self.loading_bar = ft.ProgressBar(

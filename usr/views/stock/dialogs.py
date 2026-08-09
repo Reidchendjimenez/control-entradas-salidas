@@ -39,7 +39,7 @@ def build_existencias_dialog(producto, existencias, on_ajustar, on_close):
                     bgcolor=colors['card'],
                     padding=12,
                     border_radius=10,
-                    margin=ft.margin.only(bottom=8),
+                    margin=ft.Margin.only(bottom=8),
                     border=ft.Border.all(1, colors['border']),
                 )
             )
