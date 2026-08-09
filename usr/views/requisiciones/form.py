@@ -128,7 +128,7 @@ class RequisicionForm:
                     color="white",
                 ),
             ], spacing=10),
-            padding=ft.padding.symmetric(horizontal=10, vertical=8),
+            padding=ft.Padding.symmetric(horizontal=10, vertical=8),
             bgcolor=colors['surface'],
         )
 
@@ -166,7 +166,7 @@ class RequisicionForm:
                     panel_productos,
                 ], spacing=5, scroll=ft.ScrollMode.AUTO),
                 expand=True,
-                padding=ft.padding.only(left=10, right=10, top=5, bottom=10),
+                padding=ft.Padding.only(left=10, right=10, top=5, bottom=10),
             ),
         ], spacing=0, expand=True)
 
@@ -263,7 +263,7 @@ class RequisicionForm:
                 )
                 show_success("Requisición actualizada")
             else:
-                user_id = (self.page.session.get("user_id") or "Admin") if self.page else "Admin"
+                user_id = (self.page.session.store.get("user_id") or "Admin") if self.page else "Admin"
                 RequisicionService.create_requisicion(
                     db, origen, destino, observaciones, self.lista_productos_req, user_id
                 )

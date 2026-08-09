@@ -92,7 +92,7 @@ def build_requisicion_card(req, callbacks, colors):
                     content=ft.Icon(ft.Icons.ASSIGNMENT_ROUNDED, size=24, color=colors['white']),
                     bgcolor=colors['accent'],
                     width=44, height=44, border_radius=10,
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment.CENTER,
                 ),
                 ft.Column([
                     ft.Text(f"#{req.numero}", weight="bold", size=16, color=colors['text_primary'], max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
@@ -101,7 +101,7 @@ def build_requisicion_card(req, callbacks, colors):
                 ft.Column([
                     ft.Container(
                         content=ft.Text(req.estado.upper(), size=10, weight="bold", color=colors['white']),
-                        bgcolor=estado_color, padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                        bgcolor=estado_color, padding=ft.Padding.symmetric(horizontal=8, vertical=4),
                         border_radius=5,
                     ),
                     ft.Text(f"{total_items} items", size=11, color=colors['text_secondary']),
@@ -119,7 +119,7 @@ def build_requisicion_card(req, callbacks, colors):
         padding=15,
         bgcolor=colors['card'],
         border_radius=12,
-        border=ft.border.all(1, colors['border']),
+        border=ft.Border.all(1, colors['border']),
         on_click=callbacks["on_visualizar"],
     )
 
@@ -130,8 +130,8 @@ def build_empty_state(colors):
             ft.Icon(ft.Icons.INVENTORY_2_OUTLINED, size=50, color=colors['text_hint']),
             ft.Text("No hay requisiciones", color=colors['text_secondary']),
         ], horizontal_alignment="center"),
-        padding=ft.padding.only(top=80),
-        alignment=ft.alignment.top_center,
+        padding=ft.Padding.only(top=80),
+        alignment=ft.Alignment.top_center,
     )
 
 

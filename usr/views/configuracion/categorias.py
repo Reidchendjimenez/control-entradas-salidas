@@ -65,7 +65,7 @@ def show_categoria_dialog(view, categoria=None):
                     height=30 if is_mobile else 35,
                     bgcolor=c[0],
                     border_radius=20,
-                    border=ft.border.all(2, colors['white'] if c[0] == color_dropdown.value else "transparent"),
+                    border=ft.Border.all(2, colors['white'] if c[0] == color_dropdown.value else "transparent"),
                 ),
                 on_tap=lambda e, color=c[0]: _update_color_preview(view, color, color_preview, color_dropdown),
             )
@@ -149,7 +149,7 @@ def _update_color_preview(view, color, preview_row, dropdown=None):
         dropdown.value = color
     for ctrl in preview_row.controls:
         container = ctrl.content
-        container.border = ft.border.all(2, colors['white'] if container.bgcolor == color else "transparent")
+        container.border = ft.Border.all(2, colors['white'] if container.bgcolor == color else "transparent")
     preview_row.update()
     if dropdown:
         dropdown.update()
@@ -244,7 +244,7 @@ def _create_categoria_card(view, c):
         padding=15,
         bgcolor=colors['card'],
         border_radius=15,
-        border=ft.border.all(1, colors['border']),
+        border=ft.Border.all(1, colors['border']),
         expand=True,
     )
 
@@ -297,6 +297,6 @@ def create_categoria_item_mobile(view, c):
         padding=15,
         bgcolor=colors['card'],
         border_radius=12,
-        border=ft.border.all(1, colors['border']),
+        border=ft.Border.all(1, colors['border']),
         width=None,
     )

@@ -54,11 +54,11 @@ class AuditView(ft.Container):
                     bgcolor=colors.get('card', '#252525'),
                     padding=20,
                     border_radius=15,
-                    border=ft.border.all(1, colors.get('border')),
+                    border=ft.Border.all(1, colors.get('border')),
                     width=250,
                 ),
                 bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
-                alignment=ft.alignment.center,
+                alignment=ft.Alignment.CENTER,
                 expand=True,
             )
             self.page.overlay.append(self.loading_overlay)
@@ -189,7 +189,7 @@ class AuditView(ft.Container):
                 padding=10,
                 bgcolor=self.colors['card'] if item['verificado'] else self.colors['bg'],
                 border_radius=8,
-                border=ft.border.all(1, self.colors['border']),
+                border=ft.Border.all(1, self.colors['border']),
             )
             rows.append(row)
 

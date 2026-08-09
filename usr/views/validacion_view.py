@@ -22,10 +22,10 @@ class ValidacionView(ft.Container):
         super().__init__()
         self.visible = False
         self.expand = True
-        self.padding = ft.padding.only(left=10, right=10, bottom=16, top=8)
+        self.padding = ft.Padding.only(left=10, right=10, bottom=16, top=8)
         self.bgcolor = '#1A1A1A'
         
-        self.entradas_list = ft.ListView(expand=True, spacing=10, padding=ft.padding.only(top=10))
+        self.entradas_list = ft.ListView(expand=True, spacing=10, padding=ft.Padding.only(top=10))
         self.search_field = None
         self.selected_entradas = set()
         self.entradas_data = {}
@@ -112,11 +112,11 @@ class ValidacionView(ft.Container):
                     bgcolor=colors.get('surface', '#252525'),
                     padding=20,
                     border_radius=15,
-                    border=ft.border.all(1, colors.get('border')),
+                    border=ft.Border.all(1, colors.get('border')),
                     width=250,
                 ),
                 bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
-                alignment=ft.alignment.center,
+                alignment=ft.Alignment.CENTER,
                 expand=True,
             )
             self.page.overlay.append(self.loading_overlay)
@@ -180,7 +180,7 @@ class ValidacionView(ft.Container):
                     )
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             ], spacing=0),
-            padding=ft.padding.only(bottom=10)
+            padding=ft.Padding.only(bottom=10)
         )
         
         controls = ft.Container(
@@ -188,7 +188,7 @@ class ValidacionView(ft.Container):
                 self.search_field,
                 ft.Row([self.validate_button, self.clear_button], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
             ], spacing=10),
-            padding=ft.padding.symmetric(horizontal=20, vertical=10),
+            padding=ft.Padding.symmetric(horizontal=20, vertical=10),
         )
         
         self.content = ft.Column([header, controls, self.entradas_list], spacing=0, expand=True)
@@ -353,7 +353,7 @@ class ValidacionView(ft.Container):
                         ft.Icon(ft.Icons.FACT_CHECK_OUTLINED, size=50, color=ft.Colors.GREY_300),
                         ft.Text("Sin entradas pendientes", color=ft.Colors.GREY_400)
                     ], horizontal_alignment="center"),
-                    padding=ft.padding.only(top=100),
+                    padding=ft.Padding.only(top=100),
                     alignment="center"
                 ))
             else:
@@ -463,7 +463,7 @@ class ValidacionView(ft.Container):
             animate=200,
             bgcolor=colors['card_hover'] if is_selected else colors['card'],
             border_radius=12,
-            border=ft.border.all(2, colors['accent']) if is_selected else ft.border.all(1, colors['border']),
+            border=ft.Border.all(2, colors['accent']) if is_selected else ft.Border.all(1, colors['border']),
             on_click=lambda _: self._toggle_selection(entrada.id)
         )
         
@@ -481,7 +481,7 @@ class ValidacionView(ft.Container):
             is_sel = entrada_id in self.selected_entradas
             colors = get_colors(self.page)
             card.bgcolor = colors['card_hover'] if is_sel else colors['card']
-            card.border = ft.border.all(2, colors['accent']) if is_sel else ft.border.all(1, colors['border'])
+            card.border = ft.Border.all(2, colors['accent']) if is_sel else ft.Border.all(1, colors['border'])
             if card.page:
                 card.update()
         
@@ -519,7 +519,7 @@ class ValidacionView(ft.Container):
         for card in self.cards_dict.values():
             if card.page:
                 card.bgcolor = get_colors(self.page)['card']
-                card.border = ft.border.all(1, get_colors(self.page)['border'])
+                card.border = ft.Border.all(1, get_colors(self.page)['border'])
                 card.update()
         if self.page:
             self.page.run_task(self._load_entradas_pendientes)

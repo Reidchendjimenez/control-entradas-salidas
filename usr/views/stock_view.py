@@ -176,7 +176,7 @@ class StockView(ft.Container):
                     tooltip="Recargar datos"
                 )
             ]),
-            padding=ft.padding.symmetric(horizontal=16, vertical=12)
+            padding=ft.Padding.symmetric(horizontal=16, vertical=12)
         )
         
         self.summary_container = ft.Container(
@@ -188,7 +188,7 @@ class StockView(ft.Container):
                 build_stat_card("Agotado", self.sin_stock_text, ft.Icons.ERROR_OUTLINE, '#F44336', 
                                 on_click=lambda _: self._filter_by_stock_status("out"), active=(self.current_stock_filter == "out")),
             ], scroll=ft.ScrollMode.HIDDEN, spacing=12),
-            padding=ft.padding.symmetric(horizontal=16),
+            padding=ft.Padding.symmetric(horizontal=16),
             clip_behavior=ft.ClipBehavior.HARD_EDGE,
             animate_size=ft.Animation(220, ft.AnimationCurve.EASE_OUT),
             animate_opacity=ft.Animation(220, ft.AnimationCurve.EASE_OUT),
@@ -224,7 +224,7 @@ class StockView(ft.Container):
                 ft.Column([self.categoria_filter], col={"xs": 6, "sm": 3}),
                 ft.Column([self.almacen_filter], col={"xs": 6, "sm": 3}),
             ], spacing=12),
-            padding=ft.padding.symmetric(horizontal=16, vertical=4),
+            padding=ft.Padding.symmetric(horizontal=16, vertical=4),
             clip_behavior=ft.ClipBehavior.HARD_EDGE,
             animate_size=ft.Animation(220, ft.AnimationCurve.EASE_OUT),
             animate_opacity=ft.Animation(220, ft.AnimationCurve.EASE_OUT),
@@ -238,7 +238,7 @@ class StockView(ft.Container):
         self.list_container = ft.Container(
             content=self.productos_list,
             bgcolor=colors['bg'],
-            padding=ft.padding.only(left=16, right=16, bottom=20),
+            padding=ft.Padding.only(left=16, right=16, bottom=20),
         )
         
         # Toda la vista se desplaza junta: el encabezado (Gestión de Stock + resumen +
@@ -298,7 +298,7 @@ class StockView(ft.Container):
                     ft.ProgressRing(color=colors['accent']),
                     ft.Text("Cargando productos...", size=14, color=colors['text_secondary']),
                 ], horizontal_alignment="center", spacing=10),
-                alignment=ft.alignment.center,
+                alignment=ft.Alignment.CENTER,
                 bgcolor=colors['bg'],
                 expand=True,
             )

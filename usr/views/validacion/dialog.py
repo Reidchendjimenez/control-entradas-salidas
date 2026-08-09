@@ -19,7 +19,7 @@ class ValidacionDialog:
         self._build_ui()
     
     def _build_ui(self):
-        nombre_usuario = self.page.session.get("username") or "Sistema"
+        nombre_usuario = self.page.session.store.get("username") or "Sistema"
         
         dialog_width = 400 if self.is_mobile else 650
         
@@ -28,7 +28,7 @@ class ValidacionDialog:
                 ft.Icon(ft.Icons.PERSON, size=18, color=self.theme_colors.get('accent', '#BB86FC')),
                 ft.Text(f"Validado por: {nombre_usuario}", weight="bold", size=13, color=self.theme_colors.get('text_primary'))
             ]),
-            padding=ft.padding.symmetric(horizontal=12, vertical=8),
+            padding=ft.Padding.symmetric(horizontal=12, vertical=8),
             bgcolor=self.theme_colors.get('accent_dark', '#9A67EA'),
             border_radius=8
         )
@@ -73,7 +73,7 @@ class ValidacionDialog:
     def get_data(self):
         return self.fields.get_data() | {
             'pagos': self.payments.get_pagos(),
-            'validada_por': self.page.session.get("username") or 'Sistema'
+            'validada_por': self.page.session.store.get("username") or 'Sistema'
         }
     
     def set_on_validate(self, callback):

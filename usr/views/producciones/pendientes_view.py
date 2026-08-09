@@ -59,7 +59,7 @@ def build_pendientes_tab(page, on_change):
                         ], expand=True, spacing=2),
                         ft.Container(
                             content=ft.Text(f"x{produccion.get('cantidad', 1)}", size=14, weight=ft.FontWeight.BOLD, color=colors['accent']),
-                            padding=ft.padding.symmetric(horizontal=10, vertical=5),
+                            padding=ft.Padding.symmetric(horizontal=10, vertical=5),
                             bgcolor=colors['card_hover'],
                             border_radius=6,
                         ),
@@ -86,10 +86,10 @@ def build_pendientes_tab(page, on_change):
                         ),
                     ]),
                 ], spacing=5),
-                padding=ft.padding.all(15),
+                padding=ft.Padding.all(15),
                 bgcolor=colors['card'],
                 border_radius=10,
-                border=ft.border.all(1, colors['border']),
+                border=ft.Border.all(1, colors['border']),
             )
             cards.append(card)
 
@@ -101,7 +101,7 @@ def build_pendientes_tab(page, on_change):
                         ft.Text("Sin producciones pendientes", size=16, color=colors['text_hint']),
                         ft.Text("Las producciones se crean desde Inventario al hacer una entrada de producción", size=13, color=colors['text_hint'], text_align=ft.TextAlign.CENTER),
                     ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10),
-                    padding=ft.padding.all(40),
+                    padding=ft.Padding.all(40),
                 )
             )
 
@@ -111,4 +111,4 @@ def build_pendientes_tab(page, on_change):
 
     render()
 
-    return ft.Container(content=pendientes_list, expand=True, padding=ft.padding.all(20))
+    return ft.Container(content=pendientes_list, expand=True, padding=ft.Padding.all(20))

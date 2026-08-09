@@ -12,7 +12,7 @@ class LoginView(ft.Container):
     def __init__(self, on_success=None, modo="registro"):
         super().__init__()
         self.expand = True
-        self.padding = ft.padding.all(20)
+        self.padding = ft.Padding.all(20)
         self.bgcolor = DARK_THEME['bg']
         self.on_success_callback = on_success
         self.modo = modo
@@ -179,7 +179,7 @@ class LoginView(ft.Container):
         try:
             if not self.page:
                 return
-            self.page.session.set("username", nombre)
+            self.page.session.store.set("username", nombre)
 
             # Ruta principal: app_launcher está esperando a que este callback
             # (after_login -> setup_done) se dispare para continuar con un único
@@ -195,7 +195,7 @@ class LoginView(ft.Container):
             # Configurar path de BD primero
             import os
             from usr.database.conn import set_db_path
-            db_dir = self.page.session.get("_db_dir") or "."
+            db_dir = self.page.session.store.get("_db_dir") or "."
             db_path = os.path.join(db_dir, "lycoris_local.db")
             set_db_path(db_path)
 

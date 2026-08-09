@@ -38,7 +38,7 @@ class MesasView(ft.Container):
                     ft.Text("No hay mesas registradas", size=18, color="#9E9E9E"),
                     ft.Text("Vaya a Configuracion > Mesas para agregar", size=14, color="#757575"),
                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                alignment=ft.alignment.center, expand=True,
+                alignment=ft.Alignment.CENTER, expand=True,
             ))
         else:
             for m in mesas:
@@ -60,8 +60,8 @@ class MesasView(ft.Container):
             bgcolor="#1E1E1E",
             border_radius=12, padding=12,
             width=110, height=130,
-            alignment=ft.alignment.center,
-            border=ft.border.only(bottom=ft.BorderSide(3, color)),
+            alignment=ft.Alignment.CENTER,
+            border=ft.Border(bottom=ft.BorderSide(3, color)),
             shadow=ft.BoxShadow(
                 blur_radius=0, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 3),
             ),
@@ -73,7 +73,7 @@ class MesasView(ft.Container):
                 controls=[
                     ft.Container(
                         content=ft.Text(numero, size=20, weight="bold", color=ft.Colors.WHITE),
-                        alignment=ft.alignment.center,
+                        alignment=ft.Alignment.CENTER,
                         width=40, height=40,
                         bgcolor=color,
                         shape=ft.BoxShape.CIRCLE,
@@ -85,7 +85,7 @@ class MesasView(ft.Container):
                     ft.Container(
                         content=ft.Text(badge_text, size=9, weight="bold", color=badge_color),
                         bgcolor=badge_bg, border_radius=10,
-                        padding=ft.padding.symmetric(horizontal=8, vertical=2),
+                        padding=ft.Padding.symmetric(horizontal=8, vertical=2),
                     ),
                     ft.Container(height=2),
                     ft.Text(
@@ -145,7 +145,7 @@ class MesasView(ft.Container):
         avatar_color = "#FF9800" if es_admin else "#7C4DFF"
         avatar = ft.Container(
             content=ft.Text(iniciales, size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-            width=36, height=36, bgcolor=avatar_color, border_radius=18, alignment=ft.alignment.center,
+            width=36, height=36, bgcolor=avatar_color, border_radius=18, alignment=ft.Alignment.CENTER,
         )
         user_info = ft.Column([
             ft.Text(nombre, size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
@@ -162,8 +162,8 @@ class MesasView(ft.Container):
                 ft.Row([avatar, user_info], spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER),
                 ft.IconButton(icon=ft.Icons.LOGOUT_ROUNDED, icon_color="#EF5350", tooltip="Cerrar sesion", on_click=lambda _: self._cerrar_sesion()),
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            bgcolor="#1E1E1E", border=ft.border.only(bottom=ft.BorderSide(1,"#3D3D3D")),
-            padding=ft.padding.symmetric(horizontal=20, vertical=10),
+            bgcolor="#1E1E1E", border=ft.Border(bottom=ft.BorderSide(1,"#3D3D3D")),
+            padding=ft.Padding.symmetric(horizontal=20, vertical=10),
         )
 
     def _cerrar_sesion(self):

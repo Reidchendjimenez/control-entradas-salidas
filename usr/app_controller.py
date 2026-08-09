@@ -133,7 +133,7 @@ class ControlEntradasSalidasApp:
             self.sync_status_bar = ft.Container(
                 height=0, visible=True,
                 bgcolor='#2D2D2D',
-                padding=ft.padding.symmetric(horizontal=12, vertical=0),
+                padding=ft.Padding.symmetric(horizontal=12, vertical=0),
                 border_radius=ft.border_radius.all(8),
                 content=ft.Row([
                     ft.ProgressRing(width=14, height=14, stroke_width=2, color='#BB86FC'),
@@ -297,21 +297,21 @@ class ControlEntradasSalidasApp:
             menu_content = ft.Column(spacing=0, controls=[
                 ft.Container(
                     content=ft.Row([ft.Icon(theme_icon, size=24), ft.Text(theme_label, size=16)], spacing=15),
-                    padding=ft.padding.all(15),
+                    padding=ft.Padding.all(15),
                     on_click=on_toggle_theme,
                 ),
                 ft.Divider(height=1, color='#3D3D3D'),
                 *[
                     ft.Container(
                         content=ft.Row([ft.Icon(icon, size=24), ft.Text(label, size=16)], spacing=15),
-                        padding=ft.padding.all(15),
+                        padding=ft.Padding.all(15),
                         on_click=lambda e, i=idx: on_nav(e, i),
                     )
                     for icon, label, idx in opciones
                 ],
             ])
 
-            self.bottom_sheet = ft.BottomSheet(content=ft.Container(content=menu_content, padding=ft.padding.only(bottom=20)), open=True)
+            self.bottom_sheet = ft.BottomSheet(content=ft.Container(content=menu_content, padding=ft.Padding.only(bottom=20)), open=True)
             self.page.open(self.bottom_sheet)
         except Exception as e:
             logger.error(f"Error en _show_more_menu: {e}", exc_info=True)
@@ -323,7 +323,7 @@ class ControlEntradasSalidasApp:
                 keys = list(range(len(self.views))) if self.views else "None"
                 self.content_area.content = ft.Container(
                     content=ft.Text(f"Error: Vista {index} no encontrada. Keys: {keys}", color=ft.Colors.RED),
-                    alignment=ft.alignment.center, expand=True,
+                    alignment=ft.Alignment.CENTER, expand=True,
                 )
                 self.page.update()
                 return

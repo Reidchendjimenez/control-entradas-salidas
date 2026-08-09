@@ -155,7 +155,7 @@ def render_proveedores(view, data):
                     ft.Container(
                         content=ft.Text(prov.get('estado', 'Activo'), size=9, color="white"),
                         bgcolor=colors['success'] if prov.get('estado') == 'Activo' else colors['error'],
-                        padding=ft.padding.symmetric(horizontal=6, vertical=2),
+                        padding=ft.Padding.symmetric(horizontal=6, vertical=2),
                         border_radius=6,
                     ),
                 ], spacing=10),
@@ -163,7 +163,7 @@ def render_proveedores(view, data):
             padding=12,
             bgcolor=colors['card'],
             border_radius=12,
-            border=ft.border.all(1, colors['border']),
+            border=ft.Border.all(1, colors['border']),
             ink=True,
             on_click=lambda _, p=prov: show_proveedor_dialog(view, p)
         )
@@ -215,7 +215,7 @@ def build_proveedores_tab(view):
                 ft.Container(
                     content=fab_content,
                     bgcolor=colors['accent'],
-                    padding=ft.padding.symmetric(horizontal=20, vertical=12),
+                    padding=ft.Padding.symmetric(horizontal=20, vertical=12),
                     border_radius=30,
                     on_click=lambda _: show_proveedor_dialog(view),
                 ),

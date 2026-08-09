@@ -68,7 +68,7 @@ class RequisicionesView(ft.Container):
                  ft.Text("—", size=12, color=self.colors['text_secondary'], weight="w500")],
                 spacing=5, tight=True,
             ),
-            padding=ft.padding.only(10, 6, 10, 6),
+            padding=ft.Padding.only(10, 6, 10, 6),
             border_radius=15,
             bgcolor=self.colors['bg'],
             tooltip="Estado de sincronización",
@@ -222,7 +222,7 @@ class RequisicionesView(ft.Container):
                     col={"xs": 12, "sm": 4},
                 ),
             ], spacing=4, alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-            padding=ft.padding.only(left=16, right=16, top=16, bottom=10),
+            padding=ft.Padding.only(left=16, right=16, top=16, bottom=10),
             bgcolor=self.colors['surface'],
         )
 
@@ -476,7 +476,7 @@ class RequisicionesView(ft.Container):
                         ft.Icon(ft.Icons.CHAT_BUBBLE_OUTLINE, size=40, color=colors['text_hint']),
                         ft.Text("Toca + para agregar productos", color=colors['text_secondary'], text_align="center"),
                     ], horizontal_alignment="center", spacing=10),
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment.CENTER,
                     expand=True,
                 )
             )
@@ -506,7 +506,7 @@ class RequisicionesView(ft.Container):
                                 on_click=lambda _, idx=i: self._eliminar_producto_req(idx),
                             ),
                         ], spacing=10, vertical_alignment="center"),
-                        padding=ft.padding.symmetric(horizontal=12, vertical=6),
+                        padding=ft.Padding.symmetric(horizontal=12, vertical=6),
                         bgcolor=colors['card'],
                         border_radius=8,
                         margin=ft.margin.only(bottom=4),
@@ -547,11 +547,11 @@ class RequisicionesView(ft.Container):
                     bgcolor=colors.get('card', '#252525'),
                     padding=20,
                     border_radius=15,
-                    border=ft.border.all(1, colors.get('border')),
+                    border=ft.Border.all(1, colors.get('border')),
                     width=250,
                 ),
                 bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
-                alignment=ft.alignment.center,
+                alignment=ft.Alignment.CENTER,
                 expand=True,
             )
             self.page.overlay.append(self.loading_overlay)
@@ -575,7 +575,7 @@ class RequisicionesView(ft.Container):
         import asyncio
         origen = origen_dropdown.value or "principal"
         destino = destino_dropdown.value or "restaurante"
-        user_id = (self.page.session.get("user_id") or "Admin") if self.page else "Admin"
+        user_id = (self.page.session.store.get("user_id") or "Admin") if self.page else "Admin"
 
         req_editando = getattr(self, '_requisicion_editando', None)
         try:

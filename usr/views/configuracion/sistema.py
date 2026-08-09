@@ -38,6 +38,19 @@ def build_sistema_tab(view):
                             bgcolor="#7B1FA2",
                             color=colors['white'],
                         ),
+                        ft.Container(height=5),
+                        ft.Text(
+                            "Use 'Verificar Supabase' para comprobar la conexión real con la base de datos remota (nube).",
+                            size=13,
+                            color="#424242",
+                        ),
+                        ft.ElevatedButton(
+                            "Verificar Supabase",
+                            on_click=lambda e: test_supabase_action(view, e),
+                            icon=ft.Icons.CLOUD_DONE,
+                            bgcolor="#1565C0",
+                            color=colors['white'],
+                        ),
                         ft.Divider(height=20, color=colors['border']),
                         ft.Text(
                             "Configuracion de Alertas",
@@ -275,6 +288,50 @@ def confirmar_cambio(view):
     LocalReplica.eliminar_usuario_dispositivo()
     show_info("Recargando...")
     view.page.run_task(restart_main, view.page)
+
+
+def test_supabase_action(view, e):
+    """Lanza la verificación de Supabase en un hilo (no bloquea la UI)."""
+    view.page.run_task(_do_test_supabase, view)
+
+
+async def _do_test_supabase(view):
+    import asyncio
+    from usr.database.sync import get_sync_manager
+    from usr.notifications import show_info, show_success, show_error_with_copy
+
+    show_info("Verificando conexión con Supabase...")
+    sync_mgr = get_sync_manager()
+    if not sync_mgr:
+        view.test_result_text.value = "SyncManager no inicializado"
+        view.test_result_text.color = "#c62828"
+        view.test_result_text.visible = True
+        show_error_with_copy("SyncManager no inicializado", "No hay sync_mgr")
+        view.update()
+        return
+
+    try:
+        ok, mensaje = await asyncio.to_thread(sync_mgr.test_remote_connection)
+        if ok:
+            view.test_result_text.value = "Conexión exitosa con Supabase"
+            view.test_result_text.color = "#2E7D32"
+            view.test_result_text.visible = True
+            show_success(f"Conexión a Supabase verificada")
+        else:
+            view.test_result_text.value = f"Supabase: {mensaje}"
+            view.test_result_text.color = "#c62828"
+            view.test_result_text.visible = True
+            show_error_with_copy("Error de conexión a Supabase", Exception(mensaje))
+    except Exception as ex:
+        view.test_result_text.value = f"Supabase: {ex}"
+        view.test_result_text.color = "#c62828"
+        view.test_result_text.visible = True
+        show_error_with_copy("Error de conexión a Supabase", ex)
+    finally:
+        try:
+            view.update()
+        except Exception:
+            pass
 
 
 def request_notifications_action(view, e):

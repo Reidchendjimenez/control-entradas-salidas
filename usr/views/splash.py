@@ -106,7 +106,7 @@ class LoadingSplash(ft.Container):
         self._page = page
         self.expand = True
         self.bgcolor = DARK['bg']
-        self.alignment = ft.alignment.center
+        self.alignment = ft.Alignment.CENTER
         self._valor = 0.0
         self._stages = stages if stages is not None else _STAGES
 
@@ -115,14 +115,14 @@ class LoadingSplash(ft.Container):
         self._logo = ft.Container(
             content=ft.Image(
                 src=logo_src, width=84, height=84,
-                fit=ft.ImageFit.CONTAIN,
+                fit=ft.BoxFit.CONTAIN,
                 error_content=ft.Icon(ft.Icons.FACTORY_OUTLINED, size=48, color="#BB86FC"),
             ),
             width=96, height=96,
             bgcolor=ft.Colors.with_opacity(0.15, "#BB86FC"),
             border_radius=24,
-            border=ft.border.all(2, "#BB86FC"),
-            alignment=ft.alignment.center,
+            border=ft.Border.all(width=2, color="#BB86FC"),
+            alignment=ft.Alignment.CENTER,
             clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
         )
 
@@ -132,7 +132,7 @@ class LoadingSplash(ft.Container):
             color="#BB86FC", bgcolor="#2A2A2A",
         )
         anillo = ft.Stack(
-            controls=[self._ring, ft.Container(content=self._logo, alignment=ft.alignment.center)],
+            controls=[self._ring, ft.Container(content=self._logo, alignment=ft.Alignment.CENTER)],
             width=146, height=146,
         )
 
@@ -160,11 +160,11 @@ class LoadingSplash(ft.Container):
         # por la que antes quedaba pegado arriba.
         tarjeta = ft.Container(
             content=self.content,
-            padding=ft.padding.symmetric(horizontal=32, vertical=28),
+            padding=ft.Padding.symmetric(horizontal=32, vertical=28),
             bgcolor=ft.Colors.with_opacity(0.55, "#0D0D0D"),
             border_radius=20,
             blur=ft.Blur(0, 0, ft.BlurTileMode.CLAMP),
-            border=ft.border.all(1, ft.Colors.with_opacity(0.25, "#FFFFFF")),
+            border=ft.Border.all(1, ft.Colors.with_opacity(0.25, "#FFFFFF")),
         )
 
         # --- Capa base: el fondo se pone en 'self.image' (propiedad del
@@ -173,7 +173,7 @@ class LoadingSplash(ft.Container):
         if self._fondo_src:
             self.image = ft.DecorationImage(
                 src=self._fondo_src,
-                fit=ft.ImageFit.COVER,
+                fit=ft.BoxFit.COVER,
             )
 
         # Capa oscura translúcida encima del fondo + contenido centrado.
@@ -184,7 +184,7 @@ class LoadingSplash(ft.Container):
         tarjeta_central = ft.Container(
             content=tarjeta,
             expand=True,
-            alignment=ft.alignment.center,
+            alignment=ft.Alignment.CENTER,
         )
         self.content = ft.Stack(
             controls=[oscurece, tarjeta_central],

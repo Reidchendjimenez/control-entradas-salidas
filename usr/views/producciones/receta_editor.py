@@ -71,9 +71,9 @@ class RecetaEditor(ft.Container):
                     ),
                 ], spacing=2, expand=True),
             ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=ft.padding.only(left=16, right=20, top=12, bottom=12),
+            padding=ft.Padding.only(left=16, right=20, top=12, bottom=12),
             bgcolor=colors['surface'],
-            border=ft.border.only(bottom=ft.BorderSide(1, colors['border'])),
+            border=ft.Border(bottom=ft.BorderSide(1, colors['border'])),
         )
 
         # Footer sticky (se construye antes que sec3 para que las filas existentes
@@ -98,7 +98,7 @@ class RecetaEditor(ft.Container):
                 scroll=ft.ScrollMode.AUTO,
                 expand=True,
             ),
-            padding=ft.padding.all(20),
+            padding=ft.Padding.all(20),
             expand=True,
         )
 
@@ -148,10 +148,10 @@ class RecetaEditor(ft.Container):
                     on_change=lambda _: self._on_tipo_change(),
                 ),
             ], spacing=8),
-            padding=ft.padding.all(16),
+            padding=ft.Padding.all(16),
             bgcolor=colors['surface'],
             border_radius=10,
-            border=ft.border.all(1, colors['border']),
+            border=ft.Border.all(1, colors['border']),
         )
         return sec
 
@@ -186,13 +186,13 @@ class RecetaEditor(ft.Container):
                         self._base_container,
                         self._final_container,
                     ], spacing=12),
-                    padding=ft.padding.only(top=4, bottom=4),
+                    padding=ft.Padding.only(top=4, bottom=4),
                 ),
             ], spacing=8),
-            padding=ft.padding.all(16),
+            padding=ft.Padding.all(16),
             bgcolor=colors['surface'],
             border_radius=10,
-            border=ft.border.all(1, colors['border']),
+            border=ft.Border.all(1, colors['border']),
         )
         return sec
 
@@ -239,9 +239,9 @@ class RecetaEditor(ft.Container):
                             ], spacing=2, expand=True),
                             ft.Icon(ft.Icons.CHECK_CIRCLE_OUTLINE, size=18, color=colors['accent']),
                         ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                        padding=ft.padding.symmetric(horizontal=10, vertical=6),
+                        padding=ft.Padding.symmetric(horizontal=10, vertical=6),
                         border_radius=6,
-                        border=ft.border.all(1, colors['border']),
+                        border=ft.Border.all(1, colors['border']),
                         ink=True,
                         on_click=lambda _, prod=p: _elegir(prod),
                     )
@@ -250,7 +250,7 @@ class RecetaEditor(ft.Container):
                 results.controls.append(
                     ft.Container(
                         content=ft.Text("Sin resultados", size=12, color=colors['text_hint']),
-                        padding=ft.padding.all(8),
+                        padding=ft.Padding.all(8),
                     )
                 )
             self._safe_update(results)
@@ -293,7 +293,7 @@ class RecetaEditor(ft.Container):
                     visible=bool(state['id']),
                 ),
             ], spacing=6, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=ft.padding.symmetric(horizontal=10, vertical=6),
+            padding=ft.Padding.symmetric(horizontal=10, vertical=6),
             bgcolor=colors['card_hover'],
             border_radius=8,
         )
@@ -359,18 +359,18 @@ class RecetaEditor(ft.Container):
                 ], spacing=4),
                 ft.Container(height=8),
                 ft.Row([self._buscador], spacing=8),
-                ft.Container(content=self._search_results, padding=ft.padding.only(top=4, bottom=4)),
+                ft.Container(content=self._search_results, padding=ft.Padding.only(top=4, bottom=4)),
                 ft.Divider(height=1, color=colors['border']),
                 ft.Container(
                     content=self._componentes_list_ref,
-                    padding=ft.padding.only(top=4),
+                    padding=ft.Padding.only(top=4),
                 ),
                 add_btn,
             ], spacing=8),
-            padding=ft.padding.all(16),
+            padding=ft.Padding.all(16),
             bgcolor=colors['surface'],
             border_radius=10,
-            border=ft.border.all(1, colors['border']),
+            border=ft.Border.all(1, colors['border']),
         )
         return sec
 
@@ -406,9 +406,9 @@ class RecetaEditor(ft.Container):
                     ),
                 ], spacing=8, alignment=ft.MainAxisAlignment.END),
             ], spacing=6),
-            padding=ft.padding.only(left=16, right=16, top=12, bottom=12),
+            padding=ft.Padding.only(left=16, right=16, top=12, bottom=12),
             bgcolor=colors['surface'],
-            border=ft.border.only(top=ft.BorderSide(1, colors['border'])),
+            border=ft.Border(top=ft.BorderSide(1, colors['border'])),
         )
         return footer
 
@@ -446,7 +446,7 @@ class RecetaEditor(ft.Container):
             self._search_results.controls.append(
                 ft.Container(
                     content=ft.Text("Sin resultados", size=12, color=_colors(self.page)['text_hint']),
-                    padding=ft.padding.all(8),
+                    padding=ft.Padding.all(8),
                 )
             )
         else:
@@ -471,9 +471,9 @@ class RecetaEditor(ft.Container):
                                 on_click=lambda _, prod=p: self._add_product(prod),
                             ),
                         ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                        padding=ft.padding.symmetric(horizontal=10, vertical=6),
+                        padding=ft.Padding.symmetric(horizontal=10, vertical=6),
                         border_radius=6,
-                        border=ft.border.all(1, _colors(self.page)['border']),
+                        border=ft.Border.all(1, _colors(self.page)['border']),
                         ink=True,
                         on_click=lambda _, prod=p: self._add_product(prod),
                     )
@@ -560,12 +560,12 @@ class RecetaEditor(ft.Container):
                         on_click=_remove,
                     ),
                     col={"xs": 2, "sm": 2},
-                    alignment=ft.alignment.center_right,
+                    alignment=ft.Alignment.CENTER_right,
                 ),
             ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=ft.padding.all(8),
+            padding=ft.Padding.all(8),
             border_radius=8,
-            border=ft.border.all(1, _colors(self.page)['border']),
+            border=ft.Border.all(1, _colors(self.page)['border']),
         )
         self._componentes_list_ref.controls.append(row)
         self._safe_update(self._componentes_list_ref)

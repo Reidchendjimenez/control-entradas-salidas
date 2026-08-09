@@ -103,6 +103,27 @@ class SyncManager:
     
     def set_connection_callback(self, callback):
         self._on_connection_change = callback
+
+    def test_remote_connection(self) -> tuple:
+        """Verifica la conexión real con Supabase (no la BD local ni Internet).
+
+        Crea un engine remoto nuevo, ejecuta SELECT 1 y lo cierra siempre.
+        Retorna (ok: bool, mensaje: str).
+        """
+        remote_engine = None
+        try:
+            remote_engine = self._create_remote_engine()
+            with remote_engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+            return True, "Conexión exitosa con Supabase"
+        except Exception as ex:
+            return False, f"Error: {ex}"
+        finally:
+            if remote_engine:
+                try:
+                    remote_engine.dispose()
+                except Exception:
+                    pass
     
     def full_sync(self) -> bool:
         """Realiza una sincronización completa: sube pendientes y descarga del servidor."""

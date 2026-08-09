@@ -40,6 +40,15 @@ def build_periodos_tab(view):
         on_click=lambda e: _recalcular_desde_cero(view, lista, info_text, btn_aperturar),
     )
 
+    btn_forzar_archivo = ft.ElevatedButton(
+        "Re-aperturar (forzar archivo)",
+        icon=ft.Icons.REPLAY,
+        bgcolor="#E65100",
+        color=colors['white'],
+        visible=ya_abierto,
+        on_click=lambda e: _forzar_archivo_periodo_actual(view, lista, info_text),
+    )
+
     btn_reintentar_supabase = ft.ElevatedButton(
         "Reintentar archivo en nube",
         icon=ft.Icons.CLOUD_UPLOAD,
@@ -70,7 +79,7 @@ def build_periodos_tab(view):
                         ft.Divider(height=20, color=colors['border']),
                         info_text,
                         ft.Container(height=10),
-                        ft.Row([btn_aperturar, btn_recalcular, btn_reintentar_supabase], spacing=10, wrap=True),
+                        ft.Row([btn_aperturar, btn_recalcular, btn_forzar_archivo, btn_reintentar_supabase], spacing=10, wrap=True),
                         ft.Divider(height=20, color=colors['border']),
                         ft.Text("Historial de Periodos", weight=ft.FontWeight.BOLD, size=14),
                         lista,
@@ -132,7 +141,7 @@ def _show_loading(view, message="Procesando..."):
             width=250,
         ),
         bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
-        alignment=ft.alignment.center,
+        alignment=ft.Alignment.CENTER,
         expand=True,
     )
     view.page._periodos_overlay = overlay
@@ -239,3 +248,37 @@ async def _do_reintentar_supabase(view, lista, info_text):
     except Exception as e:
         print(f"[PERIODOS] Error al reintentar Supabase: {e}")
         show_error(f"Error: {str(e)}")
+
+
+def _forzar_archivo_periodo_actual(view, lista, info_text):
+    """Fuerza el archivo completo (Supabase + local + recálculo) aunque el periodo ya exista.
+    No crea un nuevo periodo; solo re-ejecuta el archivo y recalcula existencias."""
+    view.page.run_task(_do_forzar_archivo, view, lista, info_text)
+
+
+async def _do_forzar_archivo(view, lista, info_text):
+    show_info("Ejecutando archivo forzado (Supabase + local + recálculo)...")
+    try:
+        from usr.database.archive import archivar_movimientos
+        from usr.database.local_replica import LocalReplica
+        from usr.views.configuracion.helpers import _colors
+        colors = _colors(view.page)
+
+        _show_loading(view, "Archivando en Supabase...")
+        archivados, eliminados = archivar_movimientos(meses_activos=3, meses_retencion=7)
+        print(f"[PERIODOS] Archivo completado: {archivados} archivados, {eliminados} eliminados")
+
+        _update_loading(view, "Recalculando existencias...")
+        LocalReplica.recalculate_existencias()
+        print("[PERIODOS] Existencias recalculadas")
+
+        show_success(f"Archivo forzado completado: {archivados} archivados, {eliminados} eliminados")
+
+        periodos = LocalReplica.get_periodos()
+        _render_lista(lista, periodos, colors)
+        view.update()
+    except Exception as e:
+        print(f"[PERIODOS] Error en archivo forzado: {e}")
+        show_error(f"Error: {str(e)}")
+    finally:
+        _hide_loading(view)

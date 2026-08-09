@@ -84,7 +84,7 @@ class ConfiguracionView(ft.Container):
                     ], spacing=2, expand=True),
                 ], alignment=ft.MainAxisAlignment.START),
             ], spacing=8),
-            padding=ft.padding.only(left=20, right=20, top=20, bottom=15),
+            padding=ft.Padding.only(left=20, right=20, top=20, bottom=15),
             bgcolor=colors['surface'],
             border_radius=ft.border_radius.only(bottom_left=20, bottom_right=20),
         )
@@ -151,7 +151,7 @@ class ConfiguracionView(ft.Container):
                     ft.Container(
                         content=fab_content,
                         bgcolor=colors['accent'],
-                        padding=ft.padding.symmetric(horizontal=20, vertical=12),
+                        padding=ft.Padding.symmetric(horizontal=20, vertical=12),
                         border_radius=30,
                         on_click=lambda _: show_categoria_dialog(self),
                     ),
@@ -204,7 +204,7 @@ class ConfiguracionView(ft.Container):
         fab_btn = ft.Container(
             content=fab_content,
             bgcolor=colors['success'],
-            padding=ft.padding.symmetric(horizontal=20, vertical=12),
+            padding=ft.Padding.symmetric(horizontal=20, vertical=12),
             border_radius=30,
             on_click=lambda _: show_producto_dialog(self),
         )
@@ -231,7 +231,7 @@ class ConfiguracionView(ft.Container):
                 filtros_col,
                 ft.Divider(height=1, color=colors['border']),
             ], spacing=15),
-            padding=ft.padding.only(bottom=10),
+            padding=ft.Padding.only(bottom=10),
         )
 
     def _load_data(self):

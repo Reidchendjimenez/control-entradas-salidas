@@ -82,7 +82,7 @@ def build_movimiento_card(m, colors, producto=None, page=None):
             ft.Text(fecha, size=10, color=colors['text_secondary']),
             ft.Container(
                 content=ft.Text(label, size=9, color='white', weight='bold'),
-                bgcolor=color, padding=ft.padding.only(4, 1, 4, 1), border_radius=3,
+                bgcolor=color, padding=ft.Padding.only(4, 1, 4, 1), border_radius=3,
             ),
         ], spacing=6),
         ft.Row([
@@ -123,7 +123,7 @@ def build_movimiento_card(m, colors, producto=None, page=None):
                 ft.Text("→", size=10, color=colors['text_secondary']),
                 ft.Text(cant_nueva, size=12, weight='bold', color=colors['text_primary'], text_align=ft.TextAlign.CENTER, expand=True),
             ], spacing=2, alignment=ft.MainAxisAlignment.CENTER),
-            bgcolor=colors['bg'], padding=ft.padding.only(4, 3, 4, 3), border_radius=5,
+            bgcolor=colors['bg'], padding=ft.Padding.only(4, 3, 4, 3), border_radius=5,
         ),
     )
 
@@ -131,7 +131,7 @@ def build_movimiento_card(m, colors, producto=None, page=None):
         content=ft.Column(rows_in_card, spacing=3),
         padding=8, border_radius=7,
         bgcolor=colors['card'],
-        border=ft.border.all(1, colors['border']),
+        border=ft.Border.all(1, colors['border']),
     )
 
 def _es_movil(page):
@@ -157,10 +157,10 @@ def _build_almacen_option(nombre, icono, colors, on_click, destacado=False):
             ),
             ft.Icon(ft.Icons.CHEVRON_RIGHT, size=18, color=colors['text_hint']),
         ], spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-        padding=ft.padding.symmetric(horizontal=12, vertical=10),
+        padding=ft.Padding.symmetric(horizontal=12, vertical=10),
         bgcolor=colors['surface'],
         border_radius=10,
-        border=ft.border.all(1, colors['accent'] if destacado else colors['border']),
+        border=ft.Border.all(1, colors['accent'] if destacado else colors['border']),
         on_click=on_click,
         ink=True,
     )

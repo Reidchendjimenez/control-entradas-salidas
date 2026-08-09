@@ -134,7 +134,7 @@ async def main(page: ft.Page):
         except:
             pass
 
-        page.session.set("_db_dir", db_dir)
+        page.session.store.set("_db_dir", db_dir)
         db_path = os.path.abspath(os.path.join(db_dir, "lycoris_local.db"))
 
         # Fijar ruta de BD ANTES de cualquier import de usr.database
@@ -257,14 +257,14 @@ async def main(page: ft.Page):
             page.update()
             await setup_done.wait()
         else:
-            page.session.set("username", usuario.get("nombre", "Operador"))
+            page.session.store.set("username", usuario.get("nombre", "Operador"))
 
         page.clean()
         page.add(loading)
-        if page.session.get("username"):
-            status_text.value = f"✓ Hola, {page.session.get('username')}"
+        if page.session.store.get("username"):
+            status_text.value = f"✓ Hola, {page.session.store.get('username')}"
         else:
-            status_text.value = f"✓ Hola, {page.session.get('username', 'Usuario')}"
+            status_text.value = f"✓ Hola, {page.session.store.get('username') or 'Usuario'}"
         page.update()
         await asyncio.sleep(0.15)
 
@@ -332,7 +332,7 @@ async def main(page: ft.Page):
     except Exception as inner_e:
         error_log = traceback.format_exc()
         logger.error(f"Exception in main(): {error_log}")
-        db_dir = page.session.get("_db_dir") or "."
+        db_dir = page.session.store.get("_db_dir") or "."
         try:
             log_path = os.path.join(db_dir, "error_log.txt")
             with open(log_path, "w") as f:

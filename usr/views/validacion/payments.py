@@ -86,7 +86,7 @@ class PaymentsManager:
             content=ft.Row([self.faltante_icon, self.faltante_text], spacing=8),
             padding=15,
             border_radius=10,
-            border=ft.border.all(1, self.theme_colors.get('border', '#333333'))
+            border=ft.Border.all(1, self.theme_colors.get('border', '#333333'))
         )
 
         self.controls_container = ft.Container(visible=False)
@@ -298,7 +298,7 @@ class PaymentsManager:
             content=content_col,
             padding=15,
             border_radius=12,
-            border=ft.border.all(1, self.theme_colors.get('border', '#333333')),
+            border=ft.Border.all(1, self.theme_colors.get('border', '#333333')),
             bgcolor=self.theme_colors.get('surface', '#252525')
         )
 

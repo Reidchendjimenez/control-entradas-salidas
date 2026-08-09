@@ -56,7 +56,7 @@ class ConfigPOSView(ft.Container):
                             ),
                         ]),
                         ft.Container(height=10),
-                        ft.Container(content=self.lv_usuarios, border=ft.border.all(1,"#3D3D3D"),
+                        ft.Container(content=self.lv_usuarios, border=ft.Border.all(1,"#3D3D3D"),
                                       border_radius=10, padding=10, expand=True),
                     ], expand=True),
                 ),
@@ -73,7 +73,7 @@ class ConfigPOSView(ft.Container):
                             ),
                         ]),
                         ft.Container(height=10),
-                        ft.Container(content=self.lv_mesas, border=ft.border.all(1,"#3D3D3D"),
+                        ft.Container(content=self.lv_mesas, border=ft.Border.all(1,"#3D3D3D"),
                                       border_radius=10, padding=10, expand=True),
                     ], expand=True),
                 ),
@@ -90,7 +90,7 @@ class ConfigPOSView(ft.Container):
                             ),
                         ]),
                         ft.Container(height=10),
-                        ft.Container(content=self.lv_habitaciones, border=ft.border.all(1,"#3D3D3D"),
+                        ft.Container(content=self.lv_habitaciones, border=ft.Border.all(1,"#3D3D3D"),
                                       border_radius=10, padding=10, expand=True),
                     ], expand=True),
                 ),
@@ -102,7 +102,7 @@ class ConfigPOSView(ft.Container):
                             ft.Container(expand=True),
                         ]),
                         ft.Container(height=10),
-                        ft.Container(content=self.lv_platos, border=ft.border.all(1,"#3D3D3F"),
+                        ft.Container(content=self.lv_platos, border=ft.Border.all(1,"#3D3D3F"),
                                       border_radius=10, padding=10, expand=True),
                     ], expand=True),
                 ),
@@ -124,7 +124,7 @@ class ConfigPOSView(ft.Container):
                             ),
                         ]),
                         ft.Container(height=10),
-                        ft.Container(content=self.lv_pos_categorias, border=ft.border.all(1,"#3D3D3F"),
+                        ft.Container(content=self.lv_pos_categorias, border=ft.Border.all(1,"#3D3D3F"),
                                       border_radius=10, padding=10, expand=True),
                     ], expand=True),
                 ),
@@ -147,7 +147,7 @@ class ConfigPOSView(ft.Container):
         self._printer_status = ft.Text("Buscando impresoras...", size=14, color="#9E9E9E")
         self._printer_list = ft.ListView(expand=True, spacing=6)
         self._printer_section = ft.Container(
-            content=self._printer_list, border=ft.border.all(1,"#3D3D3D"),
+            content=self._printer_list, border=ft.Border.all(1,"#3D3D3D"),
             border_radius=10, padding=10, height=200,
         )
         self._btn_test = ft.ElevatedButton(
@@ -343,7 +343,7 @@ class ConfigPOSView(ft.Container):
                         ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
                         padding=10,
                         bgcolor="#2A2A2A" if is_selected else "#1E1E1E",
-                        border=ft.border.all(1, "#4CAF50" if is_selected else "#3D3D3D"),
+                        border=ft.Border.all(1, "#4CAF50" if is_selected else "#3D3D3D"),
                         border_radius=8,
                     )
                 )
@@ -465,7 +465,7 @@ class ConfigPOSView(ft.Container):
                                     weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
                     width=50, height=50,
                     bgcolor="#FF9800" if es_admin else "#7C4DFF",
-                    border_radius=25, alignment=ft.alignment.center,
+                    border_radius=25, alignment=ft.Alignment.CENTER,
                 ),
                 ft.Column([
                     ft.Text(usuario['nombre'], size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
@@ -488,7 +488,7 @@ class ConfigPOSView(ft.Container):
                     on_click=lambda _, u=usuario: self._show_eliminar_dialog(u),
                 ),
             ], spacing=15),
-            bgcolor="#1E1E1E", border=ft.border.all(1,"#3D3D3D"),
+            bgcolor="#1E1E1E", border=ft.Border.all(1,"#3D3D3D"),
             border_radius=10, padding=15, ink=True,
         )
 
@@ -625,7 +625,7 @@ class ConfigPOSView(ft.Container):
             content=ft.Row([
                 ft.Container(
                     content=ft.Text(mesa.get('numero','?'), size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-                    width=50, height=50, bgcolor="#5C6BC0", border_radius=25, alignment=ft.alignment.center,
+                    width=50, height=50, bgcolor="#5C6BC0", border_radius=25, alignment=ft.Alignment.CENTER,
                 ),
                 ft.Column([
                     ft.Text(f"Mesa {mesa.get('numero','')}", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
@@ -643,7 +643,7 @@ class ConfigPOSView(ft.Container):
                                   on_click=lambda _, m=mesa: self._delete_mesa(m)),
                 ], spacing=0),
             ], spacing=15),
-            bgcolor="#1E1E1E", border=ft.border.all(1,"#3D3D3D"),
+            bgcolor="#1E1E1E", border=ft.Border.all(1,"#3D3D3D"),
             border_radius=10, padding=15,
         )
 
@@ -749,7 +749,7 @@ class ConfigPOSView(ft.Container):
             content=ft.Row([
                 ft.Container(
                     content=ft.Text(hab.get('numero','?'), size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-                    width=50, height=50, bgcolor="#26A69A", border_radius=25, alignment=ft.alignment.center,
+                    width=50, height=50, bgcolor="#26A69A", border_radius=25, alignment=ft.Alignment.CENTER,
                 ),
                 ft.Column([
                     ft.Text(f"Habitacion {hab.get('numero','')}", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
@@ -767,7 +767,7 @@ class ConfigPOSView(ft.Container):
                                   on_click=lambda _, h=hab: self._delete_habitacion(h)),
                 ], spacing=0),
             ], spacing=15),
-            bgcolor="#1E1E1E", border=ft.border.all(1,"#3D3D3D"),
+            bgcolor="#1E1E1E", border=ft.Border.all(1,"#3D3D3D"),
             border_radius=10, padding=15,
         )
 
@@ -889,7 +889,7 @@ class ConfigPOSView(ft.Container):
     def _section_label(self, text: str):
         return ft.Container(
             content=ft.Text(text, size=13, weight=ft.FontWeight.BOLD, color="#BB86FC"),
-            padding=ft.padding.only(top=6, bottom=4),
+            padding=ft.Padding.only(top=6, bottom=4),
         )
 
     def _build_subcat_card(self, sc: dict, label: str):
@@ -1195,7 +1195,7 @@ class ConfigPOSView(ft.Container):
                 on_click=lambda _: self._show_plato_dialog(),
             ),
         ], alignment=ft.MainAxisAlignment.START)
-        self.lv_platos.controls.insert(0, ft.Container(content=header, padding=ft.padding.only(bottom=10)))
+        self.lv_platos.controls.insert(0, ft.Container(content=header, padding=ft.Padding.only(bottom=10)))
         if self.page:
             self.update()
 
@@ -1208,13 +1208,13 @@ class ConfigPOSView(ft.Container):
         if es_contorno:
             tags.append(ft.Container(
                 content=ft.Text("CONTORNO", size=9, weight=ft.FontWeight.BOLD, color="#FF6F00"),
-                bgcolor="#FF6F0022", padding=ft.padding.symmetric(horizontal=6, vertical=2),
+                bgcolor="#FF6F0022", padding=ft.Padding.symmetric(horizontal=6, vertical=2),
                 border_radius=4,
             ))
         if lleva:
             tags.append(ft.Container(
                 content=ft.Text("+", size=9, weight=ft.FontWeight.BOLD, color="#4CAF50"),
-                bgcolor="#4CAF5022", padding=ft.padding.symmetric(horizontal=5, vertical=2),
+                bgcolor="#4CAF5022", padding=ft.Padding.symmetric(horizontal=5, vertical=2),
                 border_radius=4, tooltip="Lleva contornos",
             ))
         return ft.Container(
@@ -1223,7 +1223,7 @@ class ConfigPOSView(ft.Container):
                     content=ft.Text(plato['nombre'][:2].upper(), size=18,
                                     weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
                     width=50, height=50, bgcolor=plato.get('categoria_color','#FF6F00'),
-                    border_radius=25, alignment=ft.alignment.center,
+                    border_radius=25, alignment=ft.Alignment.CENTER,
                 ),
                 ft.Column([
                     ft.Row([
@@ -1241,7 +1241,7 @@ class ConfigPOSView(ft.Container):
                                   on_click=lambda _, p=plato: self._delete_plato(p)),
                 ], spacing=0),
             ], spacing=15),
-            bgcolor="#1E1E1E", border=ft.border.all(1,"#3D3D3D"),
+            bgcolor="#1E1E1E", border=ft.Border.all(1,"#3D3D3D"),
             border_radius=10, padding=15,
         )
 
@@ -1405,7 +1405,7 @@ class ConfigPOSView(ft.Container):
                 ft.Icon(ft.Icons.INBOX_ROUNDED, size=50, color="#757575"),
                 ft.Text(texto, size=14, color="#9E9E9E"),
             ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=30, alignment=ft.alignment.center,
+            padding=30, alignment=ft.Alignment.CENTER,
         )
 
     def _show_dialog(self, title, content, on_save, save_text="Guardar"):

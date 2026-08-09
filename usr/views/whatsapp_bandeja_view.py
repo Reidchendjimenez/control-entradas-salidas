@@ -27,7 +27,7 @@ class BandejaWhatsAppView(ft.Container):
             self._list_view = ft.ListView(expand=True, spacing=10, padding=10)
             self._pending_badge = ft.Container(
                 content=ft.Text("0", size=10, color="white", weight="bold"),
-                bgcolor="red", border_radius=10, padding=ft.padding.all(4),
+                bgcolor="red", border_radius=10, padding=ft.Padding.all(4),
                 visible=False
             )
             self.stats_text = ft.Text("Cargando...", size=12)
@@ -93,7 +93,7 @@ class BandejaWhatsAppView(ft.Container):
                             ft.Icon(ft.Icons.INBOX_OUTLINED, size=60, color=colors.get('text_hint', '#666')),
                             ft.Text("No hay mensajes en la bandeja", size=16, color=colors.get('text_secondary', '#999'))
                         ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                        expand=True, alignment=ft.alignment.center, padding=50
+                        expand=True, alignment=ft.Alignment.center, padding=50
                     )
                 )
                 return
@@ -150,7 +150,7 @@ class BandejaWhatsAppView(ft.Container):
                 ], spacing=10),
                 padding=12, border_radius=10,
                 bgcolor=colors.get('surface', '#252525'),
-                border=ft.border.all(1, colors.get('border', '#333'))
+                border=ft.Border.all(1, colors.get('border', '#333'))
             )
         except Exception as ex:
             print(f"[BANDEJA] Error construyendo card: {ex}")

@@ -24,27 +24,29 @@ class ProduccionesView(ft.Container):
         self.visible = False
         self.expand = True
         self.bgcolor = '#1A1A1A'
-        self.padding = ft.padding.all(0)
+        self.padding = ft.Padding.all(0)
         self._running = False
 
         self._recetas = []
         self._productos = []
 
         self.tabs = ft.Tabs(
+            content=ft.Column([]),
+            length=3,
             selected_index=0,
             animation_duration=300,
-            tabs=[
-                ft.Tab(text="Recetas", icon=ft.Icons.DESCRIPTION_OUTLINED),
-                ft.Tab(text="En Producción", icon=ft.Icons.PENDING_ACTIONS),
-                ft.Tab(text="Historial", icon=ft.Icons.HISTORY_OUTLINED),
-            ],
             on_change=self._on_tab_change,
         )
+        self.tabs.tabs = [
+            ft.Tab(label="Recetas", icon=ft.Icons.DESCRIPTION_OUTLINED),
+            ft.Tab(label="En Producción", icon=ft.Icons.PENDING_ACTIONS),
+            ft.Tab(label="Historial", icon=ft.Icons.HISTORY_OUTLINED),
+        ]
 
-        self.recetas_container = ft.Container(expand=True, padding=ft.padding.all(0))
+        self.recetas_container = ft.Container(expand=True, padding=ft.Padding.all(0))
         self.recetas_list = ft.Column(spacing=8, scroll=ft.ScrollMode.ALWAYS, expand=True)
-        self.pendientes_container = ft.Container(expand=True, padding=ft.padding.all(20), visible=False)
-        self.historial_container = ft.Container(expand=True, padding=ft.padding.all(20), visible=False)
+        self.pendientes_container = ft.Container(expand=True, padding=ft.Padding.all(20), visible=False)
+        self.historial_container = ft.Container(expand=True, padding=ft.Padding.all(20), visible=False)
         self.editor_container = ft.Container(expand=True, padding=0, bgcolor='#1A1A1A', visible=False)
 
         self._connection_indicator = ft.Icon(
@@ -89,7 +91,7 @@ class ProduccionesView(ft.Container):
                 ft.Container(expand=True),
                 self._connection_indicator,
             ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=ft.padding.only(left=20, top=20, right=20, bottom=10),
+            padding=ft.Padding.only(left=20, top=20, right=20, bottom=10),
         )
 
         self.recetas_container.content = ft.Column([
@@ -104,12 +106,12 @@ class ProduccionesView(ft.Container):
                         on_click=lambda _: self._open_nueva_receta(),
                     ),
                 ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                padding=ft.padding.only(left=20, top=10, right=20, bottom=4),
+                padding=ft.Padding.only(left=20, top=10, right=20, bottom=4),
             ),
             ft.Container(
                 content=self.recetas_list,
                 expand=True,
-                padding=ft.padding.only(left=20, top=0, right=20, bottom=20),
+                padding=ft.Padding.only(left=20, top=0, right=20, bottom=20),
             ),
         ])
         self.pendientes_container.content = build_pendientes_tab(self.page, on_change=self._on_pendiente_change)

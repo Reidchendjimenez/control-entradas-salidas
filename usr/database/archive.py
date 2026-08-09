@@ -45,12 +45,12 @@ def archivar_en_supabase(meses_activos: int = 3):
             result = conn.execute(text(f"""
                 INSERT INTO movimientos_archivo ({cols})
                 SELECT {cols} FROM movimientos
-                WHERE fecha_movimiento < :limite AND factura_id IS NULL
+                WHERE fecha_movimiento < :limite
             """), {'limite': fecha_limite})
             archivados = result.rowcount
             conn.execute(text("""
                 DELETE FROM movimientos
-                WHERE fecha_movimiento < :limite AND factura_id IS NULL
+                WHERE fecha_movimiento < :limite
             """), {'limite': fecha_limite})
             conn.execute(text("""
                 DELETE FROM movimientos_archivo
@@ -99,7 +99,7 @@ def archivar_movimientos_local(meses_activos: int = 3, meses_retencion: int = 7)
 
     cursor.execute("""
         SELECT * FROM movimientos 
-        WHERE fecha_movimiento < ? AND factura_id IS NULL
+        WHERE fecha_movimiento < ?
         ORDER BY fecha_movimiento
     """, (fecha_limite_principal,))
     a_archivar = [dict(row) for row in cursor.fetchall()]

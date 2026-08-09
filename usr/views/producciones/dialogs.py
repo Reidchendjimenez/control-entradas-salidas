@@ -89,10 +89,10 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
                 ], expand=True, spacing=2),
                 cant_field,
             ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=ft.padding.all(10),
+            padding=ft.Padding.all(10),
             bgcolor=colors['card'],
             border_radius=8,
-            border=ft.border.all(1, colors['border']),
+            border=ft.Border.all(1, colors['border']),
         )
 
         cantidad_fields.append({

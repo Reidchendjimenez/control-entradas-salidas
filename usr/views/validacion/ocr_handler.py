@@ -52,7 +52,7 @@ class OCRHandler:
             width=350,
             height=140,
             bgcolor=self.theme_colors.get('surface_variant', '#1e1e1e'),
-            border=ft.border.all(1, self.theme_colors.get('border')),
+            border=ft.Border.all(1, self.theme_colors.get('border')),
             border_radius=12,
             margin=ft.margin.only(bottom=5)
         )
@@ -97,7 +97,7 @@ class OCRHandler:
             on_click=self._on_clear_click
         )
 
-        self.file_picker = ft.FilePicker(on_result=self._on_file_select)
+        self.file_picker = ft.FilePicker()
         self.page.overlay.append(self.file_picker)
         self.current_image_path = None
 
@@ -106,7 +106,7 @@ class OCRHandler:
             content=content,
             padding=15,
             border_radius=15,
-            border=ft.border.all(1, self.theme_colors.get('border', '#333333')),
+            border=ft.Border.all(1, self.theme_colors.get('border', '#333333')),
             bgcolor=self.theme_colors.get('surface', '#252525')
         )
 
@@ -180,7 +180,7 @@ class OCRHandler:
 
             self.image_preview.content = ft.Image(
                 src_base64=img_base64,
-                fit=ft.ImageFit.CONTAIN,
+                fit=ft.BoxFit.CONTAIN,
                 border_radius=8
             )
             self._process_image(temp_path)
@@ -192,24 +192,18 @@ class OCRHandler:
             self.status_text.color = ft.Colors.RED_400
             _notify_error("Error al pegar imagen del portapapeles", ex)
 
-    def _on_select_click(self, e):
+    async def _on_select_click(self, e):
         try:
-            self.file_picker.pick_files(allowed_extensions=["png", "jpg", "jpeg"])
-        except Exception as ex:
-            print(f"[ERROR] OCRHandler._on_select_click: {ex}")
-            _notify_error("Error al abrir selector de archivo", ex)
-
-    def _on_file_select(self, e):
-        try:
-            if e.files:
+            res = await self.file_picker.pick_files(allowed_extensions=["png", "jpg", "jpeg"])
+            if res and res.files:
                 self._set_loading(True, "Cargando archivo...")
-                path = _get_long_path(e.files[0].path)
-                self.image_preview.content = ft.Image(src=path, fit=ft.ImageFit.CONTAIN, border_radius=8)
+                path = _get_long_path(res.files[0].path)
+                self.image_preview.content = ft.Image(src=path, fit=ft.BoxFit.CONTAIN, border_radius=8)
                 self.current_image_path = path
                 print(f"[OCR] Imagen seleccionada: {path}")
                 self._process_image(path)
         except Exception as ex:
-            print(f"[ERROR] OCRHandler._on_file_select: {ex}")
+            print(f"[ERROR] OCRHandler._on_select_click: {ex}")
             import traceback; traceback.print_exc()
             self._set_loading(False, "Error al cargar archivo")
             self.status_text.color = ft.Colors.RED_400

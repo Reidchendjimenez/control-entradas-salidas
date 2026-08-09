@@ -32,7 +32,7 @@ class VentasView(ft.Container):
                 ft.Container(expand=True),
                 self.btn_anular_ultima,
             ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=ft.padding.symmetric(horizontal=20, vertical=15),
+            padding=ft.Padding.symmetric(horizontal=20, vertical=15),
         )
         self.lv_ventas = ft.ListView(expand=True, spacing=8, auto_scroll=False, padding=20)
         self.content = ft.Column([top_bar, header, self.lv_ventas], expand=True, spacing=0)
@@ -56,7 +56,7 @@ class VentasView(ft.Container):
                     ft.Text("No hay ventas registradas", size=16, color="#9E9E9E"),
                     ft.Text("Cobre una comanda para registrar su primera venta", size=13, color="#757575"),
                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                alignment=ft.alignment.center, expand=True, padding=40,
+                alignment=ft.Alignment.CENTER, expand=True, padding=40,
             ))
         self.btn_anular_ultima.disabled = self._ultima_vigente is None
         if self.page:
@@ -101,7 +101,7 @@ class VentasView(ft.Container):
                             size=9, weight=ft.FontWeight.BOLD,
                             color="#4CAF50" if vigente else "#EF5350"),
             bgcolor="#1B5E20" if vigente else "#B71C1C",
-            border_radius=10, padding=ft.padding.symmetric(horizontal=8, vertical=2),
+            border_radius=10, padding=ft.Padding.symmetric(horizontal=8, vertical=2),
         )
 
         actions = []
@@ -117,7 +117,7 @@ class VentasView(ft.Container):
                 ft.Container(
                     content=ft.Text(numero, size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
                     width=52, height=52, bgcolor="#1E88E5", border_radius=26,
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment.CENTER,
                 ),
                 ft.Container(width=12),
                 ft.Column([
@@ -140,9 +140,9 @@ class VentasView(ft.Container):
                 *actions,
             ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
             bgcolor="#1E1E1E",
-            border=ft.border.all(1, "#3D3D3D"),
+            border=ft.Border.all(1, "#3D3D3D"),
             border_radius=12,
-            padding=ft.padding.symmetric(horizontal=14, vertical=10),
+            padding=ft.Padding.symmetric(horizontal=14, vertical=10),
             on_click=lambda _, v=venta: self._ver_detalle(v),
         )
 
@@ -209,7 +209,7 @@ class VentasView(ft.Container):
                             size=10, weight=ft.FontWeight.BOLD,
                             color="#4CAF50" if vigente else "#EF5350"),
             bgcolor="#1B5E20" if vigente else "#B71C1C",
-            border_radius=10, padding=ft.padding.symmetric(horizontal=10, vertical=3),
+            border_radius=10, padding=ft.Padding.symmetric(horizontal=10, vertical=3),
         )
 
         total_bs_text = ft.Container()
@@ -402,7 +402,7 @@ class VentasView(ft.Container):
         avatar_color = "#FF9800" if es_admin else "#7C4DFF"
         avatar = ft.Container(
             content=ft.Text(iniciales, size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-            width=36, height=36, bgcolor=avatar_color, border_radius=18, alignment=ft.alignment.center,
+            width=36, height=36, bgcolor=avatar_color, border_radius=18, alignment=ft.Alignment.CENTER,
         )
         user_info = ft.Column([
             ft.Text(nombre, size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
@@ -422,8 +422,8 @@ class VentasView(ft.Container):
                 ft.IconButton(icon=ft.Icons.LOGOUT_ROUNDED, icon_color="#EF5350",
                               tooltip="Cerrar sesion", on_click=lambda _: self._cerrar_sesion()),
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            bgcolor="#1E1E1E", border=ft.border.only(bottom=ft.BorderSide(1, "#3D3D3D")),
-            padding=ft.padding.symmetric(horizontal=20, vertical=10),
+            bgcolor="#1E1E1E", border=ft.Border(bottom=ft.BorderSide(1, "#3D3D3D")),
+            padding=ft.Padding.symmetric(horizontal=20, vertical=10),
         )
 
     def _cerrar_sesion(self):

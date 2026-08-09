@@ -96,7 +96,7 @@ class VisualizeView(ft.Container):
             padding=20,
             bgcolor=colors['card'],
             border_radius=12,
-            border=ft.border.all(1, colors['border']),
+            border=ft.Border.all(1, colors['border']),
         )
 
         detalles_list = ft.Column([
@@ -114,7 +114,7 @@ class VisualizeView(ft.Container):
                     padding=10,
                     bgcolor=colors['bg'],
                     border_radius=8,
-                    border=ft.border.all(1, colors['border']),
+                    border=ft.Border.all(1, colors['border']),
                 )
             )
 

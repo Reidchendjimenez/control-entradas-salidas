@@ -18,7 +18,7 @@ def create_categoria_card(categoria, colors, on_click_cb):
             ft.Container(
                 content=ft.Text(inicial, size=22, weight="bold", color=ft.Colors.WHITE),
                 width=45, height=45, bgcolor=cat_color,
-                border_radius=25, alignment=ft.alignment.center,
+                border_radius=25, alignment=ft.Alignment.CENTER,
             ),
             ft.Text(nombre.upper(), size=10, weight="bold", color=ft.Colors.WHITE, text_align="center"),
         ],
@@ -31,7 +31,7 @@ def create_categoria_card(categoria, colors, on_click_cb):
         bgcolor='#2D2D2D',
         width=110, height=130,
         border_radius=12, padding=10,
-        border=ft.border.only(bottom=ft.BorderSide(4, cat_color)),
+        border=ft.Border(bottom=ft.BorderSide(4, cat_color)),
     )
     card.on_click = lambda e: on_click_cb(categoria)
     return card
@@ -71,8 +71,8 @@ def create_categoria_card_from_dict(cat_dict, colors, on_click_cb):
         border_radius=12,
         padding=12,
         width=110, height=130,
-        alignment=ft.alignment.center,
-        border=ft.border.only(bottom=ft.BorderSide(3, cat_color)),
+        alignment=ft.Alignment.CENTER,
+        border=ft.Border(bottom=ft.BorderSide(3, cat_color)),
         shadow=ft.BoxShadow(
             blur_radius=0,
             color=ft.Colors.with_opacity(0.2, cat_color),
@@ -86,7 +86,7 @@ def create_categoria_card_from_dict(cat_dict, colors, on_click_cb):
             controls=[
                 ft.Container(
                     content=ft.Text(inicial, size=20, weight="bold", color=ft.Colors.WHITE),
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment.CENTER,
                     width=40, height=40,
                     bgcolor=cat_color,
                     shape=ft.BoxShape.CIRCLE,

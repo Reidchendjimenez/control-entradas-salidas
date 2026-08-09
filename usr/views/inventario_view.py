@@ -38,7 +38,7 @@ class InventarioView(ft.Container):
         super().__init__()
         self.visible = False
         self.expand = True
-        self.padding = ft.padding.only(left=10, right=10, bottom=16, top=8)
+        self.padding = ft.Padding.only(left=10, right=10, bottom=16, top=8)
         self.bgcolor = '#1A1A1A'
 
         self.search_field = None
@@ -74,8 +74,6 @@ class InventarioView(ft.Container):
         self._existencias_cache = None
         self._snack = None
 
-        self._build_ui()
-
     def on_theme_change(self):
         if not self.page:
             return
@@ -108,6 +106,7 @@ class InventarioView(ft.Container):
                 self.page.run_task(self._load_categorias)
 
     def did_mount(self):
+        self._build_ui()
         if not self._is_initialized:
             if self.page:
                 self.page.run_task(self._load_categorias)
@@ -377,7 +376,7 @@ class InventarioView(ft.Container):
                 bgcolor=colors['surface'], padding=10, border_radius=10,
             )
 
-            self.productos_list = ft.ListView(expand=True, spacing=10, padding=ft.padding.only(top=10))
+            self.productos_list = ft.ListView(expand=True, spacing=10, padding=ft.Padding.only(top=10))
 
             self.search_for_products = ft.TextField(
                 hint_text="Buscar productos...", prefix_icon=ft.Icons.SEARCH_ROUNDED,
@@ -573,10 +572,10 @@ class InventarioView(ft.Container):
                     on_click=self._enviar_lista_whatsapp,
                 ),
             ]),
-            padding=ft.padding.only(bottom=8),
+            padding=ft.Padding.only(bottom=8),
         )
         self.search_field.visible = False
-        self.compras_lista_list = ft.ListView(expand=True, spacing=10, padding=ft.padding.only(top=10))
+        self.compras_lista_list = ft.ListView(expand=True, spacing=10, padding=ft.Padding.only(top=10))
         self.main_content_area.content = ft.Column(
             [self._compras_header, self.compras_lista_list], expand=True, spacing=5,
         )
@@ -585,7 +584,7 @@ class InventarioView(ft.Container):
         items, colors = self._build_compras_lista_data()
         if items is None:
             return
-        nuevo_listview = ft.ListView(expand=True, spacing=10, padding=ft.padding.only(top=10))
+        nuevo_listview = ft.ListView(expand=True, spacing=10, padding=ft.Padding.only(top=10))
         if not items:
             nuevo_listview.controls.append(
                 ft.Container(
@@ -597,7 +596,7 @@ class InventarioView(ft.Container):
                         ft.Text("Agrega productos con el botón \"➕ Agregar\"", color=colors['text_secondary'], size=13),
                     ], horizontal_alignment="center", spacing=0),
                     expand=True,
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment.CENTER,
                 )
             )
         else:
@@ -676,7 +675,7 @@ class InventarioView(ft.Container):
             items, colors = self._build_compras_lista_data()
             if items is None or self.page is None:
                 return
-            nuevo_listview = ft.ListView(expand=True, spacing=10, padding=ft.padding.only(top=10))
+            nuevo_listview = ft.ListView(expand=True, spacing=10, padding=ft.Padding.only(top=10))
             if not items:
                 nuevo_listview.controls.append(
                     ft.Container(
@@ -688,7 +687,7 @@ class InventarioView(ft.Container):
                             ft.Text("Agrega productos con el botón \"➕ Agregar\"", color=colors['text_secondary'], size=13),
                         ], horizontal_alignment="center", spacing=0),
                         expand=True,
-                        alignment=ft.alignment.center,
+                        alignment=ft.Alignment.CENTER,
                     )
                 )
             else:

@@ -259,7 +259,7 @@ class ValidacionFields:
             content=content_col,
             padding=15,
             border_radius=12,
-            border=ft.border.all(1, self.theme_colors.get('border', '#333333')),
+            border=ft.Border.all(1, self.theme_colors.get('border', '#333333')),
             bgcolor=self.theme_colors.get('surface', '#252525')
         )
 

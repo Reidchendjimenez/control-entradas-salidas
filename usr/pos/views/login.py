@@ -63,17 +63,17 @@ class POSLoginView(ft.Container):
                         ],
                         alignment=ft.MainAxisAlignment.CENTER,
                     ),
-                    alignment=ft.alignment.center,
-                    padding=ft.padding.only(top=40, bottom=30),
+                    alignment=ft.Alignment.CENTER,
+                    padding=ft.Padding.only(top=40, bottom=30),
                 ),
                 ft.Container(
                     content=self.txt_nombre_actual,
-                    alignment=ft.alignment.center,
-                    padding=ft.padding.only(bottom=10),
+                    alignment=ft.Alignment.CENTER,
+                    padding=ft.Padding.only(bottom=10),
                 ),
                 ft.Container(
                     content=self.lv_usuarios,
-                    border=ft.border.all(1, "#3D3D3D"),
+                    border=ft.Border.all(1, "#3D3D3D"),
                     border_radius=10,
                     padding=10,
                     expand=True,
@@ -115,7 +115,7 @@ class POSLoginView(ft.Container):
                         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                     ),
                     padding=30,
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment.CENTER,
                 )
             )
             return
@@ -155,7 +155,7 @@ class POSLoginView(ft.Container):
                         height=50,
                         bgcolor="#7C4DFF" if not es_admin else "#FF9800",
                         border_radius=25,
-                        alignment=ft.alignment.center,
+                        alignment=ft.Alignment.CENTER,
                     ),
                     ft.Column(
                         [
@@ -176,7 +176,7 @@ class POSLoginView(ft.Container):
                 spacing=15,
             ),
             bgcolor="#1E1E1E",
-            border=ft.border.all(1, "#3D3D3D"),
+            border=ft.Border.all(1, "#3D3D3D"),
             border_radius=10,
             padding=15,
             on_click=lambda _, uid=usuario['id']: self._select_and_login(uid),

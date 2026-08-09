@@ -5,21 +5,57 @@ from pathlib import Path
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
-# --- BÚSQUEDA DEL .env (compatible con PyInstaller) ---
+# --- BÚSQUEDA DEL .env (compatible con PyInstaller y Flet 0.86+) ---
 # En modo compilado (PyInstaller), los datos empaquetados con --add-data
 # quedan en sys._MEIPASS. El .env se empaqueta en la raíz de _MEIPASS.
+# En Flet 0.86+ (Android/desktop): los archivos de la app viajan desempaquetados
+# y de solo lectura; el directorio de trabajo (cwd) es FLET_APP_STORAGE_DATA
+# (directorio de datos privado y escribible de la app).
 _MEIPASS = getattr(sys, '_MEIPASS', None)
 basedir = Path(__file__).parent
-posibles_rutas = [
-    basedir.parent / ".env",   # Raíz del proyecto (../.env) - desarrollo
-    basedir / ".env",          # Dentro de config/ - desarrollo
-    Path.cwd() / ".env",       # Directorio de trabajo actual
-]
-if _MEIPASS:
-    # PyInstaller: .env empaquetado con --add-data ".env;."  ->  _MEIPASS/.env
-    posibles_rutas.insert(0, Path(_MEIPASS) / ".env")
-    # Algunas configs lo coloca un nivel arriba (en el directorio del .exe)
-    posibles_rutas.insert(1, Path(_MEIPASS).parent / ".env")
+
+def _candidate_env_paths():
+    """Rutas candidatas para buscar .env en orden de prioridad."""
+    cand = []
+
+    # 1. Desarrollo: raíz del proyecto y config/
+    cand.append(basedir.parent / ".env")   # Raíz del proyecto (../.env)
+    cand.append(basedir / ".env")          # Dentro de config/
+
+    # 2. Directorio de trabajo actual (Flet 0.86: FLET_APP_STORAGE_DATA)
+    cwd = Path.cwd()
+    cand.append(cwd / ".env")
+    cand.append(cwd / "config" / ".env")
+
+    # 3. PyInstaller (_MEIPASS = _internal/ en onedir COLLECT)
+    if _MEIPASS:
+        meipass = Path(_MEIPASS)
+        cand.insert(0, meipass / ".env")                    # _internal/.env
+        cand.insert(1, meipass.parent / ".env")             # dist/Lycoris/.env (junto al exe)
+        cand.insert(2, meipass / "config" / ".env")         # _internal/config/.env
+
+    # 4. Flet 0.86: variables de entorno de almacenamiento
+    for var in ("FLET_APP_STORAGE_DATA", "FLET_APP_STORAGE_TEMP", "FLET_APP_STORAGE_CACHE"):
+        p = os.getenv(var)
+        if p:
+            base = Path(p)
+            cand.append(base / ".env")
+            cand.append(base / "config" / ".env")
+
+    # 5. Ejecutable (Windows onedir: dist/Lycoris/)
+    if getattr(sys, 'frozen', False):
+        exe_dir = Path(sys.executable).parent
+        cand.append(exe_dir / ".env")
+        cand.append(exe_dir / "config" / ".env")
+
+    # 6. app_updates (actualizaciones en vivo)
+    updates = basedir.parent / "app_updates"
+    cand.append(updates / ".env")
+    cand.append(updates / "config" / ".env")
+
+    return cand
+
+posibles_rutas = _candidate_env_paths()
 
 env_path = None
 for ruta in posibles_rutas:
@@ -37,7 +73,7 @@ if not os.getenv("DB_PASSWORD"):
     try:
         from config import db_config as _db_config
         for _key in ("DB_TYPE", "DB_HOST", "DB_PORT", "DB_NAME",
-                     "DB_USER", "DB_PASSWORD", "SQLITE_PATH"):
+                     "DB_USER", "DB_PASSWORD", "SQLITE_PATH", "UPDATE_URL"):
             _val = getattr(_db_config, _key, None)
             if _val and not os.getenv(_key):
                 os.environ[_key] = _val

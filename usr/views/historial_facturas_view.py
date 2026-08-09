@@ -73,7 +73,7 @@ class HistorialFacturasView(ft.Container):
         self._filtro_fecha_fin = None
         
         # FilePicker para exportar
-        self.file_picker = ft.FilePicker(on_result=self._on_file_save)
+        self.file_picker = ft.FilePicker()
         
         # Componentes de UI que necesitan persistencia de referencia
         self.facturas_list = ft.Column(spacing=10)
@@ -142,7 +142,7 @@ class HistorialFacturasView(ft.Container):
                     on_click=self._on_refresh,
                 ),
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-            padding=ft.padding.only(left=20, right=20, top=20, bottom=10),
+            padding=ft.Padding.only(left=20, right=20, top=20, bottom=10),
             bgcolor=colors['surface'],
         )
 
@@ -170,15 +170,6 @@ class HistorialFacturasView(ft.Container):
         # Agregar file_picker a la página (solo si no está ya)
         if self.page and self.file_picker not in self.page.overlay:
             self.page.overlay.append(self.file_picker)
-    
-    def _on_file_save(self, e: ft.FilePickerResultEvent):
-        if e.path:
-            try:
-                self._workbook.save(e.path)
-                show_success(f"Archivo guardado: {e.path}")
-            except Exception as ex:
-                show_error(f"Error: {ex}")
-        self.page.update()
 
     def _build_facturas_tab(self):
         colors = _colors(self.page)
@@ -238,7 +229,7 @@ class HistorialFacturasView(ft.Container):
                     tooltip="Limpiar filtro",
                 ),
             ], spacing=2),
-            padding=ft.padding.symmetric(horizontal=4, vertical=0),
+            padding=ft.Padding.symmetric(horizontal=4, vertical=0),
         )
 
         filtros = ft.Container(
@@ -250,16 +241,16 @@ class HistorialFacturasView(ft.Container):
                     fecha_filtro_row,
                 ], spacing=5, vertical_alignment="center"),
             ], spacing=4),
-            padding=ft.padding.symmetric(horizontal=15, vertical=8),
+            padding=ft.Padding.symmetric(horizontal=15, vertical=8),
             bgcolor=colors['card'],
             margin=ft.margin.symmetric(horizontal=10),
             border_radius=12,
-            border=ft.border.all(1, colors['border']),
+            border=ft.Border.all(1, colors['border']),
         )
         return ft.Column([
             ft.Container(height=10),
             filtros,
-            ft.Container(content=self.total_facturas_text, padding=ft.padding.only(left=22, top=8)),
+            ft.Container(content=self.total_facturas_text, padding=ft.Padding.only(left=22, top=8)),
             self.facturas_list_wrapper,
         ], expand=True, spacing=0, scroll=ft.ScrollMode.AUTO)
 
@@ -286,9 +277,9 @@ class HistorialFacturasView(ft.Container):
                     color=colors['white'] if is_active else colors['text_primary'],
                 ),
                 bgcolor=colors['accent'] if is_active else colors['card'],
-                border=ft.border.all(1, colors['accent'] if is_active else colors['border']),
+                border=ft.Border.all(1, colors['accent'] if is_active else colors['border']),
                 border_radius=8,
-                padding=ft.padding.symmetric(horizontal=12, vertical=6),
+                padding=ft.Padding.symmetric(horizontal=12, vertical=6),
                 on_click=lambda e: self._select_periodo(e.control.data),
                 animate=150,
             )
@@ -311,9 +302,9 @@ class HistorialFacturasView(ft.Container):
                 ft.Row(chips, spacing=5, scroll=ft.ScrollMode.HIDDEN, expand=True),
                 self.fecha_seleccionada_txt,
             ], spacing=10),
-            padding=ft.padding.symmetric(horizontal=15, vertical=8),
+            padding=ft.Padding.symmetric(horizontal=15, vertical=8),
             bgcolor=colors['surface'],
-            border=ft.border.only(bottom=ft.border.BorderSide(1, colors['border'])),
+            border=ft.Border(bottom=ft.BorderSide(1, colors['border'])),
         )
 
         return ft.Column([
@@ -446,7 +437,7 @@ class HistorialFacturasView(ft.Container):
                     ft.ProgressRing(),
                     ft.Text("Cargando facturas...", size=14),
                 ], horizontal_alignment="center", spacing=10),
-                alignment=ft.alignment.center, padding=50,
+                alignment=ft.Alignment.CENTER, padding=50,
             )
             self.facturas_list_wrapper.padding = 0
             if self.page and self.visible:
@@ -491,7 +482,7 @@ class HistorialFacturasView(ft.Container):
                         ft.Icon(ft.Icons.SEARCH_OFF_ROUNDED, size=50, color=_c(self.page, 'GREY_300')),
                         ft.Text("Sin registros", color=colors['text_secondary']),
                     ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                    padding=50, alignment=ft.alignment.center
+                    padding=50, alignment=ft.Alignment.CENTER
                 )
             )
         else:
@@ -499,14 +490,14 @@ class HistorialFacturasView(ft.Container):
                 color_est = colors['success'] if f.estado == "Validada" else colors['warning']
                 card = ft.Container(
                     padding=15, bgcolor=colors['card'], border_radius=12,
-                    border=ft.border.all(1, _c(self.page, 'GREY_200')),
+                    border=ft.Border.all(1, _c(self.page, 'GREY_200')),
                                     ink=True, on_click=lambda _, fact=f: self._show_factura_detalle(fact),
 
                     content=ft.Column([
                         ft.Row([
                             ft.Icon(ft.Icons.RECEIPT_ROUNDED, color=colors['accent'], size=20),
                             ft.Text(f"#{f.numero_factura}", weight="bold", expand=True, color=colors['text_primary']),
-                            ft.Container(ft.Text(f.estado, color="white", size=10, weight="bold"), bgcolor=color_est, padding=ft.padding.symmetric(2, 6), border_radius=4),
+                            ft.Container(ft.Text(f.estado, color="white", size=10, weight="bold"), bgcolor=color_est, padding=ft.Padding.symmetric(2, 6), border_radius=4),
                         ]),
                         ft.Text(f.proveedor or "Proveedor No Identificado", size=12, color=colors['text_secondary']),
                         ft.Row([
@@ -529,7 +520,7 @@ class HistorialFacturasView(ft.Container):
         for k, btn in self._periodo_buttons.items():
             active = (k == key)
             btn.bgcolor = colors['accent'] if active else colors['card']
-            btn.border = ft.border.all(1, colors['accent'] if active else colors['border'])
+            btn.border = ft.Border.all(1, colors['accent'] if active else colors['border'])
             btn.content.weight = "bold" if active else "normal"
             btn.content.color = colors['white'] if active else colors['text_primary']
             btn.update()
@@ -557,7 +548,7 @@ class HistorialFacturasView(ft.Container):
         colors = _colors(self.page)
         for chip in self._periodo_buttons.values():
             chip.bgcolor = colors['card']
-            chip.border = ft.border.all(1, colors['border'])
+            chip.border = ft.Border.all(1, colors['border'])
             chip.content.color = colors['text_primary']
             chip.content.weight = "normal"
             chip.update()
@@ -572,7 +563,7 @@ class HistorialFacturasView(ft.Container):
                 ft.ProgressRing(color=colors['accent']),
                 ft.Text("Cargando movimientos...", size=14, color=colors['text_secondary']),
             ], horizontal_alignment="center", spacing=10),
-            alignment=ft.alignment.center, padding=50,
+            alignment=ft.Alignment.CENTER, padding=50,
         )
         self.entradas_list_wrapper.padding = 0
         if self.page and self.visible:
@@ -606,7 +597,7 @@ class HistorialFacturasView(ft.Container):
             self.entradas_list.controls.clear()
             if not entradas:
                 self.entradas_list.controls.append(
-                    ft.Container(ft.Text("Sin movimientos en este periodo", color=colors['text_secondary']), padding=50, alignment=ft.alignment.center)
+                    ft.Container(ft.Text("Sin movimientos en este periodo", color=colors['text_secondary']), padding=50, alignment=ft.Alignment.CENTER)
                 )
             else:
                 # Agrupar por día
@@ -623,7 +614,7 @@ class HistorialFacturasView(ft.Container):
                     self.entradas_list.controls.append(
                         ft.Container(
                             ft.Text(header_txt, size=12, weight="bold", color=_c(self.page, 'GREY_500')),
-                            padding=ft.padding.symmetric(horizontal=10, vertical=6),
+                            padding=ft.Padding.symmetric(horizontal=10, vertical=6),
                             bgcolor=colors['surface'], border_radius=6
                         )
                     )
@@ -651,8 +642,8 @@ class HistorialFacturasView(ft.Container):
         if m.peso_total and m.peso_total > 0:
             peso_badge = ft.Container(
                 content=ft.Text(f"{m.peso_total:.2f} kg", size=10, weight="bold", color=_c(self.page, 'ORANGE_800')),
-                bgcolor=_c(self.page, 'ORANGE_50'), padding=ft.padding.symmetric(2, 6), border_radius=5,
-                border=ft.border.all(1, _c(self.page, 'ORANGE_200')),
+                bgcolor=_c(self.page, 'ORANGE_50'), padding=ft.Padding.symmetric(2, 6), border_radius=5,
+                border=ft.Border.all(1, _c(self.page, 'ORANGE_200')),
             )
 
         return ft.Container(
@@ -669,7 +660,7 @@ class HistorialFacturasView(ft.Container):
                 ], expand=True, spacing=3),
                 ft.Text(fecha_mov.strftime("%H:%M"), size=11, color=_c(self.page, 'GREY_400')),
             ], spacing=10),
-            padding=12, bgcolor=colors['card'], border_radius=10, border=ft.border.all(1, _c(self.page, 'GREY_200')),
+            padding=12, bgcolor=colors['card'], border_radius=10, border=ft.Border.all(1, _c(self.page, 'GREY_200')),
         )
 
     # ─── DIÁLOGOS Y DETALLES ────────────────────────────────────────
@@ -715,7 +706,7 @@ class HistorialFacturasView(ft.Container):
                         ft.Text(f"Proveedor: {f.proveedor or 'N/A'}", size=14, weight="w500"),
                         ft.Divider(height=20, color=_c(self.page, 'GREY_200')),
                         ft.Text("Productos registrados:", size=12, color=colors['text_secondary']),
-                        ft.Container(lista_items, height=300, border=ft.border.all(1, _c(self.page, 'GREY_200')), border_radius=8, padding=5),
+                        ft.Container(lista_items, height=300, border=ft.Border.all(1, _c(self.page, 'GREY_200')), border_radius=8, padding=5),
                         ft.Row([
                             ft.Text("TOTAL NETO:", weight="bold", color=colors['text_primary']),
                             ft.Text(f"${f.total_neto:,.2f}", weight="bold", color=colors['success'], size=18)
@@ -775,7 +766,7 @@ class HistorialFacturasView(ft.Container):
             width=200
         )
         
-        def on_exportar(e):
+        async def on_exportar(e):
             try:
                 mes = int(mes_dd.value) + 1
                 año = int(año_input.value or año_actual)
@@ -787,7 +778,7 @@ class HistorialFacturasView(ft.Container):
                 else:
                     fecha_fin = datetime(año, mes + 1, 1) - timedelta(days=1)
                 
-                self._exportar_excel(fecha_inicio, fecha_fin, tipo)
+                await self._exportar_excel(fecha_inicio, fecha_fin, tipo)
                 
                 dlg.open = False
                 self.page.update()
@@ -817,7 +808,7 @@ class HistorialFacturasView(ft.Container):
         dlg.open = True
         self.page.update()
     
-    def _exportar_excel(self, fecha_inicio, fecha_fin, tipo_doc=None):
+    async def _exportar_excel(self, fecha_inicio, fecha_fin, tipo_doc=None):
         colors = _colors(self.page)
         
         try:
@@ -903,10 +894,18 @@ class HistorialFacturasView(ft.Container):
             self.page.update()
             
             # Abrir diálogo nativo para elegir ruta de guardado
-            self.file_picker.save_file(
+            file_path = await self.file_picker.save_file(
                 allowed_extensions=["xlsx"],
                 file_name=nombre_archivo,
             )
+            
+            if file_path:
+                try:
+                    self._workbook.save(file_path)
+                    show_success(f"Archivo guardado: {file_path}")
+                except Exception as ex:
+                    show_error(f"Error: {ex}")
+            self.page.update()
             
             db.close()
             

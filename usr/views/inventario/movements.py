@@ -10,7 +10,7 @@ def registrar_movimiento(page, producto_seleccionado, tipo, cantidad, peso_total
     almacen_seleccionado = (almacen or get_attr(producto_seleccionado, "almacen_predeterminado", "principal") or "principal").strip()
 
     try:
-        user_id = str(page.session.get("user_id")) if page else None
+        user_id = str(page.session.store.get("user_id")) if page else None
         if not user_id:
             user_id = "sistema"
     except Exception:
@@ -144,7 +144,7 @@ def ajustar_existencia(page, producto_seleccionado, almacen, nueva_cantidad, mot
     almacen_seleccionado = (almacen or get_attr(producto_seleccionado, "almacen_predeterminado", "principal") or "principal").strip()
 
     try:
-        user_id = str(page.session.get("user_id")) if page else None
+        user_id = str(page.session.store.get("user_id")) if page else None
         if not user_id:
             user_id = "sistema"
     except Exception:

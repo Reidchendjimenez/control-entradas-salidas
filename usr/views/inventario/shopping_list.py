@@ -17,7 +17,7 @@ def create_categoria_header(nombre: str, color: str, colors: dict):
                 bgcolor=colors.get('border', '#E0E0E0'),
             ),
         ], spacing=0, vertical_alignment="center"),
-        padding=ft.padding.only(top=16, bottom=4, left=4),
+        padding=ft.Padding.only(top=16, bottom=4, left=4),
     )
 
 
@@ -35,7 +35,7 @@ def create_compra_lista_card(item, colors, callbacks):
                     ft.Text(label, size=11, color=colors['text_secondary']),
                     ft.Text(texto, size=13, weight="bold", color=colors['text_primary']),
                 ], spacing=4),
-                padding=ft.padding.symmetric(horizontal=8, vertical=10),
+                padding=ft.Padding.symmetric(horizontal=8, vertical=10),
             ),
             expand=True,
             on_tap=lambda e: callbacks.get('on_corregir')(item, almacen),
@@ -70,5 +70,5 @@ def create_compra_lista_card(item, colors, callbacks):
         padding=10,
         bgcolor=colors['card'],
         border_radius=8,
-        border=ft.border.all(1, colors['border']),
+        border=ft.Border.all(1, colors['border']),
     )

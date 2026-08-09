@@ -24,7 +24,7 @@ class POSHomeView(ft.Container):
     def _build_placeholder(self):
         self.content = ft.Container(
             content=ft.Text("Redirigiendo...", color=ft.Colors.WHITE),
-            alignment=ft.alignment.center,
+            alignment=ft.Alignment.CENTER,
             expand=True,
         )
 
