@@ -329,6 +329,13 @@ async def main(page: ft.Page):
 
         await app_instance.arrancar_interfaz(page, settings, None)
 
+        # Mantener la sesión viva - esperar indefinidamente a que se cierre la página
+        try:
+            while True:
+                await asyncio.sleep(3600)
+        except asyncio.CancelledError:
+            pass
+
     except Exception as inner_e:
         error_log = traceback.format_exc()
         logger.error(f"Exception in main(): {error_log}")

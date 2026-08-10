@@ -65,12 +65,12 @@ class VisualizeView(ft.Container):
                 tooltip="Compartir",
                 items=[
                     ft.PopupMenuItem(
-                        text="Compartir por WhatsApp",
+                        content="Compartir por WhatsApp",
                         icon=ft.Icons.CHAT,
                         on_click=self._on_compartir,
                     ),
                     ft.PopupMenuItem(
-                        text="Copiar al portapapeles",
+                        content="Copiar al portapapeles",
                         icon=ft.Icons.CONTENT_COPY,
                         on_click=self._on_copiar,
                     ),

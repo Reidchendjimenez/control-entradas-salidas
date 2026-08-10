@@ -82,7 +82,7 @@ def build_movimiento_card(m, colors, producto=None, page=None):
             ft.Text(fecha, size=10, color=colors['text_secondary']),
             ft.Container(
                 content=ft.Text(label, size=9, color='white', weight='bold'),
-                bgcolor=color, padding=ft.Padding.only(4, 1, 4, 1), border_radius=3,
+                bgcolor=color, padding=ft.Padding.only(left=4, top=1, right=4, bottom=1), border_radius=3,
             ),
         ], spacing=6),
         ft.Row([
@@ -123,7 +123,7 @@ def build_movimiento_card(m, colors, producto=None, page=None):
                 ft.Text("→", size=10, color=colors['text_secondary']),
                 ft.Text(cant_nueva, size=12, weight='bold', color=colors['text_primary'], text_align=ft.TextAlign.CENTER, expand=True),
             ], spacing=2, alignment=ft.MainAxisAlignment.CENTER),
-            bgcolor=colors['bg'], padding=ft.Padding.only(4, 3, 4, 3), border_radius=5,
+            bgcolor=colors['bg'], padding=ft.Padding.only(left=4, top=3, right=4, bottom=3), border_radius=5,
         ),
     )
 

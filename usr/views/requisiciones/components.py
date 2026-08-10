@@ -131,7 +131,7 @@ def build_empty_state(colors):
             ft.Text("No hay requisiciones", color=colors['text_secondary']),
         ], horizontal_alignment="center"),
         padding=ft.Padding.only(top=80),
-        alignment=ft.Alignment.top_center,
+        alignment=ft.Alignment.TOP_CENTER,
     )
 
 

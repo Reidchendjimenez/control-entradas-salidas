@@ -150,7 +150,8 @@ class ControlEntradasSalidasApp:
             self.page.padding = 5
             self._sync_safe = ft.SafeArea(
                 content=self.sync_status_bar,
-                top=True, bottom=False, left=True, right=True,
+                avoid_intrusions_left=True, avoid_intrusions_top=True,
+                avoid_intrusions_right=True, avoid_intrusions_bottom=False,
             )
             self.page.add(ft.Column([
                 self._sync_safe,
@@ -350,7 +351,9 @@ class ControlEntradasSalidasApp:
                     except Exception as e:
                         logger.warning(f"will_unmount falló: {e}")
 
-            self.content_area.content.controls = [view]
+            # Insertar la vista en el área de contenido.
+            # Las vistas se crean vacías (sin content); la UI se construye en did_mount/_build_ui.
+            self.content_area.content = ft.Column([view], expand=True, spacing=0)
             view.visible = True
             self.current_view = view
             self.current_view_index = index
@@ -361,51 +364,53 @@ class ControlEntradasSalidasApp:
                 else:
                     self.navigation_bar.selected_index = 3
 
-            # Asegurar que la UI de la vista esté construida ANTES de page.update()
+            # Construir UI si aún no existe Y la vista ya está montada (page disponible).
+            # Si aún no está montada, did_mount (llamado tras page.update()) la construirá.
             if hasattr(view, '_build_ui') and getattr(view, 'content', None) is None:
                 try:
-                    view._build_ui()
-                except Exception as e:
-                    logger.warning(f"_build_ui prematuro para vista {index}: {e}")
+                    _ = view.page
+                except RuntimeError:
+                    pass
+                else:
+                    try:
+                        view._build_ui()
+                    except Exception as e:
+                        logger.warning(f"_build_ui prematuro para vista {index}: {e}")
         except Exception as e:
             logger.error(f"Error en _show_view({index}): {e}", exc_info=True)
             show_error(f"Error al mostrar la vista {index}", e, "ControlEntradasSalidasApp._show_view")
             return
 
-        # Montar la vista en la página (setea view.page) antes de construir UI
+        # Montar la vista en la página (setea view.page)
         try:
             self.page.update()
         except Exception as e:
             logger.warning(f"page.update() parcial al montar vista {index}: {e}")
 
-        # did_mount construye la UI (self.page ya está disponible)
+        # Flet no siempre invoca did_mount al intercambiar controles en un Column;
+        # lo llamamos de forma explícita para construir/inicializar la vista.
         if hasattr(view, 'did_mount'):
             try:
                 view.did_mount()
             except Exception as e:
                 logger.warning(f"did_mount falló para vista {index}: {e}")
 
-        # Forzar actualización de la vista y content_area
-        if hasattr(view, 'update'):
-            try:
-                view.update()
-            except Exception:
-                pass
-        if hasattr(view, 'content') and hasattr(view.content, 'update'):
-            try:
-                view.content.update()
-            except Exception:
-                pass
-        try:
-            self.content_area.update()
-        except Exception:
-            pass
+        # Forzar refresco de la vista montada
+        for ctrl in (view, getattr(view, 'content', None), self.content_area):
+            if ctrl is not None and hasattr(ctrl, 'update'):
+                try:
+                    ctrl.update()
+                except Exception:
+                    pass
 
-        self.page.update()
+        try:
+            self.page.update()
+        except Exception as e:
+            logger.warning(f"page.update() final al montar vista {index}: {e}")
 
         if hasattr(view, '_update_connection_indicator'):
             try:
                 if hasattr(view, '_connection_indicator') and view._connection_indicator in self.page.controls:
                     view._update_connection_indicator()
-            except:
+            except Exception:
                 pass

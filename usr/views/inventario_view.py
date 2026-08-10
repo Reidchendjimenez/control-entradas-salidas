@@ -73,10 +73,6 @@ class InventarioView(ft.Container):
         self._productos_cache = None
         self._existencias_cache = None
         self._snack = None
-        try:
-            self._build_ui()
-        except Exception as e:
-            logger.warning(f"Error construyendo UI en __init__ de InventarioView: {e}")
 
     def on_theme_change(self):
         if not self.page:
@@ -117,7 +113,8 @@ class InventarioView(ft.Container):
                 page = self.page
             except RuntimeError:
                 return
-            self._build_ui()
+            if not self.content:
+                self._build_ui()
             if not self._is_initialized:
                 if page:
                     page.run_task(self._load_categorias)
@@ -146,8 +143,8 @@ class InventarioView(ft.Container):
     def _safe_update_connection_indicator(self):
         try:
             self._update_connection_indicator()
-        except Exception as e:
-            logger.warning(f"update_connection_indicator no crítico: {e}")
+        except Exception:
+            pass
 
     def will_unmount(self):
         from usr.database.sync_callbacks import unregister_sync_callback
@@ -223,7 +220,11 @@ class InventarioView(ft.Container):
                 ft.Container(height=5),
                 self.main_content_area,
             ], spacing=0, expand=True)
-            self.update()
+            try:
+                self.update()
+            except Exception:
+                # Puede fallar si aún no está montada en la page; page.update() lo cubrirá.
+                pass
 
         except Exception as e:
             show_error("Error building UI", e, "inventario_view._build_ui")
@@ -307,8 +308,8 @@ class InventarioView(ft.Container):
                 pass
             except Exception as e:
                 show_error("Error updating connection indicator", e, "inventario_view._update_connection_indicator")
-        except Exception as e:
-            logger.warning(f"_update_connection_indicator no crítico: {e}")
+        except Exception:
+            pass
 
     async def _load_categorias(self, force_refresh=False):
         if not self.page:

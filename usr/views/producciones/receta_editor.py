@@ -387,7 +387,7 @@ class RecetaEditor(ft.Container):
                 ft.ResponsiveRow([
                     ft.Container(
                         content=ft.OutlinedButton(
-                            text="Cancelar",
+                            content="Cancelar",
                             on_click=lambda _: self._cancel(),
                             expand=True,
                         ),
@@ -395,7 +395,7 @@ class RecetaEditor(ft.Container):
                     ),
                     ft.Container(
                         content=ft.ElevatedButton(
-                            text="💾 Guardar Receta",
+                            content="💾 Guardar Receta",
                             icon=ft.Icons.SAVE_OUTLINED,
                             bgcolor=colors['accent'],
                             color=colors.get('white', ft.Colors.WHITE),

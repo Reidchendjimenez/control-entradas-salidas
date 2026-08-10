@@ -106,7 +106,7 @@ class RequisicionForm:
 
         boton_agregar = ft.ElevatedButton(
             icon=ft.Icons.ADD,
-            text="Agregar Producto",
+            content="Agregar Producto",
             on_click=lambda _: self._open_buscador(),
             bgcolor=colors['accent'],
             color="white",

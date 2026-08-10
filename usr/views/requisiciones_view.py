@@ -49,10 +49,6 @@ class RequisicionesView(ft.Container):
         self._productos_lista_req = None
         self._bs_buscador = None
         self.loading_overlay = None
-        try:
-            self._build_ui()
-        except Exception as e:
-            logger.warning(f"Error construyendo UI en __init__ de RequisicionesView: {e}")
 
     def on_theme_change(self):
         if not self.page:
@@ -72,7 +68,7 @@ class RequisicionesView(ft.Container):
                  ft.Text("—", size=12, color=self.colors['text_secondary'], weight="w500")],
                 spacing=5, tight=True,
             ),
-            padding=ft.Padding.only(10, 6, 10, 6),
+            padding=ft.Padding.only(left=10, top=6, right=10, bottom=6),
             border_radius=15,
             bgcolor=self.colors['bg'],
             tooltip="Estado de sincronización",

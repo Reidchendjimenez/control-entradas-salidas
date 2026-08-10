@@ -51,7 +51,7 @@ class ValidacionView(ft.Container):
             except RuntimeError:
                 return
             self._build_controls()
-            if page and page.client_storage:
+            if page and page.session:
                 page.run_task(self._load_entradas_pendientes)
                 self.update()
             

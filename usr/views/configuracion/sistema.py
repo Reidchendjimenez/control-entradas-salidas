@@ -195,7 +195,7 @@ def _build_almacen_produccion_dd():
     return ft.Dropdown(
         value=actual,
         options=[ft.dropdown.Option(a, a.capitalize()) for a in almacenes],
-        on_change=_on_change,
+        on_select=_on_select,
         width=300,
     )
 

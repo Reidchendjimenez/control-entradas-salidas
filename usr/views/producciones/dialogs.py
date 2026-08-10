@@ -173,7 +173,7 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
         value=almacen_default,
         options=[ft.dropdown.Option(a, a.capitalize()) for a in almacenes],
         width=180,
-        on_change=lambda e: _actualizar_stock(e.control.value),
+        on_select=lambda e: _actualizar_stock(e.control.value),
     )
 
     producidos_list = ft.Column([

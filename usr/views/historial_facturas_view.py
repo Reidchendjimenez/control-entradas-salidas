@@ -207,12 +207,12 @@ class HistorialFacturasView(ft.Container):
             self._load_facturas()
 
         self._btn_fecha_inicio = ft.TextButton(
-            text="📅 Inicio",
+            content="📅 Inicio",
             on_click=_pick_inicio,
             style=ft.ButtonStyle(color=colors['accent']),
         )
         self._btn_fecha_fin = ft.TextButton(
-            text="📅 Fin",
+            content="📅 Fin",
             on_click=_pick_fin,
             style=ft.ButtonStyle(color=colors['accent']),
         )

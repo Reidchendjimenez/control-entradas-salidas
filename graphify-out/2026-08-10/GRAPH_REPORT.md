@@ -1,11 +1,11 @@
 # Graph Report - control-entradas-salidas  (2026-08-10)
 
 ## Corpus Check
-- 132 files · ~192,901 words
+- 132 files · ~192,894 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1733 nodes · 4344 edges · 93 communities (65 shown, 28 thin omitted)
+- 1733 nodes · 4344 edges · 94 communities (66 shown, 28 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 78 edges (avg confidence: 0.58)
 - Token cost: 0 input · 0 output
 
@@ -71,6 +71,7 @@
 - ._enqueue_venta
 - .aplicar_movimientos_venta
 - .save_componentes
+- ._refresh_compras_lista
 - graphify reference: add a URL and watch a folder
 - graphify reference: commit hook and native CLAUDE.md integration
 - graphify reference: incremental update and cluster-only
@@ -129,7 +130,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (93 total, 28 thin omitted)
+## Communities (94 total, 28 thin omitted)
 
 ### Community 0 - "POSLoginView"
 Cohesion: 0.05
@@ -152,8 +153,8 @@ Cohesion: 0.12
 Nodes (4): formatear_tasa(), Tasa con 4 decimales, ej: 835,9482 Bs/$., ComandaPedidoView, Categorias de platos (sin padre) excluyendo las de contornos.
 
 ### Community 5 - "inventario_view.py"
-Cohesion: 0.20
-Nodes (10): al_pasar_mouse(), create_categoria_card(), create_categoria_card_from_dict(), get_card_bg(), generar_color(), create_producto_item_from_dict(), get_almacenes(), create_categoria_header() (+2 more)
+Cohesion: 0.32
+Nodes (7): al_pasar_mouse(), create_categoria_card(), create_categoria_card_from_dict(), get_card_bg(), generar_color(), create_producto_item_from_dict(), get_almacenes()
 
 ### Community 6 - "models/__init__.py"
 Cohesion: 0.07
@@ -315,6 +316,10 @@ Nodes (3): Sync_uuid de una venta (para el vinculo estable venta<->movimientos).
 Cohesion: 0.33
 Nodes (4): Guarda una receta y retorna su ID., Reemplaza todos los componentes de una receta., guardar_receta(), Guarda receta + componentes. receta_data incluye id si es edición.
 
+### Community 56 - "._refresh_compras_lista"
+Cohesion: 0.24
+Nodes (3): create_categoria_header(), create_compra_lista_card(), Recarga datos y reconstruye la lista de compras con un ListView fresco.
+
 ### Community 57 - "graphify reference: add a URL and watch a folder"
 Cohesion: 0.50
 Nodes (3): For /graphify add, For --watch, graphify reference: add a URL and watch a folder
@@ -373,7 +378,7 @@ _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `LocalReplica` connect `LocalReplica` to `POSLoginView`, `show_error_with_copy`, `validacion_view.py`, `ComandaPedidoView`, `inventario_view.py`, `ConfigPOSView`, `.get_productos`, `get_local_conn`, `InventarioView`, `periodos.py`, `._download_all_from_server`, `.delete_plato_categoria`, `._download_all_from_server`, `.delete_pos_categoria`, `.get_venta_anulada_by_comanda`, `SyncManager`, `.get_contornos`, `base.py`, `.get_facturas`, `printer.py`, `POSSyncManager`, `comanda_view.py`, `get_colors`, `.get_plato_contornos`, `show_warning`, `producciones/data.py`, `show_success`, `._go_to_main`, `app_launcher.py`, `stock_view.py`, `show_error`, `._enqueue_comanda`, `.delete_receta`, `.get_producciones`, `._enqueue_venta`, `.aplicar_movimientos_venta`, `.save_componentes`, `_colors`, `.get_recetas`, `RecetaEditor`, `views/config.py`, `.get_producto_by_id`, `.get_contornos_activos`, `.get_proveedor_by_nombre`, `.verificar_pin`, `._on_categoria_click`, `get_db_adaptive`, `historial_facturas_view.py`, `.clear_categorias`, `.get_platos`, `.save_plato_contornos`?**
   _High betweenness centrality (0.432) - this node is a cross-community bridge._
-- **Why does `get_local_conn()` connect `get_local_conn` to `POSLoginView`, `validacion_view.py`, `inventario_view.py`, `ConfigPOSView`, `.get_productos`, `InventarioView`, `requisiciones_view.py`, `RequisicionesView`, `periodos.py`, `._download_all_from_server`, `.delete_plato_categoria`, `._download_all_from_server`, `.delete_pos_categoria`, `.get_venta_anulada_by_comanda`, `SyncManager`, `.get_contornos`, `base.py`, `.get_facturas`, `printer.py`, `POSSyncManager`, `.get_plato_contornos`, `producciones/data.py`, `show_success`, `._go_to_main`, `LocalReplica`, `._enqueue_comanda`, `.delete_receta`, `.get_producciones`, `._enqueue_venta`, `.aplicar_movimientos_venta`, `.save_componentes`, `conn.py`, `.get_recetas`, `RecetaEditor`, `views/config.py`, `.get_producto_by_id`, `.get_contornos_activos`, `.get_proveedor_by_nombre`, `.verificar_pin`, `._on_categoria_click`, `.clear_categorias`, `.get_platos`, `.save_plato_contornos`?**
+- **Why does `get_local_conn()` connect `get_local_conn` to `POSLoginView`, `validacion_view.py`, `inventario_view.py`, `ConfigPOSView`, `.get_productos`, `requisiciones_view.py`, `RequisicionesView`, `periodos.py`, `._download_all_from_server`, `.delete_plato_categoria`, `._download_all_from_server`, `.delete_pos_categoria`, `.get_venta_anulada_by_comanda`, `SyncManager`, `.get_contornos`, `base.py`, `.get_facturas`, `printer.py`, `POSSyncManager`, `.get_plato_contornos`, `producciones/data.py`, `show_success`, `._go_to_main`, `LocalReplica`, `._enqueue_comanda`, `.delete_receta`, `.get_producciones`, `._enqueue_venta`, `.aplicar_movimientos_venta`, `.save_componentes`, `._refresh_compras_lista`, `conn.py`, `.get_recetas`, `RecetaEditor`, `views/config.py`, `.get_producto_by_id`, `.get_contornos_activos`, `.get_proveedor_by_nombre`, `.verificar_pin`, `._on_categoria_click`, `.clear_categorias`, `.get_platos`, `.save_plato_contornos`?**
   _High betweenness centrality (0.088) - this node is a cross-community bridge._
 - **Why does `SyncManager` connect `SyncManager` to `models/__init__.py`, `app_launcher.py`, `LocalReplica`, `._download_all_from_server`, `base.py`, `POSSyncManager`?**
   _High betweenness centrality (0.049) - this node is a cross-community bridge._

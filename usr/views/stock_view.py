@@ -40,10 +40,6 @@ class StockView(ft.Container):
         self.stock_bajo_text = ft.Text("0", size=24, weight=ft.FontWeight.BOLD)
         self.sin_stock_text = ft.Text("0", size=24, weight=ft.FontWeight.BOLD)
         self.active_dialog = None
-        try:
-            self._build_ui()
-        except Exception as e:
-            logger.warning(f"Error construyendo UI en __init__ de StockView: {e}")
 
     def did_mount(self):
         if getattr(self, '_mounted', False):
@@ -232,14 +228,14 @@ class StockView(ft.Container):
             label="Categoría",
             border_radius=12,
             border_color=colors['input_border'],
-            on_change=self._filter_productos,
+            on_select=self._filter_productos,
         )
         
         self.almacen_filter = ft.Dropdown(
             label="Almacén",
             border_radius=12,
             border_color=ft.Colors.TRANSPARENT,
-            on_change=self._filter_productos,
+            on_select=self._filter_productos,
             value=""
         )
         

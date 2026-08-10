@@ -69,7 +69,10 @@ class BandejaWhatsAppView(ft.Container):
             ft.Divider(height=1),
             self._list_view,
         ], expand=True, spacing=10)
-        self.update()
+        try:
+            self.update()
+        except Exception:
+            pass
 
     def _load_messages(self):
         try:
@@ -102,7 +105,7 @@ class BandejaWhatsAppView(ft.Container):
                             ft.Icon(ft.Icons.INBOX_OUTLINED, size=60, color=colors.get('text_hint', '#666')),
                             ft.Text("No hay mensajes en la bandeja", size=16, color=colors.get('text_secondary', '#999'))
                         ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                        expand=True, alignment=ft.Alignment.center, padding=50
+                        expand=True, alignment=ft.Alignment.CENTER, padding=50
                     )
                 )
                 return

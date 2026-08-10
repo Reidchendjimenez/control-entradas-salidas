@@ -53,7 +53,7 @@ class ValidacionFields:
             value="Varios",
             border_radius=10,
             expand=True,
-            on_change=self._on_proveedor_change
+            on_select=self._on_proveedor_change
         )
 
         self.nuevo_proveedor_rif = ft.TextField(

@@ -1,8 +1,11 @@
 import flet as ft
 import asyncio
+import logging
 from usr.theme import get_theme, get_colors
 from usr.database.local_replica import LocalReplica
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 
 def _colors(page):
@@ -137,7 +140,7 @@ class ProduccionesView(ft.Container):
             label="Seleccionar Receta",
             hint_text="Elige una receta...",
             options=[],
-            on_change=self._on_receta_change,
+            on_select=self._on_receta_change,
             expand=True,
         )
         self.cantidad_input = ft.TextField(
@@ -157,7 +160,7 @@ class ProduccionesView(ft.Container):
         )
 
         self.ejecutar_btn = ft.ElevatedButton(
-            text="Ejecutar Producción",
+            content="Ejecutar Producción",
             icon=ft.Icons.PLAY_ARROW,
             bgcolor=colors['accent'],
             color=colors['white'],
@@ -401,7 +404,7 @@ class ProduccionesView(ft.Container):
         )
 
         add_comp_btn = ft.TextButton(
-            text="+ Agregar producto",
+            content="+ Agregar producto",
             icon=ft.Icons.ADD,
             on_click=lambda _: _add_component_row(
                 'RESULTADO' if ((receta and receta.get('tipo') == 'simple') or not receta) else 'INGREDIENTE'

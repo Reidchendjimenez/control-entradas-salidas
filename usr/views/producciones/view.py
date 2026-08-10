@@ -9,6 +9,7 @@ Delega la lógica a submódulos:
 - historial_view.py: tab Historial
 """
 import flet as ft
+import logging
 
 from usr.database.base import check_connection
 from usr.views.producciones import data
@@ -16,6 +17,8 @@ from usr.views.producciones.helpers import colors as _colors
 from usr.views.producciones.recetas_view import render_recetas
 from usr.views.producciones.pendientes_view import build_pendientes_tab
 from usr.views.producciones.historial_view import build_historial_tab
+
+logger = logging.getLogger(__name__)
 
 
 class ProduccionesView(ft.Container):
@@ -52,10 +55,6 @@ class ProduccionesView(ft.Container):
         self._connection_indicator = ft.Icon(
             ft.Icons.CLOUD_OFF, size=20, color='#F44336', tooltip="Sin conexión",
         )
-        try:
-            self._build_ui()
-        except Exception as e:
-            logger.warning(f"Error construyendo UI en __init__ de ProduccionesView: {e}")
 
     def did_mount(self):
         if getattr(self, '_mounted', False):
@@ -117,7 +116,7 @@ class ProduccionesView(ft.Container):
                 content=ft.Row([
                     ft.Text("", expand=True),
                     ft.ElevatedButton(
-                        text="+ Nueva Receta",
+                        content="+ Nueva Receta",
                         icon=ft.Icons.ADD,
                         bgcolor=colors['accent'],
                         color=colors.get('white', ft.Colors.WHITE),

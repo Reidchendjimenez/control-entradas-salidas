@@ -1,5 +1,6 @@
 import asyncio
 import time
+import logging
 import flet as ft
 from sqlalchemy.orm import joinedload
 from usr.models import Categoria, Producto
@@ -11,6 +12,8 @@ from usr.views.configuracion.productos import show_producto_dialog, create_produ
 from usr.views.configuracion.proveedores import build_proveedores_tab, load_proveedores
 from usr.views.configuracion.sistema import build_sistema_tab
 from usr.views.configuracion.periodos import build_periodos_tab
+
+logger = logging.getLogger(__name__)
 
 
 def _get_tipo_label(tipo):
@@ -47,10 +50,6 @@ class ConfiguracionView(ft.Container):
             color=ft.Colors.GREEN_400 if is_online_flag else ft.Colors.RED_400,
             weight=ft.FontWeight.BOLD,
         )
-        try:
-            self._build_ui()
-        except Exception as e:
-            logger.warning(f"Error construyendo UI en __init__ de ConfiguracionView: {e}")
 
     def did_mount(self):
         if getattr(self, '_mounted', False):
@@ -192,7 +191,7 @@ class ConfiguracionView(ft.Container):
             bgcolor=colors['card'],
             border_color=colors['border'],
             width=200,
-            on_change=self._filter_productos,
+            on_select=self._filter_productos,
         )
 
         self.producto_search = ft.TextField(
