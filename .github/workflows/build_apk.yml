@@ -78,6 +78,7 @@ jobs:
             --python-version 3.12 \
             --build-number 8 \
             --build-version "1.3.22" \
+            --yes \
             --no-rich-output
 
       - name: Rename APK
