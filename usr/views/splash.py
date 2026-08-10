@@ -101,20 +101,18 @@ def _find_background_image(page=None, desktop_bg=None):
     return None
 
 
-class LoadingSplash(ft.Container):
-    """Splash a pantalla completa con fondo (imagen estática) y UI animada."""
+class LoadingSplash:
+    """Splash a pantalla completa con fondo (imagen estática) y UI animada.
+
+    No hereda de ft.Container para evitar bugs de centrado en Flet 0.86.
+    Usa build() para crear un Container plano con layout que SÍ centra.
+    """
 
     def __init__(self, page: ft.Page, title: str = "Control de Entradas y Salidas",
                  logo_src: str = "icono.png", stages: Optional[list] = None,
                  desktop_bg: Optional[str] = None):
-        super().__init__()
         self._page = page
-        self.expand = True
-        self.bgcolor = DARK['bg']
-        self.alignment = ft.Alignment.CENTER
-        self._valor = 0.0
         self._stages = stages if stages is not None else _STAGES
-
         self._fondo_src = _find_background_image(page=page, desktop_bg=desktop_bg)
 
         self._logo = ft.Container(
@@ -136,7 +134,7 @@ class LoadingSplash(ft.Container):
             width=146, height=146, stroke_width=10,
             color="#BB86FC", bgcolor="#2A2A2A",
         )
-        anillo = ft.Stack(
+        self._anillo = ft.Stack(
             controls=[self._ring, ft.Container(content=self._logo, alignment=ft.Alignment.CENTER)],
             width=146, height=146,
         )
@@ -147,8 +145,8 @@ class LoadingSplash(ft.Container):
             "Abriendo la aplicación…", size=14, color="#BBBBBB", text_align="center"
         )
 
-        self.content = ft.Column([
-            anillo,
+        columna = ft.Column([
+            self._anillo,
             ft.Container(height=8),
             ft.Text(title, size=16, weight="bold", color="#FFFFFF"),
             ft.Container(height=18),
@@ -158,13 +156,8 @@ class LoadingSplash(ft.Container):
             self._paso,
         ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=2)
 
-        # --- Capa vertical que centra el contenido en cualquier pantalla ----
-        # Un Column con expand=True y 'alignment=ft.MainAxisAlignment.CENTER'
-        # centra sus hijos verticalmente (su eje principal); el horizontal
-        # lo da el horizontal_alignment del propio content. Esta es la razón
-        # por la que antes quedaba pegado arriba.
         tarjeta = ft.Container(
-            content=self.content,
+            content=columna,
             padding=ft.Padding.symmetric(horizontal=32, vertical=28),
             bgcolor=ft.Colors.with_opacity(0.55, "#0D0D0D"),
             border_radius=20,
@@ -172,41 +165,55 @@ class LoadingSplash(ft.Container):
             border=ft.Border.all(1, ft.Colors.with_opacity(0.25, "#FFFFFF")),
         )
 
-        # --- Capa base: el fondo se pone en 'self.image' (propiedad del
-        # Container) que cubre SIEMPRE todo el área del contenedor, con COVER.
-        # (La versión previa usaba un ft.Image dentro del Stack y no llenaba).
-        if self._fondo_src:
-            self.image = ft.DecorationImage(
-                src=self._fondo_src,
-                fit=ft.BoxFit.COVER,
-            )
+        # Fondo (imagen estática) — se pone en el Container raíz via DecorationImage
+        self._fondo_src = _find_background_image(page=page, desktop_bg=desktop_bg)
 
-        # Capa oscura translúcida encima del fondo + contenido centrado.
+        # --- Arquitectura que FUNCIONA en Flet 0.86 (comentario original) ---
+        # Root: Container expand + alignment CENTER
+        # Content: Stack con 2 capas:
+        #   1) oscurece (fondo + overlay oscuro, expand=True)
+        #   2) Column expand + MainAxisAlignment.CENTER + CrossAxisAlignment.CENTER -> tarjeta
+        # El Stack se usa SOLO para superponer fondo+overlay; el centrado lo hace la Column.
         oscurece = ft.Container(
             expand=True,
             bgcolor=ft.Colors.with_opacity(0.35, "#000000"),
         )
-        tarjeta_central = ft.Container(
-            content=tarjeta,
+        contenido_centrado = ft.Column(
+            [tarjeta],
             expand=True,
-            alignment=ft.Alignment.CENTER,
+            alignment=ft.MainAxisAlignment.CENTER,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
-        self.content = ft.Stack(
-            controls=[oscurece, tarjeta_central],
+        self._root = ft.Container(
             expand=True,
+            bgcolor=DARK['bg'],
+            image=ft.DecorationImage(src=self._fondo_src, fit=ft.BoxFit.COVER) if self._fondo_src else None,
+            alignment=ft.Alignment.CENTER,
+            content=ft.Stack(
+                controls=[oscurece, contenido_centrado],
+                expand=True,
+            ),
         )
 
+        # Referencias para compatibilidad con código existente (updater, etc.)
         self._stop_pulso = threading.Event()
         self._hilo_pulso = threading.Thread(target=self._pulso, daemon=True)
         self._hilo_pulso.start()
 
-        # Animación "idle" del anillo: mientras no haya progreso real del sync
-        # (pre-login, esperando servidor), el anillo gira como indicador de carga.
         self._stop_ring = threading.Event()
         self._cuadro = 0.0
         self._tiene_progreso = False
         self._hilo_ring = threading.Thread(target=self._anillo_idle, daemon=True)
         self._hilo_ring.start()
+
+    @property
+    def control(self) -> ft.Container:
+        """Devuelve el Container raíz para añadir a la página: page.add(splash.control)"""
+        return self._root
+
+    # Alias para compatibilidad: page.add(splash) sigue funcionando si se usa __getattr__
+    def __getattr__(self, name):
+        return getattr(self._root, name)
 
     # -- anillo: gira sin progreso hasta que haya % real del sync -------------
     def _anillo_idle(self):

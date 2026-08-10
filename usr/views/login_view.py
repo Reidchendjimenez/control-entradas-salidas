@@ -224,7 +224,7 @@ class LoginView(ft.Container):
             # descarga los datos (evita la pantalla negra inicial).
             from usr.views.splash import LoadingSplash
             splash = LoadingSplash(self.page)
-            self.page.add(splash)
+            self.page.add(splash.control)
             self.page.update()
 
             sync_manager = init_sync_manager(get_engine)
@@ -247,7 +247,7 @@ class LoginView(ft.Container):
                     logger.error(f"Error en sync: {sync_err}")
 
             splash.finish()
-            self.page.controls.remove(splash)
+            self.page.controls.remove(splash.control)
             self.page.update()
 
             app_instance = ControlEntradasSalidasApp()

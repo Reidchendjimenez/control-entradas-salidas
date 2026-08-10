@@ -62,7 +62,7 @@ async def main(page: ft.Page):
     )
     step_text = loading.step_text
     status_text = loading.status_text
-    page.add(loading)
+    page.add(loading.control)
     page.update()
 
     # Comprobar actualizaciones
