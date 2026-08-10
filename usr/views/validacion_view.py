@@ -11,7 +11,7 @@ from usr.views.validacion import ValidacionDialog
 from usr.database.sync_callbacks import register_sync_callback, unregister_sync_callback
 from usr.whatsapp_notifier import (
     send_whatsapp_message, send_whatsapp_image,
-    format_validation_message, get_whatsapp_status
+    format_validation_message
 )
 
 logger = get_logger(__name__)
@@ -115,19 +115,21 @@ class ValidacionView(ft.Container):
         except RuntimeError:
             return
         if not page: return
-        
+
+        def _find_loading_overlays():
+            return [c for c in list(page.overlay) if getattr(c, '_es_overlay_carga', False)]
+
         if visible:
-            if self.loading_overlay:
-                # Actualizar solo el texto del mensaje
+            # Remover cualquier overlay de carga previo para evitar duplicados
+            for ov in _find_loading_overlays():
                 try:
-                    self.loading_overlay.content.content.controls[1].value = message
-                    self.page.update()
-                    return
+                    page.overlay.remove(ov)
                 except Exception:
                     pass
+            self.loading_overlay = None
 
             colors = get_colors(self.page)
-            self.loading_overlay = ft.Container(
+            overlay = ft.Container(
                 content=ft.Container(
                     content=ft.Column([
                         ft.ProgressBar(width=200, color=colors.get('primary', ft.Colors.PURPLE), bgcolor=ft.Colors.TRANSPARENT),
@@ -143,13 +145,27 @@ class ValidacionView(ft.Container):
                 alignment=ft.Alignment.CENTER,
                 expand=True,
             )
-            self.page.overlay.append(self.loading_overlay)
-            self.page.update()
+            overlay._es_overlay_carga = True
+            self.loading_overlay = overlay
+            page.overlay.append(overlay)
+            try:
+                page.update()
+            except Exception:
+                pass
         else:
-            if self.loading_overlay:
-                self.page.overlay.remove(self.loading_overlay)
-                self.loading_overlay = None
-                self.page.update()
+            self.loading_overlay = None
+            removed = False
+            for ov in _find_loading_overlays():
+                try:
+                    page.overlay.remove(ov)
+                    removed = True
+                except Exception:
+                    pass
+            if removed:
+                try:
+                    page.update()
+                except Exception:
+                    pass
 
     def _build_controls(self):
         colors = get_colors(self.page)
@@ -170,7 +186,7 @@ class ValidacionView(ft.Container):
             focused_border_color=colors.get('accent'),
             height=45,
             expand=1,
-            on_change=lambda _: self._load_entradas_pendientes()
+            on_change=lambda _: self.page.run_task(self._load_entradas_pendientes)
         )
         
         self.validate_button = ft.ElevatedButton(
@@ -267,74 +283,68 @@ class ValidacionView(ft.Container):
                 
                 show_success(f"✅ Validadas {result.get('movimientos_count', 0)} entradas")
 
-                wa_status = {}
-                try:
-                    wa_status = get_whatsapp_status()
-                except Exception:
-                    pass
+                # Envío WhatsApp siempre: si el bot está apagado, el envío directo
+                # falla y el mensaje queda encolado en la bandeja (no se descarta).
+                img_path = None
+                def get_long_path(short_path):
+                    try:
+                        import ctypes
+                        GetLongPathName = ctypes.windll.kernel32.GetLongPathNameW
+                        buf = ctypes.create_unicode_buffer(512)
+                        result = GetLongPathName(short_path, buf, 512)
+                        return buf.value if result else short_path
+                    except Exception:
+                        return short_path
                 
-                if wa_status.get('whatsapp_connected'):
-                    # Lancement en arrière-plan (non bloquant)
-                    img_path = None
-                    def get_long_path(short_path):
+                if hasattr(dialog.ocr, 'current_image_path') and dialog.ocr.current_image_path:
+                    candidate = get_long_path(dialog.ocr.current_image_path)
+                    if os.path.exists(candidate):
+                        img_path = candidate
+                
+                productos_str = "Productos variados"
+                fecha_entrada = None
+                if self.selected_entradas:
+                    try:
+                        from usr.database.local_replica import LocalReplica
+                        db = next(get_db_adaptive())
                         try:
-                            import ctypes
-                            GetLongPathName = ctypes.windll.kernel32.GetLongPathNameW
-                            buf = ctypes.create_unicode_buffer(512)
-                            result = GetLongPathName(short_path, buf, 512)
-                            return buf.value if result else short_path
-                        except Exception:
-                            return short_path
-                    
-                    if hasattr(dialog.ocr, 'current_image_path') and dialog.ocr.current_image_path:
-                        candidate = get_long_path(dialog.ocr.current_image_path)
-                        if os.path.exists(candidate):
-                            img_path = candidate
-                    
-                    productos_str = "Productos variados"
-                    fecha_entrada = None
-                    if self.selected_entradas:
-                        try:
-                            from usr.database.local_replica import LocalReplica
-                            db = next(get_db_adaptive())
-                            try:
-                                movimientos = db.query(Movimiento).filter(Movimiento.id.in_(list(self.selected_entradas))).all()
-                                productos_ids = set(m.get('producto_id') if isinstance(m, dict) else m.producto_id for m in movimientos)
-                                nombres = []
-                                fechas = []
-                                for m in movimientos:
-                                    fm = m.get('fecha_movimiento') if isinstance(m, dict) else m.fecha_movimiento
-                                    if fm:
-                                        fechas.append(fm)
-                                    pid = m.get('producto_id') if isinstance(m, dict) else m.producto_id
-                                    prod = LocalReplica.get_producto_by_id(pid)
-                                    if prod:
-                                        nom = prod.get('nombre', 'Producto') if isinstance(prod, dict) else getattr(prod, 'nombre', 'Producto')
-                                        cant = m.get('cantidad') if isinstance(m, dict) else getattr(m, 'cantidad', 0)
-                                        peso = m.get('peso_total') if isinstance(m, dict) else getattr(m, 'peso_total', 0) or 0
-                                        es_pesable = prod.get('es_pesable', False) if isinstance(prod, dict) else getattr(prod, 'es_pesable', False)
-                                        if es_pesable and peso and peso > 0:
-                                            nombres.append(f"{nom}: {float(peso):.2f} kg")
-                                        else:
-                                            unidad = prod.get('unidad_medida') or 'uds' if isinstance(prod, dict) else getattr(prod, 'unidad_medida', 'uds') or 'uds'
-                                            nombres.append(f"{nom}: {int(float(cant or 0))} {unidad}")
-                                productos_str = "\n".join(nombres) if nombres else "Productos variados"
-                                if fechas:
-                                    fecha_entrada = min(fechas)
-                            finally:
-                                db.close()
-                        except Exception:
-                            productos_str = "Productos variados"
-                    
-                    msg = format_validation_message(
-                        productos_str, 0, data.get('factura', ''),
-                        data.get('proveedor', ''), data.get('monto', 0),
-                        data.get('pagos', []), result.get('usuario', 'Sistema'),
-                        fecha_entrada
-                    )
-                    
-                    # Envío asíncrono sin esperar la respuesta
-                    self.page.run_task(self._send_wa_background, img_path, msg)
+                            movimientos = db.query(Movimiento).filter(Movimiento.id.in_(list(self.selected_entradas))).all()
+                            productos_ids = set(m.get('producto_id') if isinstance(m, dict) else m.producto_id for m in movimientos)
+                            nombres = []
+                            fechas = []
+                            for m in movimientos:
+                                fm = m.get('fecha_movimiento') if isinstance(m, dict) else m.fecha_movimiento
+                                if fm:
+                                    fechas.append(fm)
+                                pid = m.get('producto_id') if isinstance(m, dict) else m.producto_id
+                                prod = LocalReplica.get_producto_by_id(pid)
+                                if prod:
+                                    nom = prod.get('nombre', 'Producto') if isinstance(prod, dict) else getattr(prod, 'nombre', 'Producto')
+                                    cant = m.get('cantidad') if isinstance(m, dict) else getattr(m, 'cantidad', 0)
+                                    peso = m.get('peso_total') if isinstance(m, dict) else getattr(m, 'peso_total', 0) or 0
+                                    es_pesable = prod.get('es_pesable', False) if isinstance(prod, dict) else getattr(prod, 'es_pesable', False)
+                                    if es_pesable and peso and peso > 0:
+                                        nombres.append(f"{nom}: {float(peso):.2f} kg")
+                                    else:
+                                        unidad = prod.get('unidad_medida') or 'uds' if isinstance(prod, dict) else getattr(prod, 'unidad_medida', 'uds') or 'uds'
+                                        nombres.append(f"{nom}: {int(float(cant or 0))} {unidad}")
+                            productos_str = "\n".join(nombres) if nombres else "Productos variados"
+                            if fechas:
+                                fecha_entrada = min(fechas)
+                        finally:
+                            db.close()
+                    except Exception:
+                        productos_str = "Productos variados"
+                
+                msg = format_validation_message(
+                    productos_str, 0, data.get('factura', ''),
+                    data.get('proveedor', ''), data.get('monto', 0),
+                    data.get('pagos', []), result.get('usuario', 'Sistema'),
+                    fecha_entrada
+                )
+                
+                # Envío asíncrono sin esperar la respuesta (directo o encolado)
+                self.page.run_task(self._send_wa_background, img_path, msg)
                 
                 if result.get('sync'):
                     print("[SYNC] Factura sincronizada")

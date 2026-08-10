@@ -62,7 +62,7 @@ def show_producto_dialog(view, producto=None):
             border=ft.InputBorder.OUTLINE,
             border_radius=10,
             prefix_icon=ft.Icons.QR_CODE,
-            helper_text="Auto" if not producto else "",
+            helper="Auto" if not producto else "",
             read_only=not producto,
         )
 
@@ -74,7 +74,7 @@ def show_producto_dialog(view, producto=None):
             expand=True,
             border=ft.InputBorder.OUTLINE,
             border_radius=10,
-            prefix_icon=ft.Icons.CATEGORY,
+            leading_icon=ft.Icons.CATEGORY,
         )
 
         stock_min_field = ft.TextField(
@@ -110,7 +110,7 @@ def show_producto_dialog(view, producto=None):
             expand=True,
             border=ft.InputBorder.OUTLINE,
             border_radius=10,
-            prefix_icon=ft.Icons.TAG,
+            leading_icon=ft.Icons.TAG,
         )
 
         precio_venta_field = ft.TextField(
@@ -147,7 +147,7 @@ def show_producto_dialog(view, producto=None):
             keyboard_type=ft.KeyboardType.NUMBER,
             border=ft.InputBorder.OUTLINE,
             border_radius=10,
-            prefix_text="kg  ",
+            prefix=ft.Text("kg  "),
             visible=es_pesable_sw.value,
         )
 
@@ -177,7 +177,7 @@ def show_producto_dialog(view, producto=None):
             expand=True,
             border=ft.InputBorder.OUTLINE,
             border_radius=10,
-            prefix_icon=ft.Icons.WAREHOUSE,
+            leading_icon=ft.Icons.WAREHOUSE,
         )
 
         activo_sw = ft.Switch(

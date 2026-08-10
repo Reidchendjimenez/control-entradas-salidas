@@ -71,29 +71,33 @@ _POS_STAGES = [
 ]
 
 
-def _find_background_image(page=None):
+def _find_background_image(page=None, desktop_bg=None):
     """Devuelve el 'src' de la imagen de fondo (estática) a usar, o None.
 
     En móvil los assets se sirven desde el bundle y no hay archivo local que
     inspeccionar: se devuelve la imagen vertical fija (MOBILE_BACKGROUND).
 
     En escritorio se verifica que la imagen horizontal exista como archivo en
-    'assets/', junto al módulo o en el directorio de trabajo, para no apuntar a
-    un recurso inexistente (en ese caso se cae al fondo oscuro).
+    'assets/' o 'assets_pos/', junto al módulo o en el directorio de trabajo,
+    para no apuntar a un recurso inexistente (en ese caso se cae al fondo
+    oscuro). El nombre puede pasarse por parámetro (desktop_bg), p. ej. para
+    que el POS use su propio fondo desde 'assets_pos/'.
     """
     if page is not None:
         plat = getattr(page, "platform", None)
         if plat is not None and str(plat).lower() in ("android", "ios", "android_tv"):
             return MOBILE_BACKGROUND
 
+    bg_name = desktop_bg or DESKTOP_BACKGROUND
     bases = set()
     here = os.path.dirname(os.path.abspath(__file__))
     for b in (os.path.join(here, "..", ".."), os.getcwd()):
         bases.add(os.path.abspath(b))
-        bases.add(os.path.abspath(os.path.join(b, "assets")))
+        for sub in ("assets", "assets_pos"):
+            bases.add(os.path.abspath(os.path.join(b, sub)))
     for base in bases:
-        if os.path.isfile(os.path.join(base, DESKTOP_BACKGROUND)):
-            return DESKTOP_BACKGROUND
+        if os.path.isfile(os.path.join(base, bg_name)):
+            return bg_name
     return None
 
 
@@ -101,7 +105,8 @@ class LoadingSplash(ft.Container):
     """Splash a pantalla completa con fondo (imagen estática) y UI animada."""
 
     def __init__(self, page: ft.Page, title: str = "Control de Entradas y Salidas",
-                 logo_src: str = "icono.png", stages: Optional[list] = None):
+                 logo_src: str = "icono.png", stages: Optional[list] = None,
+                 desktop_bg: Optional[str] = None):
         super().__init__()
         self._page = page
         self.expand = True
@@ -110,7 +115,7 @@ class LoadingSplash(ft.Container):
         self._valor = 0.0
         self._stages = stages if stages is not None else _STAGES
 
-        self._fondo_src = _find_background_image(page=page)
+        self._fondo_src = _find_background_image(page=page, desktop_bg=desktop_bg)
 
         self._logo = ft.Container(
             content=ft.Image(

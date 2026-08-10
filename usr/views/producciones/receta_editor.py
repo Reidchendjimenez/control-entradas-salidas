@@ -17,7 +17,7 @@ class RecetaEditor(ft.Container):
 
     def __init__(self, page, productos, receta=None, on_saved=None, on_cancel=None):
         super().__init__()
-        self.page = page
+        self._page = page
         self._productos = productos
         self._receta = receta
         self._on_saved = on_saved
@@ -47,7 +47,7 @@ class RecetaEditor(ft.Container):
     # ----------------------- construcción -----------------------
 
     def _build(self):
-        colors = _colors(self.page)
+        colors = _colors(self._page)
         receta = self._receta
 
         # Header sticky
@@ -140,7 +140,7 @@ class RecetaEditor(ft.Container):
                 ft.SegmentedButton(
                     ref=self._tipo_seg,
                     allow_empty_selection=False,
-                    selected={"compuesta" if (receta and receta.get('tipo') == 'compuesta') or not receta else "simple"},
+                    selected=["compuesta" if (receta and receta.get('tipo') == 'compuesta') or not receta else "simple"],
                     segments=[
                         ft.Segment(value="simple", label=ft.Text("Simple · parte un producto en sus derivados")),
                         ft.Segment(value="compuesta", label=ft.Text("Compuesta · fabrica un producto desde ingredientes")),
@@ -445,7 +445,7 @@ class RecetaEditor(ft.Container):
         if not resultados:
             self._search_results.controls.append(
                 ft.Container(
-                    content=ft.Text("Sin resultados", size=12, color=_colors(self.page)['text_hint']),
+                    content=ft.Text("Sin resultados", size=12, color=_colors(self._page)['text_hint']),
                     padding=ft.Padding.all(8),
                 )
             )
@@ -462,7 +462,7 @@ class RecetaEditor(ft.Container):
                                 ft.Text(
                                     f"Stock: {stock:.2f} {unidad}" + (" · pesable" if es_pesable else ""),
                                     size=11,
-                                    color=_colors(self.page)['text_hint'],
+                                    color=_colors(self._page)['text_hint'],
                                 ),
                             ], spacing=2, expand=True),
                             ft.IconButton(
@@ -473,12 +473,12 @@ class RecetaEditor(ft.Container):
                         ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
                         padding=ft.Padding.symmetric(horizontal=10, vertical=6),
                         border_radius=6,
-                        border=ft.Border.all(1, _colors(self.page)['border']),
+                        border=ft.Border.all(1, _colors(self._page)['border']),
                         ink=True,
                         on_click=lambda _, prod=p: self._add_product(prod),
                     )
                 )
-        if self.page:
+        if self._page:
             self._search_results.update()
 
     def _stock_total(self, producto_id):
@@ -496,7 +496,7 @@ class RecetaEditor(ft.Container):
         })
         self._buscador.value = ""
         self._search_results.controls.clear()
-        if self.page:
+        if self._page:
             self._buscador.update()
             self._search_results.update()
 
@@ -515,7 +515,7 @@ class RecetaEditor(ft.Container):
         })
         self._buscador.value = ""
         self._search_results.controls.clear()
-        if self.page:
+        if self._page:
             self._buscador.update()
             self._search_results.update()
 
@@ -543,7 +543,7 @@ class RecetaEditor(ft.Container):
 
         def _remove(e):
             self._componentes_list_ref.controls.remove(row)
-            if self.page:
+            if self._page:
                 self._componentes_list_ref.update()
             self._update_resumen()
 
@@ -560,12 +560,12 @@ class RecetaEditor(ft.Container):
                         on_click=_remove,
                     ),
                     col={"xs": 2, "sm": 2},
-                    alignment=ft.Alignment.CENTER_right,
+                    alignment=ft.Alignment.CENTER_RIGHT,
                 ),
             ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
             padding=ft.Padding.all(8),
             border_radius=8,
-            border=ft.Border.all(1, _colors(self.page)['border']),
+            border=ft.Border.all(1, _colors(self._page)['border']),
         )
         self._componentes_list_ref.controls.append(row)
         self._safe_update(self._componentes_list_ref)
@@ -604,10 +604,15 @@ class RecetaEditor(ft.Container):
                 else "Ingredientes (lo que se consume)"
         if self._add_btn_text.current:
             self._add_btn_text.current.value = "+ Agregar ingrediente" if is_simple else "+ Agregar manualmente"
-        if self.page:
-            for c in (self._base_container, self._final_container,
-                      self._comp_title, self._comp_sub, self._add_btn_text):
-                c.current.update() if c.current else None
+        if self._page:
+            self._base_container.update()
+            self._final_container.update()
+            if self._comp_title.current:
+                self._comp_title.current.update()
+            if self._comp_sub.current:
+                self._comp_sub.current.update()
+            if self._add_btn_text.current:
+                self._add_btn_text.current.update()
 
         if self._componentes_list_ref.controls:
             show_warning("Cambiar de tipo puede requerir redefinir los componentes.")
@@ -693,5 +698,5 @@ class RecetaEditor(ft.Container):
 
     def _close(self):
         self.visible = False
-        if self.page:
-            self.page.update()
+        if self._page:
+            self._page.update()

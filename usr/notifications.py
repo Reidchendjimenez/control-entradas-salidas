@@ -3,10 +3,14 @@ Sistema centralizado de notificaciones para la aplicación.
 Proporciona funciones unificadas para mostrar mensajes al usuario.
 """
 import sys
+import asyncio
+import logging
 import flet as ft
 
 # Página activa (almacenada en sys para sobrevivir recargas de módulos)
 _page = None
+
+logger = logging.getLogger(__name__)
 
 def _get_page():
     """Obtiene la página activa desde sys o desde la pila de llamadas."""
@@ -130,18 +134,35 @@ def _show_snackbar(message: str, tipo: str, duration: int = None, with_icon: boo
 
     try:
         page = _get_page()
-        # Cerrar cualquier snackbar anterior que esté abierto
-        if page.overlay:
-            for item in list(page.overlay):
-                if isinstance(item, ft.SnackBar) and item.open:
-                    try:
-                        item.open = False
-                    except:
-                        pass
+        # Cerrar y REMOVER snackbars anteriores del overlay.
+        # Si solo se cierran (open=False) pero quedan en overlay con open=True,
+        # el próximo page.update() los vuelve a abrir (Flet 0.86.5).
+        for item in list(page.overlay):
+            if isinstance(item, ft.SnackBar):
+                try:
+                    item.open = False
+                    page.overlay.remove(item)
+                except Exception:
+                    pass
 
         page.overlay.append(snack)
         snack.open = True
         page.update()
+
+        async def _auto_remove():
+            await asyncio.sleep((duration / 1000) + 0.5)
+            try:
+                if snack in page.overlay:
+                    snack.open = False
+                    page.overlay.remove(snack)
+                    page.update()
+            except Exception:
+                pass
+
+        try:
+            page.run_task(_auto_remove)
+        except Exception:
+            pass
     except Exception as e:
         print(f"[NOTIF] Error mostrando SnackBar: {e}")
 
@@ -153,6 +174,7 @@ def show_success(message: str, duration: int = None, with_icon: bool = True, act
 
 def show_error(message: str, duration: int = None, with_icon: bool = True, action_text: str = None, action_callback = None):
     """Mostrar mensaje de error (rojo)."""
+    logger.error(message)
     _show_snackbar(message, 'error', duration, with_icon, action_text, action_callback)
 
 
@@ -165,12 +187,13 @@ def show_error_with_copy(message: str, ex: Exception = None, duration: int = 6):
         detail_lines.append("")
         detail_lines.extend(tb.format_exception(type(ex), ex, ex.__traceback__))
     full_detail = "\n".join(detail_lines)
+    logger.error(full_detail)
 
     def _copy(e):
         try:
             p = _get_page()
             if p:
-                p.set_clipboard(full_detail)
+                p.run_task(ft.Clipboard().set, full_detail)
         except Exception:
             pass
 
@@ -257,10 +280,14 @@ def clear_notifications():
         return
 
     try:
-        # Cerrar SnackBars
+        # Cerrar y remover SnackBars (no dejarlos en overlay con open=True)
         for item in list(page.overlay):
             if isinstance(item, ft.SnackBar):
                 item.open = False
+                try:
+                    page.overlay.remove(item)
+                except Exception:
+                    pass
 
         # Cerrar Banner
         if page.banner:

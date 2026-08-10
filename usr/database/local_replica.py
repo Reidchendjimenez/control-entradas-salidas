@@ -2441,11 +2441,17 @@ class LocalReplica:
         return d
 
     @staticmethod
-    def get_ventas(limit: int = 200) -> List[Dict]:
-        """Historial de ventas (mas recientes primero)."""
+    def get_ventas(limit: int = 200, before_id: Optional[int] = None) -> List[Dict]:
+        """Historial de ventas (mas recientes primero). Paginable por before_id."""
         conn = get_local_conn()
         cursor = conn.cursor()
-        cursor.execute("SELECT * FROM pos_ventas ORDER BY id DESC LIMIT ?", (limit,))
+        if before_id:
+            cursor.execute(
+                "SELECT * FROM pos_ventas WHERE id < ? ORDER BY id DESC LIMIT ?",
+                (before_id, limit),
+            )
+        else:
+            cursor.execute("SELECT * FROM pos_ventas ORDER BY id DESC LIMIT ?", (limit,))
         rows = cursor.fetchall()
         conn.close()
         ventas = []
@@ -2454,6 +2460,23 @@ class LocalReplica:
             d['items'] = LocalReplica._parse_comanda_items(d.get('items_json'))
             ventas.append(d)
         return ventas
+
+    @staticmethod
+    def get_ventas_correlativos(ids: List[int]) -> Dict[int, int]:
+        """Mapa {id: correlativo} de las ventas indicadas (una sola consulta)."""
+        ids = [i for i in ids if i]
+        if not ids:
+            return {}
+        conn = get_local_conn()
+        cursor = conn.cursor()
+        placeholders = ",".join("?" * len(ids))
+        cursor.execute(
+            f"SELECT id, correlativo FROM pos_ventas WHERE id IN ({placeholders})",
+            ids,
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        return {r['id']: r['correlativo'] for r in rows}
 
     @staticmethod
     def get_ultima_venta_vigente() -> Optional[Dict]:

@@ -1,10 +1,11 @@
 import flet as ft
 from usr.database.local_replica import LocalReplica
+from usr.pos.views import PosView
 
 HAB_COLOR = "#26A69A"
 
 
-class HabitacionesView(ft.Container):
+class HabitacionesView(PosView):
     def __init__(self, usuario: dict = None, sesion_id: int = None, on_logout=None, on_back=None):
         super().__init__()
         self.expand = True
@@ -123,7 +124,7 @@ class HabitacionesView(ft.Container):
 
     @staticmethod
     def _on_hover(e, card, color):
-        if e.data == "true":
+        if e.data:
             card.scale = 1.05
             card.rotate = 0.02
             card.shadow = ft.BoxShadow(

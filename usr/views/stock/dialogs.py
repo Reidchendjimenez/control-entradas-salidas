@@ -82,7 +82,7 @@ def build_ajuste_dialog(producto, almacen, cantidad_actual, unidad, on_confirm, 
         autofocus=True, border_radius=10, text_size=18,
         border_color=colors['input_border'],
         width=220,
-        suffix_text=unidad,
+        suffix=ft.Text(unidad),
     )
     motivo_input = ft.TextField(
         label="Motivo (opcional)",

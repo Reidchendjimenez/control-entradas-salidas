@@ -68,6 +68,7 @@ El sistema incluye un **módulo de ventas** que se compila y ejecuta como aplica
 - **Sync separado del inventario**: El POS tiene su propio `POSSyncManager` (`usr/database/pos_sync.py`) que solo sincroniza las 8 tablas POS (`platos_categorias`, `platos`, `plato_ingredientes`, `plato_contornos`, `pos_mesas`, `pos_habitaciones`, `pos_usuarios`, `pos_settings`). El `SyncManager` principal ignora estas tablas.
 - **Impresora térmica**: Soporta auto-detección USB/serial/Windows (`win32print`), imprime comandas con membrete configurable (nombre, RIF, dirección, teléfono), correlativo auto-incremental, precio por plato, y pie de página personalizado con imagen QR de pago móvil (todo renderizado como raster ESC/POS).
 - **Configuración persistente**: Membrete, correlativo, pie de página y ruta QR se guardan en `pos_settings` y se sincronizan con Supabase para compartir entre dispositivos.
+- **Interacción en comandas**: La grilla de categorías/productos/platos entra con una **animación escalonada** (fade + escala desde el estado oculto) y las cards responden al **hover** (agrandado + sombra en el color de la card), mismo efecto que las categorías del inventario.
 
 **Compilación**:
 ```bash
@@ -193,7 +194,6 @@ control-entradas-salidas/
 │       │   ├── recetas_view.py   # Tab Recetas (cards + FAB)
 │       │   ├── pendientes_view.py # Tab En Producción (lista pendientes + Descargar/Cancelar)
 │       │   └── historial_view.py # Tab Historial (estado: pendiente/completado/cancelada)
-│       ├── producciones_view.py  # Shim re-exporta ProduccionesView desde producciones/
 │       ├── historial_facturas_view.py # Historial de facturas
 │       ├── login_view.py          # Login y registro de operador (muestra Bienvenido, {nombre})
 │       └── whatsapp_bandeja_view.py # Bandeja de mensajes WhatsApp
@@ -207,6 +207,33 @@ control-entradas-salidas/
 ---
 
 ## 🛠️ Guía de Depuración y Mantenimiento
+
+### Compatibilidad con Flet
+El proyecto requiere **Flet 0.86.5** (`requirements.txt`). A partir de esa versión, varios argumentos de UI cambiaron de nombre. Al escribir o revisar código UI, usar SIEMPRE la API nueva:
+
+| Antiguo (0.28.x) | Nuevo (0.86.x) |
+|---|---|
+| `ft.TextButton(text="...")`, `ft.ElevatedButton(text=...)`, etc. | `content="..."` (los botones aceptan `content` + `icon`) |
+| `ft.Tab(text="...", content=panel)` | `ft.Tab(label="...")` (sin `content`) |
+| `ft.Tabs(tabs=[...])` | `ft.Tabs(length=N, content=ft.Column([ft.TabBar(tabs=[...]), ft.TabBarView(controls=[paneles])]))` |
+| `Padding.only(4, 1, 4, 1)` (posicional) | `Padding.only(left=4, top=1, right=4, bottom=1)` (keywords) |
+| `ft.Alignment.center`, `ft.Alignment.top_center` | `ft.Alignment.CENTER`, `ft.Alignment.TOP_CENTER` (en mayúsculas) |
+| `TextField.suffix_text="kg"` | `suffix=ft.Text("kg")` |
+| `Container.elevation=1` | `shadow=ft.BoxShadow(...)` |
+| `BottomSheet(is_scroll_controlled=True)` | `scrollable=True` |
+| `Dropdown(prefix_icon=...)` | `leading_icon=...` |
+| `Dropdown(on_change=...)` | `on_select=...` |
+| `DatePicker.open = False` → `page.open(picker)` | `picker.open = True` + `page.overlay.append(picker)` + `page.update()` |
+| `page.open(dialog)` / `page.close(dialog)` | `dialog.open = True/False` + `page.overlay.append(dialog)` + `page.update()` |
+| `scroll_to(...)` | `page.run_task(lambda: scroll_to(...))` (es async) |
+| `FilePicker()` en `page.overlay.append()` | Los `FilePicker` son **Services** y se auto-registran; no agregarlos al overlay |
+| `SegmentedButton.selected = {"Factura"}` | `selected = ["Factura"]` (lista, no `set`; msgpack no serializa `set`) |
+| `focus()` | `page.run_task(control.focus)` (es async; pasar función, no llamada) |
+| `VisualizeView.__init__()` llama `_build_ui()` | Mover UI a `did_mount()` (control debe estar montado antes de acceder a `self.page`) |
+| `list.controls = [...]` + `update()` | `list.controls[:] = [...]` + `page.run_task(update)` (evita `RuntimeError: dictionary changed size during iteration`) |
+| `container.current.update()` en Container no-ref | `container.update()` directo (solo refs tienen `.current`) |
+
+Regla: si un control tira `TypeError: got an unexpected keyword argument 'text'`, consultar la firma en el paquete flet instalado (`flet/controls/...`) antes de corregir. `ft.dropdown.Option(text=...)` **sí** acepta `text` en 0.86.5.
 
 ### Problemas Comunes y Soluciones
 
@@ -325,6 +352,46 @@ Si se agregan nuevas dependencias en `requirements.txt`, se debe recompilar:
 
 ## Historial de Cambios
 
+### Version 2.6.2 (Agosto 2026)
+- 🐛 **Corregido**: Errores residuales de migración a Flet 0.86.5:
+  - `Dropdown.on_select` (no `on_change`) en `validacion/fields.py`, `stock_view.py`, `configuracion_view.py`, `configuracion/sistema.py`.
+  - `Dropdown.leading_icon` (no `prefix_icon`) en `configuracion/categorias.py` y `configuracion/productos.py`.
+  - `BottomSheet.scrollable=True` (no `is_scroll_controlled`) en `requisiciones/dialogs.py`.
+  - `Alignment.CENTER_RIGHT` (mayúsculas) en `producciones/receta_editor.py`.
+  - `scroll_to()` → `page.run_task(lambda: scroll_to(...))` en `requisiciones_view.py`.
+  - `VisualizeView` UI movida a `did_mount()` en `requisiciones/visualize_view.py`.
+  - `DatePicker.open = True` + `page.overlay.append()` en `validacion/fields.py`.
+  - `focus()` → `page.run_task(focus)` en `validacion/fields.py`.
+  - `SegmentedButton.selected = ["Factura"]` (lista, no `set`) en `validacion/fields.py` y `producciones/receta_editor.py`.
+  - `FilePicker` removido de `overlay` en `historial_facturas_view.py`, `validacion/ocr_handler.py`, `validacion/dialog.py`.
+  - `_base_container.update()` directo (no `.current`) en `producciones/receta_editor.py`.
+  - Animaciones de categorías (`animate_scale`, `on_hover` con `scale`/`rotate`/`shadow`) en `inventario/categories.py`.
+  - `_reset_view()` usa slice assignment `controls[:] = [...]` + `page.run_task(update)` para evitar `RuntimeError: dictionary changed size during iteration`.
+- 🔧 **Mejorado**: `notifications.py` ahora loguea errores (`logger.error`) además de mostrar snackbar.
+
+### Version 2.6.1 (Agosto 2026)
+- 🐛 **Corregido**: Migración completa a la API de **Flet 0.86.5** (ver sección "Compatibilidad con Flet"):
+  - Botones (`TextButton`, `ElevatedButton`, `OutlinedButton`, `FilledButton`, `FloatingActionButton`): `text=` → `content=`.
+  - `ft.Tab`: `text=` → `label=` y sin `content`.
+  - `ft.Tabs(tabs=[...])` refactorizado a `ft.Tabs(length=N, content=ft.Column([ft.TabBar(tabs=[...]), ft.TabBarView(controls=[paneles])]))` en `historial_facturas_view.py`, `configuracion_view.py`, `requisiciones/audit_view.py`, `producciones/view.py` y `pos/views/config.py`.
+  - `Padding.only()` / `BorderRadius.only()`: ahora requieren argumentos por keyword (`left=`, `top=`, `right=`, `bottom=`).
+  - `ft.Alignment.*`: los valores ahora usan nombres en MAYÚSCULAS (`TOP_CENTER`, `CENTER`, `BOTTOM_LEFT`, etc.).
+  - `TextField.suffix_text` → `suffix=ft.Text()`, `Container.elevation` → `shadow=ft.BoxShadow()`, `BottomSheet.is_scroll_controlled` → `scrollable=True`.
+  - `Dropdown.prefix_icon` → `leading_icon`, `Dropdown.on_change` → `on_select`.
+  - `DatePicker.open = True` + `page.overlay.append()` + `page.update()` (sin `page.open()`).
+  - `page.open/close(dialog)` → `dialog.open = True/False` + `page.overlay.append()` + `page.update()`.
+  - `scroll_to(...)` → `page.run_task(lambda: scroll_to(...))` (es async).
+  - `FilePicker` removido de `overlay` (es Service, auto-registra).
+  - `SegmentedButton.selected` usa lista, no `set` (msgpack no serializa `set`).
+  - `focus()` → `page.run_task(control.focus)` (async; pasar función sin `()`).
+  - `VisualizeView` UI movida a `did_mount()` (control debe estar montado).
+  - `list.controls[:] = [...]` + `page.run_task(update)` evita `RuntimeError: dictionary changed size during iteration`.
+  - `container.current.update()` → `container.update()` en contenedores no-ref.
+  - Categorías: animaciones hover (`animate_scale`, `on_hover` con `scale`/`rotate`/`shadow` + `update()`).
+- 🗑️ **Eliminado**: `usr/views/producciones_view.py` (código muerto; `ProduccionesView` real vive en `producciones/view.py`).
+- 🐛 **Corregido**: `NameError: name 'logger' is not defined` en `producciones_view.py`, `configuracion_view.py` y `producciones/view.py` (faltaba `logger = logging.getLogger(__name__)`), que rompía el `did_mount` de varias vistas.
+- 📦 **Dependencia**: `requirements.txt` actualizado de `flet==0.28.3` a `flet==0.86.5`. Recompilar el ejecutable con la nueva versión.
+
 ### Version 2.6.0 (Agosto 2026)
 - ✨ **Módulo de Producciones en 2 etapas**: Flujo completo para fabricar productos con ingredientes de peso variable. Etapa 1 (entrada del producto final) se registra desde Inventario con tipo `entrada_produccion` y queda como `produccion` con `estado='pendiente'`. Etapa 2 (descargo de ingredientes) se hace desde el nuevo tab "En Producción" con tipo `salida_produccion` y marca la producción como `completado`. Las entradas de producción NO aparecen en la lista de validación (filtro `tipo == 'entrada'`).
 - ✨ **Ingredientes de peso variable**: Nueva columna `receta_componentes.peso_variable` (local + Supabase + modelo SQLAlchemy). En el editor de recetas, un checkbox por ingrediente deshabilita la cantidad cuando se marca; al descargar, los ingredientes variables piden peso real (autofocus) y los fijos aparecen como sugerencia editable.
@@ -337,6 +404,8 @@ Si se agregan nuevas dependencias en `requirements.txt`, se debe recompilar:
 - 🐛 **Corregido**: `save_recetas` / `save_receta_componentes` / `save_producciones` / `save_produccion_detalles` (bulk) hacían `UPDATE` por id sin verificar existencia, fallando en dispositivos nuevos donde la fila no existía. Ahora son upsert real (`SELECT` → UPDATE o `INSERT` con id explícito).
 - ⚡ **Modularización de la vista Producciones** (estilo `requisiciones/`): `usr/views/producciones_view.py` pasó de 849 líneas a un orquestador de ~145 líneas + 7 módulos especializados (`view.py`, `data.py`, `dialogs.py`, `helpers.py`, `recetas_view.py`, `pendientes_view.py`, `historial_view.py`). Import externo (`from usr.views import ProduccionesView`) preservado sin cambios.
 - ⚡ **Fix Flet thread safety**: handlers que llaman corrutinas reemplazaron `asyncio.create_task()` por `page.run_task()` (corrige `RuntimeError: no running event loop` en `_on_tab_change` de Producciones).
+- ⚡ **Vista de Ventas POS más rápida**: carga las ventas de a 40 en 40 (paginación por `id < borde`, botón "Cargar mas ventas") en un hilo en segundo plano, con spinner de carga al abrir la vista. Eliminado el N+1 de `get_venta_by_id` por tarjeta: los correlativos de corrección se resuelven en una sola consulta (`get_ventas_correlativos`).
+- ⚡ **Configuración del POS carga async**: las 7 cargas (`usuarios`, `mesas`, `habitaciones`, `platos`, `categorías POS`, `impresoras`, `membrete`) se ejecutan en segundo plano tras montar la vista; el re-ingreso muestra un spinner "Cargando configuracion..." en vez de bloquear la navegación.
 - 🔧 **Validación al cambiar tipo de receta**: advertencia al pasar de Simple ↔ Compuesta porque se vacía la lista de componentes.
 
 ### Version 2.5.0 (Julio 2026)

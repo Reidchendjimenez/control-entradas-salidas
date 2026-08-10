@@ -53,7 +53,7 @@ def show_categoria_dialog(view, categoria=None):
         value=categoria.color if categoria else "#2196F3",
         border=ft.InputBorder.OUTLINE,
         border_radius=10,
-        prefix_icon=ft.Icons.PALETTE,
+        leading_icon=ft.Icons.PALETTE,
         expand=True,
     )
 

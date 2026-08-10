@@ -13,9 +13,10 @@ Aqui se desarrollara:
 - Cerrar comanda y registrar venta
 """
 import flet as ft
+from usr.pos.views import PosView
 
 
-class ComandasView(ft.Container):
+class ComandasView(PosView):
     def __init__(self, usuario: dict = None, sesion_id: int = None, on_logout=None):
         super().__init__()
         self.expand = True

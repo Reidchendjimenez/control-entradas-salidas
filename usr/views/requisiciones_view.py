@@ -537,7 +537,7 @@ class RequisicionesView(ft.Container):
             self._productos_lista_req.update()
             if self.lista_productos_req:
                 try:
-                    self._productos_lista_req.scroll_to(offset=-1, duration=150)
+                    self.page.run_task(lambda: self._productos_lista_req.scroll_to(offset=-1, duration=150))
                 except Exception:
                     pass
 
@@ -549,16 +549,20 @@ class RequisicionesView(ft.Container):
     def _set_loading_overlay(self, visible: bool, message: str = "Procesando..."):
         if not self.page:
             return
+
+        def _find_loading_overlays():
+            return [c for c in list(self.page.overlay) if getattr(c, '_es_overlay_carga', False)]
+
         if visible:
-            if self.loading_overlay:
+            # Remover cualquier overlay de carga previo para evitar duplicados
+            for ov in _find_loading_overlays():
                 try:
-                    self.loading_overlay.content.content.controls[1].value = message
-                    self.page.update()
-                    return
+                    self.page.overlay.remove(ov)
                 except Exception:
                     pass
+            self.loading_overlay = None
             colors = _colors(self.page)
-            self.loading_overlay = ft.Container(
+            overlay = ft.Container(
                 content=ft.Container(
                     content=ft.Column([
                         ft.ProgressBar(width=200, color=colors.get('accent', ft.Colors.PURPLE), bgcolor=ft.Colors.TRANSPARENT),
@@ -574,16 +578,27 @@ class RequisicionesView(ft.Container):
                 alignment=ft.Alignment.CENTER,
                 expand=True,
             )
-            self.page.overlay.append(self.loading_overlay)
-            self.page.update()
+            overlay._es_overlay_carga = True
+            self.loading_overlay = overlay
+            self.page.overlay.append(overlay)
+            try:
+                self.page.update()
+            except Exception:
+                pass
         else:
-            if self.loading_overlay:
+            self.loading_overlay = None
+            removed = False
+            for ov in _find_loading_overlays():
                 try:
-                    self.page.overlay.remove(self.loading_overlay)
+                    self.page.overlay.remove(ov)
+                    removed = True
                 except Exception:
                     pass
-                self.loading_overlay = None
-                self.page.update()
+            if removed:
+                try:
+                    self.page.update()
+                except Exception:
+                    pass
 
     def _crear_requisicion_vista(self, origen_dropdown, destino_dropdown, observaciones):
         if not self.lista_productos_req:

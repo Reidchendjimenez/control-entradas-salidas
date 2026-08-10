@@ -1,9 +1,10 @@
 import flet as ft
 from usr.database.local_replica import LocalReplica
 from usr.pos.tasa_cambio import get_tasa
+from usr.pos.views import PosView
 
 
-class ComandaPedidoView(ft.Container):
+class ComandaPedidoView(PosView):
     def __init__(self, usuario: dict = None, sesion_id: int = None, mesa: dict = None,
                  habitacion: dict = None, on_logout=None, on_back=None):
         super().__init__()
@@ -19,10 +20,56 @@ class ComandaPedidoView(ft.Container):
         self.items = []
         self.comanda_id = None
         self.categoria_actual = None
+        self._grid_entrada_controls = []
         self.tasa = get_tasa()
         self._build_ui()
         self._load_categorias()
         self._load_comanda_existente()
+
+    def did_mount(self):
+        super().did_mount()
+        if self.page and self._grid_entrada_controls:
+            self.page.run_task(self._animar_entrada, list(self._grid_entrada_controls))
+
+    def _render_grid(self, controles):
+        """Reemplaza la grilla y dispara la animacion de entrada escalonada."""
+        self.grid.controls.clear()
+        for c in controles:
+            c.opacity = 0
+            c.offset = ft.Offset(0, 0.3)
+            c.scale = 0.8
+            c.animate_opacity = ft.Animation(400, ft.AnimationCurve.EASE_OUT)
+            c.animate_offset = ft.Animation(400, ft.AnimationCurve.EASE_OUT)
+            c.animate_scale = ft.Animation(400, ft.AnimationCurve.EASE_OUT)
+        self.grid.controls.extend(controles)
+        self._grid_entrada_controls = list(controles)
+        if self.page:
+            self.page.update()
+            self.page.run_task(self._animar_entrada, list(controles))
+
+    async def _animar_entrada(self, controles):
+        import asyncio
+        await asyncio.sleep(0.1)
+        try:
+            for c in controles:
+                c.opacity = 1
+                c.offset = ft.Offset(0, 0)
+                c.scale = 1.0
+                try:
+                    c.update()
+                except Exception:
+                    pass
+                await asyncio.sleep(0.05)
+        finally:
+            for c in controles:
+                c.opacity = 1
+                c.offset = ft.Offset(0, 0)
+                c.scale = 1.0
+            if self.page:
+                try:
+                    self.page.update()
+                except Exception:
+                    pass
 
     def _build_ui(self):
         top_bar = self._build_top_bar()
@@ -163,10 +210,28 @@ class ComandaPedidoView(ft.Container):
             self.update()
 
     def _load_categorias(self):
-        self.grid.controls.clear()
+        cards = []
         # Categorias de inventario (visibles en POS)
         cats = LocalReplica.get_categorias_pos()
-        if not cats:
+        for cat in cats:
+            cards.append(self._build_categoria_card(cat))
+
+        # Categorias POS independientes
+        pos_cats = LocalReplica.get_pos_categorias(solo_activas=True)
+        for cat in pos_cats:
+            cat['_tipo'] = 'pos'  # marcar como POS para el click handler
+            cards.append(self._build_categoria_card(cat))
+
+        plato_cats = self._get_platos_categorias_pos()
+        if plato_cats:
+            cards.append(self._build_platos_card())
+
+        cont_activos = LocalReplica.get_contornos_activos()
+        if cont_activos:
+            cards.append(self._build_contornos_card())
+
+        if not cards:
+            self.grid.controls.clear()
             self.grid.controls.append(ft.Container(
                 content=ft.Column([
                     ft.Icon(ft.Icons.CATEGORY_ROUNDED, size=50, color="#757575"),
@@ -175,23 +240,7 @@ class ComandaPedidoView(ft.Container):
                 padding=30, alignment=ft.Alignment.CENTER,
             ))
         else:
-            for cat in cats:
-                self.grid.controls.append(self._build_categoria_card(cat))
-
-        # Categorias POS independientes
-        pos_cats = LocalReplica.get_pos_categorias(solo_activas=True)
-        for cat in pos_cats:
-            cat['_tipo'] = 'pos'  # marcar como POS para el click handler
-            self.grid.controls.append(self._build_categoria_card(cat))
-
-        platos_activos = LocalReplica.get_platos_pos()
-        plato_cats = self._get_platos_categorias_pos()
-        if plato_cats:
-            self.grid.controls.append(self._build_platos_card())
-
-        cont_activos = LocalReplica.get_contornos_activos()
-        if cont_activos:
-            self.grid.controls.append(self._build_contornos_card())
+            self._render_grid(cards)
 
         if self.page:
             self.update()
@@ -239,8 +288,7 @@ class ComandaPedidoView(ft.Container):
                 padding=30, alignment=ft.Alignment.CENTER,
             ))
         else:
-            for cat in pcats:
-                self.grid.controls.append(self._build_plato_categoria_card(cat))
+            self._render_grid([self._build_plato_categoria_card(cat) for cat in pcats])
         self.panel_derecho.content = ft.Column([
             ft.Row([
                 ft.IconButton(icon=ft.Icons.ARROW_BACK_ROUNDED, icon_color=ft.Colors.WHITE,
@@ -290,8 +338,7 @@ class ComandaPedidoView(ft.Container):
                 padding=30, alignment=ft.Alignment.CENTER,
             ))
         else:
-            for p in platos_filtrados:
-                self.grid.controls.append(self._build_plato_card(p))
+            self._render_grid([self._build_plato_card(p) for p in platos_filtrados])
         self.panel_derecho.content = ft.Column([
             ft.Row([
                 ft.IconButton(icon=ft.Icons.ARROW_BACK_ROUNDED, icon_color=ft.Colors.WHITE,
@@ -377,8 +424,7 @@ class ComandaPedidoView(ft.Container):
                 padding=30, alignment=ft.Alignment.CENTER,
             ))
         else:
-            for c in cont_activos:
-                self.grid.controls.append(self._build_contorno_card(c))
+            self._render_grid([self._build_contorno_card(c) for c in cont_activos])
         self.panel_derecho.content = ft.Column([
             ft.Row([
                 ft.IconButton(icon=ft.Icons.ARROW_BACK_ROUNDED, icon_color=ft.Colors.WHITE,
@@ -446,12 +492,18 @@ class ComandaPedidoView(ft.Container):
 
     @staticmethod
     def _cat_hover(e, card, color):
-        if e.data == "true":
-            card.scale = 1.05; card.rotate = 0.02
-            card.shadow = ft.BoxShadow(blur_radius=15, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 0))
+        if e.data:
+            card.scale = 1.05
+            card.rotate = 0.02
+            card.shadow = ft.BoxShadow(
+                blur_radius=15, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 0),
+            )
         else:
-            card.scale = 1.0; card.rotate = 0
-            card.shadow = ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.1, color), offset=ft.Offset(0, 0))
+            card.scale = 1.0
+            card.rotate = 0
+            card.shadow = ft.BoxShadow(
+                blur_radius=0, color=ft.Colors.with_opacity(0.1, color), offset=ft.Offset(0, 0),
+            )
         card.update()
 
     def _on_categoria_click(self, cat: dict):
@@ -485,8 +537,7 @@ class ComandaPedidoView(ft.Container):
                     padding=30, alignment=ft.Alignment.CENTER,
                 ))
             else:
-                for p in prods:
-                    self.grid.controls.append(self._build_producto_card(p, color=cat.get('color', '#4CAF50')))
+                self._render_grid([self._build_producto_card(p, color=cat.get('color', '#4CAF50')) for p in prods])
             self.panel_derecho.content = ft.Column([
                 ft.Row([
                     ft.IconButton(icon=ft.Icons.ARROW_BACK_ROUNDED, icon_color=ft.Colors.WHITE,
@@ -501,19 +552,20 @@ class ComandaPedidoView(ft.Container):
     def _show_subcategorias(self, parent_cat: dict, sub_cats: list):
         """Muestra las sub-categorias de una categoria padre junto a sus productos directos."""
         self.categoria_actual = parent_cat
-        self.grid.controls.clear()
+        cards = []
         for sc in sub_cats:
             sc['_parent'] = parent_cat  # guardar referencia al padre
-            self.grid.controls.append(self._build_subcategoria_card(sc))
+            cards.append(self._build_subcategoria_card(sc))
 
         prods = LocalReplica.get_productos_pos(parent_cat['id'])
         if prods:
-            self.grid.controls.append(ft.Container(
+            cards.append(ft.Container(
                 content=ft.Text("PRODUCTOS", size=11, weight=ft.FontWeight.BOLD, color="#4CAF50"),
                 padding=ft.Padding.only(top=14, bottom=4),
             ))
             for p in prods:
-                self.grid.controls.append(self._build_producto_card(p, color=parent_cat.get('color', '#4CAF50')))
+                cards.append(self._build_producto_card(p, color=parent_cat.get('color', '#4CAF50')))
+        self._render_grid(cards)
 
         self.panel_derecho.content = ft.Column([
             ft.Row([
@@ -567,8 +619,7 @@ class ComandaPedidoView(ft.Container):
                 padding=30, alignment=ft.Alignment.CENTER,
             ))
         else:
-            for p in platos_filtrados:
-                self.grid.controls.append(self._build_plato_card(p))
+            self._render_grid([self._build_plato_card(p) for p in platos_filtrados])
         self.panel_derecho.content = ft.Column([
             ft.Row([
                 ft.IconButton(icon=ft.Icons.ARROW_BACK_ROUNDED, icon_color=ft.Colors.WHITE,
@@ -612,12 +663,16 @@ class ComandaPedidoView(ft.Container):
 
     @staticmethod
     def _prod_hover(e, card, color):
-        if e.data == "true":
+        if e.data:
             card.scale = 1.05
-            card.shadow = ft.BoxShadow(blur_radius=15, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 0))
+            card.shadow = ft.BoxShadow(
+                blur_radius=15, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 0),
+            )
         else:
             card.scale = 1.0
-            card.shadow = ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.1, color), offset=ft.Offset(0, 0))
+            card.shadow = ft.BoxShadow(
+                blur_radius=0, color=ft.Colors.with_opacity(0.1, color), offset=ft.Offset(0, 0),
+            )
         card.update()
 
     def _agregar_item(self, prod: dict, tipo='producto'):

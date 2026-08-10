@@ -58,6 +58,7 @@ async def main(page: ft.Page):
         title="Lycoris POS",
         logo_src="icono_azul.png",
         stages=_POS_STAGES,
+        desktop_bg="fondo_horizontal_rojo.jpeg",
     )
     step_text = loading.step_text
     status_text = loading.status_text

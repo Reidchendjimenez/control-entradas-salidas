@@ -147,30 +147,25 @@ class HistorialFacturasView(ft.Container):
         )
 
         tabs = ft.Tabs(
-            selected_index=0,
-            animation_duration=250,
-            on_change=self._on_tab_change,
-            tabs=[
-                ft.Tab(
-                    text="Facturas",
-                    icon=ft.Icons.RECEIPT_LONG_ROUNDED,
-                    content=self._build_facturas_tab(),
-                ),
-                ft.Tab(
-                    text="Por Fecha",
-                    icon=ft.Icons.CALENDAR_MONTH_ROUNDED,
-                    content=self._build_fecha_tab(),
-                ),
-            ],
-            expand=True,
-        )
+    selected_index=0,
+    animation_duration=250,
+    on_change=self._on_tab_change,
+    expand=True,
+    length=2,
+    content=ft.Column(controls=[
+    ft.TabBar(tabs=[
+ft.Tab(label="Facturas", icon=ft.Icons.RECEIPT_LONG_ROUNDED),
+ft.Tab(label="Por Fecha", icon=ft.Icons.CALENDAR_MONTH_ROUNDED),
+]),
+    ft.TabBarView(expand=True, controls=[
+self._build_facturas_tab(),
+self._build_fecha_tab(),
+]),
+]),
+)
 
         self.content = ft.Column([header, tabs], expand=True, spacing=0)
         self.update()
-        
-        # Agregar file_picker a la página (solo si no está ya)
-        if self.page and self.file_picker not in self.page.overlay:
-            self.page.overlay.append(self.file_picker)
 
     def _build_facturas_tab(self):
         colors = _colors(self.page)
@@ -518,7 +513,7 @@ class HistorialFacturasView(ft.Container):
                         ft.Row([
                             ft.Icon(ft.Icons.RECEIPT_ROUNDED, color=colors['accent'], size=20),
                             ft.Text(f"#{f.numero_factura}", weight="bold", expand=True, color=colors['text_primary']),
-                            ft.Container(ft.Text(f.estado, color="white", size=10, weight="bold"), bgcolor=color_est, padding=ft.Padding.symmetric(2, 6), border_radius=4),
+                            ft.Container(ft.Text(f.estado, color="white", size=10, weight="bold"), bgcolor=color_est, padding=ft.Padding.symmetric(vertical=2, horizontal=6), border_radius=4),
                         ]),
                         ft.Text(f.proveedor or "Proveedor No Identificado", size=12, color=colors['text_secondary']),
                         ft.Row([
@@ -663,7 +658,7 @@ class HistorialFacturasView(ft.Container):
         if m.peso_total and m.peso_total > 0:
             peso_badge = ft.Container(
                 content=ft.Text(f"{m.peso_total:.2f} kg", size=10, weight="bold", color=_c(self.page, 'ORANGE_800')),
-                bgcolor=_c(self.page, 'ORANGE_50'), padding=ft.Padding.symmetric(2, 6), border_radius=5,
+                bgcolor=_c(self.page, 'ORANGE_50'), padding=ft.Padding.symmetric(vertical=2, horizontal=6), border_radius=5,
                 border=ft.Border.all(1, _c(self.page, 'ORANGE_200')),
             )
 

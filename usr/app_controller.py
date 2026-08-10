@@ -301,11 +301,13 @@ class ControlEntradasSalidasApp:
             theme_label = "Modo Claro" if is_dark else "Modo Oscuro"
 
             def on_toggle_theme(e):
-                self.page.close(self.bottom_sheet)
+                self.bottom_sheet.open = False
+                self.page.update()
                 self._toggle_theme()
 
             def on_nav(e, idx):
-                self.page.close(self.bottom_sheet)
+                self.bottom_sheet.open = False
+                self.page.update()
                 self._show_view(idx)
 
             menu_content = ft.Column(spacing=0, controls=[
@@ -325,8 +327,10 @@ class ControlEntradasSalidasApp:
                 ],
             ])
 
-            self.bottom_sheet = ft.BottomSheet(content=ft.Container(content=menu_content, padding=ft.Padding.only(bottom=20)), open=True)
-            self.page.open(self.bottom_sheet)
+            self.bottom_sheet = ft.BottomSheet(content=ft.Container(content=menu_content, padding=ft.Padding.only(bottom=20)))
+            self.page.overlay.append(self.bottom_sheet)
+            self.bottom_sheet.open = True
+            self.page.update()
         except Exception as e:
             logger.error(f"Error en _show_more_menu: {e}", exc_info=True)
             show_error("Error al abrir el menú de más opciones", e, "ControlEntradasSalidasApp._show_more_menu")

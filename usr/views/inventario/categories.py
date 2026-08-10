@@ -26,37 +26,36 @@ def create_categoria_card(categoria, colors, on_click_cb):
         spacing=5,
     )
 
+    def _on_hover(e):
+        if e.data:
+            e.control.scale = 1.05
+            e.control.shadow = ft.BoxShadow(
+                blur_radius=15,
+                color=ft.Colors.with_opacity(0.2, cat_color),
+                offset=ft.Offset(0, 0),
+            )
+        else:
+            e.control.scale = 1.0
+            e.control.shadow = ft.BoxShadow(
+                blur_radius=0,
+                color=ft.Colors.with_opacity(0.1, cat_color),
+                offset=ft.Offset(0, 0),
+            )
+        e.control.update()
+
     card = ft.Container(
         content=content_col,
         bgcolor='#2D2D2D',
         width=110, height=130,
         border_radius=12, padding=10,
         border=ft.Border(bottom=ft.BorderSide(4, cat_color)),
+        scale=1.0,
+        animate_scale=ft.Animation(300, ft.AnimationCurve.EASE_OUT),
+        on_hover=_on_hover,
+        ink=True,
     )
-    card.on_click = lambda e: on_click_cb(categoria)
+    card.on_click = lambda e: on_click_cb(categoria, card)
     return card
-
-
-def al_pasar_mouse(e, card, cat_color):
-    if e.data == "true":
-        card.scale = 1.05
-        card.rotate = 0.02
-        card.shadow = ft.BoxShadow(
-            blur_radius=15,
-            color=ft.Colors.with_opacity(0.2, cat_color),
-            offset=ft.Offset(0, 0),
-        )
-        card.animate = ft.Animation(300, ft.AnimationCurve.DECELERATE)
-    else:
-        card.scale = 1.0
-        card.rotate = 0
-        card.shadow = ft.BoxShadow(
-            blur_radius=0,
-            color=ft.Colors.with_opacity(0.1, cat_color),
-            offset=ft.Offset(0, 0),
-        )
-        card.animate = ft.Animation(300, ft.AnimationCurve.DECELERATE)
-    card.update()
 
 
 def create_categoria_card_from_dict(cat_dict, colors, on_click_cb):
@@ -66,6 +65,25 @@ def create_categoria_card_from_dict(cat_dict, colors, on_click_cb):
     card_bg = colors['card']
     text_color = colors['text_primary']
 
+    def _on_hover(e):
+        if e.data:
+            e.control.scale = 1.05
+            e.control.rotate = 0.02
+            e.control.shadow = ft.BoxShadow(
+                blur_radius=15,
+                color=ft.Colors.with_opacity(0.2, cat_color),
+                offset=ft.Offset(0, 0),
+            )
+        else:
+            e.control.scale = 1.0
+            e.control.rotate = 0
+            e.control.shadow = ft.BoxShadow(
+                blur_radius=0,
+                color=ft.Colors.with_opacity(0.1, cat_color),
+                offset=ft.Offset(0, 0),
+            )
+        e.control.update()
+
     card = ft.Container(
         bgcolor=card_bg,
         border_radius=12,
@@ -73,13 +91,15 @@ def create_categoria_card_from_dict(cat_dict, colors, on_click_cb):
         width=110, height=130,
         alignment=ft.Alignment.CENTER,
         border=ft.Border(bottom=ft.BorderSide(3, cat_color)),
+        scale=1.0,
+        rotate=0,
         shadow=ft.BoxShadow(
             blur_radius=0,
             color=ft.Colors.with_opacity(0.2, cat_color),
             offset=ft.Offset(0, 3),
         ),
-        animate_scale=ft.Animation(400, ft.AnimationCurve.DECELERATE),
-        animate_rotation=ft.Animation(400, ft.AnimationCurve.DECELERATE),
+        animate_scale=ft.Animation(300, ft.AnimationCurve.EASE_OUT),
+        animate_rotation=ft.Animation(300, ft.AnimationCurve.EASE_OUT),
         content=ft.Column(
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             alignment=ft.MainAxisAlignment.CENTER,
@@ -108,6 +128,6 @@ def create_categoria_card_from_dict(cat_dict, colors, on_click_cb):
             ]
         )
     )
-    card.on_hover = lambda e: al_pasar_mouse(e, card, cat_color)
-    card.on_click = lambda e: on_click_cb(cat_dict)
+    card.on_hover = _on_hover
+    card.on_click = lambda e: on_click_cb(cat_dict, card)
     return card

@@ -182,7 +182,7 @@ def _build_almacen_produccion_dd():
     if not almacenes:
         almacenes = ['principal', 'restaurante']
 
-    def _on_change(e):
+    def _on_select(e):
         try:
             LocalReplica.set_pos_setting('almacen_produccion', e.control.value or 'restaurante')
             show_success("Almacén de descargo de producción actualizado")

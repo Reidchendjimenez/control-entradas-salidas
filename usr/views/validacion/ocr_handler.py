@@ -98,7 +98,6 @@ class OCRHandler:
         )
 
         self.file_picker = ft.FilePicker()
-        self.page.overlay.append(self.file_picker)
         self.current_image_path = None
 
     def section_container(self, content):
@@ -238,7 +237,7 @@ class OCRHandler:
                 try:
                     tipo_ocr = datos.get('tipo_documento', 'Factura')
                     if tipo_ocr not in self.fields.tipo_documento_segmented.selected:
-                        self.fields.tipo_documento_segmented.selected = {tipo_ocr}
+                        self.fields.tipo_documento_segmented.selected = [tipo_ocr]
                 except Exception as ex:
                     print(f"[WARN] Error llenando tipo_documento: {ex}")
 

@@ -645,7 +645,7 @@ def build_buscador_productos(view):
             ], spacing=10),
             padding=20,
         ),
-        is_scroll_controlled=True,
+        scrollable=True,
         bgcolor=colors['surface'],
     )
 
@@ -726,7 +726,7 @@ def build_agregar_producto_req_dialog(view, producto, disponible):
         )
         peso_total_input = ft.TextField(
             label="Peso Total", value="0.000", keyboard_type=ft.KeyboardType.NUMBER,
-            border_radius=10, expand=True, suffix_text="kg",
+            border_radius=10, expand=True, suffix=ft.Text("kg"),
             on_change=_calcular_desde_total,
         )
         if is_mobile:

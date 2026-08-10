@@ -362,10 +362,10 @@ class InventarioView(ft.Container):
             if self.page:
                 self.update()
 
-    def _on_categoria_click(self, cat_dict):
+    def _on_categoria_click(self, cat_dict, card=None):
         try:
             categoria = type('Categoria', (), cat_dict)()
-            self.page.run_task(self._handle_category_click, None, categoria)
+            self.page.run_task(self._handle_category_click, card, categoria)
         except Exception as ex:
             print(f"[ERROR] _on_categoria_click: {ex}")
             import traceback; traceback.print_exc()
@@ -378,9 +378,9 @@ class InventarioView(ft.Container):
     async def _handle_category_click(self, container, categoria):
         try:
             if container:
-                container.scale = 0.95
+                container.scale = 0.92
                 container.update()
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.12)
                 container.scale = 1.0
                 container.update()
                 await asyncio.sleep(0.15)
@@ -391,7 +391,7 @@ class InventarioView(ft.Container):
 
     def _create_categoria_card(self, categoria):
         from usr.views.inventario.categories import create_categoria_card
-        return create_categoria_card(categoria, get_safe_colors(self.page), self._show_productos)
+        return create_categoria_card(categoria, get_safe_colors(self.page), self._on_categoria_click)
 
     def _show_productos(self, categoria):
         try:
@@ -443,12 +443,20 @@ class InventarioView(ft.Container):
             self.search_for_products.value = ""
         self.main_content_area.content = self.categorias_grid
         if self._categorias_cache:
-            self.categorias_grid.controls = [
+            # Replace controls list atomically to avoid dict-changed-during-iteration in diff
+            new_controls = [
                 create_categoria_card_from_dict(c, get_safe_colors(self.page), self._on_categoria_click)
                 for c in self._categorias_cache
             ]
+            self.categorias_grid.controls[:] = new_controls
         if self.page:
+            self.page.run_task(self._do_update)
+
+    async def _do_update(self):
+        try:
             self.update()
+        except RuntimeError:
+            pass
 
     def _on_search_change(self, e=None):
         if self._search_timer:

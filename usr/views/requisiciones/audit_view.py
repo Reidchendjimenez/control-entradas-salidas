@@ -31,21 +31,43 @@ class AuditView(ft.Container):
         self.padding = 20
         self.audit_data = None
         self.loading_overlay = None
-        self._build_ui()
+        self._mounted = False
+        # UI se construye en did_mount cuando el control está montado
+
+    def did_mount(self):
+        if getattr(self, '_mounted', False):
+            return
+        try:
+            try:
+                page = self.page
+            except RuntimeError:
+                return
+            self._build_ui()
+            self._mounted = True
+        except Exception as e:
+            self._mounted = False
+            import traceback
+            traceback.print_exc()
+            from usr.notifications import show_error
+            show_error(f"Error al montar auditoría: {e}")
 
     def _set_loading_overlay(self, visible: bool, message: str = "Procesando..."):
         if not self.page:
             return
+
+        def _find_loading_overlays():
+            return [c for c in list(self.page.overlay) if getattr(c, '_es_overlay_carga', False)]
+
         if visible:
-            if self.loading_overlay:
+            # Remover cualquier overlay de carga previo para evitar duplicados
+            for ov in _find_loading_overlays():
                 try:
-                    self.loading_overlay.content.content.controls[1].value = message
-                    self.page.update()
-                    return
+                    self.page.overlay.remove(ov)
                 except Exception:
                     pass
+            self.loading_overlay = None
             colors = _colors(self.page)
-            self.loading_overlay = ft.Container(
+            overlay = ft.Container(
                 content=ft.Container(
                     content=ft.Column([
                         ft.ProgressBar(width=200, color=colors.get('accent', ft.Colors.PURPLE), bgcolor=ft.Colors.TRANSPARENT),
@@ -61,16 +83,27 @@ class AuditView(ft.Container):
                 alignment=ft.Alignment.CENTER,
                 expand=True,
             )
-            self.page.overlay.append(self.loading_overlay)
-            self.page.update()
+            overlay._es_overlay_carga = True
+            self.loading_overlay = overlay
+            self.page.overlay.append(overlay)
+            try:
+                self.page.update()
+            except Exception:
+                pass
         else:
-            if self.loading_overlay:
+            self.loading_overlay = None
+            removed = False
+            for ov in _find_loading_overlays():
                 try:
-                    self.page.overlay.remove(self.loading_overlay)
+                    self.page.overlay.remove(ov)
+                    removed = True
                 except Exception:
                     pass
-                self.loading_overlay = None
-                self.page.update()
+            if removed:
+                try:
+                    self.page.update()
+                except Exception:
+                    pass
 
     def _build_ui(self):
         self.colors = _colors(self.page)
@@ -101,14 +134,17 @@ class AuditView(ft.Container):
 
         # Tabs
         self.tabs = ft.Tabs(
-            selected_index=0,
-            on_change=self._on_tab_change,
-            tabs=[
-                ft.Tab(text="Salida (Origen)", icon=ft.Icons.OUTBOX),
-                ft.Tab(text="Destino", icon=ft.Icons.INBOX),
-            ],
-            expand=False,
-        )
+    selected_index=0,
+    on_change=self._on_tab_change,
+    expand=False,
+    length=2,
+    content=ft.Column(controls=[
+    ft.TabBar(tabs=[
+ft.Tab(label="Salida (Origen)", icon=ft.Icons.OUTBOX),
+ft.Tab(label="Destino", icon=ft.Icons.INBOX),
+]),
+]),
+)
 
         # Content Area
         self.content_area = ft.Column(
@@ -300,12 +336,12 @@ class AuditView(ft.Container):
             peso_total_input = ft.TextField(
                 label="Peso Inicial", value=f"{current_qty:.3f}", keyboard_type=ft.KeyboardType.NUMBER,
                 border_radius=10, text_size=14, expand=1,
-                suffix_text="kg", on_change=_calcular_desde_total,
+                suffix=ft.Text("kg"), on_change=_calcular_desde_total,
             )
             final_input = ft.TextField(
                 label="Stock Final", value=f"{final_actual:.3f}", keyboard_type=ft.KeyboardType.NUMBER,
                 border_radius=10, text_size=14, expand=1,
-                suffix_text="kg", on_change=_on_final_change,
+                suffix=ft.Text("kg"), on_change=_on_final_change,
             )
 
             campos = ft.Column([

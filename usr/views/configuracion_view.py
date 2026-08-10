@@ -52,7 +52,8 @@ class ConfiguracionView(ft.Container):
         )
 
     def did_mount(self):
-        if getattr(self, '_mounted', False):
+        # Early exit if already fully initialized
+        if getattr(self, '_fully_initialized', False):
             return
         try:
             try:
@@ -65,10 +66,9 @@ class ConfiguracionView(ft.Container):
             if not self.content:
                 self._build_ui()
             if page:
-                self._load_data()
-            self._mounted = True
+                page.run_task(self._load_data_async)
+            self._fully_initialized = True
         except Exception as e:
-            self._mounted = False
             logger.error(f"Error en did_mount de ConfiguracionView: {e}", exc_info=True)
 
     def on_theme_change(self):
@@ -108,35 +108,24 @@ class ConfiguracionView(ft.Container):
         self.tabs = ft.Tabs(
             selected_index=0,
             animation_duration=300,
-            scrollable=True,
-            tabs=[
-                ft.Tab(
-                    text="Categorias",
-                    icon=ft.Icons.CATEGORY,
-                    content=self._build_categorias_tab(),
-                ),
-                ft.Tab(
-                    text="Productos",
-                    icon=ft.Icons.INVENTORY_2,
-                    content=self._build_productos_tab(),
-                ),
-                ft.Tab(
-                    text="Proveedores",
-                    icon=ft.Icons.LOCAL_SHIPPING,
-                    content=build_proveedores_tab(self),
-                ),
-                ft.Tab(
-                    text="Sistema",
-                    icon=ft.Icons.DASHBOARD_CUSTOMIZE,
-                    content=build_sistema_tab(self),
-                ),
-                ft.Tab(
-                    text="Periodos",
-                    icon=ft.Icons.CALENDAR_MONTH,
-                    content=build_periodos_tab(self),
-                ),
-            ],
             expand=True,
+            length=5,
+            content=ft.Column(controls=[
+                ft.TabBar(scrollable=True, tabs=[
+                    ft.Tab(label="Categorias", icon=ft.Icons.CATEGORY),
+                    ft.Tab(label="Productos", icon=ft.Icons.INVENTORY_2),
+                    ft.Tab(label="Proveedores", icon=ft.Icons.LOCAL_SHIPPING),
+                    ft.Tab(label="Sistema", icon=ft.Icons.DASHBOARD_CUSTOMIZE),
+                    ft.Tab(label="Periodos", icon=ft.Icons.CALENDAR_MONTH),
+                ]),
+                ft.TabBarView(expand=True, controls=[
+                    self._build_categorias_tab(),
+                    self._build_productos_tab(),
+                    build_proveedores_tab(self),
+                    build_sistema_tab(self),
+                    build_periodos_tab(self),
+                ]),
+            ]),
         )
 
         self.content = ft.Column([header, self.tabs], expand=True, spacing=0)
@@ -251,16 +240,45 @@ class ConfiguracionView(ft.Container):
             padding=ft.Padding.only(bottom=10),
         )
 
-    def _load_data(self):
-        colors = _colors(self.page)
+    async def _load_data_async(self):
+        """Cargar datos en background con progress ring"""
+        # Si ya tenemos datos en cache, no recargar
+        if hasattr(self, 'categorias_cache') and self.categorias_cache:
+            return
+            
         self.is_mobile = self.page.width < 768 if self.page else False
 
+        # Mostrar progress ring inmediatamente
+        if self.page:
+            try:
+                self.lista_categorias.controls = [ft.Container(
+                    ft.Column([ft.ProgressRing(), ft.Text("Cargando categorias...", size=12)],
+                              horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10),
+                    alignment=ft.Alignment.CENTER, padding=50
+                )]
+                self.lista_productos.controls = [ft.Container(
+                    ft.Column([ft.ProgressRing(), ft.Text("Cargando productos...", size=12)],
+                              horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10),
+                    alignment=ft.Alignment.CENTER, padding=50
+                )]
+                self.page.update()
+            except:
+                pass
+
+        # Ceder control al event loop para que renderice el ProgressRing
+        await asyncio.sleep(0)
+
+        # Cargar en background (thread pool para no bloquear event loop)
         try:
-            db = next(get_db_adaptive())
-            cats = db.query(Categoria).filter(Categoria.activo == True).all()
-            prods = db.query(Producto).filter(Producto.activo == True).options(
-                joinedload(Producto.categoria)
-            ).all()
+            db = await asyncio.to_thread(next, get_db_adaptive())
+            cats = await asyncio.to_thread(
+                lambda: db.query(Categoria).filter(Categoria.activo == True).all()
+            )
+            prods = await asyncio.to_thread(
+                lambda: db.query(Producto).filter(Producto.activo == True).options(
+                    joinedload(Producto.categoria)
+                ).all()
+            )
 
             self.categorias_cache = cats
             self.productos_cache = prods
@@ -276,15 +294,15 @@ class ConfiguracionView(ft.Container):
 
             self.lista_productos.controls = [self._build_producto_header()] + [create_producto_item(self, p) for p in prods]
 
-            load_proveedores(self)
+            await asyncio.to_thread(load_proveedores, self)
 
             self.update()
             self._apply_producto_filters()
-            db.close()
+            await asyncio.to_thread(db.close)
         except Exception as e:
             show_error(f"Error al cargar datos: {str(e)}")
-            if db:
-                db.close()
+            if 'db' in locals():
+                await asyncio.to_thread(db.close)
 
     def _filter_categorias(self, e=None):
         if not hasattr(self, 'categorias_cache'):
@@ -329,4 +347,4 @@ class ConfiguracionView(ft.Container):
 
     def refresh(self):
         self.is_mobile = self.page.width < 768 if self.page else False
-        self._load_data()
+        self.page.run_task(self._load_data_async)

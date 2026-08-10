@@ -12,6 +12,9 @@ class VisualizeView(ft.Container):
         self.on_back = on_back
         self.expand = True
         self.padding = 20
+        # UI se construye en did_mount cuando el control está montado
+
+    def did_mount(self):
         self._build_ui()
 
     def _build_mensaje(self):
@@ -44,7 +47,7 @@ class VisualizeView(ft.Container):
         try:
             msg = self._build_mensaje()
             if self.page:
-                self.page.set_clipboard(msg)
+                self.page.run_task(ft.Clipboard().set, msg)
                 show_success("Requisición copiada al portapapeles")
         except Exception as e:
             show_error(f"Error al copiar: {e}")

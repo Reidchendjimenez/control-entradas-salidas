@@ -56,7 +56,7 @@ def mostrar_error_critico(page: ft.Page, error_completo: str):
                     ft.ElevatedButton(
                         "Copiar Error al Portapapeles",
                         icon=ft.Icons.COPY,
-                        on_click=lambda _: page.set_clipboard(error_completo),
+                        on_click=lambda _: page.run_task(ft.Clipboard().set, error_completo),
                     ),
                     ft.Container(height=10),
                     ft.ElevatedButton(

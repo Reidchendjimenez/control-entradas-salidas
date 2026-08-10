@@ -34,17 +34,18 @@ class ProduccionesView(ft.Container):
         self._productos = []
 
         self.tabs = ft.Tabs(
-            content=ft.Column([]),
             length=3,
             selected_index=0,
             animation_duration=300,
             on_change=self._on_tab_change,
+            content=ft.Column(controls=[
+                ft.TabBar(tabs=[
+                    ft.Tab(label="Recetas", icon=ft.Icons.DESCRIPTION_OUTLINED),
+                    ft.Tab(label="En Producción", icon=ft.Icons.PENDING_ACTIONS),
+                    ft.Tab(label="Historial", icon=ft.Icons.HISTORY_OUTLINED),
+                ]),
+            ]),
         )
-        self.tabs.tabs = [
-            ft.Tab(label="Recetas", icon=ft.Icons.DESCRIPTION_OUTLINED),
-            ft.Tab(label="En Producción", icon=ft.Icons.PENDING_ACTIONS),
-            ft.Tab(label="Historial", icon=ft.Icons.HISTORY_OUTLINED),
-        ]
 
         self.recetas_container = ft.Container(expand=True, padding=ft.Padding.all(0))
         self.recetas_list = ft.Column(spacing=8, scroll=ft.ScrollMode.ALWAYS, expand=True)

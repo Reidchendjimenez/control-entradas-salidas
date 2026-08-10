@@ -81,7 +81,6 @@ class ValidacionDialog:
     
     def show(self):
         self.page.overlay.append(self.dialog)
-        self.page.overlay.append(self.ocr.file_picker)
         self.dialog.open = True
         self.page.update()
     

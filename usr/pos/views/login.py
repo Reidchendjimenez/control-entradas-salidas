@@ -9,9 +9,10 @@ Muestra:
 import flet as ft
 from usr.database.local_replica import LocalReplica
 from usr.theme import get_colors
+from usr.pos.views import PosView
 
 
-class POSLoginView(ft.Container):
+class POSLoginView(PosView):
     def __init__(self, on_login=None):
         super().__init__()
         self.expand = True

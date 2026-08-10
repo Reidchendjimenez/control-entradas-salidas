@@ -218,7 +218,7 @@ async def preguntar_almacen(page, colors, nombre, almacenes, incluir_todos=True)
 
 def _copiar_documento(page, numero_doc):
     try:
-        page.set_clipboard(numero_doc)
+        page.run_task(ft.Clipboard().set, numero_doc)
         try:
             from usr.notifications import show_success
             show_success(f"Documento copiado: {numero_doc}")

@@ -5,9 +5,10 @@ Redirige al usuario a la pantalla de Comandas
 (mesas / habitaciones) una vez autenticado.
 """
 import flet as ft
+from usr.pos.views import PosView
 
 
-class POSHomeView(ft.Container):
+class POSHomeView(PosView):
     def __init__(self, usuario: dict = None, sesion_id: int = None):
         super().__init__()
         self.expand = True
