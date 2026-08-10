@@ -134,9 +134,18 @@ class LoadingSplash:
             width=146, height=146, stroke_width=10,
             color="#BB86FC", bgcolor="#2A2A2A",
         )
+        # Envolver el logo en un Container del mismo tamaño que el anillo (146x146)
+        # y centrarlo con alignment=CENTER para que quede perfecto sobre el ring.
+        logo_wrapper = ft.Container(
+            content=self._logo,
+            width=146,
+            height=146,
+            alignment=ft.Alignment.CENTER,
+        )
         self._anillo = ft.Stack(
-            controls=[self._ring, ft.Container(content=self._logo, alignment=ft.Alignment.CENTER)],
+            controls=[self._ring, logo_wrapper],
             width=146, height=146,
+            alignment=ft.Alignment.CENTER,
         )
 
         self._porcentaje = ft.Text("0%", size=20, weight="bold", color="#FFFFFF")
@@ -170,8 +179,8 @@ class LoadingSplash:
 
         # --- Arquitectura que FUNCIONA en Flet 0.86 (comentario original) ---
         # Root: Container expand + alignment CENTER
-        # Content: Stack con 2 capas:
-        #   1) oscurece (fondo + overlay oscuro, expand=True)
+        # Content: Stack con fit=EXPAND + 2 capas:
+        #   1) oscurece (fondo + overlay oscuro, expand=True) -> llena todo el Stack
         #   2) Column expand + MainAxisAlignment.CENTER + CrossAxisAlignment.CENTER -> tarjeta
         # El Stack se usa SOLO para superponer fondo+overlay; el centrado lo hace la Column.
         oscurece = ft.Container(
@@ -188,10 +197,10 @@ class LoadingSplash:
             expand=True,
             bgcolor=DARK['bg'],
             image=ft.DecorationImage(src=self._fondo_src, fit=ft.BoxFit.COVER) if self._fondo_src else None,
-            alignment=ft.Alignment.CENTER,
             content=ft.Stack(
                 controls=[oscurece, contenido_centrado],
                 expand=True,
+                fit=ft.StackFit.EXPAND,
             ),
         )
 
