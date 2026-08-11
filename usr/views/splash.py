@@ -271,6 +271,7 @@ class LoadingSplash:
                 sentido = 1.0
             try:
                 self._ring.value = self._cuadro
+                self._porcentaje.value = f"{int(self._cuadro * 100)}%"
                 if self._page is not None:
                     self._page.update()
             except Exception:

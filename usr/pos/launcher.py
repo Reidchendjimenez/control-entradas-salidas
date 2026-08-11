@@ -65,12 +65,21 @@ async def main(page: ft.Page):
     page.add(loading.control)
     page.update()
 
+    # Progresión visual de pasos (el anillo avanza con "X/Y" sin depender del sync)
+    step_text.value = "1/6"
+    status_text.value = "Verificando actualizaciones..."
+    page.update()
+
     # Comprobar actualizaciones
     try:
         from usr.updater import comprobar_y_aplicar_actualizaciones
         await comprobar_y_aplicar_actualizaciones(page, status_text)
     except Exception as e_up:
         print(f"[POS] Error ejecutando actualizador: {e_up}")
+
+    step_text.value = "2/6"
+    status_text.value = "Preparando base de datos..."
+    page.update()
 
     # Cargar código desde app_updates si existe
     if os.path.exists(updates_dir):
@@ -114,6 +123,9 @@ async def main(page: ft.Page):
         print(f"[POS] Error ensure_local_db: {e}")
 
     # Sincronizar datos POS desde Supabase (independiente del sync de inventario)
+    step_text.value = "3/6"
+    status_text.value = "Conectando con el servidor..."
+    page.update()
     try:
         from usr.database.base import get_engine
         from usr.database.pos_sync import init_pos_sync_manager, get_pos_sync_manager
@@ -125,6 +137,9 @@ async def main(page: ft.Page):
             sincprog = getattr(sm, 'set_sync_progress_callback', None)
             if sincprog and hasattr(loading, 'set_progress'):
                 sincprog(loading.set_progress)
+        step_text.value = "4/6"
+        status_text.value = "Sincronizando datos..."
+        page.update()
         if sm and sm.check_connection():
             try:
                 # Correr el sync en un hilo (asyncio.to_thread): así el callback
@@ -145,6 +160,9 @@ async def main(page: ft.Page):
         tb.print_exc()
 
     # Barra de progreso global de sync (parte superior, visible en todas las pantallas)
+    step_text.value = "5/6"
+    status_text.value = "Configurando módulos..."
+    page.update()
     try:
         from usr.pos.sync_indicator import init_pos_sync_indicator
         pos_sync_indicator = init_pos_sync_indicator(page)
@@ -169,6 +187,11 @@ async def main(page: ft.Page):
         import traceback as tb
         print(f"[POS] Error lanzando actualizacion de tasa: {e}")
         tb.print_exc()
+
+    step_text.value = "6/6"
+    status_text.value = "Listo!!!"
+    page.update()
+    await asyncio.sleep(0.15)
 
     page.clean()
     from usr.pos.views.login import POSLoginView
