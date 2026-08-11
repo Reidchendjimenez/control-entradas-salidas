@@ -260,7 +260,7 @@ async def main(page: ft.Page):
             page.session.store.set("username", usuario.get("nombre", "Operador"))
 
         page.clean()
-        page.add(loading)
+        page.add(loading.control)
         if page.session.store.get("username"):
             status_text.value = f"✓ Hola, {page.session.store.get('username')}"
         else:
