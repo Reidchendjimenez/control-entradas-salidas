@@ -318,21 +318,26 @@ class LoadingSplash:
     def _parse(self, msg: str):
         pct = None
         label = None
-        for sub, p, lbl in self._stages:
+        step_idx = 0
+        for i, (sub, p, lbl) in enumerate(self._stages, start=1):
             if sub in (msg or ""):
                 if lbl:
                     label = lbl
-                pct = p if pct is None else max(pct, p)
-        return pct, label
+                if pct is None or p > pct:
+                    pct = p
+                    step_idx = i
+        return pct, label, step_idx, len(self._stages)
 
     def set_progress(self, msg: str):
         """Actualiza anillo, % y etiqueta en función del mensaje del sync."""
-        pct, label = self._parse(msg)
+        pct, label, step_idx, step_total = self._parse(msg)
         if pct is not None:
             autoval = pct / 100.0
             if autoval > self._valor:
                 self._valor = autoval
             self._tiene_progreso = True
+            if step_idx:
+                self._paso.value = f"{step_idx}/{step_total}"
         if label:
             self._etiqueta.value = label
         try:
