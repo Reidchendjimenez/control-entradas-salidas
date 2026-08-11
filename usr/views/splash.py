@@ -177,18 +177,17 @@ class LoadingSplash:
         # Fondo (imagen estática) — se pone en el Container raíz via DecorationImage
         self._fondo_src = _find_background_image(page=page, desktop_bg=desktop_bg)
 
-        # --- Arquitectura que FUNCIONA en Flet 0.86 (comentario original) ---
-        # Root: Container expand + alignment CENTER
-        # Content: Stack con fit=EXPAND + 2 capas:
-        #   1) oscurece (fondo + overlay oscuro, expand=True) -> llena todo el Stack
-        #   2) Column expand + MainAxisAlignment.CENTER + CrossAxisAlignment.CENTER -> tarjeta
-        # El Stack se usa SOLO para superponer fondo+overlay; el centrado lo hace la Column.
+        # --- Arquitectura full-screen: sin tarjeta con borde, contenido directo ---
+        # Root: Container expand con imagen de fondo
+        # Content: Stack con 2 capas:
+        #   1) oscurece (overlay oscuro full-screen)
+        #   2) Column expand + MainAxisAlignment.CENTER + CrossAxisAlignment.CENTER -> contenido directo
         oscurece = ft.Container(
             expand=True,
             bgcolor=ft.Colors.with_opacity(0.35, "#000000"),
         )
         contenido_centrado = ft.Column(
-            [tarjeta],
+            [columna],
             expand=True,
             alignment=ft.MainAxisAlignment.CENTER,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -212,6 +211,7 @@ class LoadingSplash:
         self._stop_ring = threading.Event()
         self._cuadro = 0.0
         self._tiene_progreso = False
+        self._ultimo_pct_paso = 0  # último % válido de paso "X/Y"
         self._hilo_ring = threading.Thread(target=self._anillo_idle, daemon=True)
         self._hilo_ring.start()
 
@@ -250,6 +250,18 @@ class LoadingSplash:
                     pass
                 time.sleep(0.1)
                 continue
+            # Fallback: último % de paso válido (ej. "3/5" = 60%) mientras no hay sync real
+            if self._ultimo_pct_paso > 0:
+                v = self._ultimo_pct_paso / 100.0
+                try:
+                    self._ring.value = v
+                    self._porcentaje.value = f"{self._ultimo_pct_paso}%"
+                    if self._page is not None:
+                        self._page.update()
+                except Exception:
+                    pass
+                time.sleep(0.1)
+                continue
             self._cuadro += (0.02 * sentido)
             if self._cuadro >= 0.9:
                 self._cuadro = 0.9
@@ -274,7 +286,9 @@ class LoadingSplash:
                 total = int(total)
                 cur = int(cur)
                 if total > 0:
-                    return max(0, min(100, round(cur / total * 100)))
+                    pct = max(0, min(100, round(cur / total * 100)))
+                    self._ultimo_pct_paso = pct
+                    return pct
             except (ValueError, TypeError):
                 pass
         return None
@@ -317,9 +331,9 @@ class LoadingSplash:
             autoval = pct / 100.0
             if autoval > self._valor:
                 self._valor = autoval
+            self._tiene_progreso = True
         if label:
             self._etiqueta.value = label
-        self._tiene_progreso = True
         try:
             self._ring.value = self._valor
             self._porcentaje.value = f"{int(self._valor * 100)}%"
