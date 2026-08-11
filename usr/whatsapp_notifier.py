@@ -187,11 +187,11 @@ def _start_retry_thread():
                 retry_queued_messages()
             except Exception:
                 pass
-            time.sleep(60)
+            time.sleep(15)  # 15s en vez de 60s para procesar cola más rápido
 
     t = threading.Thread(target=loop, daemon=True)
     t.start()
-    print("[WA QUEUE] Hilo de reintentos iniciado")
+    print("[WA QUEUE] Hilo de reintentos iniciado (cada 15s)")
 
 
 # ==================== ENVIAR CON COLA ====================
@@ -354,6 +354,74 @@ def update_queue_estado(msg_id: int, estado: str, error: str = None):
         print(f"[WA QUEUE] Error actualizando estado {msg_id}: {e}")
     finally:
         conn.close()
+
+
+# ==================== PROCESAR COLA INMEDIATAMENTE ====================
+
+def process_queue_now() -> int:
+    """Procesa la cola de WhatsApp inmediatamente (para botón manual en UI).
+    Returns: número de mensajes procesados."""
+    try:
+        conn = _get_queue_conn()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT * FROM whatsapp_queue 
+            WHERE estado IN ('pending', 'failed') AND intentos < max_intentos
+            ORDER BY created_at ASC LIMIT 20
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        
+        if not rows:
+            return 0
+        
+        columns = [desc[0] for desc in cursor.description]
+        messages = [dict(zip(columns, row)) for row in rows]
+        processed = 0
+        
+        for msg in messages:
+            try:
+                conn = _get_queue_conn()
+                cursor = conn.cursor()
+                cursor.execute("SELECT estado FROM whatsapp_queue WHERE id = ?", (msg['id'],))
+                row = cursor.fetchone()
+                conn.close()
+                if not row or row[0] not in ('pending', 'failed'):
+                    continue
+
+                update_queue_estado(msg['id'], 'sending')
+                success = False
+                if msg['tipo'] == 'text':
+                    success = _send_text_direct(msg['mensaje'])
+                elif msg['tipo'] == 'image':
+                    success = _send_image_direct(msg['imagen_base64'], msg['mensaje'], msg['imagen_path'])
+
+                conn = _get_queue_conn()
+                cursor = conn.cursor()
+                if success:
+                    cursor.execute("""
+                        UPDATE whatsapp_queue SET estado = 'sent', updated_at = datetime('now', 'localtime')
+                        WHERE id = ?
+                    """, (msg['id'],))
+                    processed += 1
+                else:
+                    cursor.execute("""
+                        UPDATE whatsapp_queue SET 
+                            intentos = intentos + 1, 
+                            estado = CASE WHEN intentos + 1 >= max_intentos THEN 'failed' ELSE 'pending' END,
+                            ultimo_error = 'Error de conexión',
+                            updated_at = datetime('now', 'localtime')
+                        WHERE id = ?
+                    """, (msg['id'],))
+                conn.commit()
+                conn.close()
+            except Exception as e:
+                print(f"[WA QUEUE] Error procesando mensaje {msg.get('id')}: {e}")
+        
+        return processed
+    except Exception as e:
+        print(f"[WA QUEUE] Error en process_queue_now: {e}")
+        return 0
 
 
 # Iniciar hilo background automáticamente

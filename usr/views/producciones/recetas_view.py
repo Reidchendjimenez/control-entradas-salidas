@@ -16,16 +16,16 @@ def _build_card(receta, colors, on_edit, on_delete):
 
     badges = ft.Row([
         ft.Container(content=ft.Text(tipo_text, size=11, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
-                     padding=ft.padding.symmetric(horizontal=8, vertical=3),
+                     padding=ft.Padding.symmetric(horizontal=8, vertical=3),
                      bgcolor=tipo_color, border_radius=4),
         ft.Container(content=ft.Text(f"{len(componentes)} comp.", size=11, color=colors['text_secondary']),
-                     padding=ft.padding.symmetric(horizontal=8, vertical=3),
+                     padding=ft.Padding.symmetric(horizontal=8, vertical=3),
                      bgcolor=colors['card_hover'], border_radius=4),
         ft.Container(content=ft.Text(f"Cant: {receta.get('cantidad_producida', 1)}", size=11, color=colors['text_secondary']),
-                     padding=ft.padding.symmetric(horizontal=8, vertical=3),
+                     padding=ft.Padding.symmetric(horizontal=8, vertical=3),
                      bgcolor=colors['card_hover'], border_radius=4),
     ] + ([ft.Container(content=ft.Text(f"⚖️ {var_count} var.", size=11, color='#FF9800', weight=ft.FontWeight.BOLD),
-                       padding=ft.padding.symmetric(horizontal=8, vertical=3),
+                       padding=ft.Padding.symmetric(horizontal=8, vertical=3),
                        bgcolor=colors['card_hover'], border_radius=4)] if var_count else []),
         spacing=6,
     )
@@ -52,10 +52,10 @@ def _build_card(receta, colors, on_edit, on_delete):
                 ),
             ], vertical_alignment=ft.CrossAxisAlignment.START),
         ], spacing=5),
-        padding=ft.padding.all(15),
+        padding=ft.Padding.all(15),
         bgcolor=colors['card'],
         border_radius=10,
-        border=ft.border.all(1, colors['border']),
+        border=ft.Border.all(1, colors['border']),
         ink=True,
         on_click=lambda _, r=receta: on_edit(r),
     )
@@ -84,7 +84,7 @@ def render_recetas(page, recetas, productos, recetas_list, on_change, on_edit):
                     ft.Text("No hay recetas aún", size=16, color=colors['text_hint']),
                     ft.Text("Presiona '+ Nueva Receta' para crear una", size=13, color=colors['text_hint']),
                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10),
-                padding=ft.padding.all(40),
+                padding=ft.Padding.all(40),
             )
         )
 

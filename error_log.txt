@@ -1,8 +1,9 @@
 Traceback (most recent call last):
-  File "/workspaces/control-entradas-salidas/main.py", line 417, in main
-    from usr.views.login_view import LoginView
-  File "/workspaces/control-entradas-salidas/usr/views/__init__.py", line 5, in <module>
+  File "/workspaces/control-entradas-salidas/app_updates/usr/app_launcher.py", line 160, in main
+    from usr.views.splash import LoadingSplash
+  File "/workspaces/control-entradas-salidas/app_updates/usr/views/__init__.py", line 5, in <module>
     from .historial_facturas_view import HistorialFacturasView
-  File "/workspaces/control-entradas-salidas/usr/views/historial_facturas_view.py", line 14, in <module>
-    import openpyxl
-ModuleNotFoundError: No module named 'openpyxl'
+  File "/workspaces/control-entradas-salidas/app_updates/usr/views/historial_facturas_view.py", line 897
+    file_path = await self.file_picker.save_file(
+                
+SyntaxError: 'await' outside async function

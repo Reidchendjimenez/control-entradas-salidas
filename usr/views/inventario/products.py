@@ -36,9 +36,18 @@ def create_producto_item(producto, stock_por_almacen, colors, callbacks):
     badge_pesable = ft.Container(
         content=ft.Text("PESABLE", size=9, color='#FFFFFF', weight="bold"),
         bgcolor='#FF9800',
-        padding=ft.padding.symmetric(horizontal=4, vertical=1),
+        padding=ft.Padding.symmetric(horizontal=4, vertical=1),
         border_radius=3
     ) if es_pesable else ft.Container()
+
+    def _on_hover(e):
+        if e.data == "true":
+            e.control.scale = 1.02
+            e.control.elevation = 4
+        else:
+            e.control.scale = 1.0
+            e.control.elevation = 1
+        e.control.update()
 
     return ft.Container(
         content=ft.Row([
@@ -47,7 +56,7 @@ def create_producto_item(producto, stock_por_almacen, colors, callbacks):
                 ft.Row([
                     ft.Container(
                         content=ft.Text(f"Stock: {stock}", size=10, weight="bold", color='#FFFFFF'),
-                        bgcolor=stock_color, padding=ft.padding.symmetric(horizontal=6, vertical=2), border_radius=5
+                        bgcolor=stock_color, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=5
                     ),
                     ft.Text(f"Mín: {stock_min}", size=10, color=colors['text_secondary']),
                 ], spacing=10)
@@ -57,7 +66,11 @@ def create_producto_item(producto, stock_por_almacen, colors, callbacks):
             ft.IconButton(ft.Icons.REMOVE_CIRCLE_OUTLINE_ROUNDED, icon_color=colors['error'], icon_size=24,
                          on_click=lambda _, p=producto: callbacks.get('on_salida')(p)),
         ], spacing=5),
-        padding=10, bgcolor=colors['card'], border_radius=10, border=ft.border.all(1, colors['border'])
+        padding=10, bgcolor=colors['card'], border_radius=10, border=ft.Border.all(1, colors['border']),
+        animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
+        on_hover=_on_hover,
+        shadow=ft.BoxShadow(blur_radius=2, spread_radius=0, color='#00000020'),
+        ink=True,
     )
 
 
@@ -70,6 +83,15 @@ def create_producto_item_from_dict(prod_dict, stock_por_almacen, colors, callbac
 
     prod_obj = type('Producto', (), prod_dict)()
 
+    def _on_hover(e):
+        if e.data == "true":
+            e.control.scale = 1.02
+            e.control.elevation = 4
+        else:
+            e.control.scale = 1.0
+            e.control.elevation = 1
+        e.control.update()
+
     return ft.Container(
         content=ft.Row([
             ft.Column([
@@ -77,7 +99,7 @@ def create_producto_item_from_dict(prod_dict, stock_por_almacen, colors, callbac
                 ft.Row([
                     ft.Container(
                         content=ft.Text(f"Stock: {stock}", size=10, weight="bold", color='#FFFFFF'),
-                        bgcolor=stock_color, padding=ft.padding.symmetric(horizontal=6, vertical=2), border_radius=5
+                        bgcolor=stock_color, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=5
                     ),
                     ft.Text(f"Mín: {stock_min}", size=10, color=colors['text_secondary']),
                 ], spacing=10)
@@ -87,5 +109,9 @@ def create_producto_item_from_dict(prod_dict, stock_por_almacen, colors, callbac
             ft.IconButton(ft.Icons.REMOVE_CIRCLE_OUTLINE_ROUNDED, icon_color=colors['error'], icon_size=24,
                          on_click=lambda _, p=prod_obj: callbacks.get('on_salida')(p)),
         ], spacing=5),
-        padding=10, bgcolor=colors['card'], border_radius=10, border=ft.border.all(1, colors['border'])
+        padding=10, bgcolor=colors['card'], border_radius=10, border=ft.Border.all(1, colors['border']),
+        animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
+        on_hover=_on_hover,
+        shadow=ft.BoxShadow(blur_radius=2, spread_radius=0, color='#00000020'),
+        ink=True,
     )

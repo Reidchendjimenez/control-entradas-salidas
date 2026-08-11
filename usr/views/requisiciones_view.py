@@ -68,7 +68,7 @@ class RequisicionesView(ft.Container):
                  ft.Text("—", size=12, color=self.colors['text_secondary'], weight="w500")],
                 spacing=5, tight=True,
             ),
-            padding=ft.padding.only(10, 6, 10, 6),
+            padding=ft.Padding.only(left=10, top=6, right=10, bottom=6),
             border_radius=15,
             bgcolor=self.colors['bg'],
             tooltip="Estado de sincronización",
@@ -80,8 +80,12 @@ class RequisicionesView(ft.Container):
     def _on_sync_indicator_click(self, e):
         """Al pulsar: refresca el estado y muestra los errores si hay fallidos."""
         try:
+            try:
+                page = self.page
+            except RuntimeError:
+                return
             self._update_sync_indicator()
-            if not hasattr(self, 'page') or not self.page:
+            if not page:
                 return
             from usr.database.sync_queue import get_sync_queue
             from usr.database.conn import get_local_conn
@@ -117,9 +121,9 @@ class RequisicionesView(ft.Container):
                 ],
                 actions_alignment=ft.MainAxisAlignment.END,
             )
-            self.page.overlay.append(dlg)
+            page.overlay.append(dlg)
             dlg.open = True
-            self.page.update()
+            page.update()
         except Exception as e:
             print(f"[REQ] Error en click indicador sync: {e}")
 
@@ -139,7 +143,11 @@ class RequisicionesView(ft.Container):
             print(f"[REQ] Error reintentando sync: {e}")
 
     def _show_sync_estado_dialog(self):
-        if not hasattr(self, 'page') or not self.page:
+        try:
+            page = self.page
+        except RuntimeError:
+            return
+        if not page:
             return
         dlg = ft.AlertDialog(
             title=ft.Text("Estado de sincronización", size=16, weight="bold"),
@@ -147,9 +155,9 @@ class RequisicionesView(ft.Container):
             actions=[ft.TextButton("OK", on_click=lambda _: self._close_sync_dialog(dlg))],
             actions_alignment=ft.MainAxisAlignment.END,
         )
-        self.page.overlay.append(dlg)
+        page.overlay.append(dlg)
         dlg.open = True
-        self.page.update()
+        page.update()
 
     def _update_sync_indicator(self):
         """Lee la cola de sync y pinta el indicador: ok / pendientes / fallidos."""
@@ -222,7 +230,7 @@ class RequisicionesView(ft.Container):
                     col={"xs": 12, "sm": 4},
                 ),
             ], spacing=4, alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-            padding=ft.padding.only(left=16, right=16, top=16, bottom=10),
+            padding=ft.Padding.only(left=16, right=16, top=16, bottom=10),
             bgcolor=self.colors['surface'],
         )
 
@@ -242,18 +250,30 @@ class RequisicionesView(ft.Container):
         self._load_requisiciones()
 
     def did_mount(self):
+        if getattr(self, '_mounted', False):
+            return
         try:
+            try:
+                page = self.page
+            except RuntimeError:
+                return
             self._build_ui()
             register_sync_callback(self._on_sync_complete)
+            self._mounted = True
         except Exception as e:
+            self._mounted = False
             from usr.error_handler import show_error
-            show_error("Error al montar vista de requisiciones", e, "requisiciones_view.did_mount")
+            logger.error(f"Error en did_mount de RequisicionesView: {e}", exc_info=True)
 
     def will_unmount(self):
         unregister_sync_callback(self._on_sync_complete)
 
     def _on_sync_complete(self):
-        if hasattr(self, 'page') and self.page and self.visible:
+        try:
+            page = self.page
+        except RuntimeError:
+            return
+        if page and self.visible:
             try:
                 self._update_sync_indicator()
             except Exception:
@@ -261,7 +281,7 @@ class RequisicionesView(ft.Container):
             if self._vista_actual == "lista":
                 async def _reload():
                     await asyncio.to_thread(self._load_requisiciones)
-                self.page.run_task(_reload)
+                page.run_task(_reload)
 
     def on_sync_complete(self):
         self._on_sync_complete()
@@ -476,7 +496,7 @@ class RequisicionesView(ft.Container):
                         ft.Icon(ft.Icons.CHAT_BUBBLE_OUTLINE, size=40, color=colors['text_hint']),
                         ft.Text("Toca + para agregar productos", color=colors['text_secondary'], text_align="center"),
                     ], horizontal_alignment="center", spacing=10),
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment.CENTER,
                     expand=True,
                 )
             )
@@ -506,10 +526,10 @@ class RequisicionesView(ft.Container):
                                 on_click=lambda _, idx=i: self._eliminar_producto_req(idx),
                             ),
                         ], spacing=10, vertical_alignment="center"),
-                        padding=ft.padding.symmetric(horizontal=12, vertical=6),
+                        padding=ft.Padding.symmetric(horizontal=12, vertical=6),
                         bgcolor=colors['card'],
                         border_radius=8,
-                        margin=ft.margin.only(bottom=4),
+                        margin=ft.Margin.only(bottom=4),
                     )
                 )
 
@@ -517,7 +537,7 @@ class RequisicionesView(ft.Container):
             self._productos_lista_req.update()
             if self.lista_productos_req:
                 try:
-                    self._productos_lista_req.scroll_to(offset=-1, duration=150)
+                    self.page.run_task(lambda: self._productos_lista_req.scroll_to(offset=-1, duration=150))
                 except Exception:
                     pass
 
@@ -529,16 +549,20 @@ class RequisicionesView(ft.Container):
     def _set_loading_overlay(self, visible: bool, message: str = "Procesando..."):
         if not self.page:
             return
+
+        def _find_loading_overlays():
+            return [c for c in list(self.page.overlay) if getattr(c, '_es_overlay_carga', False)]
+
         if visible:
-            if self.loading_overlay:
+            # Remover cualquier overlay de carga previo para evitar duplicados
+            for ov in _find_loading_overlays():
                 try:
-                    self.loading_overlay.content.content.controls[1].value = message
-                    self.page.update()
-                    return
+                    self.page.overlay.remove(ov)
                 except Exception:
                     pass
+            self.loading_overlay = None
             colors = _colors(self.page)
-            self.loading_overlay = ft.Container(
+            overlay = ft.Container(
                 content=ft.Container(
                     content=ft.Column([
                         ft.ProgressBar(width=200, color=colors.get('accent', ft.Colors.PURPLE), bgcolor=ft.Colors.TRANSPARENT),
@@ -547,23 +571,34 @@ class RequisicionesView(ft.Container):
                     bgcolor=colors.get('card', '#252525'),
                     padding=20,
                     border_radius=15,
-                    border=ft.border.all(1, colors.get('border')),
+                    border=ft.Border.all(1, colors.get('border')),
                     width=250,
                 ),
                 bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
-                alignment=ft.alignment.center,
+                alignment=ft.Alignment.CENTER,
                 expand=True,
             )
-            self.page.overlay.append(self.loading_overlay)
-            self.page.update()
+            overlay._es_overlay_carga = True
+            self.loading_overlay = overlay
+            self.page.overlay.append(overlay)
+            try:
+                self.page.update()
+            except Exception:
+                pass
         else:
-            if self.loading_overlay:
+            self.loading_overlay = None
+            removed = False
+            for ov in _find_loading_overlays():
                 try:
-                    self.page.overlay.remove(self.loading_overlay)
+                    self.page.overlay.remove(ov)
+                    removed = True
                 except Exception:
                     pass
-                self.loading_overlay = None
-                self.page.update()
+            if removed:
+                try:
+                    self.page.update()
+                except Exception:
+                    pass
 
     def _crear_requisicion_vista(self, origen_dropdown, destino_dropdown, observaciones):
         if not self.lista_productos_req:
@@ -575,7 +610,7 @@ class RequisicionesView(ft.Container):
         import asyncio
         origen = origen_dropdown.value or "principal"
         destino = destino_dropdown.value or "restaurante"
-        user_id = (self.page.session.get("user_id") or "Admin") if self.page else "Admin"
+        user_id = (self.page.session.store.get("user_id") or "Admin") if self.page else "Admin"
 
         req_editando = getattr(self, '_requisicion_editando', None)
         try:

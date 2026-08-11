@@ -71,7 +71,7 @@ def show_cantidad_dialog(view, producto, tipo, on_success=None):
         label="Peso Total", value="0.000", keyboard_type=ft.KeyboardType.NUMBER,
         border_radius=10, text_size=14,
         border_color=colors['input_border'], width=120,
-        suffix_text="kg", focused_border_color=colors['accent'],
+        suffix=ft.Text("kg"), focused_border_color=colors['accent'],
         on_change=_calcular_desde_total if es_pesable else None,
     )
 

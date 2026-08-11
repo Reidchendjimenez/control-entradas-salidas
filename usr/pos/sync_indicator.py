@@ -42,9 +42,9 @@ class POSSyncIndicator:
             height=0,
             visible=True,
             bgcolor="#2D2D2D",
-            padding=ft.padding.symmetric(horizontal=12, vertical=0),
-            border_radius=ft.border_radius.all(8),
-            margin=ft.margin.only(left=8, right=8, top=4),
+            padding=ft.Padding.symmetric(horizontal=12, vertical=0),
+            border_radius=ft.BorderRadius.all(8),
+            margin=ft.Margin.only(left=8, right=8, top=4),
             content=ft.Row([
                 ft.ProgressRing(width=14, height=14, stroke_width=2, color="#BB86FC"),
                 ft.Text("", size=12, color="#BBBBBB", expand=True, no_wrap=False),

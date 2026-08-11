@@ -13,9 +13,10 @@ Aqui se desarrollara:
 - Cerrar comanda y registrar venta
 """
 import flet as ft
+from usr.pos.views import PosView
 
 
-class ComandasView(ft.Container):
+class ComandasView(PosView):
     def __init__(self, usuario: dict = None, sesion_id: int = None, on_logout=None):
         super().__init__()
         self.expand = True
@@ -43,7 +44,7 @@ class ComandasView(ft.Container):
             height=36,
             bgcolor=avatar_color,
             border_radius=18,
-            alignment=ft.alignment.center,
+            alignment=ft.Alignment.CENTER,
         )
 
         user_info = ft.Column(
@@ -93,8 +94,8 @@ class ComandasView(ft.Container):
                 vertical_alignment=ft.CrossAxisAlignment.CENTER,
             ),
             bgcolor="#1E1E1E",
-            border=ft.border.only(bottom=ft.BorderSide(1, "#3D3D3D")),
-            padding=ft.padding.symmetric(horizontal=20, vertical=10),
+            border=ft.Border(bottom=ft.BorderSide(1, "#3D3D3D")),
+            padding=ft.Padding.symmetric(horizontal=20, vertical=10),
         )
 
         header = ft.Container(
@@ -106,8 +107,8 @@ class ComandasView(ft.Container):
                 spacing=2,
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             ),
-            padding=ft.padding.only(top=30, bottom=30),
-            alignment=ft.alignment.center,
+            padding=ft.Padding.only(top=30, bottom=30),
+            alignment=ft.Alignment.CENTER,
         )
 
         cards = ft.Row(
@@ -170,7 +171,7 @@ class ComandasView(ft.Container):
                             tight=True,
                         ),
                         bgcolor=color,
-                        padding=ft.padding.symmetric(horizontal=20, vertical=10),
+                        padding=ft.Padding.symmetric(horizontal=20, vertical=10),
                         border_radius=20,
                     ),
                 ],
@@ -180,7 +181,7 @@ class ComandasView(ft.Container):
             width=260,
             height=320,
             bgcolor="#1E1E1E",
-            border=ft.border.all(1, "#3D3D3D"),
+            border=ft.Border.all(1, "#3D3D3D"),
             border_radius=15,
             padding=20,
             on_click=on_click,

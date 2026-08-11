@@ -11,7 +11,7 @@ from usr.views.validacion import ValidacionDialog
 from usr.database.sync_callbacks import register_sync_callback, unregister_sync_callback
 from usr.whatsapp_notifier import (
     send_whatsapp_message, send_whatsapp_image,
-    format_validation_message, get_whatsapp_status
+    format_validation_message
 )
 
 logger = get_logger(__name__)
@@ -22,10 +22,10 @@ class ValidacionView(ft.Container):
         super().__init__()
         self.visible = False
         self.expand = True
-        self.padding = ft.padding.only(left=10, right=10, bottom=16, top=8)
+        self.padding = ft.Padding.only(left=10, right=10, bottom=16, top=8)
         self.bgcolor = '#1A1A1A'
         
-        self.entradas_list = ft.ListView(expand=True, spacing=10, padding=ft.padding.only(top=10))
+        self.entradas_list = ft.ListView(expand=True, spacing=10, padding=ft.Padding.only(top=10))
         self.search_field = None
         self.selected_entradas = set()
         self.entradas_data = {}
@@ -43,21 +43,35 @@ class ValidacionView(ft.Container):
         register_sync_callback(self._on_sync_complete)
 
     def did_mount(self):
-        self._build_controls()
-        if self.page and self.page.client_storage:
-            self.page.run_task(self._load_entradas_pendientes)
-            if self.page:
+        if getattr(self, '_mounted', False):
+            return
+        try:
+            try:
+                page = self.page
+            except RuntimeError:
+                return
+            self._build_controls()
+            if page and page.session:
+                page.run_task(self._load_entradas_pendientes)
                 self.update()
-        
-        self._update_connection_indicator()
-        self._start_connection_monitor()
+            
+            self._update_connection_indicator()
+            self._start_connection_monitor()
+            self._mounted = True
+        except Exception as e:
+            self._mounted = False
+            logger.error(f"Error en did_mount de ValidacionView: {e}", exc_info=True)
 
     def will_unmount(self):
         unregister_sync_callback(self._on_sync_complete)
 
     def _on_sync_complete(self):
-        if hasattr(self, 'page') and self.page and self.visible:
-            self.page.run_task(self._load_entradas_pendientes)
+        try:
+            page = self.page
+        except RuntimeError:
+            return
+        if page and self.visible:
+            page.run_task(self._load_entradas_pendientes)
 
     def _update_connection_indicator(self):
         if not hasattr(self, '_connection_indicator') or not self._connection_indicator:
@@ -70,8 +84,11 @@ class ValidacionView(ft.Container):
                 size=18
             )
             self._connection_indicator.tooltip = "Conectado" if online else "Sin conexión"
-            if self.page and self._connection_indicator.page:
+            try:
+                _ = self._connection_indicator.page
                 self._connection_indicator.update()
+            except RuntimeError:
+                pass
         except:
             pass
 
@@ -80,30 +97,39 @@ class ValidacionView(ft.Container):
         def loop():
             while True:
                 time.sleep(10)
-                if hasattr(self, 'page') and self.page:
-                    self._update_connection_indicator()
-                    try:
-                        self.page.update()
-                    except:
-                        pass
+                try:
+                    page = self.page
+                except RuntimeError:
+                    continue
+                self._update_connection_indicator()
+                try:
+                    page.update()
+                except:
+                    pass
         self._connection_thread = threading.Thread(target=loop, daemon=True)
         self._connection_thread.start()
 
     def _set_loading_overlay(self, visible: bool, message: str = "Procesando..."):
-        if not self.page: return
-        
+        try:
+            page = self.page
+        except RuntimeError:
+            return
+        if not page: return
+
+        def _find_loading_overlays():
+            return [c for c in list(page.overlay) if getattr(c, '_es_overlay_carga', False)]
+
         if visible:
-            if self.loading_overlay:
-                # Actualizar solo el texto del mensaje
+            # Remover cualquier overlay de carga previo para evitar duplicados
+            for ov in _find_loading_overlays():
                 try:
-                    self.loading_overlay.content.content.controls[1].value = message
-                    self.page.update()
-                    return
+                    page.overlay.remove(ov)
                 except Exception:
                     pass
+            self.loading_overlay = None
 
             colors = get_colors(self.page)
-            self.loading_overlay = ft.Container(
+            overlay = ft.Container(
                 content=ft.Container(
                     content=ft.Column([
                         ft.ProgressBar(width=200, color=colors.get('primary', ft.Colors.PURPLE), bgcolor=ft.Colors.TRANSPARENT),
@@ -112,20 +138,34 @@ class ValidacionView(ft.Container):
                     bgcolor=colors.get('surface', '#252525'),
                     padding=20,
                     border_radius=15,
-                    border=ft.border.all(1, colors.get('border')),
+                    border=ft.Border.all(1, colors.get('border')),
                     width=250,
                 ),
                 bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
-                alignment=ft.alignment.center,
+                alignment=ft.Alignment.CENTER,
                 expand=True,
             )
-            self.page.overlay.append(self.loading_overlay)
-            self.page.update()
+            overlay._es_overlay_carga = True
+            self.loading_overlay = overlay
+            page.overlay.append(overlay)
+            try:
+                page.update()
+            except Exception:
+                pass
         else:
-            if self.loading_overlay:
-                self.page.overlay.remove(self.loading_overlay)
-                self.loading_overlay = None
-                self.page.update()
+            self.loading_overlay = None
+            removed = False
+            for ov in _find_loading_overlays():
+                try:
+                    page.overlay.remove(ov)
+                    removed = True
+                except Exception:
+                    pass
+            if removed:
+                try:
+                    page.update()
+                except Exception:
+                    pass
 
     def _build_controls(self):
         colors = get_colors(self.page)
@@ -146,7 +186,7 @@ class ValidacionView(ft.Container):
             focused_border_color=colors.get('accent'),
             height=45,
             expand=1,
-            on_change=lambda _: self._load_entradas_pendientes()
+            on_change=lambda _: self.page.run_task(self._load_entradas_pendientes)
         )
         
         self.validate_button = ft.ElevatedButton(
@@ -180,7 +220,7 @@ class ValidacionView(ft.Container):
                     )
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             ], spacing=0),
-            padding=ft.padding.only(bottom=10)
+            padding=ft.Padding.only(bottom=10)
         )
         
         controls = ft.Container(
@@ -188,10 +228,11 @@ class ValidacionView(ft.Container):
                 self.search_field,
                 ft.Row([self.validate_button, self.clear_button], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
             ], spacing=10),
-            padding=ft.padding.symmetric(horizontal=20, vertical=10),
+            padding=ft.Padding.symmetric(horizontal=20, vertical=10),
         )
         
         self.content = ft.Column([header, controls, self.entradas_list], spacing=0, expand=True)
+        self.update()
 
     def _on_sync_indicator_click(self, e=None):
         from usr.database import get_sync_manager
@@ -242,74 +283,68 @@ class ValidacionView(ft.Container):
                 
                 show_success(f"✅ Validadas {result.get('movimientos_count', 0)} entradas")
 
-                wa_status = {}
-                try:
-                    wa_status = get_whatsapp_status()
-                except Exception:
-                    pass
+                # Envío WhatsApp siempre: si el bot está apagado, el envío directo
+                # falla y el mensaje queda encolado en la bandeja (no se descarta).
+                img_path = None
+                def get_long_path(short_path):
+                    try:
+                        import ctypes
+                        GetLongPathName = ctypes.windll.kernel32.GetLongPathNameW
+                        buf = ctypes.create_unicode_buffer(512)
+                        result = GetLongPathName(short_path, buf, 512)
+                        return buf.value if result else short_path
+                    except Exception:
+                        return short_path
                 
-                if wa_status.get('whatsapp_connected'):
-                    # Lancement en arrière-plan (non bloquant)
-                    img_path = None
-                    def get_long_path(short_path):
+                if hasattr(dialog.ocr, 'current_image_path') and dialog.ocr.current_image_path:
+                    candidate = get_long_path(dialog.ocr.current_image_path)
+                    if os.path.exists(candidate):
+                        img_path = candidate
+                
+                productos_str = "Productos variados"
+                fecha_entrada = None
+                if self.selected_entradas:
+                    try:
+                        from usr.database.local_replica import LocalReplica
+                        db = next(get_db_adaptive())
                         try:
-                            import ctypes
-                            GetLongPathName = ctypes.windll.kernel32.GetLongPathNameW
-                            buf = ctypes.create_unicode_buffer(512)
-                            result = GetLongPathName(short_path, buf, 512)
-                            return buf.value if result else short_path
-                        except Exception:
-                            return short_path
-                    
-                    if hasattr(dialog.ocr, 'current_image_path') and dialog.ocr.current_image_path:
-                        candidate = get_long_path(dialog.ocr.current_image_path)
-                        if os.path.exists(candidate):
-                            img_path = candidate
-                    
-                    productos_str = "Productos variados"
-                    fecha_entrada = None
-                    if self.selected_entradas:
-                        try:
-                            from usr.database.local_replica import LocalReplica
-                            db = next(get_db_adaptive())
-                            try:
-                                movimientos = db.query(Movimiento).filter(Movimiento.id.in_(list(self.selected_entradas))).all()
-                                productos_ids = set(m.get('producto_id') if isinstance(m, dict) else m.producto_id for m in movimientos)
-                                nombres = []
-                                fechas = []
-                                for m in movimientos:
-                                    fm = m.get('fecha_movimiento') if isinstance(m, dict) else m.fecha_movimiento
-                                    if fm:
-                                        fechas.append(fm)
-                                    pid = m.get('producto_id') if isinstance(m, dict) else m.producto_id
-                                    prod = LocalReplica.get_producto_by_id(pid)
-                                    if prod:
-                                        nom = prod.get('nombre', 'Producto') if isinstance(prod, dict) else getattr(prod, 'nombre', 'Producto')
-                                        cant = m.get('cantidad') if isinstance(m, dict) else getattr(m, 'cantidad', 0)
-                                        peso = m.get('peso_total') if isinstance(m, dict) else getattr(m, 'peso_total', 0) or 0
-                                        es_pesable = prod.get('es_pesable', False) if isinstance(prod, dict) else getattr(prod, 'es_pesable', False)
-                                        if es_pesable and peso and peso > 0:
-                                            nombres.append(f"{nom}: {float(peso):.2f} kg")
-                                        else:
-                                            unidad = prod.get('unidad_medida') or 'uds' if isinstance(prod, dict) else getattr(prod, 'unidad_medida', 'uds') or 'uds'
-                                            nombres.append(f"{nom}: {int(float(cant or 0))} {unidad}")
-                                productos_str = "\n".join(nombres) if nombres else "Productos variados"
-                                if fechas:
-                                    fecha_entrada = min(fechas)
-                            finally:
-                                db.close()
-                        except Exception:
-                            productos_str = "Productos variados"
-                    
-                    msg = format_validation_message(
-                        productos_str, 0, data.get('factura', ''),
-                        data.get('proveedor', ''), data.get('monto', 0),
-                        data.get('pagos', []), result.get('usuario', 'Sistema'),
-                        fecha_entrada
-                    )
-                    
-                    # Envío asíncrono sin esperar la respuesta
-                    self.page.run_task(self._send_wa_background, img_path, msg)
+                            movimientos = db.query(Movimiento).filter(Movimiento.id.in_(list(self.selected_entradas))).all()
+                            productos_ids = set(m.get('producto_id') if isinstance(m, dict) else m.producto_id for m in movimientos)
+                            nombres = []
+                            fechas = []
+                            for m in movimientos:
+                                fm = m.get('fecha_movimiento') if isinstance(m, dict) else m.fecha_movimiento
+                                if fm:
+                                    fechas.append(fm)
+                                pid = m.get('producto_id') if isinstance(m, dict) else m.producto_id
+                                prod = LocalReplica.get_producto_by_id(pid)
+                                if prod:
+                                    nom = prod.get('nombre', 'Producto') if isinstance(prod, dict) else getattr(prod, 'nombre', 'Producto')
+                                    cant = m.get('cantidad') if isinstance(m, dict) else getattr(m, 'cantidad', 0)
+                                    peso = m.get('peso_total') if isinstance(m, dict) else getattr(m, 'peso_total', 0) or 0
+                                    es_pesable = prod.get('es_pesable', False) if isinstance(prod, dict) else getattr(prod, 'es_pesable', False)
+                                    if es_pesable and peso and peso > 0:
+                                        nombres.append(f"{nom}: {float(peso):.2f} kg")
+                                    else:
+                                        unidad = prod.get('unidad_medida') or 'uds' if isinstance(prod, dict) else getattr(prod, 'unidad_medida', 'uds') or 'uds'
+                                        nombres.append(f"{nom}: {int(float(cant or 0))} {unidad}")
+                            productos_str = "\n".join(nombres) if nombres else "Productos variados"
+                            if fechas:
+                                fecha_entrada = min(fechas)
+                        finally:
+                            db.close()
+                    except Exception:
+                        productos_str = "Productos variados"
+                
+                msg = format_validation_message(
+                    productos_str, 0, data.get('factura', ''),
+                    data.get('proveedor', ''), data.get('monto', 0),
+                    data.get('pagos', []), result.get('usuario', 'Sistema'),
+                    fecha_entrada
+                )
+                
+                # Envío asíncrono sin esperar la respuesta (directo o encolado)
+                self.page.run_task(self._send_wa_background, img_path, msg)
                 
                 if result.get('sync'):
                     print("[SYNC] Factura sincronizada")
@@ -353,7 +388,7 @@ class ValidacionView(ft.Container):
                         ft.Icon(ft.Icons.FACT_CHECK_OUTLINED, size=50, color=ft.Colors.GREY_300),
                         ft.Text("Sin entradas pendientes", color=ft.Colors.GREY_400)
                     ], horizontal_alignment="center"),
-                    padding=ft.padding.only(top=100),
+                    padding=ft.Padding.only(top=100),
                     alignment="center"
                 ))
             else:
@@ -463,7 +498,7 @@ class ValidacionView(ft.Container):
             animate=200,
             bgcolor=colors['card_hover'] if is_selected else colors['card'],
             border_radius=12,
-            border=ft.border.all(2, colors['accent']) if is_selected else ft.border.all(1, colors['border']),
+            border=ft.Border.all(2, colors['accent']) if is_selected else ft.Border.all(1, colors['border']),
             on_click=lambda _: self._toggle_selection(entrada.id)
         )
         
@@ -481,7 +516,7 @@ class ValidacionView(ft.Container):
             is_sel = entrada_id in self.selected_entradas
             colors = get_colors(self.page)
             card.bgcolor = colors['card_hover'] if is_sel else colors['card']
-            card.border = ft.border.all(2, colors['accent']) if is_sel else ft.border.all(1, colors['border'])
+            card.border = ft.Border.all(2, colors['accent']) if is_sel else ft.Border.all(1, colors['border'])
             if card.page:
                 card.update()
         
@@ -519,7 +554,7 @@ class ValidacionView(ft.Container):
         for card in self.cards_dict.values():
             if card.page:
                 card.bgcolor = get_colors(self.page)['card']
-                card.border = ft.border.all(1, get_colors(self.page)['border'])
+                card.border = ft.Border.all(1, get_colors(self.page)['border'])
                 card.update()
         if self.page:
             self.page.run_task(self._load_entradas_pendientes)

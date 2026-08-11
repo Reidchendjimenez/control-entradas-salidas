@@ -35,6 +35,6 @@ def usuario_actual(page):
     if not page:
         return "Sistema"
     try:
-        return page.session.get("username") or "Sistema"
+        return page.session.store.get("username") or "Sistema"
     except Exception:
         return "Sistema"

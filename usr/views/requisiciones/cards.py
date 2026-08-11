@@ -27,7 +27,7 @@ def build_requisicion_card(req, page, on_ver=None, on_editar=None, on_click=None
                     content=ft.Icon(ft.Icons.ASSIGNMENT_ROUNDED, size=24, color=ft.Colors.WHITE),
                     bgcolor=ft.Colors.DEEP_PURPLE_400,
                     width=44, height=44, border_radius=10,
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment.CENTER,
                 ),
                 ft.Column([
                     ft.Text(f"#{req.numero}", weight="bold", size=16, color=text_primary),
@@ -36,7 +36,7 @@ def build_requisicion_card(req, page, on_ver=None, on_editar=None, on_click=None
                 ft.Column([
                     ft.Container(
                         content=ft.Text(req.estado.upper(), size=10, weight="bold", color=ft.Colors.WHITE),
-                        bgcolor=estado_color, padding=ft.padding.symmetric(horizontal=8, vertical=4),
+                        bgcolor=estado_color, padding=ft.Padding.symmetric(horizontal=8, vertical=4),
                         border_radius=5,
                     ),
                     ft.Text(f"{len(getattr(req, 'detalles', []) or [])} items", size=11, color=text_secondary),
@@ -57,7 +57,7 @@ def build_requisicion_card(req, page, on_ver=None, on_editar=None, on_click=None
         padding=15,
         bgcolor=card_bg,
         border_radius=12,
-        border=ft.border.all(1, '#3D3D3D'),
+        border=ft.Border.all(1, '#3D3D3D'),
         on_click=lambda _: on_click(req) if on_click else None,
     )
 

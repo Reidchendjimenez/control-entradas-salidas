@@ -56,7 +56,7 @@ def mostrar_error_critico(page: ft.Page, error_completo: str):
                     ft.ElevatedButton(
                         "Copiar Error al Portapapeles",
                         icon=ft.Icons.COPY,
-                        on_click=lambda _: page.set_clipboard(error_completo),
+                        on_click=lambda _: page.run_task(ft.Clipboard().set, error_completo),
                     ),
                     ft.Container(height=10),
                     ft.ElevatedButton(
@@ -134,7 +134,7 @@ async def main(page: ft.Page):
         except:
             pass
 
-        page.session.set("_db_dir", db_dir)
+        page.session.store.set("_db_dir", db_dir)
         db_path = os.path.abspath(os.path.join(db_dir, "lycoris_local.db"))
 
         # Fijar ruta de BD ANTES de cualquier import de usr.database
@@ -162,7 +162,7 @@ async def main(page: ft.Page):
         step_text = loading.step_text
         status_text = loading.status_text
 
-        page.add(loading)
+        page.add(loading.control)
         page.update()
         step_text.value = "1/5"
         status_text.value = "Verificando..."
@@ -257,14 +257,14 @@ async def main(page: ft.Page):
             page.update()
             await setup_done.wait()
         else:
-            page.session.set("username", usuario.get("nombre", "Operador"))
+            page.session.store.set("username", usuario.get("nombre", "Operador"))
 
         page.clean()
-        page.add(loading)
-        if page.session.get("username"):
-            status_text.value = f"✓ Hola, {page.session.get('username')}"
+        page.add(loading.control)
+        if page.session.store.get("username"):
+            status_text.value = f"✓ Hola, {page.session.store.get('username')}"
         else:
-            status_text.value = f"✓ Hola, {page.session.get('username', 'Usuario')}"
+            status_text.value = f"✓ Hola, {page.session.store.get('username') or 'Usuario'}"
         page.update()
         await asyncio.sleep(0.15)
 
@@ -329,10 +329,17 @@ async def main(page: ft.Page):
 
         await app_instance.arrancar_interfaz(page, settings, None)
 
+        # Mantener la sesión viva - esperar indefinidamente a que se cierre la página
+        try:
+            while True:
+                await asyncio.sleep(3600)
+        except asyncio.CancelledError:
+            pass
+
     except Exception as inner_e:
         error_log = traceback.format_exc()
         logger.error(f"Exception in main(): {error_log}")
-        db_dir = page.session.get("_db_dir") or "."
+        db_dir = page.session.store.get("_db_dir") or "."
         try:
             log_path = os.path.join(db_dir, "error_log.txt")
             with open(log_path, "w") as f:

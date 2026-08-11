@@ -101,7 +101,11 @@ class ControlEntradasSalidasApp:
 
     def _create_layout(self):
         try:
-            self.content_area = ft.Container(expand=True, padding=0, bgcolor='#252525', border_radius=0)
+            self.content_area = ft.Container(
+                content=ft.Column(expand=True, spacing=0),
+                expand=True,
+                bgcolor='#1A1A1A'
+            )
 
             self.theme_toggle = ft.IconButton(icon=ft.Icons.LIGHT_MODE, tooltip="Modo Claro", on_click=self._toggle_theme, icon_color=ft.Colors.AMBER)
 
@@ -133,8 +137,8 @@ class ControlEntradasSalidasApp:
             self.sync_status_bar = ft.Container(
                 height=0, visible=True,
                 bgcolor='#2D2D2D',
-                padding=ft.padding.symmetric(horizontal=12, vertical=0),
-                border_radius=ft.border_radius.all(8),
+                padding=ft.Padding.symmetric(horizontal=12, vertical=0),
+                border_radius=ft.BorderRadius.all(8),
                 content=ft.Row([
                     ft.ProgressRing(width=14, height=14, stroke_width=2, color='#BB86FC'),
                     ft.Text("", size=12, color='#BBBBBB', expand=True, no_wrap=False),
@@ -146,7 +150,8 @@ class ControlEntradasSalidasApp:
             self.page.padding = 5
             self._sync_safe = ft.SafeArea(
                 content=self.sync_status_bar,
-                top=True, bottom=False, left=True, right=True,
+                avoid_intrusions_left=True, avoid_intrusions_top=True,
+                avoid_intrusions_right=True, avoid_intrusions_bottom=False,
             )
             self.page.add(ft.Column([
                 self._sync_safe,
@@ -226,11 +231,20 @@ class ControlEntradasSalidasApp:
             print(f"[APP] Error registrando callback sync: {e}")
 
     def _on_page_resized(self, e):
-        self._handle_responsive_layout(float(e.width))
-        self.page.update()
+        if e and hasattr(e, 'width') and e.width is not None:
+            self._handle_responsive_layout(e.width)
+            if self.page:
+                self.page.update()
 
     def _handle_responsive_layout(self, width):
-        if width < 700:
+        if width is None:
+            width = 1024
+        try:
+            w = float(width)
+        except (ValueError, TypeError):
+            w = 1024
+
+        if w < 700:
             self.navigation_rail.visible = False
             self.page.navigation_bar = self.navigation_bar
             self.navigation_bar.visible = True
@@ -239,7 +253,7 @@ class ControlEntradasSalidasApp:
             self.navigation_rail.visible = True
             self.page.navigation_bar = None
             self.navigation_bar.visible = False
-            self.content_area.border_radius = ft.border_radius.only(top_left=20)
+            self.content_area.border_radius = ft.BorderRadius.only(top_left=20)
 
     def _on_navigation_change(self, e):
         if self.page is None:
@@ -287,32 +301,36 @@ class ControlEntradasSalidasApp:
             theme_label = "Modo Claro" if is_dark else "Modo Oscuro"
 
             def on_toggle_theme(e):
-                self.page.close(self.bottom_sheet)
+                self.bottom_sheet.open = False
+                self.page.update()
                 self._toggle_theme()
 
             def on_nav(e, idx):
-                self.page.close(self.bottom_sheet)
+                self.bottom_sheet.open = False
+                self.page.update()
                 self._show_view(idx)
 
             menu_content = ft.Column(spacing=0, controls=[
                 ft.Container(
                     content=ft.Row([ft.Icon(theme_icon, size=24), ft.Text(theme_label, size=16)], spacing=15),
-                    padding=ft.padding.all(15),
+                    padding=ft.Padding.all(15),
                     on_click=on_toggle_theme,
                 ),
                 ft.Divider(height=1, color='#3D3D3D'),
                 *[
                     ft.Container(
                         content=ft.Row([ft.Icon(icon, size=24), ft.Text(label, size=16)], spacing=15),
-                        padding=ft.padding.all(15),
+                        padding=ft.Padding.all(15),
                         on_click=lambda e, i=idx: on_nav(e, i),
                     )
                     for icon, label, idx in opciones
                 ],
             ])
 
-            self.bottom_sheet = ft.BottomSheet(content=ft.Container(content=menu_content, padding=ft.padding.only(bottom=20)), open=True)
-            self.page.open(self.bottom_sheet)
+            self.bottom_sheet = ft.BottomSheet(content=ft.Container(content=menu_content, padding=ft.Padding.only(bottom=20)))
+            self.page.overlay.append(self.bottom_sheet)
+            self.bottom_sheet.open = True
+            self.page.update()
         except Exception as e:
             logger.error(f"Error en _show_more_menu: {e}", exc_info=True)
             show_error("Error al abrir el menú de más opciones", e, "ControlEntradasSalidasApp._show_more_menu")
@@ -323,7 +341,7 @@ class ControlEntradasSalidasApp:
                 keys = list(range(len(self.views))) if self.views else "None"
                 self.content_area.content = ft.Container(
                     content=ft.Text(f"Error: Vista {index} no encontrada. Keys: {keys}", color=ft.Colors.RED),
-                    alignment=ft.alignment.center, expand=True,
+                    alignment=ft.Alignment.CENTER, expand=True,
                 )
                 self.page.update()
                 return
@@ -331,8 +349,15 @@ class ControlEntradasSalidasApp:
 
             if self.current_view:
                 self.current_view.visible = False
+                if hasattr(self.current_view, 'will_unmount'):
+                    try:
+                        self.current_view.will_unmount()
+                    except Exception as e:
+                        logger.warning(f"will_unmount falló: {e}")
 
-            self.content_area.content = view
+            # Insertar la vista en el área de contenido.
+            # Las vistas se crean vacías (sin content); la UI se construye en did_mount/_build_ui.
+            self.content_area.content = ft.Column([view], expand=True, spacing=0)
             view.visible = True
             self.current_view = view
             self.current_view_index = index
@@ -342,16 +367,54 @@ class ControlEntradasSalidasApp:
                     self.navigation_bar.selected_index = index
                 else:
                     self.navigation_bar.selected_index = 3
+
+            # Construir UI si aún no existe Y la vista ya está montada (page disponible).
+            # Si aún no está montada, did_mount (llamado tras page.update()) la construirá.
+            if hasattr(view, '_build_ui') and getattr(view, 'content', None) is None:
+                try:
+                    _ = view.page
+                except RuntimeError:
+                    pass
+                else:
+                    try:
+                        view._build_ui()
+                    except Exception as e:
+                        logger.warning(f"_build_ui prematuro para vista {index}: {e}")
         except Exception as e:
             logger.error(f"Error en _show_view({index}): {e}", exc_info=True)
             show_error(f"Error al mostrar la vista {index}", e, "ControlEntradasSalidasApp._show_view")
             return
 
+        # Montar la vista en la página (setea view.page)
+        try:
+            self.page.update()
+        except Exception as e:
+            logger.warning(f"page.update() parcial al montar vista {index}: {e}")
+
+        # Flet no siempre invoca did_mount al intercambiar controles en un Column;
+        # lo llamamos de forma explícita para construir/inicializar la vista.
+        if hasattr(view, 'did_mount'):
+            try:
+                view.did_mount()
+            except Exception as e:
+                logger.warning(f"did_mount falló para vista {index}: {e}")
+
+        # Forzar refresco de la vista montada
+        for ctrl in (view, getattr(view, 'content', None), self.content_area):
+            if ctrl is not None and hasattr(ctrl, 'update'):
+                try:
+                    ctrl.update()
+                except Exception:
+                    pass
+
+        try:
+            self.page.update()
+        except Exception as e:
+            logger.warning(f"page.update() final al montar vista {index}: {e}")
+
         if hasattr(view, '_update_connection_indicator'):
             try:
                 if hasattr(view, '_connection_indicator') and view._connection_indicator in self.page.controls:
                     view._update_connection_indicator()
-            except:
+            except Exception:
                 pass
-
-        self.page.update()

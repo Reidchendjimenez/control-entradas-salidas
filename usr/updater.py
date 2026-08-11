@@ -12,11 +12,26 @@ import flet as ft
 
 
 def _get_app_dir() -> str:
-    """Directorio donde guardar datos mutables (.env, version.json, app_updates)."""
+    """Directorio donde guardar datos mutables (.env, version.json, app_updates).
+
+    Prioridad (Flet 0.86+ / PyInstaller):
+    1. FLET_APP_STORAGE_DATA (Flet 0.86+ directorio de datos escribible)
+    2. FLET_APP_STORAGE_TEMP
+    3. PyInstaller frozen: directorio del exe (dist/Lycoris/)
+    4. Desarrollo: directorio raíz del proyecto (padre de usr/)
+    """
+    # 1. Flet 0.86+ directorios de almacenamiento
+    for var in ("FLET_APP_STORAGE_DATA", "FLET_APP_STORAGE_TEMP", "FLET_APP_STORAGE_CACHE"):
+        p = os.getenv(var)
+        if p:
+            return p
+
+    # 2. PyInstaller frozen
     if getattr(sys, 'frozen', False):
         return os.path.dirname(sys.executable)
+
+    # 3. Desarrollo: subir desde usr/updater.py -> raíz del proyecto
     d = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    # Si updater.py se cargó desde app_updates/, subir un nivel más
     if os.path.basename(d) == 'app_updates':
         d = os.path.dirname(d)
     return d
@@ -30,15 +45,24 @@ def _ssl_context():
 
 
 def _read_env(var_name: str) -> str:
-    """Lee UPDATE_URL desde .env. Busca en _get_app_dir() (y config/), y en sys._MEIPASS."""
+    """Lee UPDATE_URL desde .env. Busca en _get_app_dir() (y config/), _MEIPASS, y dirs Flet 0.86."""
     app_dir = _get_app_dir()
     locations = [app_dir]
-    # Si venimos de app_updates, también buscar en app_updates/config/
+
+    # app_updates/config/
     updates_dir = os.path.join(app_dir, "app_updates")
     if os.path.isdir(updates_dir):
         locations.append(updates_dir)
+
+    # PyInstaller _MEIPASS
     if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
         locations.append(sys._MEIPASS)
+
+    # Flet 0.86 storage dirs
+    for var in ("FLET_APP_STORAGE_DATA", "FLET_APP_STORAGE_TEMP", "FLET_APP_STORAGE_CACHE"):
+        p = os.getenv(var)
+        if p:
+            locations.append(p)
 
     for base in locations:
         for candidate in (".env", "config/.env"):

@@ -42,16 +42,23 @@ class StockView(ft.Container):
         self.active_dialog = None
 
     def did_mount(self):
+        if getattr(self, '_mounted', False):
+            return
         try:
+            try:
+                page = self.page
+            except RuntimeError:
+                return
             self._build_ui()
-            self.page.run_task(self._initial_load)
-            self.page.run_task(self._start_connection_monitor)
+            page.run_task(self._initial_load)
+            page.run_task(self._start_connection_monitor)
             
             from usr.database.sync_callbacks import register_sync_callback
             register_sync_callback(self._on_sync_complete)
+            self._mounted = True
         except Exception as e:
+            self._mounted = False
             logger.error(f"Error en did_mount de StockView: {e}", exc_info=True)
-            show_error("Error al iniciar la vista de Stock", e)
 
     def will_unmount(self):
         self._conn_check_active = False
@@ -70,21 +77,30 @@ class StockView(ft.Container):
         self._conn_check_active = True
         while self._conn_check_active:
             await asyncio.sleep(10)
-            if self.page and self._conn_check_active:
-                try:
-                    self._update_connection_indicator()
-                    self.page.update()
-                except Exception:
-                    pass
+            if not self._conn_check_active:
+                break
+            try:
+                page = self.page
+            except RuntimeError:
+                continue
+            try:
+                self._update_connection_indicator()
+                page.update()
+            except Exception:
+                pass
 
     def _on_sync_complete(self):
-        if hasattr(self, 'page') and self.page and self.visible:
+        try:
+            page = self.page
+        except RuntimeError:
+            return
+        if page and self.visible:
             async def _reload():
                 try:
                     await asyncio.to_thread(self._load_productos)
                 except Exception as e:
                     logger.error(f"Error recargando stock tras sync: {e}")
-            self.page.run_task(_reload)
+            page.run_task(_reload)
 
     def on_sync_complete(self):
         self._on_sync_complete()
@@ -126,7 +142,12 @@ class StockView(ft.Container):
             from usr.database.base import is_online as base_is_online
             from usr.database import get_pending_movimientos_count
             
-            if not hasattr(self, '_connection_indicator'): return
+            if not hasattr(self, '_connection_indicator'):
+                return
+            try:
+                _ = self._connection_indicator.page
+            except RuntimeError:
+                return
             
             pending = get_pending_movimientos_count()
             online = base_is_online()
@@ -176,7 +197,7 @@ class StockView(ft.Container):
                     tooltip="Recargar datos"
                 )
             ]),
-            padding=ft.padding.symmetric(horizontal=16, vertical=12)
+            padding=ft.Padding.symmetric(horizontal=16, vertical=12)
         )
         
         self.summary_container = ft.Container(
@@ -188,7 +209,7 @@ class StockView(ft.Container):
                 build_stat_card("Agotado", self.sin_stock_text, ft.Icons.ERROR_OUTLINE, '#F44336', 
                                 on_click=lambda _: self._filter_by_stock_status("out"), active=(self.current_stock_filter == "out")),
             ], scroll=ft.ScrollMode.HIDDEN, spacing=12),
-            padding=ft.padding.symmetric(horizontal=16),
+            padding=ft.Padding.symmetric(horizontal=16),
             clip_behavior=ft.ClipBehavior.HARD_EDGE,
             animate_size=ft.Animation(220, ft.AnimationCurve.EASE_OUT),
             animate_opacity=ft.Animation(220, ft.AnimationCurve.EASE_OUT),
@@ -207,14 +228,14 @@ class StockView(ft.Container):
             label="Categoría",
             border_radius=12,
             border_color=colors['input_border'],
-            on_change=self._filter_productos,
+            on_select=self._filter_productos,
         )
         
         self.almacen_filter = ft.Dropdown(
             label="Almacén",
             border_radius=12,
             border_color=ft.Colors.TRANSPARENT,
-            on_change=self._filter_productos,
+            on_select=self._filter_productos,
             value=""
         )
         
@@ -224,7 +245,7 @@ class StockView(ft.Container):
                 ft.Column([self.categoria_filter], col={"xs": 6, "sm": 3}),
                 ft.Column([self.almacen_filter], col={"xs": 6, "sm": 3}),
             ], spacing=12),
-            padding=ft.padding.symmetric(horizontal=16, vertical=4),
+            padding=ft.Padding.symmetric(horizontal=16, vertical=4),
             clip_behavior=ft.ClipBehavior.HARD_EDGE,
             animate_size=ft.Animation(220, ft.AnimationCurve.EASE_OUT),
             animate_opacity=ft.Animation(220, ft.AnimationCurve.EASE_OUT),
@@ -238,7 +259,7 @@ class StockView(ft.Container):
         self.list_container = ft.Container(
             content=self.productos_list,
             bgcolor=colors['bg'],
-            padding=ft.padding.only(left=16, right=16, bottom=20),
+            padding=ft.Padding.only(left=16, right=16, bottom=20),
         )
         
         # Toda la vista se desplaza junta: el encabezado (Gestión de Stock + resumen +
@@ -261,6 +282,7 @@ class StockView(ft.Container):
         ], spacing=0, expand=True)
         self.content.bgcolor = colors['bg']
         self.content.bgcolor = colors['bg']
+        self.update()
 
     def _load_categorias(self):
         try:
@@ -298,7 +320,7 @@ class StockView(ft.Container):
                     ft.ProgressRing(color=colors['accent']),
                     ft.Text("Cargando productos...", size=14, color=colors['text_secondary']),
                 ], horizontal_alignment="center", spacing=10),
-                alignment=ft.alignment.center,
+                alignment=ft.Alignment.CENTER,
                 bgcolor=colors['bg'],
                 expand=True,
             )

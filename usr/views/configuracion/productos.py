@@ -62,7 +62,7 @@ def show_producto_dialog(view, producto=None):
             border=ft.InputBorder.OUTLINE,
             border_radius=10,
             prefix_icon=ft.Icons.QR_CODE,
-            helper_text="Auto" if not producto else "",
+            helper="Auto" if not producto else "",
             read_only=not producto,
         )
 
@@ -74,7 +74,7 @@ def show_producto_dialog(view, producto=None):
             expand=True,
             border=ft.InputBorder.OUTLINE,
             border_radius=10,
-            prefix_icon=ft.Icons.CATEGORY,
+            leading_icon=ft.Icons.CATEGORY,
         )
 
         stock_min_field = ft.TextField(
@@ -110,7 +110,7 @@ def show_producto_dialog(view, producto=None):
             expand=True,
             border=ft.InputBorder.OUTLINE,
             border_radius=10,
-            prefix_icon=ft.Icons.TAG,
+            leading_icon=ft.Icons.TAG,
         )
 
         precio_venta_field = ft.TextField(
@@ -147,7 +147,7 @@ def show_producto_dialog(view, producto=None):
             keyboard_type=ft.KeyboardType.NUMBER,
             border=ft.InputBorder.OUTLINE,
             border_radius=10,
-            prefix_text="kg  ",
+            prefix=ft.Text("kg  "),
             visible=es_pesable_sw.value,
         )
 
@@ -177,7 +177,7 @@ def show_producto_dialog(view, producto=None):
             expand=True,
             border=ft.InputBorder.OUTLINE,
             border_radius=10,
-            prefix_icon=ft.Icons.WAREHOUSE,
+            leading_icon=ft.Icons.WAREHOUSE,
         )
 
         activo_sw = ft.Switch(
@@ -341,7 +341,7 @@ def create_producto_item(view, p):
     tag = ft.Container(
         content=ft.Text("PESABLE", size=9, weight=ft.FontWeight.BOLD, color=colors['white']),
         bgcolor=colors['warning'],
-        padding=ft.padding.symmetric(horizontal=6, vertical=2),
+        padding=ft.Padding.symmetric(horizontal=6, vertical=2),
         border_radius=4,
     ) if getattr(p, 'es_pesable', False) else None
 
@@ -355,7 +355,7 @@ def create_producto_item(view, p):
     almacen_badge = ft.Container(
         content=ft.Text(alm_txt.upper(), size=9, color=colors['white'], weight=ft.FontWeight.BOLD),
         bgcolor=colors['accent_dark'],
-        padding=ft.padding.symmetric(horizontal=6, vertical=2),
+        padding=ft.Padding.symmetric(horizontal=6, vertical=2),
         border_radius=4,
     )
 
@@ -364,7 +364,7 @@ def create_producto_item(view, p):
     tipo_badge = ft.Container(
         content=ft.Text(tipo_txt.upper(), size=9, color=colors['white'], weight=ft.FontWeight.BOLD),
         bgcolor=colors.get('warning' if tipo_txt_l == 'feria' else 'error' if tipo_txt_l == 'producción' else 'secondary'),
-        padding=ft.padding.symmetric(horizontal=6, vertical=2),
+        padding=ft.Padding.symmetric(horizontal=6, vertical=2),
         border_radius=4,
     )
 
@@ -438,5 +438,5 @@ def create_producto_item(view, p):
         padding=12,
         bgcolor=colors['card'],
         border_radius=12,
-        border=ft.border.all(1, colors['border']),
+        border=ft.Border.all(1, colors['border']),
     )

@@ -38,7 +38,7 @@ class InventarioView(ft.Container):
         super().__init__()
         self.visible = False
         self.expand = True
-        self.padding = ft.padding.only(left=10, right=10, bottom=16, top=8)
+        self.padding = ft.Padding.only(left=10, right=10, bottom=16, top=8)
         self.bgcolor = '#1A1A1A'
 
         self.search_field = None
@@ -74,8 +74,6 @@ class InventarioView(ft.Container):
         self._existencias_cache = None
         self._snack = None
 
-        self._build_ui()
-
     def on_theme_change(self):
         if not self.page:
             return
@@ -108,34 +106,56 @@ class InventarioView(ft.Container):
                 self.page.run_task(self._load_categorias)
 
     def did_mount(self):
-        if not self._is_initialized:
-            if self.page:
-                self.page.run_task(self._load_categorias)
-            self._is_initialized = True
-        self._update_connection_indicator()
-        from usr.database.sync_callbacks import register_sync_callback
-        register_sync_callback(self._on_sync_complete)
-        import time
-        def check_connection_loop():
-            while True:
-                time.sleep(10)
-                if not hasattr(self, 'page') or not self.page:
-                    continue
-                self._update_connection_indicator()
-                try:
-                    self.page.update()
-                except Exception as e:
-                    logger.error(f"check_connection_loop: {e}")
-        self._connection_thread = threading.Thread(target=check_connection_loop, daemon=True)
-        self._connection_thread.start()
+        if getattr(self, '_mounted', False):
+            return
+        try:
+            try:
+                page = self.page
+            except RuntimeError:
+                return
+            if not self.content:
+                self._build_ui()
+            if not self._is_initialized:
+                if page:
+                    page.run_task(self._load_categorias)
+                self._is_initialized = True
+            self._safe_update_connection_indicator()
+            from usr.database.sync_callbacks import register_sync_callback
+            register_sync_callback(self._on_sync_complete)
+            import time
+            def check_connection_loop():
+                while True:
+                    time.sleep(10)
+                    if not hasattr(self, '_mounted') or not self._mounted:
+                        continue
+                    self._safe_update_connection_indicator()
+                    try:
+                        page.update()
+                    except Exception as e:
+                        logger.error(f"check_connection_loop: {e}")
+            self._connection_thread = threading.Thread(target=check_connection_loop, daemon=True)
+            self._connection_thread.start()
+            self._mounted = True
+        except Exception as e:
+            self._mounted = False
+            logger.error(f"Error en did_mount de InventarioView: {e}", exc_info=True)
+
+    def _safe_update_connection_indicator(self):
+        try:
+            self._update_connection_indicator()
+        except Exception:
+            pass
 
     def will_unmount(self):
         from usr.database.sync_callbacks import unregister_sync_callback
         unregister_sync_callback(self._on_sync_complete)
 
     def _on_sync_complete(self):
-        if hasattr(self, 'page') and self.page and self.visible:
-            self.page.run_task(self._load_categorias)
+        try:
+            if self.page and self.visible:
+                self.page.run_task(self._load_categorias)
+        except RuntimeError:
+            pass
 
     def on_sync_complete(self):
         self._on_sync_complete()
@@ -182,7 +202,7 @@ class InventarioView(ft.Container):
                     self._btn_lista_compra_active,
                     self._btn_refresh,
                 ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                margin=ft.margin.only(bottom=10),
+                margin=ft.Margin.only(bottom=10),
             )
 
             self.search_field = ft.TextField(
@@ -200,6 +220,11 @@ class InventarioView(ft.Container):
                 ft.Container(height=5),
                 self.main_content_area,
             ], spacing=0, expand=True)
+            try:
+                self.update()
+            except Exception:
+                # Puede fallar si aún no está montada en la page; page.update() lo cubrirá.
+                pass
 
         except Exception as e:
             show_error("Error building UI", e, "inventario_view._build_ui")
@@ -258,26 +283,33 @@ class InventarioView(ft.Container):
         self.page.update()
 
     def _update_connection_indicator(self):
-        from usr.database import get_sync_manager, get_pending_movimientos_count
-        from usr.database.base import is_online as base_is_online
-        if not hasattr(self, '_connection_indicator') or not self.page:
-            return
-        sync_mgr = get_sync_manager()
-        pending = get_pending_movimientos_count()
-        online = base_is_online()
-
-        if online:
-            self._connection_indicator.content = ft.Icon(ft.Icons.WIFI, color=ft.Colors.GREEN_400, size=18)
-            self._connection_indicator.tooltip = f"Conectado - {pending} cambios pendientes" if pending else "Conectado"
-        else:
-            self._connection_indicator.content = ft.Icon(ft.Icons.WIFI_OFF, color=ft.Colors.RED_400, size=18)
-            self._connection_indicator.tooltip = f"Modo offline - {pending} cambios pendientes"
         try:
-            self._connection_indicator.update()
-        except AssertionError:
+            from usr.database import get_sync_manager, get_pending_movimientos_count
+            from usr.database.base import is_online as base_is_online
+            if not hasattr(self, '_connection_indicator') or not self.page:
+                return
+            try:
+                _ = self._connection_indicator.page
+            except RuntimeError:
+                return
+            sync_mgr = get_sync_manager()
+            pending = get_pending_movimientos_count()
+            online = base_is_online()
+
+            if online:
+                self._connection_indicator.content = ft.Icon(ft.Icons.WIFI, color=ft.Colors.GREEN_400, size=18)
+                self._connection_indicator.tooltip = f"Conectado - {pending} cambios pendientes" if pending else "Conectado"
+            else:
+                self._connection_indicator.content = ft.Icon(ft.Icons.WIFI_OFF, color=ft.Colors.RED_400, size=18)
+                self._connection_indicator.tooltip = f"Modo offline - {pending} cambios pendientes"
+            try:
+                self._connection_indicator.update()
+            except AssertionError:
+                pass
+            except Exception as e:
+                show_error("Error updating connection indicator", e, "inventario_view._update_connection_indicator")
+        except Exception:
             pass
-        except Exception as e:
-            show_error("Error updating connection indicator", e, "inventario_view._update_connection_indicator")
 
     async def _load_categorias(self, force_refresh=False):
         if not self.page:
@@ -330,10 +362,10 @@ class InventarioView(ft.Container):
             if self.page:
                 self.update()
 
-    def _on_categoria_click(self, cat_dict):
+    def _on_categoria_click(self, cat_dict, card=None):
         try:
             categoria = type('Categoria', (), cat_dict)()
-            self.page.run_task(self._handle_category_click, None, categoria)
+            self.page.run_task(self._handle_category_click, card, categoria)
         except Exception as ex:
             print(f"[ERROR] _on_categoria_click: {ex}")
             import traceback; traceback.print_exc()
@@ -346,9 +378,9 @@ class InventarioView(ft.Container):
     async def _handle_category_click(self, container, categoria):
         try:
             if container:
-                container.scale = 0.95
+                container.scale = 0.92
                 container.update()
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.12)
                 container.scale = 1.0
                 container.update()
                 await asyncio.sleep(0.15)
@@ -359,7 +391,7 @@ class InventarioView(ft.Container):
 
     def _create_categoria_card(self, categoria):
         from usr.views.inventario.categories import create_categoria_card
-        return create_categoria_card(categoria, get_safe_colors(self.page), self._show_productos)
+        return create_categoria_card(categoria, get_safe_colors(self.page), self._on_categoria_click)
 
     def _show_productos(self, categoria):
         try:
@@ -377,7 +409,7 @@ class InventarioView(ft.Container):
                 bgcolor=colors['surface'], padding=10, border_radius=10,
             )
 
-            self.productos_list = ft.ListView(expand=True, spacing=10, padding=ft.padding.only(top=10))
+            self.productos_list = ft.ListView(expand=True, spacing=10, padding=ft.Padding.only(top=10))
 
             self.search_for_products = ft.TextField(
                 hint_text="Buscar productos...", prefix_icon=ft.Icons.SEARCH_ROUNDED,
@@ -411,12 +443,20 @@ class InventarioView(ft.Container):
             self.search_for_products.value = ""
         self.main_content_area.content = self.categorias_grid
         if self._categorias_cache:
-            self.categorias_grid.controls = [
+            # Replace controls list atomically to avoid dict-changed-during-iteration in diff
+            new_controls = [
                 create_categoria_card_from_dict(c, get_safe_colors(self.page), self._on_categoria_click)
                 for c in self._categorias_cache
             ]
+            self.categorias_grid.controls[:] = new_controls
         if self.page:
+            self.page.run_task(self._do_update)
+
+    async def _do_update(self):
+        try:
             self.update()
+        except RuntimeError:
+            pass
 
     def _on_search_change(self, e=None):
         if self._search_timer:
@@ -573,10 +613,10 @@ class InventarioView(ft.Container):
                     on_click=self._enviar_lista_whatsapp,
                 ),
             ]),
-            padding=ft.padding.only(bottom=8),
+            padding=ft.Padding.only(bottom=8),
         )
         self.search_field.visible = False
-        self.compras_lista_list = ft.ListView(expand=True, spacing=10, padding=ft.padding.only(top=10))
+        self.compras_lista_list = ft.ListView(expand=True, spacing=10, padding=ft.Padding.only(top=10))
         self.main_content_area.content = ft.Column(
             [self._compras_header, self.compras_lista_list], expand=True, spacing=5,
         )
@@ -585,7 +625,7 @@ class InventarioView(ft.Container):
         items, colors = self._build_compras_lista_data()
         if items is None:
             return
-        nuevo_listview = ft.ListView(expand=True, spacing=10, padding=ft.padding.only(top=10))
+        nuevo_listview = ft.ListView(expand=True, spacing=10, padding=ft.Padding.only(top=10))
         if not items:
             nuevo_listview.controls.append(
                 ft.Container(
@@ -597,7 +637,7 @@ class InventarioView(ft.Container):
                         ft.Text("Agrega productos con el botón \"➕ Agregar\"", color=colors['text_secondary'], size=13),
                     ], horizontal_alignment="center", spacing=0),
                     expand=True,
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment.CENTER,
                 )
             )
         else:
@@ -676,7 +716,7 @@ class InventarioView(ft.Container):
             items, colors = self._build_compras_lista_data()
             if items is None or self.page is None:
                 return
-            nuevo_listview = ft.ListView(expand=True, spacing=10, padding=ft.padding.only(top=10))
+            nuevo_listview = ft.ListView(expand=True, spacing=10, padding=ft.Padding.only(top=10))
             if not items:
                 nuevo_listview.controls.append(
                     ft.Container(
@@ -688,7 +728,7 @@ class InventarioView(ft.Container):
                             ft.Text("Agrega productos con el botón \"➕ Agregar\"", color=colors['text_secondary'], size=13),
                         ], horizontal_alignment="center", spacing=0),
                         expand=True,
-                        alignment=ft.alignment.center,
+                        alignment=ft.Alignment.CENTER,
                     )
                 )
             else:

@@ -33,14 +33,14 @@ def build_existencias_dialog(producto, existencias, on_ajustar, on_close):
                         ft.ElevatedButton(
                             "Ajustar", icon=ft.Icons.EDIT,
                             on_click=lambda _, a=alm, c=cant, u=unidad: on_ajustar(a, c, u),
-                            style=ft.ButtonStyle(padding=ft.padding.symmetric(horizontal=12, vertical=8)),
+                            style=ft.ButtonStyle(padding=ft.Padding.symmetric(horizontal=12, vertical=8)),
                         )
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                     bgcolor=colors['card'],
                     padding=12,
                     border_radius=10,
-                    margin=ft.margin.only(bottom=8),
-                    border=ft.border.all(1, colors['border']),
+                    margin=ft.Margin.only(bottom=8),
+                    border=ft.Border.all(1, colors['border']),
                 )
             )
     else:
@@ -58,7 +58,7 @@ def build_existencias_dialog(producto, existencias, on_ajustar, on_close):
                 f"Unidad: {unidad_prod}   •   Stock mínimo: {stock_min:.0f}",
                 size=12, color=colors['text_secondary']
             ),
-            padding=ft.padding.only(bottom=8),
+            padding=ft.Padding.only(bottom=8),
         ),
         ft.ListView(controls=rows, height=360, spacing=0, padding=0, expand=False),
     ], tight=True, width=460)
@@ -82,7 +82,7 @@ def build_ajuste_dialog(producto, almacen, cantidad_actual, unidad, on_confirm, 
         autofocus=True, border_radius=10, text_size=18,
         border_color=colors['input_border'],
         width=220,
-        suffix_text=unidad,
+        suffix=ft.Text(unidad),
     )
     motivo_input = ft.TextField(
         label="Motivo (opcional)",

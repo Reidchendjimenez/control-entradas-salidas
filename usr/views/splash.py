@@ -71,58 +71,61 @@ _POS_STAGES = [
 ]
 
 
-def _find_background_image(page=None):
+def _find_background_image(page=None, desktop_bg=None):
     """Devuelve el 'src' de la imagen de fondo (estática) a usar, o None.
 
     En móvil los assets se sirven desde el bundle y no hay archivo local que
     inspeccionar: se devuelve la imagen vertical fija (MOBILE_BACKGROUND).
 
     En escritorio se verifica que la imagen horizontal exista como archivo en
-    'assets/', junto al módulo o en el directorio de trabajo, para no apuntar a
-    un recurso inexistente (en ese caso se cae al fondo oscuro).
+    'assets/' o 'assets_pos/', junto al módulo o en el directorio de trabajo,
+    para no apuntar a un recurso inexistente (en ese caso se cae al fondo
+    oscuro). El nombre puede pasarse por parámetro (desktop_bg), p. ej. para
+    que el POS use su propio fondo desde 'assets_pos/'.
     """
     if page is not None:
         plat = getattr(page, "platform", None)
         if plat is not None and str(plat).lower() in ("android", "ios", "android_tv"):
             return MOBILE_BACKGROUND
 
+    bg_name = desktop_bg or DESKTOP_BACKGROUND
     bases = set()
     here = os.path.dirname(os.path.abspath(__file__))
     for b in (os.path.join(here, "..", ".."), os.getcwd()):
         bases.add(os.path.abspath(b))
-        bases.add(os.path.abspath(os.path.join(b, "assets")))
+        for sub in ("assets", "assets_pos"):
+            bases.add(os.path.abspath(os.path.join(b, sub)))
     for base in bases:
-        if os.path.isfile(os.path.join(base, DESKTOP_BACKGROUND)):
-            return DESKTOP_BACKGROUND
+        if os.path.isfile(os.path.join(base, bg_name)):
+            return bg_name
     return None
 
 
-class LoadingSplash(ft.Container):
-    """Splash a pantalla completa con fondo (imagen estática) y UI animada."""
+class LoadingSplash:
+    """Splash a pantalla completa con fondo (imagen estática) y UI animada.
+
+    No hereda de ft.Container para evitar bugs de centrado en Flet 0.86.
+    Usa build() para crear un Container plano con layout que SÍ centra.
+    """
 
     def __init__(self, page: ft.Page, title: str = "Control de Entradas y Salidas",
-                 logo_src: str = "icono.png", stages: Optional[list] = None):
-        super().__init__()
+                 logo_src: str = "icono.png", stages: Optional[list] = None,
+                 desktop_bg: Optional[str] = None):
         self._page = page
-        self.expand = True
-        self.bgcolor = DARK['bg']
-        self.alignment = ft.alignment.center
-        self._valor = 0.0
         self._stages = stages if stages is not None else _STAGES
-
-        self._fondo_src = _find_background_image(page=page)
+        self._fondo_src = _find_background_image(page=page, desktop_bg=desktop_bg)
 
         self._logo = ft.Container(
             content=ft.Image(
                 src=logo_src, width=84, height=84,
-                fit=ft.ImageFit.CONTAIN,
+                fit=ft.BoxFit.CONTAIN,
                 error_content=ft.Icon(ft.Icons.FACTORY_OUTLINED, size=48, color="#BB86FC"),
             ),
             width=96, height=96,
             bgcolor=ft.Colors.with_opacity(0.15, "#BB86FC"),
             border_radius=24,
-            border=ft.border.all(2, "#BB86FC"),
-            alignment=ft.alignment.center,
+            border=ft.Border.all(width=2, color="#BB86FC"),
+            alignment=ft.Alignment.CENTER,
             clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
         )
 
@@ -131,9 +134,18 @@ class LoadingSplash(ft.Container):
             width=146, height=146, stroke_width=10,
             color="#BB86FC", bgcolor="#2A2A2A",
         )
-        anillo = ft.Stack(
-            controls=[self._ring, ft.Container(content=self._logo, alignment=ft.alignment.center)],
+        # Envolver el logo en un Container del mismo tamaño que el anillo (146x146)
+        # y centrarlo con alignment=CENTER para que quede perfecto sobre el ring.
+        logo_wrapper = ft.Container(
+            content=self._logo,
+            width=146,
+            height=146,
+            alignment=ft.Alignment.CENTER,
+        )
+        self._anillo = ft.Stack(
+            controls=[self._ring, logo_wrapper],
             width=146, height=146,
+            alignment=ft.Alignment.CENTER,
         )
 
         self._porcentaje = ft.Text("0%", size=20, weight="bold", color="#FFFFFF")
@@ -142,8 +154,8 @@ class LoadingSplash(ft.Container):
             "Abriendo la aplicación…", size=14, color="#BBBBBB", text_align="center"
         )
 
-        self.content = ft.Column([
-            anillo,
+        columna = ft.Column([
+            self._anillo,
             ft.Container(height=8),
             ft.Text(title, size=16, weight="bold", color="#FFFFFF"),
             ft.Container(height=18),
@@ -153,55 +165,64 @@ class LoadingSplash(ft.Container):
             self._paso,
         ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=2)
 
-        # --- Capa vertical que centra el contenido en cualquier pantalla ----
-        # Un Column con expand=True y 'alignment=ft.MainAxisAlignment.CENTER'
-        # centra sus hijos verticalmente (su eje principal); el horizontal
-        # lo da el horizontal_alignment del propio content. Esta es la razón
-        # por la que antes quedaba pegado arriba.
         tarjeta = ft.Container(
-            content=self.content,
-            padding=ft.padding.symmetric(horizontal=32, vertical=28),
+            content=columna,
+            padding=ft.Padding.symmetric(horizontal=32, vertical=28),
             bgcolor=ft.Colors.with_opacity(0.55, "#0D0D0D"),
             border_radius=20,
             blur=ft.Blur(0, 0, ft.BlurTileMode.CLAMP),
-            border=ft.border.all(1, ft.Colors.with_opacity(0.25, "#FFFFFF")),
+            border=ft.Border.all(1, ft.Colors.with_opacity(0.25, "#FFFFFF")),
         )
 
-        # --- Capa base: el fondo se pone en 'self.image' (propiedad del
-        # Container) que cubre SIEMPRE todo el área del contenedor, con COVER.
-        # (La versión previa usaba un ft.Image dentro del Stack y no llenaba).
-        if self._fondo_src:
-            self.image = ft.DecorationImage(
-                src=self._fondo_src,
-                fit=ft.ImageFit.COVER,
-            )
+        # Fondo (imagen estática) — se pone en el Container raíz via DecorationImage
+        self._fondo_src = _find_background_image(page=page, desktop_bg=desktop_bg)
 
-        # Capa oscura translúcida encima del fondo + contenido centrado.
+        # --- Arquitectura full-screen: sin tarjeta con borde, contenido directo ---
+        # Root: Container expand con imagen de fondo
+        # Content: Stack con 2 capas:
+        #   1) oscurece (overlay oscuro full-screen)
+        #   2) Column expand + MainAxisAlignment.CENTER + CrossAxisAlignment.CENTER -> contenido directo
         oscurece = ft.Container(
             expand=True,
             bgcolor=ft.Colors.with_opacity(0.35, "#000000"),
         )
-        tarjeta_central = ft.Container(
-            content=tarjeta,
+        contenido_centrado = ft.Column(
+            [columna],
             expand=True,
-            alignment=ft.alignment.center,
+            alignment=ft.MainAxisAlignment.CENTER,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         )
-        self.content = ft.Stack(
-            controls=[oscurece, tarjeta_central],
+        self._root = ft.Container(
             expand=True,
+            bgcolor=DARK['bg'],
+            image=ft.DecorationImage(src=self._fondo_src, fit=ft.BoxFit.COVER) if self._fondo_src else None,
+            content=ft.Stack(
+                controls=[oscurece, contenido_centrado],
+                expand=True,
+                fit=ft.StackFit.EXPAND,
+            ),
         )
 
+        # Referencias para compatibilidad con código existente (updater, etc.)
         self._stop_pulso = threading.Event()
         self._hilo_pulso = threading.Thread(target=self._pulso, daemon=True)
         self._hilo_pulso.start()
 
-        # Animación "idle" del anillo: mientras no haya progreso real del sync
-        # (pre-login, esperando servidor), el anillo gira como indicador de carga.
         self._stop_ring = threading.Event()
         self._cuadro = 0.0
         self._tiene_progreso = False
+        self._ultimo_pct_paso = 0  # último % válido de paso "X/Y"
         self._hilo_ring = threading.Thread(target=self._anillo_idle, daemon=True)
         self._hilo_ring.start()
+
+    @property
+    def control(self) -> ft.Container:
+        """Devuelve el Container raíz para añadir a la página: page.add(splash.control)"""
+        return self._root
+
+    # Alias para compatibilidad: page.add(splash) sigue funcionando si se usa __getattr__
+    def __getattr__(self, name):
+        return getattr(self._root, name)
 
     # -- anillo: gira sin progreso hasta que haya % real del sync -------------
     def _anillo_idle(self):
@@ -229,6 +250,18 @@ class LoadingSplash(ft.Container):
                     pass
                 time.sleep(0.1)
                 continue
+            # Fallback: último % de paso válido (ej. "3/5" = 60%) mientras no hay sync real
+            if self._ultimo_pct_paso > 0:
+                v = self._ultimo_pct_paso / 100.0
+                try:
+                    self._ring.value = v
+                    self._porcentaje.value = f"{self._ultimo_pct_paso}%"
+                    if self._page is not None:
+                        self._page.update()
+                except Exception:
+                    pass
+                time.sleep(0.1)
+                continue
             self._cuadro += (0.02 * sentido)
             if self._cuadro >= 0.9:
                 self._cuadro = 0.9
@@ -238,6 +271,7 @@ class LoadingSplash(ft.Container):
                 sentido = 1.0
             try:
                 self._ring.value = self._cuadro
+                self._porcentaje.value = f"{int(self._cuadro * 100)}%"
                 if self._page is not None:
                     self._page.update()
             except Exception:
@@ -253,7 +287,9 @@ class LoadingSplash(ft.Container):
                 total = int(total)
                 cur = int(cur)
                 if total > 0:
-                    return max(0, min(100, round(cur / total * 100)))
+                    pct = max(0, min(100, round(cur / total * 100)))
+                    self._ultimo_pct_paso = pct
+                    return pct
             except (ValueError, TypeError):
                 pass
         return None
@@ -282,23 +318,28 @@ class LoadingSplash(ft.Container):
     def _parse(self, msg: str):
         pct = None
         label = None
-        for sub, p, lbl in self._stages:
+        step_idx = 0
+        for i, (sub, p, lbl) in enumerate(self._stages, start=1):
             if sub in (msg or ""):
                 if lbl:
                     label = lbl
-                pct = p if pct is None else max(pct, p)
-        return pct, label
+                if pct is None or p > pct:
+                    pct = p
+                    step_idx = i
+        return pct, label, step_idx, len(self._stages)
 
     def set_progress(self, msg: str):
         """Actualiza anillo, % y etiqueta en función del mensaje del sync."""
-        pct, label = self._parse(msg)
+        pct, label, step_idx, step_total = self._parse(msg)
         if pct is not None:
             autoval = pct / 100.0
             if autoval > self._valor:
                 self._valor = autoval
+            self._tiene_progreso = True
+            if step_idx:
+                self._paso.value = f"{step_idx}/{step_total}"
         if label:
             self._etiqueta.value = label
-        self._tiene_progreso = True
         try:
             self._ring.value = self._valor
             self._porcentaje.value = f"{int(self._valor * 100)}%"

@@ -1,7 +1,7 @@
 # Graph Report - control-entradas-salidas  (2026-08-10)
 
 ## Corpus Check
-- 132 files · ~193,505 words
+- 132 files · ~193,507 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary

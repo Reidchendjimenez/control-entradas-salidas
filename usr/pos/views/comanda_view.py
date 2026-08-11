@@ -1,9 +1,10 @@
 import flet as ft
 from usr.database.local_replica import LocalReplica
 from usr.pos.tasa_cambio import get_tasa
+from usr.pos.views import PosView
 
 
-class ComandaPedidoView(ft.Container):
+class ComandaPedidoView(PosView):
     def __init__(self, usuario: dict = None, sesion_id: int = None, mesa: dict = None,
                  habitacion: dict = None, on_logout=None, on_back=None):
         super().__init__()
@@ -19,10 +20,56 @@ class ComandaPedidoView(ft.Container):
         self.items = []
         self.comanda_id = None
         self.categoria_actual = None
+        self._grid_entrada_controls = []
         self.tasa = get_tasa()
         self._build_ui()
         self._load_categorias()
         self._load_comanda_existente()
+
+    def did_mount(self):
+        super().did_mount()
+        if self.page and self._grid_entrada_controls:
+            self.page.run_task(self._animar_entrada, list(self._grid_entrada_controls))
+
+    def _render_grid(self, controles):
+        """Reemplaza la grilla y dispara la animacion de entrada escalonada."""
+        self.grid.controls.clear()
+        for c in controles:
+            c.opacity = 0
+            c.offset = ft.Offset(0, 0.3)
+            c.scale = 0.8
+            c.animate_opacity = ft.Animation(400, ft.AnimationCurve.EASE_OUT)
+            c.animate_offset = ft.Animation(400, ft.AnimationCurve.EASE_OUT)
+            c.animate_scale = ft.Animation(400, ft.AnimationCurve.EASE_OUT)
+        self.grid.controls.extend(controles)
+        self._grid_entrada_controls = list(controles)
+        if self.page:
+            self.page.update()
+            self.page.run_task(self._animar_entrada, list(controles))
+
+    async def _animar_entrada(self, controles):
+        import asyncio
+        await asyncio.sleep(0.1)
+        try:
+            for c in controles:
+                c.opacity = 1
+                c.offset = ft.Offset(0, 0)
+                c.scale = 1.0
+                try:
+                    c.update()
+                except Exception:
+                    pass
+                await asyncio.sleep(0.05)
+        finally:
+            for c in controles:
+                c.opacity = 1
+                c.offset = ft.Offset(0, 0)
+                c.scale = 1.0
+            if self.page:
+                try:
+                    self.page.update()
+                except Exception:
+                    pass
 
     def _build_ui(self):
         top_bar = self._build_top_bar()
@@ -54,7 +101,7 @@ class ComandaPedidoView(ft.Container):
         col_comanda = ft.Column([
             ft.Container(
                 content=ft.Text("COMANDA", size=13, weight=ft.FontWeight.BOLD, color="#9E9E9E"),
-                padding=ft.padding.only(left=10, top=5, bottom=5),
+                padding=ft.Padding.only(left=10, top=5, bottom=5),
             ),
             ft.Container(content=self.lv_comanda, expand=True),
             ft.Divider(height=1, color="#3D3D3D"),
@@ -67,18 +114,18 @@ class ComandaPedidoView(ft.Container):
                     ft.Row([
                         self.btn_actualizar_tasa,
                         ft.Container(content=self.txt_tasa_info, expand=True,
-                                     padding=ft.padding.only(right=4)),
+                                     padding=ft.Padding.only(right=4)),
                         self.txt_total_bs,
                     ], spacing=6, vertical_alignment=ft.CrossAxisAlignment.CENTER),
                 ], spacing=2),
-                padding=ft.padding.symmetric(horizontal=15, vertical=8),
+                padding=ft.Padding.symmetric(horizontal=15, vertical=8),
             ),
         ], expand=True, spacing=0)
 
         panel_izq = ft.Container(
             content=col_comanda,
             width=300,
-            border=ft.border.only(right=ft.BorderSide(1, "#3D3D3D")),
+            border=ft.Border(right=ft.BorderSide(1, "#3D3D3D")),
             bgcolor="#1A1A1A",
         )
 
@@ -102,8 +149,8 @@ class ComandaPedidoView(ft.Container):
                 self.btn_cobrar,
             ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
             bgcolor="#1E1E1E",
-            border=ft.border.only(top=ft.BorderSide(1, "#3D3D3D")),
-            padding=ft.padding.symmetric(horizontal=15, vertical=10),
+            border=ft.Border(top=ft.BorderSide(1, "#3D3D3D")),
+            padding=ft.Padding.symmetric(horizontal=15, vertical=10),
         )
 
         self.content = ft.Column([top_bar, divider, fila, franja_botones], expand=True, spacing=0)
@@ -115,7 +162,7 @@ class ComandaPedidoView(ft.Container):
         avatar_color = "#FF9800" if es_admin else "#7C4DFF"
         avatar = ft.Container(
             content=ft.Text(iniciales, size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-            width=36, height=36, bgcolor=avatar_color, border_radius=18, alignment=ft.alignment.center,
+            width=36, height=36, bgcolor=avatar_color, border_radius=18, alignment=ft.Alignment.CENTER,
         )
         user_info = ft.Column([
             ft.Text(nombre, size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
@@ -144,8 +191,8 @@ class ComandaPedidoView(ft.Container):
                 ft.IconButton(icon=ft.Icons.LOGOUT_ROUNDED, icon_color="#EF5350",
                               tooltip="Cerrar sesion", on_click=lambda _: self._cerrar_sesion()),
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            bgcolor="#1E1E1E", border=ft.border.only(bottom=ft.BorderSide(1, "#3D3D3D")),
-            padding=ft.padding.symmetric(horizontal=20, vertical=10),
+            bgcolor="#1E1E1E", border=ft.Border(bottom=ft.BorderSide(1, "#3D3D3D")),
+            padding=ft.Padding.symmetric(horizontal=20, vertical=10),
         )
 
     def _build_panel_derecho(self):
@@ -163,35 +210,37 @@ class ComandaPedidoView(ft.Container):
             self.update()
 
     def _load_categorias(self):
-        self.grid.controls.clear()
+        cards = []
         # Categorias de inventario (visibles en POS)
         cats = LocalReplica.get_categorias_pos()
-        if not cats:
-            self.grid.controls.append(ft.Container(
-                content=ft.Column([
-                    ft.Icon(ft.Icons.CATEGORY_ROUNDED, size=50, color="#757575"),
-                    ft.Text("No hay categorias para el POS", size=14, color="#9E9E9E"),
-                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                padding=30, alignment=ft.alignment.center,
-            ))
-        else:
-            for cat in cats:
-                self.grid.controls.append(self._build_categoria_card(cat))
+        for cat in cats:
+            cards.append(self._build_categoria_card(cat))
 
         # Categorias POS independientes
         pos_cats = LocalReplica.get_pos_categorias(solo_activas=True)
         for cat in pos_cats:
             cat['_tipo'] = 'pos'  # marcar como POS para el click handler
-            self.grid.controls.append(self._build_categoria_card(cat))
+            cards.append(self._build_categoria_card(cat))
 
-        platos_activos = LocalReplica.get_platos_pos()
         plato_cats = self._get_platos_categorias_pos()
         if plato_cats:
-            self.grid.controls.append(self._build_platos_card())
+            cards.append(self._build_platos_card())
 
         cont_activos = LocalReplica.get_contornos_activos()
         if cont_activos:
-            self.grid.controls.append(self._build_contornos_card())
+            cards.append(self._build_contornos_card())
+
+        if not cards:
+            self.grid.controls.clear()
+            self.grid.controls.append(ft.Container(
+                content=ft.Column([
+                    ft.Icon(ft.Icons.CATEGORY_ROUNDED, size=50, color="#757575"),
+                    ft.Text("No hay categorias para el POS", size=14, color="#9E9E9E"),
+                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+                padding=30, alignment=ft.Alignment.CENTER,
+            ))
+        else:
+            self._render_grid(cards)
 
         if self.page:
             self.update()
@@ -199,15 +248,15 @@ class ComandaPedidoView(ft.Container):
     def _build_platos_card(self):
         card = ft.Container(
             bgcolor="#1A1A2E", border_radius=12, padding=12,
-            alignment=ft.alignment.center,
-            border=ft.border.only(bottom=ft.BorderSide(3, "#FF6F00")),
+            alignment=ft.Alignment.CENTER,
+            border=ft.Border(bottom=ft.BorderSide(3, "#FF6F00")),
             shadow=ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.2, "#FF6F00"), offset=ft.Offset(0, 3)),
             animate_scale=ft.Animation(400, ft.AnimationCurve.DECELERATE),
             on_click=lambda _: self._on_platos_seccion_click(),
             content=ft.Column([
                 ft.Container(
                     content=ft.Text("P", size=24, weight="bold", color=ft.Colors.WHITE),
-                    alignment=ft.alignment.center, width=50, height=50,
+                    alignment=ft.Alignment.CENTER, width=50, height=50,
                     bgcolor="#FF6F00", shape=ft.BoxShape.CIRCLE,
                     shadow=ft.BoxShadow(blur_radius=8, color=ft.Colors.with_opacity(0.3, "#FF6F00"), offset=ft.Offset(0, 3)),
                 ),
@@ -236,11 +285,10 @@ class ComandaPedidoView(ft.Container):
                     ft.Icon(ft.Icons.CATEGORY_ROUNDED, size=50, color="#757575"),
                     ft.Text("No hay categorias de platos", size=14, color="#9E9E9E"),
                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                padding=30, alignment=ft.alignment.center,
+                padding=30, alignment=ft.Alignment.CENTER,
             ))
         else:
-            for cat in pcats:
-                self.grid.controls.append(self._build_plato_categoria_card(cat))
+            self._render_grid([self._build_plato_categoria_card(cat) for cat in pcats])
         self.panel_derecho.content = ft.Column([
             ft.Row([
                 ft.IconButton(icon=ft.Icons.ARROW_BACK_ROUNDED, icon_color=ft.Colors.WHITE,
@@ -257,15 +305,15 @@ class ComandaPedidoView(ft.Container):
         inicial = cat.get('nombre', '?')[0].upper()
         card = ft.Container(
             bgcolor="#1E1E1E", border_radius=12, padding=12,
-            alignment=ft.alignment.center,
-            border=ft.border.only(bottom=ft.BorderSide(3, color)),
+            alignment=ft.Alignment.CENTER,
+            border=ft.Border(bottom=ft.BorderSide(3, color)),
             shadow=ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 3)),
             animate_scale=ft.Animation(400, ft.AnimationCurve.DECELERATE),
             on_click=lambda _, c=cat: self._on_plato_categoria_click(c),
             content=ft.Column([
                 ft.Container(
                     content=ft.Text(inicial, size=24, weight="bold", color=ft.Colors.WHITE),
-                    alignment=ft.alignment.center, width=50, height=50,
+                    alignment=ft.Alignment.CENTER, width=50, height=50,
                     bgcolor=color, shape=ft.BoxShape.CIRCLE,
                     shadow=ft.BoxShadow(blur_radius=8, color=ft.Colors.with_opacity(0.3, color), offset=ft.Offset(0, 3)),
                 ),
@@ -287,11 +335,10 @@ class ComandaPedidoView(ft.Container):
                     ft.Icon(ft.Icons.RAMEN_DINING, size=50, color="#757575"),
                     ft.Text("No hay platos en esta categoria", size=14, color="#9E9E9E"),
                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                padding=30, alignment=ft.alignment.center,
+                padding=30, alignment=ft.Alignment.CENTER,
             ))
         else:
-            for p in platos_filtrados:
-                self.grid.controls.append(self._build_plato_card(p))
+            self._render_grid([self._build_plato_card(p) for p in platos_filtrados])
         self.panel_derecho.content = ft.Column([
             ft.Row([
                 ft.IconButton(icon=ft.Icons.ARROW_BACK_ROUNDED, icon_color=ft.Colors.WHITE,
@@ -311,15 +358,15 @@ class ComandaPedidoView(ft.Container):
         lleva = bool(plato.get('lleva_contornos'))
         card = ft.Container(
             bgcolor="#1E1E1E", border_radius=12, padding=12,
-            alignment=ft.alignment.center,
-            border=ft.border.only(bottom=ft.BorderSide(3, color)),
+            alignment=ft.Alignment.CENTER,
+            border=ft.Border(bottom=ft.BorderSide(3, color)),
             shadow=ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 3)),
             on_click=lambda _, p=plato: self._agregar_item(p, tipo='plato'),
             content=ft.Stack([
                 ft.Column([
                     ft.Container(
                         content=ft.Text(nombre[:2].upper(), size=22, weight="bold", color=ft.Colors.WHITE),
-                        alignment=ft.alignment.center, width=50, height=50,
+                        alignment=ft.Alignment.CENTER, width=50, height=50,
                         bgcolor=color, shape=ft.BoxShape.CIRCLE,
                         shadow=ft.BoxShadow(blur_radius=8, color=ft.Colors.with_opacity(0.3, color), offset=ft.Offset(0, 3)),
                     ),
@@ -331,7 +378,7 @@ class ComandaPedidoView(ft.Container):
                 ft.Container(
                     content=ft.Text("+", size=11, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
                     bgcolor="#4CAF50", width=18, height=18, border_radius=9,
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment.CENTER,
                     right=30, top=0,
                 ) if lleva else ft.Container(),
             ]),
@@ -344,15 +391,15 @@ class ComandaPedidoView(ft.Container):
     def _build_contornos_card(self):
         card = ft.Container(
             bgcolor="#1A1A2E", border_radius=12, padding=12,
-            alignment=ft.alignment.center,
-            border=ft.border.only(bottom=ft.BorderSide(3, "#26A69A")),
+            alignment=ft.Alignment.CENTER,
+            border=ft.Border(bottom=ft.BorderSide(3, "#26A69A")),
             shadow=ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.2, "#26A69A"), offset=ft.Offset(0, 3)),
             animate_scale=ft.Animation(400, ft.AnimationCurve.DECELERATE),
             on_click=lambda _: self._on_contornos_seccion_click(),
             content=ft.Column([
                 ft.Container(
                     content=ft.Text("C", size=24, weight="bold", color=ft.Colors.WHITE),
-                    alignment=ft.alignment.center, width=50, height=50,
+                    alignment=ft.Alignment.CENTER, width=50, height=50,
                     bgcolor="#26A69A", shape=ft.BoxShape.CIRCLE,
                     shadow=ft.BoxShadow(blur_radius=8, color=ft.Colors.with_opacity(0.3, "#26A69A"), offset=ft.Offset(0, 3)),
                 ),
@@ -374,11 +421,10 @@ class ComandaPedidoView(ft.Container):
                     ft.Icon(ft.Icons.DATASET_LINKED_ROUNDED, size=50, color="#757575"),
                     ft.Text("No hay contornos activos", size=14, color="#9E9E9E"),
                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                padding=30, alignment=ft.alignment.center,
+                padding=30, alignment=ft.Alignment.CENTER,
             ))
         else:
-            for c in cont_activos:
-                self.grid.controls.append(self._build_contorno_card(c))
+            self._render_grid([self._build_contorno_card(c) for c in cont_activos])
         self.panel_derecho.content = ft.Column([
             ft.Row([
                 ft.IconButton(icon=ft.Icons.ARROW_BACK_ROUNDED, icon_color=ft.Colors.WHITE,
@@ -398,14 +444,14 @@ class ComandaPedidoView(ft.Container):
         color = cont.get('categoria_color', '#26A69A')
         card = ft.Container(
             bgcolor="#1E1E1E", border_radius=12, padding=12,
-            alignment=ft.alignment.center,
-            border=ft.border.only(bottom=ft.BorderSide(3, color)),
+            alignment=ft.Alignment.CENTER,
+            border=ft.Border(bottom=ft.BorderSide(3, color)),
             shadow=ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 3)),
             on_click=lambda _, p=cont: self._agregar_item(p, tipo='contorno'),
             content=ft.Column([
                 ft.Container(
                     content=ft.Text(nombre[:2].upper(), size=22, weight="bold", color=ft.Colors.WHITE),
-                    alignment=ft.alignment.center, width=50, height=50,
+                    alignment=ft.Alignment.CENTER, width=50, height=50,
                     bgcolor=color, shape=ft.BoxShape.CIRCLE,
                     shadow=ft.BoxShadow(blur_radius=8, color=ft.Colors.with_opacity(0.3, color), offset=ft.Offset(0, 3)),
                 ),
@@ -423,8 +469,8 @@ class ComandaPedidoView(ft.Container):
         inicial = cat.get('nombre', '?')[0].upper()
         card = ft.Container(
             bgcolor="#1E1E1E", border_radius=12, padding=12,
-            alignment=ft.alignment.center,
-            border=ft.border.only(bottom=ft.BorderSide(3, color)),
+            alignment=ft.Alignment.CENTER,
+            border=ft.Border(bottom=ft.BorderSide(3, color)),
             shadow=ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 3)),
             animate_scale=ft.Animation(400, ft.AnimationCurve.DECELERATE),
             animate_rotation=ft.Animation(400, ft.AnimationCurve.DECELERATE),
@@ -432,7 +478,7 @@ class ComandaPedidoView(ft.Container):
             content=ft.Column([
                 ft.Container(
                     content=ft.Text(inicial, size=24, weight="bold", color=ft.Colors.WHITE),
-                    alignment=ft.alignment.center, width=50, height=50,
+                    alignment=ft.Alignment.CENTER, width=50, height=50,
                     bgcolor=color, shape=ft.BoxShape.CIRCLE,
                     shadow=ft.BoxShadow(blur_radius=8, color=ft.Colors.with_opacity(0.3, color), offset=ft.Offset(0, 3)),
                 ),
@@ -446,12 +492,18 @@ class ComandaPedidoView(ft.Container):
 
     @staticmethod
     def _cat_hover(e, card, color):
-        if e.data == "true":
-            card.scale = 1.05; card.rotate = 0.02
-            card.shadow = ft.BoxShadow(blur_radius=15, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 0))
+        if e.data:
+            card.scale = 1.05
+            card.rotate = 0.02
+            card.shadow = ft.BoxShadow(
+                blur_radius=15, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 0),
+            )
         else:
-            card.scale = 1.0; card.rotate = 0
-            card.shadow = ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.1, color), offset=ft.Offset(0, 0))
+            card.scale = 1.0
+            card.rotate = 0
+            card.shadow = ft.BoxShadow(
+                blur_radius=0, color=ft.Colors.with_opacity(0.1, color), offset=ft.Offset(0, 0),
+            )
         card.update()
 
     def _on_categoria_click(self, cat: dict):
@@ -482,11 +534,10 @@ class ComandaPedidoView(ft.Container):
                         ft.Icon(ft.Icons.INVENTORY_2_ROUNDED, size=50, color="#757575"),
                         ft.Text("No hay productos en esta categoria", size=14, color="#9E9E9E"),
                     ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                    padding=30, alignment=ft.alignment.center,
+                    padding=30, alignment=ft.Alignment.CENTER,
                 ))
             else:
-                for p in prods:
-                    self.grid.controls.append(self._build_producto_card(p, color=cat.get('color', '#4CAF50')))
+                self._render_grid([self._build_producto_card(p, color=cat.get('color', '#4CAF50')) for p in prods])
             self.panel_derecho.content = ft.Column([
                 ft.Row([
                     ft.IconButton(icon=ft.Icons.ARROW_BACK_ROUNDED, icon_color=ft.Colors.WHITE,
@@ -501,19 +552,20 @@ class ComandaPedidoView(ft.Container):
     def _show_subcategorias(self, parent_cat: dict, sub_cats: list):
         """Muestra las sub-categorias de una categoria padre junto a sus productos directos."""
         self.categoria_actual = parent_cat
-        self.grid.controls.clear()
+        cards = []
         for sc in sub_cats:
             sc['_parent'] = parent_cat  # guardar referencia al padre
-            self.grid.controls.append(self._build_subcategoria_card(sc))
+            cards.append(self._build_subcategoria_card(sc))
 
         prods = LocalReplica.get_productos_pos(parent_cat['id'])
         if prods:
-            self.grid.controls.append(ft.Container(
+            cards.append(ft.Container(
                 content=ft.Text("PRODUCTOS", size=11, weight=ft.FontWeight.BOLD, color="#4CAF50"),
-                padding=ft.padding.only(top=14, bottom=4),
+                padding=ft.Padding.only(top=14, bottom=4),
             ))
             for p in prods:
-                self.grid.controls.append(self._build_producto_card(p, color=parent_cat.get('color', '#4CAF50')))
+                cards.append(self._build_producto_card(p, color=parent_cat.get('color', '#4CAF50')))
+        self._render_grid(cards)
 
         self.panel_derecho.content = ft.Column([
             ft.Row([
@@ -532,15 +584,15 @@ class ComandaPedidoView(ft.Container):
         inicial = sc.get('nombre', '?')[0].upper()
         card = ft.Container(
             bgcolor="#1E1E1E", border_radius=12, padding=12,
-            alignment=ft.alignment.center,
-            border=ft.border.only(bottom=ft.BorderSide(3, color)),
+            alignment=ft.Alignment.CENTER,
+            border=ft.Border(bottom=ft.BorderSide(3, color)),
             shadow=ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 3)),
             animate_scale=ft.Animation(400, ft.AnimationCurve.DECELERATE),
             on_click=lambda _, c=sc: self._on_subcategoria_click(c),
             content=ft.Column([
                 ft.Container(
                     content=ft.Text(inicial, size=24, weight="bold", color=ft.Colors.WHITE),
-                    alignment=ft.alignment.center, width=50, height=50,
+                    alignment=ft.Alignment.CENTER, width=50, height=50,
                     bgcolor=color, shape=ft.BoxShape.CIRCLE,
                     shadow=ft.BoxShadow(blur_radius=8, color=ft.Colors.with_opacity(0.3, color), offset=ft.Offset(0, 3)),
                 ),
@@ -564,11 +616,10 @@ class ComandaPedidoView(ft.Container):
                     ft.Icon(ft.Icons.RAMEN_DINING, size=50, color="#757575"),
                     ft.Text("No hay platos en esta sub-categoria", size=14, color="#9E9E9E"),
                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                padding=30, alignment=ft.alignment.center,
+                padding=30, alignment=ft.Alignment.CENTER,
             ))
         else:
-            for p in platos_filtrados:
-                self.grid.controls.append(self._build_plato_card(p))
+            self._render_grid([self._build_plato_card(p) for p in platos_filtrados])
         self.panel_derecho.content = ft.Column([
             ft.Row([
                 ft.IconButton(icon=ft.Icons.ARROW_BACK_ROUNDED, icon_color=ft.Colors.WHITE,
@@ -589,15 +640,15 @@ class ComandaPedidoView(ft.Container):
         nombre = prod.get('nombre', '?')
         card = ft.Container(
             bgcolor="#1E1E1E", border_radius=12, padding=12,
-            alignment=ft.alignment.center,
-            border=ft.border.only(bottom=ft.BorderSide(3, color)),
+            alignment=ft.Alignment.CENTER,
+            border=ft.Border(bottom=ft.BorderSide(3, color)),
             shadow=ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 3)),
             animate_scale=ft.Animation(400, ft.AnimationCurve.DECELERATE),
             on_click=lambda _, p=prod: self._agregar_item(p, tipo='producto'),
             content=ft.Column([
                 ft.Container(
                     content=ft.Text(nombre[:2].upper(), size=22, weight="bold", color=ft.Colors.WHITE),
-                    alignment=ft.alignment.center, width=50, height=50,
+                    alignment=ft.Alignment.CENTER, width=50, height=50,
                     bgcolor=color, shape=ft.BoxShape.CIRCLE,
                     shadow=ft.BoxShadow(blur_radius=8, color=ft.Colors.with_opacity(0.3, color), offset=ft.Offset(0, 3)),
                 ),
@@ -612,12 +663,16 @@ class ComandaPedidoView(ft.Container):
 
     @staticmethod
     def _prod_hover(e, card, color):
-        if e.data == "true":
+        if e.data:
             card.scale = 1.05
-            card.shadow = ft.BoxShadow(blur_radius=15, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 0))
+            card.shadow = ft.BoxShadow(
+                blur_radius=15, color=ft.Colors.with_opacity(0.2, color), offset=ft.Offset(0, 0),
+            )
         else:
             card.scale = 1.0
-            card.shadow = ft.BoxShadow(blur_radius=0, color=ft.Colors.with_opacity(0.1, color), offset=ft.Offset(0, 0))
+            card.shadow = ft.BoxShadow(
+                blur_radius=0, color=ft.Colors.with_opacity(0.1, color), offset=ft.Offset(0, 0),
+            )
         card.update()
 
     def _agregar_item(self, prod: dict, tipo='producto'):
@@ -879,7 +934,7 @@ class ComandaPedidoView(ft.Container):
                                      on_click=lambda _, idx=i: self._eliminar_item(idx)),
                     ], spacing=2, vertical_alignment=ft.CrossAxisAlignment.CENTER),
                 ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                padding=ft.padding.symmetric(horizontal=10, vertical=4),
+                padding=ft.Padding.symmetric(horizontal=10, vertical=4),
                 bgcolor="#222222" if i % 2 == 0 else "#1A1A1A",
             ))
         self.txt_total.value = f"$ {total:.2f}"

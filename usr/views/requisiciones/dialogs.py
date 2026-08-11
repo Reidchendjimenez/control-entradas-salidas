@@ -180,7 +180,7 @@ def build_crear_dialog(view):
                 except ValueError:
                     pass
 
-        user_id = (view.page.session.get("user_id") or "Admin") if view.page else "Admin"
+        user_id = (view.page.session.store.get("user_id") or "Admin") if view.page else "Admin"
         guardar_requisicion(
             origen=origen, destino=destino,
             observaciones=observaciones_input.value or "",
@@ -324,7 +324,7 @@ def build_agregar_producto_dialog(view, productos_container):
                 content=resultados_container,
                 bgcolor=colors['card'],
                 border_radius=10,
-                border=ft.border.all(1, _c(view.page, 'GREY_300')),
+                border=ft.Border.all(1, _c(view.page, 'GREY_300')),
                 padding=5,
             ),
         ], tight=True, scroll=ft.ScrollMode.AUTO),
@@ -483,7 +483,7 @@ def build_crear_vista(view, requisicion=None):
         content=resultados_list,
         bgcolor=colors['surface'],
         border_radius=12,
-        border=ft.border.all(1, colors['border']),
+        border=ft.Border.all(1, colors['border']),
         padding=5,
         height=260,
         visible=False,
@@ -543,9 +543,9 @@ def build_crear_vista(view, requisicion=None):
             composer_search,
             add_btn,
         ], spacing=8, vertical_alignment="center"),
-        padding=ft.padding.symmetric(horizontal=10, vertical=8),
+        padding=ft.Padding.symmetric(horizontal=10, vertical=8),
         bgcolor=colors['surface'],
-        border=ft.border.only(top=ft.border.BorderSide(1, colors['border'])),
+        border=ft.Border(top=ft.BorderSide(1, colors['border'])),
     )
 
     titulo = "Editar Requisición" if requisicion else "Nueva Requisición"
@@ -567,7 +567,7 @@ def build_crear_vista(view, requisicion=None):
                 color="white",
             ),
         ], spacing=10),
-        padding=ft.padding.symmetric(horizontal=10, vertical=8),
+        padding=ft.Padding.symmetric(horizontal=10, vertical=8),
         bgcolor=colors['surface'],
     )
 
@@ -645,7 +645,7 @@ def build_buscador_productos(view):
             ], spacing=10),
             padding=20,
         ),
-        is_scroll_controlled=True,
+        scrollable=True,
         bgcolor=colors['surface'],
     )
 
@@ -726,7 +726,7 @@ def build_agregar_producto_req_dialog(view, producto, disponible):
         )
         peso_total_input = ft.TextField(
             label="Peso Total", value="0.000", keyboard_type=ft.KeyboardType.NUMBER,
-            border_radius=10, expand=True, suffix_text="kg",
+            border_radius=10, expand=True, suffix=ft.Text("kg"),
             on_change=_calcular_desde_total,
         )
         if is_mobile:

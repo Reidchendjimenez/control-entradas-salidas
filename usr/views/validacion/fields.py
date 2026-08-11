@@ -53,7 +53,7 @@ class ValidacionFields:
             value="Varios",
             border_radius=10,
             expand=True,
-            on_change=self._on_proveedor_change
+            on_select=self._on_proveedor_change
         )
 
         self.nuevo_proveedor_rif = ft.TextField(
@@ -88,6 +88,9 @@ class ValidacionFields:
             last_date=datetime.now(),
             value=datetime.now()
         )
+        # DatePicker debe estar en overlay para funcionar
+        if self.page:
+            self.page.overlay.append(self.fecha_picker)
 
         self.fecha_label = ft.Text(
             f"Fecha: {datetime.now().strftime('%d/%m/%Y')}",
@@ -108,7 +111,7 @@ class ValidacionFields:
                 ft.Segment(value="Nota de Entrega", label=ft.Text("N. Entrega")),
                 ft.Segment(value="Entrada", label=ft.Text("Entrada")),
             ],
-            selected={"Factura"},
+            selected=["Factura"],
             on_change=self._on_tipo_documento_change,
             allow_empty_selection=False,
             allow_multiple_selection=False,
@@ -203,7 +206,8 @@ class ValidacionFields:
 
     def _on_fecha_btn_click(self, e):
         try:
-            self.page.open(self.fecha_picker)
+            self.fecha_picker.open = True
+            self.page.update()
         except Exception as ex:
             print(f"[ERROR] ValidacionFields._on_fecha_btn_click: {ex}")
             try:
@@ -232,7 +236,8 @@ class ValidacionFields:
                 from usr.database.local_replica import LocalReplica
                 correlativo = LocalReplica.get_next_entrada_correlativo()
                 self.factura_input.value = correlativo
-                self.factura_input.focus()
+                if self.page:
+                    self.page.run_task(self.factura_input.focus)
             else:
                 self._apply_tipo_prefix()
             self.check_validar_button()
@@ -252,14 +257,15 @@ class ValidacionFields:
         tipo = next(iter(selected)) if selected else "Factura"
         prefix = PREFIX_MAP.get(tipo, "F-")
         self.factura_input.value = f"{prefix}{raw}"
-        self.factura_input.focus()
+        if self.page:
+            self.page.run_task(self.factura_input.focus)
 
     def section_container(self, content_col):
         return ft.Container(
             content=content_col,
             padding=15,
             border_radius=12,
-            border=ft.border.all(1, self.theme_colors.get('border', '#333333')),
+            border=ft.Border.all(1, self.theme_colors.get('border', '#333333')),
             bgcolor=self.theme_colors.get('surface', '#252525')
         )
 

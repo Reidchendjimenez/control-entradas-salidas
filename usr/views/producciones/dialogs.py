@@ -14,7 +14,8 @@ def delete_receta_dialog(page, receta, on_confirmed=None):
 
     def _confirm(e):
         try:
-            page.close(dialog)
+            dialog.open = False
+            page.update()
         except Exception:
             pass
         try:
@@ -28,7 +29,8 @@ def delete_receta_dialog(page, receta, on_confirmed=None):
 
     def _cancel(e):
         try:
-            page.close(dialog)
+            dialog.open = False
+            page.update()
         except Exception:
             pass
 
@@ -41,8 +43,9 @@ def delete_receta_dialog(page, receta, on_confirmed=None):
         ],
         actions_alignment=ft.MainAxisAlignment.END,
     )
-    page.open(dialog)
-    dialog.update()
+    page.overlay.append(dialog)
+    dialog.open = True
+    page.update()
 
 
 def descargo_dialog(page, produccion, receta, on_completed=None):
@@ -63,7 +66,7 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
             value=sugerida,
             keyboard_type=ft.KeyboardType.NUMBER,
             width=120,
-            suffix_text=unidad_label,
+            suffix=ft.Text(unidad_label),
             autofocus=item['peso_variable'],
         )
         if item['peso_variable']:
@@ -89,10 +92,10 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
                 ], expand=True, spacing=2),
                 cant_field,
             ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=ft.padding.all(10),
+            padding=ft.Padding.all(10),
             bgcolor=colors['card'],
             border_radius=8,
-            border=ft.border.all(1, colors['border']),
+            border=ft.Border.all(1, colors['border']),
         )
 
         cantidad_fields.append({
@@ -113,10 +116,11 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
         dialog = ft.AlertDialog(
             title=ft.Text("Sin ingredientes"),
             content=ft.Text("Esta receta no tiene ingredientes definidos para descargar."),
-            actions=[ft.TextButton("Cerrar", on_click=lambda e: page.close(dialog))],
+            actions=[ft.TextButton("Cerrar", on_click=lambda e: setattr(dialog, 'open', False) or page.update())],
         )
-        page.open(dialog)
-        dialog.update()
+        page.overlay.append(dialog)
+        dialog.open = True
+        page.update()
         return
 
     rows = [_build_field_row(i) for i in items]
@@ -173,7 +177,7 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
         value=almacen_default,
         options=[ft.dropdown.Option(a, a.capitalize()) for a in almacenes],
         width=180,
-        on_change=lambda e: _actualizar_stock(e.control.value),
+        on_select=lambda e: _actualizar_stock(e.control.value),
     )
 
     producidos_list = ft.Column([
@@ -245,7 +249,8 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
             return
 
         try:
-            page.close(dialog)
+            dialog.open = False
+            page.update()
         except Exception:
             pass
         show_success(f"Producción #{produccion['id']} completada")
@@ -254,7 +259,8 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
 
     def _cancel(e):
         try:
-            page.close(dialog)
+            dialog.open = False
+            page.update()
         except Exception:
             pass
 
@@ -267,9 +273,10 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
         ],
         actions_alignment=ft.MainAxisAlignment.END,
     )
-    page.open(dialog)
+    page.overlay.append(dialog)
+    dialog.open = True
+    page.update()
     _actualizar_stock(almacen_dd.value or almacen_default)
-    dialog.update()
 
 
 def cancelar_produccion_dialog(page, produccion, receta, on_confirmed=None):
@@ -280,7 +287,8 @@ def cancelar_produccion_dialog(page, produccion, receta, on_confirmed=None):
 
     def _confirm(e):
         try:
-            page.close(dialog)
+            dialog.open = False
+            page.update()
         except Exception:
             pass
         try:
@@ -294,7 +302,8 @@ def cancelar_produccion_dialog(page, produccion, receta, on_confirmed=None):
 
     def _cancel(e):
         try:
-            page.close(dialog)
+            dialog.open = False
+            page.update()
         except Exception:
             pass
 
@@ -310,5 +319,6 @@ def cancelar_produccion_dialog(page, produccion, receta, on_confirmed=None):
         ],
         actions_alignment=ft.MainAxisAlignment.END,
     )
-    page.open(dialog)
-    dialog.update()
+    page.overlay.append(dialog)
+    dialog.open = True
+    page.update()

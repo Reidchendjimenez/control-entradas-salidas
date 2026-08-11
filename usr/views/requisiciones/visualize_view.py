@@ -12,6 +12,9 @@ class VisualizeView(ft.Container):
         self.on_back = on_back
         self.expand = True
         self.padding = 20
+        # UI se construye en did_mount cuando el control está montado
+
+    def did_mount(self):
         self._build_ui()
 
     def _build_mensaje(self):
@@ -44,7 +47,7 @@ class VisualizeView(ft.Container):
         try:
             msg = self._build_mensaje()
             if self.page:
-                self.page.set_clipboard(msg)
+                self.page.run_task(ft.Clipboard().set, msg)
                 show_success("Requisición copiada al portapapeles")
         except Exception as e:
             show_error(f"Error al copiar: {e}")
@@ -65,12 +68,12 @@ class VisualizeView(ft.Container):
                 tooltip="Compartir",
                 items=[
                     ft.PopupMenuItem(
-                        text="Compartir por WhatsApp",
+                        content="Compartir por WhatsApp",
                         icon=ft.Icons.CHAT,
                         on_click=self._on_compartir,
                     ),
                     ft.PopupMenuItem(
-                        text="Copiar al portapapeles",
+                        content="Copiar al portapapeles",
                         icon=ft.Icons.CONTENT_COPY,
                         on_click=self._on_copiar,
                     ),
@@ -96,7 +99,7 @@ class VisualizeView(ft.Container):
             padding=20,
             bgcolor=colors['card'],
             border_radius=12,
-            border=ft.border.all(1, colors['border']),
+            border=ft.Border.all(1, colors['border']),
         )
 
         detalles_list = ft.Column([
@@ -114,7 +117,7 @@ class VisualizeView(ft.Container):
                     padding=10,
                     bgcolor=colors['bg'],
                     border_radius=8,
-                    border=ft.border.all(1, colors['border']),
+                    border=ft.Border.all(1, colors['border']),
                 )
             )
 

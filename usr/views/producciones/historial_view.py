@@ -37,7 +37,7 @@ def build_historial_tab(page):
                         ft.Container(expand=True),
                         ft.Container(
                             content=ft.Text(estado.upper(), size=10, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-                            padding=ft.padding.symmetric(horizontal=8, vertical=2),
+                            padding=ft.Padding.symmetric(horizontal=8, vertical=2),
                             bgcolor=estado_color,
                             border_radius=4,
                         ),
@@ -71,10 +71,10 @@ def build_historial_tab(page):
                         ),
                     ]),
                 ], spacing=5),
-                padding=ft.padding.all(15),
+                padding=ft.Padding.all(15),
                 bgcolor=colors['card'],
                 border_radius=10,
-                border=ft.border.all(1, colors['border']),
+                border=ft.Border.all(1, colors['border']),
             )
             cards.append(card)
 
@@ -85,7 +85,7 @@ def build_historial_tab(page):
                         ft.Icon(ft.Icons.HISTORY_OUTLINED, size=48, color=colors['text_hint']),
                         ft.Text("No hay producciones registradas", size=16, color=colors['text_hint']),
                     ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10),
-                    padding=ft.padding.all(40),
+                    padding=ft.Padding.all(40),
                 )
             )
 
@@ -95,4 +95,4 @@ def build_historial_tab(page):
 
     render()
 
-    return ft.Container(content=historial_list, expand=True, padding=ft.padding.all(20))
+    return ft.Container(content=historial_list, expand=True, padding=ft.Padding.all(20))

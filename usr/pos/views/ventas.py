@@ -1,8 +1,11 @@
+import threading
+
 import flet as ft
 from usr.database.local_replica import LocalReplica
+from usr.pos.views import PosView
 
 
-class VentasView(ft.Container):
+class VentasView(PosView):
     def __init__(self, usuario: dict = None, sesion_id: int = None, on_logout=None, on_back=None):
         super().__init__()
         self.expand = True
@@ -12,8 +15,21 @@ class VentasView(ft.Container):
         self.sesion_id = sesion_id
         self.on_logout = on_logout
         self.on_back = on_back
+        self._limite = 40
+        self._borde_id = None
+        self._tiene_mas = True
+        self._total_mostrados = 0
+        self._ultima_vigente = None
+        self._cargando = False
+        self._carga_iniciada = False
         self._build_ui()
-        self._load_ventas()
+        self._mostrar_cargando()
+
+    def did_mount(self):
+        super().did_mount()
+        if not self._carga_iniciada:
+            self._carga_iniciada = True
+            self._cargar_pagina(reset=True)
 
     def _build_ui(self):
         top_bar = self._build_top_bar(titulo="Ventas", on_back=self.on_back)
@@ -32,37 +48,133 @@ class VentasView(ft.Container):
                 ft.Container(expand=True),
                 self.btn_anular_ultima,
             ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=ft.padding.symmetric(horizontal=20, vertical=15),
+            padding=ft.Padding.symmetric(horizontal=20, vertical=15),
         )
         self.lv_ventas = ft.ListView(expand=True, spacing=8, auto_scroll=False, padding=20)
-        self.content = ft.Column([top_bar, header, self.lv_ventas], expand=True, spacing=0)
 
-    def _load_ventas(self):
+        self._txt_info = ft.Text("", size=12, color="#9E9E9E")
+        self._btn_cargar_mas = ft.OutlinedButton(
+            "Cargar mas ventas", icon=ft.Icons.EXPAND_MORE_ROUNDED,
+            on_click=lambda _: self._cargar_pagina(reset=False),
+        )
+        footer = ft.Container(
+            content=ft.Row([self._txt_info, ft.Container(expand=True), self._btn_cargar_mas],
+                           vertical_alignment=ft.CrossAxisAlignment.CENTER),
+            padding=ft.Padding.symmetric(horizontal=20, vertical=10),
+        )
+        self.content = ft.Column([top_bar, header, self.lv_ventas, footer], expand=True, spacing=0)
+
+    def _mostrar_cargando(self):
+        self._txt_info.value = ""
+        self._btn_cargar_mas.disabled = True
         self.lv_ventas.controls.clear()
-        ventas = LocalReplica.get_ventas(limit=200)
-        mesas = {m['id']: m for m in LocalReplica.get_pos_mesas()}
-        habs = {h['id']: h for h in LocalReplica.get_pos_habitaciones()}
-        self._ultima_vigente = None
-        for v in ventas:
-            if v.get('estado') == 'vigente' and self._ultima_vigente is None:
-                self._ultima_vigente = v
-            self.lv_ventas.controls.append(self._build_venta_card(v, mesas, habs))
+        self.lv_ventas.controls.append(ft.Container(
+            content=ft.Column([
+                ft.ProgressRing(width=48, height=48, stroke_width=5, color="#BB86FC"),
+                ft.Container(height=12),
+                ft.Text("Cargando ventas...", size=14, color="#9E9E9E"),
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+            alignment=ft.Alignment.CENTER, expand=True, padding=60,
+        ))
 
+    def _empty_state(self):
+        return ft.Container(
+            content=ft.Column([
+                ft.Icon(ft.Icons.RECEIPT_LONG_ROUNDED, size=80, color="#9E9E9E"),
+                ft.Container(height=16),
+                ft.Text("No hay ventas registradas", size=16, color="#9E9E9E"),
+                ft.Text("Cobre una comanda para registrar su primera venta", size=13, color="#757575"),
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+            alignment=ft.Alignment.CENTER, expand=True, padding=40,
+        )
+
+    def _actualizar_pie(self):
+        if self._total_mostrados:
+            self._txt_info.value = f"Mostrando las {self._total_mostrados} ventas mas recientes"
+        else:
+            self._txt_info.value = ""
+        self._btn_cargar_mas.disabled = (not self._tiene_mas) or self._cargando
+
+    def _cargar_pagina(self, reset=False):
+        if self._cargando:
+            return
+        self._cargando = True
+        if reset:
+            self._borde_id = None
+            self._mostrar_cargando()
+
+        before = self._borde_id
+
+        def _worker():
+            try:
+                ventas = LocalReplica.get_ventas(limit=self._limite, before_id=before)
+                mesas = {m['id']: m for m in LocalReplica.get_pos_mesas()}
+                habs = {h['id']: h for h in LocalReplica.get_pos_habitaciones()}
+                ids_anula = {v.get('venta_anula_id') for v in ventas if v.get('venta_anula_id')}
+                correlativos = LocalReplica.get_ventas_correlativos(list(ids_anula)) if ids_anula else {}
+                ultima_vigente = None
+                for v in ventas:
+                    if v.get('estado') == 'vigente' and ultima_vigente is None:
+                        ultima_vigente = v
+                controles = [self._build_venta_card(v, mesas, habs, correlativos) for v in ventas]
+                if self.page:
+                    self.page.run_task(self._aplicar_pagina, ventas, controles, ultima_vigente, reset)
+            except Exception as ex:
+                import traceback as tb
+                tb.print_exc()
+                if self.page:
+                    self.page.run_task(self._aplicar_error, str(ex))
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    async def _aplicar_pagina(self, ventas, controles, ultima_vigente, reset):
+        self._cargando = False
+        if reset:
+            self.lv_ventas.controls.clear()
+            self._total_mostrados = 0
+            self._ultima_vigente = None
+        if ultima_vigente and self._ultima_vigente is None:
+            self._ultima_vigente = ultima_vigente
         if not ventas:
-            self.lv_ventas.controls.append(ft.Container(
-                content=ft.Column([
-                    ft.Icon(ft.Icons.RECEIPT_LONG_ROUNDED, size=80, color="#9E9E9E"),
-                    ft.Container(height=16),
-                    ft.Text("No hay ventas registradas", size=16, color="#9E9E9E"),
-                    ft.Text("Cobre una comanda para registrar su primera venta", size=13, color="#757575"),
-                ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                alignment=ft.alignment.center, expand=True, padding=40,
-            ))
+            if not self._total_mostrados:
+                self.lv_ventas.controls.append(self._empty_state())
+            self._tiene_mas = False
+        else:
+            self.lv_ventas.controls.extend(controles)
+            self._total_mostrados += len(controles)
+            self._borde_id = ventas[-1]['id']
+            self._tiene_mas = len(ventas) >= self._limite
         self.btn_anular_ultima.disabled = self._ultima_vigente is None
+        self._actualizar_pie()
         if self.page:
-            self.update()
+            try:
+                self.update()
+            except Exception:
+                pass
 
-    def _build_venta_card(self, venta: dict, mesas: dict, habs: dict):
+    async def _aplicar_error(self, err):
+        self._cargando = False
+        self._txt_info.value = ""
+        self._btn_cargar_mas.disabled = True
+        self.lv_ventas.controls.clear()
+        self.lv_ventas.controls.append(ft.Container(
+            content=ft.Column([
+                ft.Icon(ft.Icons.ERROR_OUTLINE_ROUNDED, size=50, color="#EF5350"),
+                ft.Container(height=10),
+                ft.Text("Error al cargar las ventas", size=15, color=ft.Colors.WHITE),
+                ft.Text(err, size=12, color="#9E9E9E", text_align=ft.TextAlign.CENTER),
+                ft.OutlinedButton("Reintentar", icon=ft.Icons.REFRESH_ROUNDED,
+                                  on_click=lambda _: self._cargar_pagina(reset=True)),
+            ], horizontal_alignment=ft.CrossAxisAlignment.CENTER),
+            alignment=ft.Alignment.CENTER, expand=True, padding=40,
+        ))
+        if self.page:
+            try:
+                self.update()
+            except Exception:
+                pass
+
+    def _build_venta_card(self, venta: dict, mesas: dict, habs: dict, correlativos: dict):
         correlativo = venta.get('correlativo')
         numero = f"{correlativo:05d}" if correlativo is not None else f"#{venta.get('comanda_id', '?')}"
         fecha = (venta.get('created_at') or '')[:16].replace('T', ' ')
@@ -81,9 +193,9 @@ class VentasView(ft.Container):
 
         corr_text = ""
         if venta.get('venta_anula_id'):
-            corr_venta = LocalReplica.get_venta_by_id(venta['venta_anula_id'])
-            if corr_venta and corr_venta.get('correlativo') is not None:
-                corr_text = f"Corrige comanda {corr_venta['correlativo']:05d}"
+            corr_num = correlativos.get(venta['venta_anula_id'])
+            if corr_num is not None:
+                corr_text = f"Corrige comanda {corr_num:05d}"
 
         tasa_bs = venta.get('tasa_bs')
         if tasa_bs:
@@ -101,7 +213,7 @@ class VentasView(ft.Container):
                             size=9, weight=ft.FontWeight.BOLD,
                             color="#4CAF50" if vigente else "#EF5350"),
             bgcolor="#1B5E20" if vigente else "#B71C1C",
-            border_radius=10, padding=ft.padding.symmetric(horizontal=8, vertical=2),
+            border_radius=10, padding=ft.Padding.symmetric(horizontal=8, vertical=2),
         )
 
         actions = []
@@ -117,7 +229,7 @@ class VentasView(ft.Container):
                 ft.Container(
                     content=ft.Text(numero, size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
                     width=52, height=52, bgcolor="#1E88E5", border_radius=26,
-                    alignment=ft.alignment.center,
+                    alignment=ft.Alignment.CENTER,
                 ),
                 ft.Container(width=12),
                 ft.Column([
@@ -140,9 +252,9 @@ class VentasView(ft.Container):
                 *actions,
             ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
             bgcolor="#1E1E1E",
-            border=ft.border.all(1, "#3D3D3D"),
+            border=ft.Border.all(1, "#3D3D3D"),
             border_radius=12,
-            padding=ft.padding.symmetric(horizontal=14, vertical=10),
+            padding=ft.Padding.symmetric(horizontal=14, vertical=10),
             on_click=lambda _, v=venta: self._ver_detalle(v),
         )
 
@@ -209,7 +321,7 @@ class VentasView(ft.Container):
                             size=10, weight=ft.FontWeight.BOLD,
                             color="#4CAF50" if vigente else "#EF5350"),
             bgcolor="#1B5E20" if vigente else "#B71C1C",
-            border_radius=10, padding=ft.padding.symmetric(horizontal=10, vertical=3),
+            border_radius=10, padding=ft.Padding.symmetric(horizontal=10, vertical=3),
         )
 
         total_bs_text = ft.Container()
@@ -327,7 +439,7 @@ class VentasView(ft.Container):
 
     def _ir_a_comanda(self, venta: dict):
         if not self.page:
-            self._load_ventas()
+            self._cargar_pagina(reset=True)
             return
         mesa = None
         habitacion = None
@@ -347,7 +459,7 @@ class VentasView(ft.Container):
             self.page.update()
             self._show_snack("Venta anulada. Corrija la comanda y cobre de nuevo.", color="#4CAF50")
         else:
-            self._load_ventas()
+            self._cargar_pagina(reset=True)
 
     def _show_snack(self, msg, color="#4CAF50"):
         from usr.notifications import show_success, show_error, show_warning, show_info
@@ -402,7 +514,7 @@ class VentasView(ft.Container):
         avatar_color = "#FF9800" if es_admin else "#7C4DFF"
         avatar = ft.Container(
             content=ft.Text(iniciales, size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
-            width=36, height=36, bgcolor=avatar_color, border_radius=18, alignment=ft.alignment.center,
+            width=36, height=36, bgcolor=avatar_color, border_radius=18, alignment=ft.Alignment.CENTER,
         )
         user_info = ft.Column([
             ft.Text(nombre, size=14, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
@@ -422,8 +534,8 @@ class VentasView(ft.Container):
                 ft.IconButton(icon=ft.Icons.LOGOUT_ROUNDED, icon_color="#EF5350",
                               tooltip="Cerrar sesion", on_click=lambda _: self._cerrar_sesion()),
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            bgcolor="#1E1E1E", border=ft.border.only(bottom=ft.BorderSide(1, "#3D3D3D")),
-            padding=ft.padding.symmetric(horizontal=20, vertical=10),
+            bgcolor="#1E1E1E", border=ft.Border(bottom=ft.BorderSide(1, "#3D3D3D")),
+            padding=ft.Padding.symmetric(horizontal=20, vertical=10),
         )
 
     def _cerrar_sesion(self):

@@ -1,4 +1,4 @@
-name: Build Android APK (Standard Fix 2026)
+name: Build Android APK (Flet 0.86)
 on:
   push:
     branches: [ main ]
@@ -21,27 +21,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libgles2-mesa-dev libpango1.0-dev
 
-      - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.24.5'
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.12'
 
-      - name: Install Flet & Tools
+      - name: Install Flet 0.86
         run: |
-          pip install flet==0.28.3 cookiecutter setuptools wheel
-          
+          pip install flet==0.86.5 cookiecutter setuptools wheel
 
       - name: Build APK
         run: |
-          # 1. Aceptar licencias de forma robusta
+          # 1. Aceptar licencias de Android
           yes | flutter doctor --android-licenses || true
 
-          # 2. Inyectar Secretos
+          # 2. Inyectar Secretos en .env (para compatibilidad con código legacy)
           cat << EOF > .env
           DB_TYPE=postgresql
           DB_HOST=${{ secrets.DB_HOST }}
@@ -56,51 +50,39 @@ jobs:
 
           mkdir -p config
           cp .env config/.env
-          
-          # 3. Requirements limpios
-          cat << EOF > requirements.txt
-          flet==0.28.3
-          supabase
-          sqlalchemy
-          greenlet
-          pg8000
-          pydantic
-          flet-webview
-          pydantic-settings
-          python-dotenv
-          certifi
-          Pillow
-          openpyxl
-          requests
+
+          # Credenciales empaquetadas: config/db_config.py (módulo Python normal)
+          # SIEMPRE viaja dentro del APK (a diferencia de .env, archivo oculto).
+          # config/config.py lo usa como respaldo si no encuentra el .env.
+          cat << EOF > config/db_config.py
+          DB_TYPE = "postgresql"
+          DB_HOST = "${{ secrets.DB_HOST }}"
+          DB_PORT = "6543"
+          DB_NAME = "${{ secrets.DB_NAME }}"
+          DB_USER = "${{ secrets.DB_USER }}"
+          DB_PASSWORD = "${{ secrets.DB_PASSWORD }}"
+          SQLITE_PATH = "./control_entradas_salidas.db"
           EOF
 
-          # 1. Creamos el archivo de extensión de Flet (La llave maestra)
-          cat << EOF > ext.yaml
-          android:
-            permissions:
-              - android.permission.INTERNET
-              - android.permission.POST_NOTIFICATIONS
-              - android.permission.WAKE_LOCK
-            manifest_placeholders:
-              appName: "Lycoris Control"
-          EOF
-
-          # 2. Google Services en la raíz (Indispensable)
+          # 3. Google Services (requerido para FCM/notificaciones)
           echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > google-services.json
-          
-          # 4. Construcción (Quitamos --project que a veces causa conflictos con --product)
+
+          # 4. Construcción con Flet 0.86
+          # - python-version 3.12: pin para wheels nativas (pillow, pg8000, certifi, etc.)
+          # - compile on by default (pyproject.toml compile.app/packages = true) -> .pyc precompilados
+          # - android modern packaging (mmap .so desde APK, sin extracción)
+          # - web renderer canvaskit (pyproject.toml web.renderer = "canvaskit")
           flet build apk \
             --product "Lycoris Control" \
             --org "com.reidchend.lycoris" \
-            --build-number 7 \
-            --build-version "1.1.27" \
-            --no-rich-output 
-        env:
-          CI: true
+            --python-version 3.12 \
+            --build-number 8 \
+            --build-version "1.3.22" \
+            --yes \
+            --no-rich-output
 
       - name: Rename APK
         run: |
-          # Usamos un comando más flexible por si genera varios APKs
           find build/apk -name "*.apk" -exec mv {} build/apk/LycorisControl.apk \;
 
       - name: Upload APK

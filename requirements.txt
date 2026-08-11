@@ -1,11 +1,10 @@
-flet==0.28.3
+flet==0.86.5
 Pillow
 pg8000
 pydantic-settings
 python-dotenv
 SQLAlchemy
 certifi
-google-genai>=2.0.0
 openpyxl
 pyserial
 pyusb

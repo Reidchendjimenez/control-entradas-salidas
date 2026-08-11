@@ -9,6 +9,7 @@ Delega la lógica a submódulos:
 - historial_view.py: tab Historial
 """
 import flet as ft
+import logging
 
 from usr.database.base import check_connection
 from usr.views.producciones import data
@@ -17,6 +18,8 @@ from usr.views.producciones.recetas_view import render_recetas
 from usr.views.producciones.pendientes_view import build_pendientes_tab
 from usr.views.producciones.historial_view import build_historial_tab
 
+logger = logging.getLogger(__name__)
+
 
 class ProduccionesView(ft.Container):
     def __init__(self):
@@ -24,27 +27,30 @@ class ProduccionesView(ft.Container):
         self.visible = False
         self.expand = True
         self.bgcolor = '#1A1A1A'
-        self.padding = ft.padding.all(0)
+        self.padding = ft.Padding.all(0)
         self._running = False
 
         self._recetas = []
         self._productos = []
 
         self.tabs = ft.Tabs(
+            length=3,
             selected_index=0,
             animation_duration=300,
-            tabs=[
-                ft.Tab(text="Recetas", icon=ft.Icons.DESCRIPTION_OUTLINED),
-                ft.Tab(text="En Producción", icon=ft.Icons.PENDING_ACTIONS),
-                ft.Tab(text="Historial", icon=ft.Icons.HISTORY_OUTLINED),
-            ],
             on_change=self._on_tab_change,
+            content=ft.Column(controls=[
+                ft.TabBar(tabs=[
+                    ft.Tab(label="Recetas", icon=ft.Icons.DESCRIPTION_OUTLINED),
+                    ft.Tab(label="En Producción", icon=ft.Icons.PENDING_ACTIONS),
+                    ft.Tab(label="Historial", icon=ft.Icons.HISTORY_OUTLINED),
+                ]),
+            ]),
         )
 
-        self.recetas_container = ft.Container(expand=True, padding=ft.padding.all(0))
+        self.recetas_container = ft.Container(expand=True, padding=ft.Padding.all(0))
         self.recetas_list = ft.Column(spacing=8, scroll=ft.ScrollMode.ALWAYS, expand=True)
-        self.pendientes_container = ft.Container(expand=True, padding=ft.padding.all(20), visible=False)
-        self.historial_container = ft.Container(expand=True, padding=ft.padding.all(20), visible=False)
+        self.pendientes_container = ft.Container(expand=True, padding=ft.Padding.all(20), visible=False)
+        self.historial_container = ft.Container(expand=True, padding=ft.Padding.all(20), visible=False)
         self.editor_container = ft.Container(expand=True, padding=0, bgcolor='#1A1A1A', visible=False)
 
         self._connection_indicator = ft.Icon(
@@ -52,11 +58,22 @@ class ProduccionesView(ft.Container):
         )
 
     def did_mount(self):
-        self._running = True
-        self._build_ui()
-        if self.page:
-            self.page.run_task(self._load_data)
-        self._update_connection_indicator()
+        if getattr(self, '_mounted', False):
+            return
+        try:
+            try:
+                page = self.page
+            except RuntimeError:
+                return
+            self._running = True
+            self._build_ui()
+            if page:
+                page.run_task(self._load_data)
+            self._update_connection_indicator()
+            self._mounted = True
+        except Exception as e:
+            self._mounted = False
+            logger.error(f"Error en did_mount de ProduccionesView: {e}", exc_info=True)
 
     def will_unmount(self):
         self._running = False
@@ -74,8 +91,11 @@ class ProduccionesView(ft.Container):
             self._connection_indicator.icon = ft.Icons.CLOUD_DONE if is_online else ft.Icons.CLOUD_OFF
             self._connection_indicator.color = '#4CAF50' if is_online else '#F44336'
             self._connection_indicator.tooltip = "Conectado" if is_online else "Sin conexión"
-            if self.page:
-                self.page.update()
+            try:
+                _ = self._connection_indicator.page
+                self._connection_indicator.update()
+            except RuntimeError:
+                pass
         except Exception:
             pass
 
@@ -89,7 +109,7 @@ class ProduccionesView(ft.Container):
                 ft.Container(expand=True),
                 self._connection_indicator,
             ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=ft.padding.only(left=20, top=20, right=20, bottom=10),
+            padding=ft.Padding.only(left=20, top=20, right=20, bottom=10),
         )
 
         self.recetas_container.content = ft.Column([
@@ -97,19 +117,19 @@ class ProduccionesView(ft.Container):
                 content=ft.Row([
                     ft.Text("", expand=True),
                     ft.ElevatedButton(
-                        text="+ Nueva Receta",
+                        content="+ Nueva Receta",
                         icon=ft.Icons.ADD,
                         bgcolor=colors['accent'],
                         color=colors.get('white', ft.Colors.WHITE),
                         on_click=lambda _: self._open_nueva_receta(),
                     ),
                 ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
-                padding=ft.padding.only(left=20, top=10, right=20, bottom=4),
+                padding=ft.Padding.only(left=20, top=10, right=20, bottom=4),
             ),
             ft.Container(
                 content=self.recetas_list,
                 expand=True,
-                padding=ft.padding.only(left=20, top=0, right=20, bottom=20),
+                padding=ft.Padding.only(left=20, top=0, right=20, bottom=20),
             ),
         ])
         self.pendientes_container.content = build_pendientes_tab(self.page, on_change=self._on_pendiente_change)
