@@ -8,4 +8,5 @@ certifi
 openpyxl
 pyserial
 pyusb
+requests
 pywin32; sys_platform == 'win32'
