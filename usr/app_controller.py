@@ -84,9 +84,12 @@ class ControlEntradasSalidasApp:
             self.page.clean()
             self.page.update()
 
-            # Arrancar en la primera ruta; page.go dispara on_route_change,
-            # que monta la View correspondiente en page.views.
-            self.page.go(self._ROUTES[0])
+            # Arrancar en la primera ruta: page.go() es asíncrono (push_route vía
+            # create_task) y no garantiza montaje inmediato. Invocamos el handler
+            # directamente para montar la vista inicial de forma síncrona.
+            self._on_route_change(
+                type('_RouteEvent', (), {'route': self._ROUTES[0]})()
+            )
         except Exception as e:
             logger.error(f"Error crítico en arrancar_interfaz: {e}", exc_info=True)
             show_error("Error al iniciar la interfaz", e, "ControlEntradasSalidasApp.arrancar_interfaz")
