@@ -1,5 +1,17 @@
 name: Build Android APK (Flet 0.86)
 on:
+  # Disparo manual desde GitHub (Actions -> Build Android APK -> Run workflow)
+  workflow_dispatch:
+    inputs:
+      build_version:
+        description: 'Versión de la app (ej: 1.3.24)'
+        required: false
+        default: '1.3.24'
+      build_number:
+        description: 'Número de compilación/Android versionCode (ej: 9)'
+        required: false
+        default: '9'
+  # Auto-build al hacer push a main
   push:
     branches: [ main ]
 
@@ -31,6 +43,9 @@ jobs:
           pip install flet==0.86.5 cookiecutter setuptools wheel
 
       - name: Build APK
+        env:
+          BUILD_VERSION: ${{ inputs.build_version || '1.3.24' }}
+          BUILD_NUMBER: ${{ inputs.build_number || '9' }}
         run: |
           # 1. Aceptar licencias de Android
           yes | flutter doctor --android-licenses || true
@@ -76,17 +91,18 @@ jobs:
             --product "Lycoris Control" \
             --org "com.reidchend.lycoris" \
             --python-version 3.12 \
-            --build-number 8 \
-            --build-version "1.3.22" \
+            --build-number "$BUILD_NUMBER" \
+            --build-version "$BUILD_VERSION" \
             --yes \
             --no-rich-output
 
-      - name: Rename APK
+      - name: Rename APK con versión
         run: |
-          find build/apk -name "*.apk" -exec mv {} build/apk/LycorisControl.apk \;
+          find build/apk -name "*.apk" -exec mv {} build/apk/LycorisControl-v${{ inputs.build_version || '1.3.24' }}.apk \;
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: LycorisControl-APK
-          path: build/apk/LycorisControl.apk
+          name: LycorisControl-APK-v${{ inputs.build_version || '1.3.24' }}
+          path: build/apk/LycorisControl-v${{ inputs.build_version || '1.3.24' }}.apk
+          if-no-files-found: error
