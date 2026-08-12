@@ -159,16 +159,72 @@ class ControlEntradasSalidasApp:
             )
             self.page.navigation_bar = self.navigation_bar
 
-            # FAB persistente para toggle de tema (fuera de page.views, no anima)
-            self.theme_fab = ft.FloatingActionButton(
-                icon=ft.Icons.LIGHT_MODE,
-                tooltip="Cambiar tema",
-                on_click=self._toggle_theme,
-                bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-                mini=True,
+            # NavigationDrawer lateral (se abre con botón en AppBar/FAB)
+            self.drawer = ft.NavigationDrawer(
+                selected_index=0,
+                on_change=lambda e: self._on_drawer_change(e),
+                controls=[
+                    ft.Container(height=12),
+                    ft.NavigationDrawerDestination(
+                        label="Inventario",
+                        icon=ft.Icons.SHOPPING_CART_OUTLINED,
+                        selected_icon=ft.Icons.SHOPPING_CART,
+                    ),
+                    ft.NavigationDrawerDestination(
+                        label="Validación",
+                        icon=ft.Icons.CHECKLIST_OUTLINED,
+                        selected_icon=ft.Icons.CHECKLIST,
+                    ),
+                    ft.NavigationDrawerDestination(
+                        label="Stock",
+                        icon=ft.Icons.WAREHOUSE_OUTLINED,
+                        selected_icon=ft.Icons.WAREHOUSE,
+                    ),
+                    ft.Divider(),
+                    ft.NavigationDrawerDestination(
+                        label="Producciones",
+                        icon=ft.Icons.FACTORY_OUTLINED,
+                        selected_icon=ft.Icons.FACTORY,
+                    ),
+                    ft.NavigationDrawerDestination(
+                        label="Requisiciones",
+                        icon=ft.Icons.LOCAL_SHIPPING_OUTLINED,
+                        selected_icon=ft.Icons.LOCAL_SHIPPING,
+                    ),
+                    ft.NavigationDrawerDestination(
+                        label="Historial",
+                        icon=ft.Icons.HISTORY_OUTLINED,
+                        selected_icon=ft.Icons.HISTORY,
+                    ),
+                    ft.NavigationDrawerDestination(
+                        label="Ajustes",
+                        icon=ft.Icons.SETTINGS_OUTLINED,
+                        selected_icon=ft.Icons.SETTINGS,
+                    ),
+                    ft.NavigationDrawerDestination(
+                        label="Bandeja",
+                        icon=ft.Icons.MAIL_OUTLINED,
+                        selected_icon=ft.Icons.MAIL,
+                    ),
+                    ft.Divider(),
+                    ft.ListTile(
+                        leading=ft.Icon(ft.Icons.LIGHT_MODE, color=ft.Colors.AMBER),
+                        title=ft.Text("Cambiar tema"),
+                        on_click=lambda e: (self._close_drawer(), self._toggle_theme()),
+                    ),
+                ],
             )
-            self.page.floating_action_button = self.theme_fab
-            self.page.floating_action_button_location = ft.FloatingActionButtonLocation.END_FLOAT
+            self.page.drawer = self.drawer
+
+            # Botón en FAB para abrir el drawer
+            self.open_drawer_btn = ft.FloatingActionButton(
+                icon=ft.Icons.MENU,
+                tooltip="Menú",
+                on_click=lambda e: self._open_drawer(),
+                bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+            )
+            self.page.floating_action_button = self.open_drawer_btn
+            self.page.floating_action_button_location = ft.FloatingActionButtonLocation.START_FLOAT
 
             # Cada tab construye su propia ft.View (solo contenido + barra de sync).
             for index, route in enumerate(self._ROUTES):
@@ -387,6 +443,25 @@ class ControlEntradasSalidasApp:
         except Exception as e:
             logger.error(f"Error en _on_navigation_change: {e}", exc_info=True)
             show_error("Error al cambiar de vista", e, "ControlEntradasSalidasApp._on_navigation_change")
+
+    def _open_drawer(self):
+        if self.page and hasattr(self, 'drawer'):
+            self.page.open(self.drawer)
+
+    def _close_drawer(self):
+        if self.page and hasattr(self, 'drawer'):
+            self.page.close(self.drawer)
+
+    def _on_drawer_change(self, e):
+        if self.page is None:
+            return
+        try:
+            index = int(e.control.selected_index)
+            self.page.go(self._ROUTES[index])
+            self._close_drawer()
+        except Exception as e:
+            logger.error(f"Error en _on_drawer_change: {e}", exc_info=True)
+            show_error("Error al cambiar de vista", e, "ControlEntradasSalidasApp._on_drawer_change")
 
     def _show_view(self, index: int):
         """Compatibilidad: navega a la ruta del tab indicado."""
