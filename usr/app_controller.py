@@ -252,11 +252,12 @@ class ControlEntradasSalidasApp:
                 icon=ft.Icons.MENU, tooltip="Abrir menú", on_click=self._open_drawer, visible=False,
             )
             self.header_right = ft.Row(
-                [self.header_actions, self.menu_button, self.theme_toggle],
+                [self.header_actions, self.theme_toggle],
                 spacing=4, alignment=ft.MainAxisAlignment.END, vertical_alignment=ft.CrossAxisAlignment.CENTER,
             )
             self.app_header = ft.Container(
                 content=ft.Row([
+                    self.menu_button,
                     self.header_icon,
                     ft.Column([self.header_title, self.header_subtitle], spacing=0),
                     ft.Container(expand=True),
