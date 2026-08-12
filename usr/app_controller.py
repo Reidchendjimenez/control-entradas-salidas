@@ -449,11 +449,13 @@ class ControlEntradasSalidasApp:
 
     def _open_drawer(self):
         if self.page and hasattr(self, 'drawer'):
-            self.page.open(self.drawer)
+            self.drawer.open = True
+            self.page.update()
 
     def _close_drawer(self):
         if self.page and hasattr(self, 'drawer'):
-            self.page.close(self.drawer)
+            self.drawer.open = False
+            self.page.update()
 
     def _on_drawer_change(self, e):
         if self.page is None:
