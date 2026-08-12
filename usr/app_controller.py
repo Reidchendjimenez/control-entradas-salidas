@@ -216,15 +216,16 @@ class ControlEntradasSalidasApp:
             )
             self.page.drawer = self.drawer
 
-            # Botón en FAB para abrir el drawer
+            # Botón en FAB para abrir el drawer (END_FLOAT = abajo-derecha, no choca con NavigationBar)
             self.open_drawer_btn = ft.FloatingActionButton(
                 icon=ft.Icons.MENU,
                 tooltip="Menú",
                 on_click=lambda e: self._open_drawer(),
                 bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+                mini=True,
             )
             self.page.floating_action_button = self.open_drawer_btn
-            self.page.floating_action_button_location = ft.FloatingActionButtonLocation.START_FLOAT
+            self.page.floating_action_button_location = ft.FloatingActionButtonLocation.END_FLOAT
 
             # Cada tab construye su propia ft.View (solo contenido + barra de sync).
             for index, route in enumerate(self._ROUTES):
