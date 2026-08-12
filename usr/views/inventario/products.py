@@ -34,8 +34,8 @@ def create_producto_item(producto, stock_por_almacen, colors, callbacks):
 
     es_pesable = getattr(producto, 'es_pesable', False)
     badge_pesable = ft.Container(
-        content=ft.Text("PESABLE", size=9, color='#FFFFFF', weight="bold"),
-        bgcolor='#FF9800',
+        content=ft.Text("PESABLE", size=9, color=colors['white'], weight="bold"),
+        bgcolor=colors['warning'],
         padding=ft.Padding.symmetric(horizontal=4, vertical=1),
         border_radius=3
     ) if es_pesable else ft.Container()
@@ -55,7 +55,7 @@ def create_producto_item(producto, stock_por_almacen, colors, callbacks):
                 ft.Row([ft.Text(str(producto.nombre), weight="bold", size=14, color=colors['text_primary']), badge_pesable], spacing=5),
                 ft.Row([
                     ft.Container(
-                        content=ft.Text(f"Stock: {stock}", size=10, weight="bold", color='#FFFFFF'),
+                        content=ft.Text(f"Stock: {stock}", size=10, weight="bold", color=colors['white']),
                         bgcolor=stock_color, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=5
                     ),
                     ft.Text(f"Mín: {stock_min}", size=10, color=colors['text_secondary']),
@@ -98,7 +98,7 @@ def create_producto_item_from_dict(prod_dict, stock_por_almacen, colors, callbac
                 ft.Row([ft.Text(str(prod_dict.get("nombre", "")), weight="bold", size=14, color=colors['text_primary'])], spacing=5),
                 ft.Row([
                     ft.Container(
-                        content=ft.Text(f"Stock: {stock}", size=10, weight="bold", color='#FFFFFF'),
+                        content=ft.Text(f"Stock: {stock}", size=10, weight="bold", color=colors['white']),
                         bgcolor=stock_color, padding=ft.Padding.symmetric(horizontal=6, vertical=2), border_radius=5
                     ),
                     ft.Text(f"Mín: {stock_min}", size=10, color=colors['text_secondary']),

@@ -50,7 +50,6 @@ class StockView(ft.Container):
             except RuntimeError:
                 return
             self._build_ui()
-            page.run_task(self._initial_load)
             page.run_task(self._start_connection_monitor)
             
             from usr.database.sync_callbacks import register_sync_callback
@@ -64,6 +63,11 @@ class StockView(ft.Container):
         self._conn_check_active = False
         from usr.database.sync_callbacks import unregister_sync_callback
         unregister_sync_callback(self._on_sync_complete)
+
+    def on_view_shown(self):
+        # Al mostrar la vista: devuelve el futuro de la carga.
+        if self.page:
+            return self.page.run_task(self._initial_load)
 
     async def _initial_load(self):
         try:
@@ -142,6 +146,7 @@ class StockView(ft.Container):
 
     def _update_connection_indicator(self):
         try:
+            colors = get_safe_colors(self.page)
             from usr.database.base import is_online as base_is_online
             from usr.database import get_pending_movimientos_count
             
@@ -156,10 +161,10 @@ class StockView(ft.Container):
             online = base_is_online()
             
             if online:
-                self._connection_indicator.content = ft.Icon(ft.Icons.WIFI, color=ft.Colors.GREEN_400, size=18)
+                self._connection_indicator.content = ft.Icon(ft.Icons.WIFI, color=colors['success'], size=18)
                 self._connection_indicator.tooltip = f"Conectado - {pending} cambios pendientes" if pending else "Conectado"
             else:
-                self._connection_indicator.content = ft.Icon(ft.Icons.WIFI_OFF, color=ft.Colors.RED_400, size=18)
+                self._connection_indicator.content = ft.Icon(ft.Icons.WIFI_OFF, color=colors['error'], size=18)
                 self._connection_indicator.tooltip = f"Modo offline - {pending} cambios pendientes"
             
             self._connection_indicator.update()
@@ -180,36 +185,26 @@ class StockView(ft.Container):
         self.bgcolor = colors['bg']
         
         self._connection_indicator = ft.Container(
-            content=ft.Icon(ft.Icons.WIFI, color=ft.Colors.GREEN_400, size=18),
+            content=ft.Icon(ft.Icons.WIFI, color=colors['success'], size=18),
             tooltip="Conectado",
             padding=5,
             on_click=self._on_sync_indicator_click
         )
         
-        header = ft.Container(
-            content=ft.Row([
-                ft.Column([
-                    ft.Text("Gestión de Stock", size=24, weight=ft.FontWeight.BOLD, color=colors['text_primary']),
-                    ft.Text("Control e inventario de productos y pesaje", size=14, color=colors['text_secondary']),
-                ], spacing=2, expand=True),
-                self._connection_indicator,
-                ft.IconButton(
-                    icon=ft.Icons.REFRESH_ROUNDED,
-                    icon_color=colors['text_secondary'],
-                    on_click=lambda _: self._on_refresh(),
-                    tooltip="Recargar datos"
-                )
-            ]),
-            padding=ft.Padding.symmetric(horizontal=16, vertical=12)
+        self._btn_refresh = ft.IconButton(
+            icon=ft.Icons.REFRESH_ROUNDED,
+            icon_color=colors['text_secondary'],
+            on_click=lambda _: self._on_refresh(),
+            tooltip="Recargar datos"
         )
         
         self.summary_container = ft.Container(
             content=ft.Row([
-                build_stat_card("Total", self.total_productos_text, ft.Icons.INVENTORY_2, '#2196F3', 
+                build_stat_card("Total", self.total_productos_text, ft.Icons.INVENTORY_2, colors['info'], 
                                 on_click=lambda _: self._filter_by_stock_status("all"), active=(self.current_stock_filter == "all")),
-                build_stat_card("Bajo Stock", self.stock_bajo_text, ft.Icons.WARNING_AMBER, '#FF9800', 
+                build_stat_card("Bajo Stock", self.stock_bajo_text, ft.Icons.WARNING_AMBER, colors['warning'], 
                                 on_click=lambda _: self._filter_by_stock_status("low"), active=(self.current_stock_filter == "low")),
-                build_stat_card("Agotado", self.sin_stock_text, ft.Icons.ERROR_OUTLINE, '#F44336', 
+                build_stat_card("Agotado", self.sin_stock_text, ft.Icons.ERROR_OUTLINE, colors['error'], 
                                 on_click=lambda _: self._filter_by_stock_status("out"), active=(self.current_stock_filter == "out")),
             ], scroll=ft.ScrollMode.HIDDEN, spacing=12),
             padding=ft.Padding.symmetric(horizontal=16),
@@ -280,12 +275,14 @@ class StockView(ft.Container):
         )
 
         self.content = ft.Column([
-            header,
             self.scroll_body,
         ], spacing=0, expand=True)
         self.content.bgcolor = colors['bg']
         self.content.bgcolor = colors['bg']
         self.update()
+
+    def get_header_actions(self):
+        return [self._connection_indicator, self._btn_refresh]
 
     def _load_categorias(self):
         try:
@@ -545,12 +542,13 @@ class StockView(ft.Container):
 
     def _filter_by_stock_status(self, status):
         self.current_stock_filter = status
+        colors = get_safe_colors(self.page)
         self.summary_container.content = ft.Row([
-            build_stat_card("Total", self.total_productos_text, ft.Icons.INVENTORY_2, '#2196F3', 
+            build_stat_card("Total", self.total_productos_text, ft.Icons.INVENTORY_2, colors['info'], 
                             on_click=lambda _: self._filter_by_stock_status("all"), active=(self.current_stock_filter == "all")),
-            build_stat_card("Bajo Stock", self.stock_bajo_text, ft.Icons.WARNING_AMBER, '#FF9800', 
+            build_stat_card("Bajo Stock", self.stock_bajo_text, ft.Icons.WARNING_AMBER, colors['warning'], 
                             on_click=lambda _: self._filter_by_stock_status("low"), active=(self.current_stock_filter == "low")),
-            build_stat_card("Agotado", self.sin_stock_text, ft.Icons.ERROR_OUTLINE, '#F44336', 
+            build_stat_card("Agotado", self.sin_stock_text, ft.Icons.ERROR_OUTLINE, colors['error'], 
                             on_click=lambda _: self._filter_by_stock_status("out"), active=(self.current_stock_filter == "out")),
         ], scroll=ft.ScrollMode.HIDDEN, spacing=12)
         if self.page and self.visible:

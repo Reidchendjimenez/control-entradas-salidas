@@ -41,7 +41,7 @@ def build_pendientes_tab(page, on_change):
             card = ft.Container(
                 content=ft.Column([
                     ft.Row([
-                        ft.Icon(ft.Icons.PENDING_ACTIONS, color='#FF9800', size=22),
+                        ft.Icon(ft.Icons.PENDING_ACTIONS, color=colors['warning'], size=22),
                         ft.Column([
                             ft.Text(
                                 f"{receta.get('nombre', '?')}",
@@ -75,7 +75,7 @@ def build_pendientes_tab(page, on_change):
                             "Descargar",
                             icon=ft.Icons.PLAY_ARROW,
                             bgcolor=colors['accent'],
-                            color=colors.get('white', ft.Colors.WHITE),
+                            color=colors['white'],
                             on_click=lambda _, p=produccion, r=receta: descargo_dialog(page, p, r, on_completed=on_change),
                         ),
                         ft.Container(width=8),

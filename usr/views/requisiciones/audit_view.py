@@ -70,13 +70,13 @@ class AuditView(ft.Container):
             overlay = ft.Container(
                 content=ft.Container(
                     content=ft.Column([
-                        ft.ProgressBar(width=200, color=colors.get('accent', ft.Colors.PURPLE), bgcolor=ft.Colors.TRANSPARENT),
-                        ft.Text(message, size=13, color=colors.get('text_primary'), weight="w500", text_align=ft.TextAlign.CENTER),
+                        ft.ProgressBar(width=200, color=colors['accent'], bgcolor=ft.Colors.TRANSPARENT),
+                        ft.Text(message, size=13, color=colors['text_primary'], weight="w500", text_align=ft.TextAlign.CENTER),
                     ], tight=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                    bgcolor=colors.get('card', '#252525'),
+                    bgcolor=colors['card'],
                     padding=20,
                     border_radius=15,
-                    border=ft.Border.all(1, colors.get('border')),
+                    border=ft.Border.all(1, colors['border']),
                     width=250,
                 ),
                 bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),

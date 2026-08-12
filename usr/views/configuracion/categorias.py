@@ -223,7 +223,7 @@ def _create_categoria_card(view, c):
             ft.Row([
                 ft.Container(
                     content=ft.Row([
-                        ft.Icon(ft.Icons.CIRCLE, size=8, color=colors['success'] if c.activo else "#9E9E9E"),
+                        ft.Icon(ft.Icons.CIRCLE, size=8, color=colors['success'] if c.activo else colors['text_hint']),
                         ft.Text("Activo" if c.activo else "Inactivo", size=11, color=colors['text_secondary']),
                     ], spacing=5),
                 ),
@@ -274,7 +274,7 @@ def create_categoria_item_mobile(view, c):
             ft.Row([
                 ft.Container(
                     content=ft.Row([
-                        ft.Icon(ft.Icons.CIRCLE, size=6, color=colors['success'] if c.activo else "#9E9E9E"),
+                        ft.Icon(ft.Icons.CIRCLE, size=6, color=colors['success'] if c.activo else colors['text_hint']),
                         ft.Text("Activo" if c.activo else "Inactivo", size=10, color=colors['text_secondary']),
                     ], spacing=4),
                 ),

@@ -1,9 +1,11 @@
 import asyncio
 import concurrent.futures
 import time
+from functools import partial
 import flet as ft
 from usr.logger import get_logger
 from usr.error_handler import show_error
+from usr.theme import get_theme
 
 logger = get_logger(__name__)
 
@@ -90,15 +92,16 @@ class ControlEntradasSalidasApp:
         if not self.page:
             return
         self.page.theme = ft.Theme(color_scheme_seed=ft.Colors.DEEP_PURPLE_700, visual_density=ft.VisualDensity.COMFORTABLE, use_material3=True)
-        self.page.bgcolor = '#1A1A1A'
+        self.page.bgcolor = get_theme(True)['bg']
 
     def _header_colors(self):
         is_dark = getattr(self.page, 'theme_mode', None) != ft.ThemeMode.LIGHT
+        c = get_theme(is_dark)
         return {
-            'bg': '#1E1E1E' if is_dark else '#FFFFFF',
-            'title': '#FFFFFF' if is_dark else '#1A1A1A',
-            'subtitle': '#AAAAAA' if is_dark else '#666666',
-            'icon': '#BB86FC' if is_dark else '#6200EE',
+            'bg': c['header_bg'],
+            'title': c['header_title'],
+            'subtitle': c['header_subtitle'],
+            'icon': c['header_icon'],
         }
 
     def _update_header(self, index: int):
@@ -127,16 +130,17 @@ class ControlEntradasSalidasApp:
         try:
             is_dark = self.page.theme_mode != ft.ThemeMode.DARK
             self.page.theme_mode = ft.ThemeMode.DARK if is_dark else ft.ThemeMode.LIGHT
-            self.page.bgcolor = '#1A1A1A' if is_dark else '#F5F5F5'
+            c = get_theme(is_dark)
+            self.page.bgcolor = c['bg']
 
             if hasattr(self, 'content_area') and self.content_area:
-                self.content_area.bgcolor = '#252525' if is_dark else '#FFFFFF'
+                self.content_area.bgcolor = c['surface']
 
             if hasattr(self, 'navigation_rail') and self.navigation_rail:
-                self.navigation_rail.bgcolor = '#1E1E1E' if is_dark else '#F3E5F5'
+                self.navigation_rail.bgcolor = c['nav_bg']
 
             if hasattr(self, 'drawer_panel') and self.drawer_panel:
-                self.drawer_panel.bgcolor = '#1E1E1E' if is_dark else '#FFFFFF'
+                self._refresh_drawer_style()
                 self.drawer_panel.update()
 
             if hasattr(self, 'theme_toggle') and self.theme_toggle:
@@ -164,6 +168,8 @@ class ControlEntradasSalidasApp:
 
     def _create_layout(self):
         try:
+            self._layout_is_dark = getattr(self.page, 'theme_mode', None) != ft.ThemeMode.LIGHT
+            self._layout_dc = get_theme(self._layout_is_dark)
             # Las vistas se apilan en un Stack y el cambio es natural (sin
             # deslizamiento). Mientras una vista carga, se muestra un overlay
             # de carga encima del Stack para dar feedback inmediato al usuario.
@@ -175,8 +181,8 @@ class ControlEntradasSalidasApp:
                 bgcolor=ft.Colors.with_opacity(0.55, ft.Colors.BLACK),
                 alignment=ft.Alignment.CENTER,
                 content=ft.Column([
-                    ft.ProgressRing(width=38, height=38, stroke_width=3, color='#BB86FC'),
-                    ft.Text("Cargando vista…", size=14, color='#E0E0E0'),
+                    ft.ProgressRing(width=38, height=38, stroke_width=3, color=self._layout_dc['accent']),
+                    ft.Text("Cargando vista…", size=14, color=self._layout_dc['text_hint']),
                 ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, alignment=ft.MainAxisAlignment.CENTER, expand=True, spacing=14),
             )
 
@@ -197,26 +203,62 @@ class ControlEntradasSalidasApp:
                 (ft.Icons.MAIL_OUTLINED, "Bandeja"),
             ]
             is_dark = getattr(self.page, 'theme_mode', None) != ft.ThemeMode.LIGHT
+            dc = get_theme(is_dark)
+            self._drawer_active_bg = dc['drawer_active_bg']
+            self._drawer_active_fg = dc['drawer_active_fg']
+            self._drawer_inactive_fg = dc['drawer_inactive_fg']
+            self._drawer_on_surface = dc['drawer_on_surface']
+
+            self.drawer_title = ft.Text(
+                "Menú", size=22, weight=ft.FontWeight.BOLD, color=self._drawer_on_surface,
+            )
+
+            cur = self.current_view_index or 0
+            self._drawer_items = []
+            drawer_item_controls = []
+            for i, (ic, lab) in enumerate(nav_items):
+                sel = (i == cur)
+                tile_icon = ft.Icon(ic, size=22, color=self._drawer_active_fg if sel else self._drawer_inactive_fg)
+                tile_text = ft.Text(
+                    lab, size=15,
+                    color=self._drawer_active_fg if sel else self._drawer_inactive_fg,
+                    weight=ft.FontWeight.W_600 if sel else ft.FontWeight.NORMAL,
+                )
+                tile = ft.Container(
+                    bgcolor=self._drawer_active_bg if sel else None,
+                    border_radius=ft.BorderRadius.all(12),
+                    padding=ft.Padding.symmetric(horizontal=14, vertical=9),
+                    animate=ft.Animation(150, ft.AnimationCurve.EASE_OUT),
+                    animate_scale=ft.Animation(120, ft.AnimationCurve.EASE_OUT),
+                    on_hover=lambda e, idx=i: self._on_drawer_tile_hover(e, idx),
+                    on_click=partial(self._on_drawer_tile_click, i),
+                    content=ft.Row([
+                        tile_icon,
+                        tile_text,
+                    ], spacing=16, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                )
+                self._drawer_items.append((tile, tile_icon, tile_text))
+                drawer_item_controls.append(tile)
+
             self.drawer_panel = ft.Container(
-                width=320,
-                bgcolor='#1E1E1E' if is_dark else '#FFFFFF',
-                padding=ft.Padding(top=24, bottom=16, left=8, right=8),
+                width=330,
+                bgcolor=dc['drawer_bg'],
+                border_radius=ft.BorderRadius.only(top_right=24, bottom_right=24),
+                shadow=ft.BoxShadow(
+                    blur_radius=24,
+                    color=ft.Colors.with_opacity(0.35, ft.Colors.BLACK),
+                    offset=ft.Offset(6, 0),
+                ),
+                padding=ft.Padding(top=28, bottom=12, left=8, right=8),
                 content=ft.Column([
                     ft.Container(
-                        content=ft.Text("Menú", size=20, weight=ft.FontWeight.BOLD,
-                                        color='#FFFFFF' if is_dark else '#1A1A1A'),
-                        padding=ft.Padding(left=16, bottom=16, right=0, top=0),
+                        content=self.drawer_title,
+                        padding=ft.Padding(left=16, bottom=20, right=0, top=0),
                     ),
-                ] + [
-                    ft.ListTile(
-                        leading=ft.Icon(ic, color='#BB86FC' if i == (self.current_view_index or 0) else None),
-                        title=ft.Text(lab, color='#E0E0E0' if is_dark else '#1A1A1A'),
-                        selected=(i == (self.current_view_index or 0)),
-                        on_click=lambda e, idx=i: self._select_drawer_item(idx),
-                    ) for i, (ic, lab) in enumerate(nav_items)
-                ], scroll=ft.ScrollMode.AUTO, spacing=2),
+                    *drawer_item_controls,
+                ], scroll=ft.ScrollMode.AUTO, spacing=4),
             )
-            self.drawer_tiles = self.drawer_panel.content.controls[1:]
+            self.drawer_tiles = drawer_item_controls
             self.drawer_backdrop = ft.Container(
                 expand=True,
                 bgcolor=ft.Colors.with_opacity(0.45, ft.Colors.BLACK),
@@ -234,7 +276,7 @@ class ControlEntradasSalidasApp:
             self.content_area = ft.Container(
                 content=ft.Stack([self._view_stack, self.loading_overlay], expand=True),
                 expand=True,
-                bgcolor='#1A1A1A'
+                bgcolor=get_theme(is_dark)['surface']
             )
 
             self.theme_toggle = ft.IconButton(icon=ft.Icons.LIGHT_MODE, tooltip="Modo Claro", on_click=self._toggle_theme, icon_color=ft.Colors.AMBER)
@@ -255,12 +297,15 @@ class ControlEntradasSalidasApp:
                 [self.header_actions, self.theme_toggle],
                 spacing=4, alignment=ft.MainAxisAlignment.END, vertical_alignment=ft.CrossAxisAlignment.CENTER,
             )
+            # Separador flexible título/acciones; en móvil se desactiva para dar
+            # todo el ancho a las acciones (que además se vuelven deslizables).
+            self.header_spacer = ft.Container(expand=True)
             self.app_header = ft.Container(
                 content=ft.Row([
                     self.menu_button,
                     self.header_icon,
                     ft.Column([self.header_title, self.header_subtitle], spacing=0),
-                    ft.Container(expand=True),
+                    self.header_spacer,
                     self.header_right,
                 ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
                 padding=ft.Padding.symmetric(horizontal=16, vertical=10),
@@ -269,7 +314,7 @@ class ControlEntradasSalidasApp:
             )
 
             self.navigation_rail = ft.NavigationRail(
-                selected_index=0, extended=False, label_type=ft.NavigationRailLabelType.ALL, min_width=100, bgcolor='#1E1E1E',
+                selected_index=0, extended=False, label_type=ft.NavigationRailLabelType.ALL, min_width=100, bgcolor=get_theme(is_dark)['nav_bg'],
                 destinations=[
                     ft.NavigationRailDestination(icon=ft.Icons.SHOPPING_CART_OUTLINED, selected_icon=ft.Icons.SHOPPING_CART, label="Inventario"),
                     ft.NavigationRailDestination(icon=ft.Icons.CHECKLIST_OUTLINED, selected_icon=ft.Icons.CHECKLIST, label="Validación"),
@@ -294,12 +339,12 @@ class ControlEntradasSalidasApp:
 
             self.sync_status_bar = ft.Container(
                 height=0, visible=True,
-                bgcolor='#2D2D2D',
+                bgcolor=self._layout_dc['card'],
                 padding=ft.Padding.symmetric(horizontal=12, vertical=0),
                 border_radius=ft.BorderRadius.all(8),
                 content=ft.Row([
-                    ft.ProgressRing(width=14, height=14, stroke_width=2, color='#BB86FC'),
-                    ft.Text("", size=12, color='#BBBBBB', expand=True, no_wrap=False),
+                    ft.ProgressRing(width=14, height=14, stroke_width=2, color=self._layout_dc['accent']),
+                    ft.Text("", size=12, color=self._layout_dc['text_hint'], expand=True, no_wrap=False),
                 ], spacing=8, alignment=ft.MainAxisAlignment.START),
             )
 
@@ -348,6 +393,8 @@ class ControlEntradasSalidasApp:
             is_start = msg.endswith('completa...')
             is_empty = 'No hay' in msg or '0 registros' in msg or '0 requisiciones' in msg
 
+            dc = get_theme(getattr(self.page, 'theme_mode', None) != ft.ThemeMode.LIGHT)
+
             bar = self.sync_status_bar
             text = bar.content.controls[1]
             spinner = bar.content.controls[0]
@@ -358,27 +405,27 @@ class ControlEntradasSalidasApp:
                 bar.height = 30
                 spinner.visible = True
                 text.value = clean
-                text.color = '#BBBBBB'
-                bar.bgcolor = '#2D2D2D'
+                text.color = dc['text_hint']
+                bar.bgcolor = dc['card']
             elif is_done:
                 text.value = f"✓ {clean}"
-                text.color = '#4CAF50'
+                text.color = dc['success']
                 spinner.visible = False
-                bar.bgcolor = '#1B3D1B'
+                bar.bgcolor = dc['green_50']
                 # Auto-ocultar tras 4s, en el event loop (sin hilos nativos).
                 asyncio.create_task(self._hide_sync_bar(4))
             elif is_error:
                 text.value = f"✗ {clean}"
-                text.color = '#F44336'
+                text.color = dc['error']
                 spinner.visible = False
-                bar.bgcolor = '#3D1B1B'
+                bar.bgcolor = dc['red_50']
                 asyncio.create_task(self._hide_sync_bar(6))
             else:
                 bar.height = 30
                 spinner.visible = True
                 text.value = clean
-                text.color = '#BBBBBB'
-                bar.bgcolor = '#2D2D2D'
+                text.color = dc['text_hint']
+                bar.bgcolor = dc['card']
 
             if self.page:
                 self.page.update()
@@ -425,6 +472,17 @@ class ControlEntradasSalidasApp:
             self.page.navigation_bar = self.navigation_bar
             self.navigation_bar.visible = True
             self.content_area.border_radius = 0
+            # En pantallas estrechas las acciones del encabezado (p.ej. los
+            # botones de la Bandeja) no caben y se cortaban. Se dan todo el
+            # ancho disponible y se vuelven deslizables horizontalmente.
+            if hasattr(self, 'header_right') and self.header_right:
+                try:
+                    self.header_spacer.expand = False
+                    self.header_right.expand = True
+                    self.header_actions.expand = True
+                    self.header_actions.scroll = ft.ScrollMode.AUTO
+                except Exception as ex:
+                    logger.debug(f"header móvil no configurado: {ex}")
         else:
             # Escritorio: botón hamburguesa + drawer custom (lado izquierdo).
             self.navigation_rail.visible = False
@@ -432,23 +490,74 @@ class ControlEntradasSalidasApp:
             self.page.navigation_bar = None
             self.navigation_bar.visible = False
             self.content_area.border_radius = ft.BorderRadius.only(top_left=20)
+            if hasattr(self, 'header_right') and self.header_right:
+                try:
+                    self.header_spacer.expand = True
+                    self.header_right.expand = False
+                    self.header_actions.expand = False
+                    self.header_actions.scroll = None
+                except Exception as ex:
+                    logger.debug(f"header escritorio no configurado: {ex}")
 
     def _open_drawer(self, e=None):
         if not hasattr(self, 'drawer_root'):
             return
         try:
-            cur = self.current_view_index or 0
-            is_dark = getattr(self.page, 'theme_mode', None) != ft.ThemeMode.LIGHT
-            for i, tile in enumerate(self.drawer_tiles):
-                sel = (i == cur)
-                tile.selected = sel
-                tile.leading.color = '#BB86FC' if sel else None
-                tile.title.color = '#FFFFFF' if sel else ('#E0E0E0' if is_dark else '#1A1A1A')
-                tile.update()
+            self._refresh_drawer_style()
             self.drawer_root.visible = True
             self.drawer_root.update()
         except Exception as ex:
             logger.error(f"Error al abrir el drawer: {ex}", exc_info=True)
+
+    def _refresh_drawer_style(self):
+        if not hasattr(self, 'drawer_panel'):
+            return
+        try:
+            is_dark = getattr(self.page, 'theme_mode', None) != ft.ThemeMode.LIGHT
+            dc = get_theme(is_dark)
+            self._drawer_active_bg = dc['drawer_active_bg']
+            self._drawer_active_fg = dc['drawer_active_fg']
+            self._drawer_inactive_fg = dc['drawer_inactive_fg']
+            self._drawer_on_surface = dc['drawer_on_surface']
+            self.drawer_panel.bgcolor = dc['drawer_bg']
+            self.drawer_title.color = self._drawer_on_surface
+            cur = self.current_view_index or 0
+            for i in range(len(self._drawer_items)):
+                self._apply_drawer_tile_style(i, (i == cur), hover=False)
+        except Exception as ex:
+            logger.error(f"Error al actualizar estilo del drawer: {ex}", exc_info=True)
+
+    def _apply_drawer_tile_style(self, i, sel, hover=False):
+        tile, tile_icon, tile_text = self._drawer_items[i]
+        if hover:
+            is_dark = getattr(self.page, 'theme_mode', None) != ft.ThemeMode.LIGHT
+            tile.bgcolor = ft.Colors.with_opacity(0.10, ft.Colors.WHITE) if is_dark else ft.Colors.with_opacity(0.08, ft.Colors.BLACK)
+            return
+        tile.bgcolor = self._drawer_active_bg if sel else None
+        tile_icon.color = self._drawer_active_fg if sel else self._drawer_inactive_fg
+        tile_text.color = self._drawer_active_fg if sel else self._drawer_inactive_fg
+        tile_text.weight = ft.FontWeight.W_600 if sel else ft.FontWeight.NORMAL
+
+    def _on_drawer_tile_hover(self, e, i):
+        try:
+            hovering = bool(e.data)
+            sel = (i == (self.current_view_index or 0))
+            self._apply_drawer_tile_style(i, sel, hover=hovering)
+            self._drawer_items[i][0].update()
+        except Exception as ex:
+            logger.error(f"Error al procesar hover del drawer: {ex}", exc_info=True)
+
+    async def _on_drawer_tile_click(self, i, e=None):
+        try:
+            tile = self._drawer_items[i][0]
+            tile.scale = 0.96
+            tile.update()
+            await asyncio.sleep(0.10)
+            tile.scale = 1.0
+            tile.update()
+        except Exception as ex:
+            logger.error(f"Error en animación de click del drawer: {ex}", exc_info=True)
+        self._select_drawer_item(i)
 
     def _close_drawer(self):
         try:
@@ -511,10 +620,11 @@ class ControlEntradasSalidasApp:
             theme_icon = ft.Icons.LIGHT_MODE if is_dark else ft.Icons.DARK_MODE
             theme_label = "Modo Claro" if is_dark else "Modo Oscuro"
 
-            surface = '#1E1E1E' if is_dark else '#FFFFFF'
-            text_color = '#FFFFFF' if is_dark else '#1A1A1A'
-            icon_color = '#BB86FC' if is_dark else '#6200EE'
-            item_border = '#3D3D3D' if is_dark else '#E0E0E0'
+            mc = get_theme(is_dark)
+            surface = mc['more_surface']
+            text_color = mc['text_primary']
+            icon_color = mc['header_icon']
+            item_border = mc['border']
 
             def on_toggle_theme(e):
                 self._cerrar_more_menu_y_despues(self._toggle_theme)
@@ -664,6 +774,10 @@ class ControlEntradasSalidasApp:
             # quedado oculta (visible=False) al navegar fuera de ella.
             view.visible = True
             view.expand = True
+            # La vista activa siempre al 100% opaca: un kick de repintado previo
+            # (ver _kick_repintado) puede dejarla en 0.999 y su restore puede no
+            # haber llegado al cliente web.
+            view.opacity = 1.0
 
             # Ocultamos la vista anterior de inmediato (cambio natural, sin slide).
             if old is not None and old is not view and self._buscar_en_stack(old):
@@ -742,6 +856,10 @@ class ControlEntradasSalidasApp:
                 pass
             finally:
                 self._ocultar_loading()
+                # Flet web intermitente: reafirma la visibilidad y fuerza el
+                # repintado de la vista activa por si la anterior quedó pintada
+                # encima (p.ej. la Bandeja, capa más alta del Stack).
+                self._kick_repintado()
                 self._switching_view = False
                 # Procesar una intención de navegación pendiente (clic rápido).
                 pending = self._pending_view
@@ -769,6 +887,7 @@ class ControlEntradasSalidasApp:
                 self._ocultar_loading()
             except Exception:
                 pass
+            self._kick_repintado()
             self._switching_view = False
             pending = self._pending_view
             self._pending_view = None
@@ -793,6 +912,56 @@ class ControlEntradasSalidasApp:
                 self.page.update()
         except Exception:
             pass
+
+    def _kick_repintado(self):
+        """Reenvía el estado autoritativo de visibilidad del Stack y fuerza el
+        repintado de la vista activa.
+
+        En Flet web, de forma intermitente, una vista oculta quedaba pintada
+        sobre el resto (caso típico: la Bandeja, última capa del Stack, con sus
+        textos 'No hay mensajes…' y el resumen de enviados/fallidos). O el
+        cliente nunca recibió el visible=False (modelo desactualizado) o su capa
+        quedó en caché. Aquí se reafirma la visibilidad y se aplica un cambio
+        real (opacity) a la vista activa para que su capa se repinte y tape
+        cualquier contenido residual de la vista anterior.
+        """
+        try:
+            if self.page is None or not hasattr(self, '_view_stack'):
+                return
+            cur = self.current_view
+            # 1) Estado autoritativo: solo la vista activa visible.
+            for v in list(self._view_stack.controls):
+                try:
+                    target = (v is cur)
+                    if bool(v.visible) != target:
+                        v.visible = target
+                except Exception:
+                    continue
+            # 2) Cambio real sobre la vista activa para invalidar su capa.
+            if cur is not None:
+                cur.opacity = 0.999 if getattr(cur, 'opacity', 1.0) != 0.999 else 1.0
+            try:
+                self.page.update()
+            except Exception:
+                pass
+
+            async def _restaurar_opacidad():
+                await asyncio.sleep(0.06)
+                try:
+                    if cur is not None and getattr(cur, 'opacity', 1.0) != 1.0:
+                        cur.opacity = 1.0
+                    if self.page:
+                        self.page.update()
+                except Exception:
+                    pass
+
+            try:
+                self.page.run_task(_restaurar_opacidad)
+            except Exception:
+                if cur is not None:
+                    cur.opacity = 1.0
+        except Exception as ex:
+            logger.debug(f"kick_repintado falló: {ex}")
 
     def _buscar_en_stack(self, control) -> bool:
         try:

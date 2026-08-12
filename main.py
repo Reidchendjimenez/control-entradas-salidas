@@ -87,4 +87,4 @@ async def main(page: ft.Page) -> None:
 
 if __name__ == "__main__":
     import flet as ft
-    ft.run(main, assets_dir=resource_path("assets"), view=ft.AppView.WEB_BROWSER, port=8000, no_cdn=True, web_renderer=ft.WebRenderer.CANVAS_KIT)
+    ft.run(main, assets_dir=resource_path("assets"), view=ft.AppView.WEB_BROWSER, port=8000)

@@ -39,7 +39,7 @@ def delete_receta_dialog(page, receta, on_confirmed=None):
         content=ft.Text(f"¿Eliminar '{receta.get('nombre')}'?"),
         actions=[
             ft.TextButton("Cancelar", on_click=_cancel),
-            ft.FilledButton("Eliminar", on_click=_confirm, style=ft.ButtonStyle(bgcolor='#F44336', color=ft.Colors.WHITE)),
+            ft.FilledButton("Eliminar", on_click=_confirm, style=ft.ButtonStyle(bgcolor=colors['error'], color=colors['white'])),
         ],
         actions_alignment=ft.MainAxisAlignment.END,
     )
@@ -168,7 +168,7 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
                     cant = float(exc.get('cantidad', 0) or 0)
             except Exception:
                 cant = 0.0
-            color = '#C62828' if cant <= 0 else '#2E7D32'
+            color = colors['error'] if cant <= 0 else colors['success']
             sf['text'].value = f"Stock disponible: {_fmt_stock(cant)} {sf['unidad']}"
             sf['text'].color = color
 
@@ -183,7 +183,7 @@ def descargo_dialog(page, produccion, receta, on_completed=None):
     producidos_list = ft.Column([
         *[
             ft.Row([
-                ft.Icon(ft.Icons.CHECK_CIRCLE_OUTLINE, size=16, color='#4CAF50'),
+                ft.Icon(ft.Icons.CHECK_CIRCLE_OUTLINE, size=16, color=colors['success']),
                 ft.Text(p['nombre'], size=12, color=colors['text_primary'], weight=ft.FontWeight.BOLD, expand=True),
                 ft.Text(f"{p['cantidad']:.2f}".rstrip('0').rstrip('.') + f" {p['unidad']}".rstrip(),
                         size=12, color=colors['accent'], weight=ft.FontWeight.BOLD),
@@ -315,7 +315,7 @@ def cancelar_produccion_dialog(page, produccion, receta, on_confirmed=None):
         ),
         actions=[
             ft.TextButton("No cancelar", on_click=_cancel),
-            ft.FilledButton("Sí, cancelar", on_click=_confirm, style=ft.ButtonStyle(bgcolor='#F44336', color=ft.Colors.WHITE)),
+            ft.FilledButton("Sí, cancelar", on_click=_confirm, style=ft.ButtonStyle(bgcolor=colors['error'], color=colors['white'])),
         ],
         actions_alignment=ft.MainAxisAlignment.END,
     )

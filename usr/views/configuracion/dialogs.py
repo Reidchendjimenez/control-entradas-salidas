@@ -39,7 +39,7 @@ def remove_from_overlay(view, control):
 
 def confirm_delete(view, objeto, tipo="producto"):
     colors = _colors(view.page)
-    color = colors['error'] if tipo == "producto" else "#ff9800"
+    color = colors['error'] if tipo == "producto" else colors['warning']
 
     view.active_dialog = ft.AlertDialog(
         title=ft.Row([

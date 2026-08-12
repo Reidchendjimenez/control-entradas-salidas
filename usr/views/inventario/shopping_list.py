@@ -6,15 +6,15 @@ def create_categoria_header(nombre: str, color: str, colors: dict):
         content=ft.Row([
             ft.Container(
                 width=4, height=24,
-                bgcolor=color or colors.get('accent', '#6200EE'),
+                bgcolor=color or colors['accent'],
                 border_radius=2,
             ),
             ft.Container(width=8),
-            ft.Text(nombre.upper(), size=13, weight="bold", color=colors.get('text_secondary', '#666')),
+            ft.Text(nombre.upper(), size=13, weight="bold", color=colors['text_secondary']),
             ft.Container(expand=True),
             ft.Container(
                 height=1, expand=True,
-                bgcolor=colors.get('border', '#E0E0E0'),
+                bgcolor=colors['border'],
             ),
         ], spacing=0, vertical_alignment="center"),
         padding=ft.Padding.only(top=16, bottom=4, left=4),
@@ -46,7 +46,7 @@ def create_compra_lista_card(item, colors, callbacks):
             ft.Row([
                 ft.Text(item["nombre"], weight="bold", size=14, color=colors['text_primary'], expand=True),
                 ft.IconButton(
-                    ft.Icons.ARROW_DOWNWARD, icon_size=18, icon_color=ft.Colors.GREEN_600,
+                    ft.Icons.ARROW_DOWNWARD, icon_size=18, icon_color=colors['success'],
                     tooltip="Entrada",
                     on_click=lambda _: callbacks.get('on_entrada')(item),
                 ),
@@ -60,7 +60,7 @@ def create_compra_lista_card(item, colors, callbacks):
             ft.Container(
                 content=ft.Row([
                     tap_half("P:", item["stock_principal"], item.get("stock_principal_unidad", "unidad"), "principal"),
-                    ft.Container(width=1, height=30, bgcolor=colors.get('border', '#E0E0E0')),
+                    ft.Container(width=1, height=30, bgcolor=colors['border']),
                     tap_half("R:", item.get("stock_restaurante", 0), item.get("stock_restaurante_unidad", "unidad"), "restaurante"),
                 ], spacing=0),
                 bgcolor=colors['card_hover'],

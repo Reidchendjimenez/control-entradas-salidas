@@ -43,7 +43,7 @@ def build_periodos_tab(view):
     btn_forzar_archivo = ft.ElevatedButton(
         "Re-aperturar (forzar archivo)",
         icon=ft.Icons.REPLAY,
-        bgcolor="#E65100",
+        bgcolor=colors['warning'],
         color=colors['white'],
         visible=ya_abierto,
         on_click=lambda e: _forzar_archivo_periodo_actual(view, lista, info_text),
@@ -132,10 +132,10 @@ def _show_loading(view, message="Procesando..."):
     overlay = ft.Container(
         content=ft.Container(
             content=ft.Column([
-                ft.ProgressBar(width=200, color=colors.get('accent', ft.Colors.PURPLE), bgcolor=ft.Colors.TRANSPARENT),
-                ft.Text(message, size=13, color=colors.get('text_primary'), text_align=ft.TextAlign.CENTER),
+                ft.ProgressBar(width=200, color=colors['accent'], bgcolor=ft.Colors.TRANSPARENT),
+                ft.Text(message, size=13, color=colors['text_primary'], text_align=ft.TextAlign.CENTER),
             ], tight=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-            bgcolor=colors.get('card', '#252525'),
+            bgcolor=colors['card'],
             padding=20,
             border_radius=15,
             width=250,

@@ -1,26 +1,25 @@
 import flet as ft
+from usr.theme import get_colors
 from usr.views.inventario.helpers import generar_color, get_safe_colors
 
 
 def get_card_bg(page):
-    if page and page.theme_mode == ft.ThemeMode.LIGHT:
-        return '#F0F4F8'
-    return '#2D2D2D'
+    return get_colors(page)['card']
 
 
 def create_categoria_card(categoria, colors, on_click_cb):
     nombre = getattr(categoria, 'nombre', '') or 'SIN NOMBRE'
-    cat_color = getattr(categoria, 'color', None) or '#00FF00'
+    cat_color = getattr(categoria, 'color', None) or colors['accent']
     inicial = nombre[0].upper() if nombre else "?"
 
     content_col = ft.Column(
         [
             ft.Container(
-                content=ft.Text(inicial, size=22, weight="bold", color=ft.Colors.WHITE),
+                content=ft.Text(inicial, size=22, weight="bold", color=colors['white']),
                 width=45, height=45, bgcolor=cat_color,
                 border_radius=25, alignment=ft.Alignment.CENTER,
             ),
-            ft.Text(nombre.upper(), size=10, weight="bold", color=ft.Colors.WHITE, text_align="center"),
+            ft.Text(nombre.upper(), size=10, weight="bold", color=colors['white'], text_align="center"),
         ],
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
         spacing=5,
@@ -45,7 +44,7 @@ def create_categoria_card(categoria, colors, on_click_cb):
 
     card = ft.Container(
         content=content_col,
-        bgcolor='#2D2D2D',
+        bgcolor=colors['card'],
         width=110, height=130,
         border_radius=12, padding=10,
         border=ft.Border(bottom=ft.BorderSide(4, cat_color)),
@@ -105,7 +104,7 @@ def create_categoria_card_from_dict(cat_dict, colors, on_click_cb):
             alignment=ft.MainAxisAlignment.CENTER,
             controls=[
                 ft.Container(
-                    content=ft.Text(inicial, size=20, weight="bold", color=ft.Colors.WHITE),
+                    content=ft.Text(inicial, size=20, weight="bold", color=colors['white']),
                     alignment=ft.Alignment.CENTER,
                     width=40, height=40,
                     bgcolor=cat_color,

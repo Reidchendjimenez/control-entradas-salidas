@@ -26,7 +26,7 @@ class RecetaEditor(ft.Container):
         self._running = False
 
         self.expand = True
-        self.bgcolor = '#1A1A1A'
+        self.bgcolor = _colors(self._page)['bg']
         self.padding = 0
         self.visible = True
 
@@ -398,7 +398,7 @@ class RecetaEditor(ft.Container):
                             content="💾 Guardar Receta",
                             icon=ft.Icons.SAVE_OUTLINED,
                             bgcolor=colors['accent'],
-                            color=colors.get('white', ft.Colors.WHITE),
+                            color=colors['white'],
                             on_click=lambda _: self._save(),
                             expand=True,
                         ),
@@ -521,6 +521,7 @@ class RecetaEditor(ft.Container):
 
     def _add_row(self, item):
         is_simple = self._current_tipo() == 'simple'
+        colors = _colors(self._page)
 
         prod_dd = ft.Dropdown(
             options=self._product_options(),
@@ -555,7 +556,7 @@ class RecetaEditor(ft.Container):
                 ft.Container(
                     content=ft.IconButton(
                         icon=ft.Icons.DELETE_OUTLINE,
-                        icon_color='#F44336',
+                        icon_color=colors['error'],
                         tooltip="Quitar",
                         on_click=_remove,
                     ),

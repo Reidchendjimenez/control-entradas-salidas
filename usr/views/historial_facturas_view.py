@@ -116,34 +116,23 @@ class HistorialFacturasView(ft.Container):
         self.entradas_list_wrapper.bgcolor = colors['bg']
         
         self._connection_indicator = ft.Container(
-            content=ft.Icon(ft.Icons.WIFI, color=ft.Colors.GREEN_400, size=18),
+            content=ft.Icon(ft.Icons.WIFI, color=colors['success'], size=18),
             tooltip="Conectado",
             padding=5,
             on_click=self._on_sync_indicator_click
         )
         
-        header = ft.Container(
-            content=ft.Row([
-                ft.Column([
-                    ft.Text("Historial", size=26, weight="bold", color=colors['text_primary']),
-                    ft.Text("Facturas y registro de entradas", size=13, color=colors['text_secondary']),
-                ], expand=True, spacing=0),
-                self._connection_indicator,
-                ft.IconButton(
-                    ft.Icons.DOWNLOAD,
-                    icon_color=colors['accent'],
-                    tooltip="Exportar a Excel",
-                    on_click=self._show_export_dialog,
-                ),
-                ft.IconButton(
-                    ft.Icons.REFRESH_ROUNDED,
-                    icon_color=colors['accent'],
-                    tooltip="Refrescar",
-                    on_click=self._on_refresh,
-                ),
-            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-            padding=ft.Padding.only(left=20, right=20, top=20, bottom=10),
-            bgcolor=colors['surface'],
+        self._btn_export = ft.IconButton(
+            ft.Icons.DOWNLOAD,
+            icon_color=colors['accent'],
+            tooltip="Exportar a Excel",
+            on_click=self._show_export_dialog,
+        )
+        self._btn_refresh = ft.IconButton(
+            ft.Icons.REFRESH_ROUNDED,
+            icon_color=colors['accent'],
+            tooltip="Refrescar",
+            on_click=self._on_refresh,
         )
 
         tabs = ft.Tabs(
@@ -164,8 +153,11 @@ self._build_fecha_tab(),
 ]),
 )
 
-        self.content = ft.Column([header, tabs], expand=True, spacing=0)
+        self.content = ft.Column([tabs], expand=True, spacing=0)
         self.update()
+
+    def get_header_actions(self):
+        return [self._connection_indicator, self._btn_export, self._btn_refresh]
 
     def _build_facturas_tab(self):
         colors = _colors(self.page)
@@ -322,7 +314,6 @@ self._build_fecha_tab(),
             from usr.error_handler import show_error
             try:
                 self._build_ui()
-                page.run_task(self._initial_load)
             except Exception as e:
                 show_error("Error al montar vista", e, "historial_facturas_view.did_mount")
 
@@ -362,7 +353,15 @@ self._build_fecha_tab(),
     
     def will_unmount(self):
         self._conn_check_active = False
+        from usr.database.sync_callbacks import unregister_sync_callback
         unregister_sync_callback(self._on_sync_complete)
+
+    def on_view_shown(self):
+        # Tras el barrido de transición: evita poblar facturas/entradas durante
+        # la animación (efecto tosco).
+        fut = None
+        if self.page:
+            fut = self.page.run_task(self._initial_load)
         
         # LIMPIEZA CRÍTICA: Eliminar controles del overlay para evitar AssertionError en page.update()
         if self.page and self.page.overlay:
@@ -374,7 +373,8 @@ self._build_fecha_tab(),
                 # self.page.update() # No updatemos aquí para evitar recursión en el desmontaje
             except Exception as e:
                 logger.error(f"Error limpiando overlay en will_unmount: {e}")
-    
+        return fut
+
     def _on_sync_complete(self):
         try:
             page = self.page
@@ -426,6 +426,7 @@ self._build_fecha_tab(),
         self.page.update()
 
     def _update_connection_indicator(self):
+        colors = _colors(self.page)
         from usr.database import get_pending_movimientos_count
         from usr.database.base import is_online
         if not hasattr(self, '_connection_indicator'):
@@ -437,10 +438,10 @@ self._build_fecha_tab(),
         pending = get_pending_movimientos_count()
         online = is_online()
         if online:
-            self._connection_indicator.content = ft.Icon(ft.Icons.WIFI, color=ft.Colors.GREEN_400, size=18)
+            self._connection_indicator.content = ft.Icon(ft.Icons.WIFI, color=colors['success'], size=18)
             self._connection_indicator.tooltip = f"Conectado ({pending} pend.)" if pending else "Conectado"
         else:
-            self._connection_indicator.content = ft.Icon(ft.Icons.WIFI_OFF, color=ft.Colors.RED_400, size=18)
+            self._connection_indicator.content = ft.Icon(ft.Icons.WIFI_OFF, color=colors['error'], size=18)
             self._connection_indicator.tooltip = f"Modo Offline ({pending} pend.)"
         try: self._connection_indicator.update()
         except Exception:

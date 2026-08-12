@@ -51,7 +51,7 @@ class OCRHandler:
             ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
             width=350,
             height=140,
-            bgcolor=self.theme_colors.get('surface_variant', '#1e1e1e'),
+            bgcolor=self.theme_colors['surface_variant'],
             border=ft.Border.all(1, self.theme_colors.get('border')),
             border_radius=12,
             margin=ft.Margin.only(bottom=5)
@@ -59,7 +59,7 @@ class OCRHandler:
 
         self.loading_bar = ft.ProgressBar(
             width=350,
-            color=self.theme_colors.get('primary', ft.Colors.PURPLE),
+            color=self.theme_colors['accent'],
             bgcolor=ft.Colors.TRANSPARENT,
             visible=False
         )
@@ -92,7 +92,7 @@ class OCRHandler:
 
         self.btn_limpiar = ft.IconButton(
             icon=ft.Icons.DELETE_SWEEP_OUTLINED,
-            icon_color=ft.Colors.RED_400,
+            icon_color=self.theme_colors['error'],
             tooltip="Limpiar OCR",
             on_click=self._on_clear_click
         )
@@ -105,15 +105,15 @@ class OCRHandler:
             content=content,
             padding=15,
             border_radius=15,
-            border=ft.Border.all(1, self.theme_colors.get('border', '#333333')),
-            bgcolor=self.theme_colors.get('surface', '#252525')
+            border=ft.Border.all(1, self.theme_colors['border']),
+            bgcolor=self.theme_colors['surface']
         )
 
     def get_ui(self):
         return self.section_container(
             ft.Column([
                 ft.Row([
-                    ft.Icon(ft.Icons.SCANNER, size=20, color=self.theme_colors.get('primary')),
+                    ft.Icon(ft.Icons.SCANNER, size=20, color=self.theme_colors['accent']),
                     ft.Text("Asistente de Lectura (AI)", weight="bold", size=15),
                     ft.VerticalDivider(),
                     self.btn_limpiar
@@ -164,7 +164,7 @@ class OCRHandler:
             img = ImageGrab.grabclipboard()
             if img is None:
                 self._set_loading(False, "Error: No hay imagen en el portapapeles")
-                self.status_text.color = ft.Colors.RED_400
+                self.status_text.color = self.theme_colors['error']
                 return
 
             buffered = io.BytesIO()
@@ -188,7 +188,7 @@ class OCRHandler:
             print(f"[ERROR] OCRHandler._on_paste_click: {ex}")
             import traceback; traceback.print_exc()
             self._set_loading(False, f"Error de pegado: {str(ex)[:50]}")
-            self.status_text.color = ft.Colors.RED_400
+            self.status_text.color = self.theme_colors['error']
             _notify_error("Error al pegar imagen del portapapeles", ex)
 
     async def _on_select_click(self, e):
@@ -205,7 +205,7 @@ class OCRHandler:
             print(f"[ERROR] OCRHandler._on_select_click: {ex}")
             import traceback; traceback.print_exc()
             self._set_loading(False, "Error al cargar archivo")
-            self.status_text.color = ft.Colors.RED_400
+            self.status_text.color = self.theme_colors['error']
             _notify_error("Error al procesar archivo seleccionado", ex)
 
     def _process_image(self, path):
@@ -228,7 +228,7 @@ class OCRHandler:
             if not has_data:
                 self._set_loading(False, "⚠️ OCR no detectó datos")
                 self.status_text.value = "⚠️ No se extrajeron datos de la imagen. Puedes ingresar los datos manualmente."
-                self.status_text.color = ft.Colors.ORANGE_400
+                self.status_text.color = self.theme_colors['warning']
                 if hasattr(self.fields, 'check_validar_button'):
                     self.fields.check_validar_button()
                 return
@@ -294,7 +294,7 @@ class OCRHandler:
             print(f"[ERROR] OCRHandler._process_image: {ex}")
             import traceback; traceback.print_exc()
             self._set_loading(False, "Error al procesar con AI")
-            self.status_text.color = ft.Colors.RED_400
+            self.status_text.color = self.theme_colors['error']
             _notify_error("Error al procesar imagen con IA", ex)
 
     def _on_clear_click(self, e):

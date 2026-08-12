@@ -10,6 +10,7 @@ Delega la lógica a submódulos:
 """
 import flet as ft
 import logging
+import asyncio
 
 from usr.database.base import check_connection
 from usr.views.producciones import data
@@ -26,7 +27,7 @@ class ProduccionesView(ft.Container):
         super().__init__()
         self.visible = False
         self.expand = True
-        self.bgcolor = '#1A1A1A'
+        self.bgcolor = _colors(None)['bg']
         self.padding = ft.Padding.all(0)
         self._running = False
 
@@ -51,10 +52,10 @@ class ProduccionesView(ft.Container):
         self.recetas_list = ft.Column(spacing=8, scroll=ft.ScrollMode.ALWAYS, expand=True)
         self.pendientes_container = ft.Container(expand=True, padding=ft.Padding.all(20), visible=False)
         self.historial_container = ft.Container(expand=True, padding=ft.Padding.all(20), visible=False)
-        self.editor_container = ft.Container(expand=True, padding=0, bgcolor='#1A1A1A', visible=False)
+        self.editor_container = ft.Container(expand=True, padding=0, bgcolor=_colors(None)['bg'], visible=False)
 
         self._connection_indicator = ft.Icon(
-            ft.Icons.CLOUD_OFF, size=20, color='#F44336', tooltip="Sin conexión",
+            ft.Icons.CLOUD_OFF, size=20, color=_colors(None)['error'], tooltip="Sin conexión",
         )
 
     def did_mount(self):
@@ -67,8 +68,6 @@ class ProduccionesView(ft.Container):
                 return
             self._running = True
             self._build_ui()
-            if page:
-                page.run_task(self._load_data)
             self._update_connection_indicator()
             self._mounted = True
         except Exception as e:
@@ -78,18 +77,26 @@ class ProduccionesView(ft.Container):
     def will_unmount(self):
         self._running = False
 
+    def on_view_shown(self):
+        # Al mostrar la vista: devuelve el futuro de la carga.
+        if self.page:
+            return self.page.run_task(self._load_data)
+
     def on_theme_change(self):
         self._update_colors()
 
     def _update_colors(self):
         colors = _colors(self.page)
-        self.bgcolor = colors.get('bg', '#1A1A1A')
+        self.bgcolor = colors['bg']
+        if hasattr(self, 'editor_container') and self.editor_container:
+            self.editor_container.bgcolor = colors['bg']
 
     def _update_connection_indicator(self):
         try:
+            c = _colors(self.page)
             is_online = check_connection()
             self._connection_indicator.icon = ft.Icons.CLOUD_DONE if is_online else ft.Icons.CLOUD_OFF
-            self._connection_indicator.color = '#4CAF50' if is_online else '#F44336'
+            self._connection_indicator.color = c['success'] if is_online else c['error']
             self._connection_indicator.tooltip = "Conectado" if is_online else "Sin conexión"
             try:
                 _ = self._connection_indicator.page
@@ -102,16 +109,6 @@ class ProduccionesView(ft.Container):
     def _build_ui(self):
         colors = _colors(self.page)
 
-        header = ft.Container(
-            content=ft.Row([
-                ft.Icon(ft.Icons.FACTORY_OUTLINED, size=28, color=colors['accent']),
-                ft.Text("Producciones", size=22, weight=ft.FontWeight.BOLD, color=colors['text_primary']),
-                ft.Container(expand=True),
-                self._connection_indicator,
-            ], vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            padding=ft.Padding.only(left=20, top=20, right=20, bottom=10),
-        )
-
         self.recetas_container.content = ft.Column([
             ft.Container(
                 content=ft.Row([
@@ -120,7 +117,7 @@ class ProduccionesView(ft.Container):
                         content="+ Nueva Receta",
                         icon=ft.Icons.ADD,
                         bgcolor=colors['accent'],
-                        color=colors.get('white', ft.Colors.WHITE),
+                        color=colors['white'],
                         on_click=lambda _: self._open_nueva_receta(),
                     ),
                 ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER),
@@ -136,7 +133,6 @@ class ProduccionesView(ft.Container):
         self.historial_container.content = build_historial_tab(self.page)
 
         self.content = ft.Column([
-            header,
             self.tabs,
             ft.Container(
                 content=ft.Stack([
@@ -148,6 +144,9 @@ class ProduccionesView(ft.Container):
                 expand=True,
             ),
         ], expand=True, spacing=0)
+
+    def get_header_actions(self):
+        return [self._connection_indicator]
 
     def _open_nueva_receta(self):
         self._open_editor(None)
@@ -213,8 +212,10 @@ class ProduccionesView(ft.Container):
             self.page.update()
 
     async def _load_data(self):
-        self._recetas = data.load_recetas()
-        self._productos = data.load_productos()
+        # Lecturas de BD en hilo aparte para no bloquear el event loop ni el
+        # barrido de entrada; el render de controles queda en el hilo principal.
+        self._recetas = await asyncio.to_thread(data.load_recetas)
+        self._productos = await asyncio.to_thread(data.load_productos)
         render_recetas(
             self.page, self._recetas, self._productos,
             self.recetas_list,

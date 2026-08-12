@@ -9,14 +9,14 @@ def _c(page):
 
 def build_requisicion_card(req, page, on_ver=None, on_editar=None, on_click=None):
     colors = _c(page)
-    card_bg = '#2D2D2D'
-    text_primary = ft.Colors.WHITE
-    text_secondary = '#AAAAAA'
+    card_bg = colors['card']
+    text_primary = colors['text_primary']
+    text_secondary = colors['text_secondary']
 
     estado_colors = {
-        "pendiente": '#FF9800',
-        "completada": '#4CAF50',
-        "cancelada": '#F44336',
+        "pendiente": colors['warning'],
+        "completada": colors['success'],
+        "cancelada": colors['error'],
     }
     estado_color = estado_colors.get(req.estado, text_secondary)
 
@@ -24,8 +24,8 @@ def build_requisicion_card(req, page, on_ver=None, on_editar=None, on_click=None
         content=ft.Column([
             ft.Row([
                 ft.Container(
-                    content=ft.Icon(ft.Icons.ASSIGNMENT_ROUNDED, size=24, color=ft.Colors.WHITE),
-                    bgcolor=ft.Colors.DEEP_PURPLE_400,
+                    content=ft.Icon(ft.Icons.ASSIGNMENT_ROUNDED, size=24, color=colors['white']),
+                    bgcolor=colors['accent'],
                     width=44, height=44, border_radius=10,
                     alignment=ft.Alignment.CENTER,
                 ),
@@ -35,14 +35,14 @@ def build_requisicion_card(req, page, on_ver=None, on_editar=None, on_click=None
                 ], expand=True, spacing=0),
                 ft.Column([
                     ft.Container(
-                        content=ft.Text(req.estado.upper(), size=10, weight="bold", color=ft.Colors.WHITE),
+                        content=ft.Text(req.estado.upper(), size=10, weight="bold", color=colors['white']),
                         bgcolor=estado_color, padding=ft.Padding.symmetric(horizontal=8, vertical=4),
                         border_radius=5,
                     ),
                     ft.Text(f"{len(getattr(req, 'detalles', []) or [])} items", size=11, color=text_secondary),
                 ], horizontal_alignment="center"),
             ]),
-            ft.Divider(height=1, color='#3D3D3D'),
+            ft.Divider(height=1, color=colors['border']),
             ft.Row([
                 ft.Text(
                     f"Creada: {req.fecha_creacion.strftime('%d/%m/%Y %H:%M') if req.fecha_creacion else '-'}",
@@ -57,7 +57,7 @@ def build_requisicion_card(req, page, on_ver=None, on_editar=None, on_click=None
         padding=15,
         bgcolor=card_bg,
         border_radius=12,
-        border=ft.Border.all(1, '#3D3D3D'),
+        border=ft.Border.all(1, colors['border']),
         on_click=lambda _: on_click(req) if on_click else None,
     )
 

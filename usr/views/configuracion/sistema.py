@@ -29,26 +29,26 @@ def build_sistema_tab(view):
                         ft.Text(
                             "Si experimenta errores tras actualizaciones o cambios de configuracion, use 'Probar Conexion' para verificar la base de datos.",
                             size=13,
-                            color="#424242",
+                            color=colors['text_secondary'],
                         ),
                         ft.ElevatedButton(
                             "Probar Conexion",
                             on_click=lambda e: test_connection_action(view, e),
                             icon=ft.Icons.STORAGE,
-                            bgcolor="#7B1FA2",
+                            bgcolor=colors['accent'],
                             color=colors['white'],
                         ),
                         ft.Container(height=5),
                         ft.Text(
                             "Use 'Verificar Supabase' para comprobar la conexión real con la base de datos remota (nube).",
                             size=13,
-                            color="#424242",
+                            color=colors['text_secondary'],
                         ),
                         ft.ElevatedButton(
                             "Verificar Supabase",
                             on_click=lambda e: test_supabase_action(view, e),
                             icon=ft.Icons.CLOUD_DONE,
-                            bgcolor="#1565C0",
+                            bgcolor=colors['info'],
                             color=colors['white'],
                         ),
                         ft.Divider(height=20, color=colors['border']),
@@ -138,8 +138,8 @@ def build_sistema_tab(view):
                             "Cambiar operador de este dispositivo",
                             on_click=lambda e: on_cambiar_operador(view, e),
                             icon=ft.Icons.PERSON_OUTLINED,
-                            bgcolor=ft.Colors.ORANGE_600,
-                            color=ft.Colors.WHITE,
+                            bgcolor=colors['warning'],
+                            color=colors['white'],
                         ),
                     ], spacing=15),
                     padding=25,
@@ -201,17 +201,18 @@ def _build_almacen_produccion_dd():
 
 
 def test_connection_action(view, e):
+    colors = _colors(view.page)
     db = None
     try:
         db = next(get_db_adaptive())
         db.execute(text("SELECT 1"))
         view.test_result_text.value = "Conexion exitosa - Base de datos operativa"
-        view.test_result_text.color = "#2E7D32"
+        view.test_result_text.color = colors['success']
         view.test_result_text.visible = True
         show_success("Conexion a base de datos verificada")
     except Exception as ex:
         view.test_result_text.value = f"Error: {str(ex)}"
-        view.test_result_text.color = "#c62828"
+        view.test_result_text.color = colors['error']
         view.test_result_text.visible = True
         show_error(f"Error de conexion: {str(ex)}")
     finally:
@@ -221,23 +222,25 @@ def test_connection_action(view, e):
 
 
 def toggle_offline_mode(view, e=None):
+    colors = _colors(view.page)
     from usr.database import base
     current = base.is_online()
     base._is_online = not current
 
     if current:
         view.offline_status_indicator.value = "FORZADO OFFLINE"
-        view.offline_status_indicator.color = ft.Colors.RED_400
+        view.offline_status_indicator.color = colors['error']
         show_warning("Modo offline forzado - Los datos se guardaran localmente")
     else:
         view.offline_status_indicator.value = "ONLINE"
-        view.offline_status_indicator.color = ft.Colors.GREEN_400
+        view.offline_status_indicator.color = colors['success']
         show_success("Conexion normal restaurada")
 
     view.update()
 
 
 def on_cambiar_operador(view, e):
+    colors = _colors(view.page)
     from usr.database.local_replica import LocalReplica
     from usr.views.configuracion.dialogs import close_dialog
 
@@ -259,7 +262,7 @@ def on_cambiar_operador(view, e):
             ], tight=True),
             actions=[
                 ft.TextButton("Cancelar", on_click=lambda e: close_dialog(view, e)),
-                ft.ElevatedButton("Verificar", on_click=lambda e: on_verificar_pin_cambio(view, e), bgcolor=ft.Colors.DEEP_PURPLE_600, color=ft.Colors.WHITE),
+                ft.ElevatedButton("Verificar", on_click=lambda e: on_verificar_pin_cambio(view, e), bgcolor=colors['accent'], color=colors['white']),
             ]
         )
         view.page.overlay.append(view.verify_dialog)
@@ -300,11 +303,12 @@ async def _do_test_supabase(view):
     from usr.database.sync import get_sync_manager
     from usr.notifications import show_info, show_success, show_error_with_copy
 
+    colors = _colors(view.page)
     show_info("Verificando conexión con Supabase...")
     sync_mgr = get_sync_manager()
     if not sync_mgr:
         view.test_result_text.value = "SyncManager no inicializado"
-        view.test_result_text.color = "#c62828"
+        view.test_result_text.color = colors['error']
         view.test_result_text.visible = True
         show_error_with_copy("SyncManager no inicializado", "No hay sync_mgr")
         view.update()
@@ -314,17 +318,17 @@ async def _do_test_supabase(view):
         ok, mensaje = await asyncio.to_thread(sync_mgr.test_remote_connection)
         if ok:
             view.test_result_text.value = "Conexión exitosa con Supabase"
-            view.test_result_text.color = "#2E7D32"
+            view.test_result_text.color = colors['success']
             view.test_result_text.visible = True
             show_success(f"Conexión a Supabase verificada")
         else:
             view.test_result_text.value = f"Supabase: {mensaje}"
-            view.test_result_text.color = "#c62828"
+            view.test_result_text.color = colors['error']
             view.test_result_text.visible = True
             show_error_with_copy("Error de conexión a Supabase", Exception(mensaje))
     except Exception as ex:
         view.test_result_text.value = f"Supabase: {ex}"
-        view.test_result_text.color = "#c62828"
+        view.test_result_text.color = colors['error']
         view.test_result_text.visible = True
         show_error_with_copy("Error de conexión a Supabase", ex)
     finally:

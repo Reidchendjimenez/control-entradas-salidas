@@ -1,4 +1,5 @@
 import flet as ft
+import asyncio
 from usr.theme import get_colors
 from usr.whatsapp_notifier import (
     get_queued_messages, count_pending, retry_queued_messages,
@@ -46,7 +47,6 @@ class BandejaWhatsAppView(ft.Container):
             except RuntimeError:
                 return
             self._build_ui()
-            self._load_messages()
             self._mounted = True
         except Exception as ex:
             self._mounted = False
@@ -55,16 +55,9 @@ class BandejaWhatsAppView(ft.Container):
             _notify_error("Error al montar bandeja", ex)
 
     def _build_ui(self):
-        colors = get_colors(self.page) if self.page else {}
+        self._btn_test_bot = ft.ElevatedButton("📤 Probar Bot", icon=ft.Icons.SEND, on_click=self._on_test_bot)
+        self._btn_retry_all = ft.ElevatedButton("🔄 Reintentar todos", on_click=self._on_retry_all)
         self.content = ft.Column([
-            ft.Row([
-                ft.Icon(ft.Icons.MAIL_OUTLINED, size=28, color=colors.get('primary', '#BB86FC')),
-                ft.Text("📨 Bandeja WhatsApp", size=22, weight="bold"),
-                self._pending_badge,
-                ft.Container(expand=True),
-                ft.ElevatedButton("📤 Probar Bot", icon=ft.Icons.SEND, on_click=self._on_test_bot),
-                ft.ElevatedButton("🔄 Reintentar todos", on_click=self._on_retry_all),
-            ]),
             self.stats_text,
             ft.Divider(height=1),
             self._list_view,
@@ -73,6 +66,17 @@ class BandejaWhatsAppView(ft.Container):
             self.update()
         except Exception:
             pass
+
+    def get_header_actions(self):
+        return [self._pending_badge, self._btn_test_bot, self._btn_retry_all]
+
+    def on_view_shown(self):
+        # Al mostrar la vista: devuelve el futuro de la carga.
+        if self.page:
+            return self.page.run_task(self._load_messages_async)
+
+    async def _load_messages_async(self):
+        await asyncio.to_thread(self._load_messages)
 
     def _load_messages(self):
         try:
@@ -96,14 +100,14 @@ class BandejaWhatsAppView(ft.Container):
     def _render_list(self):
         try:
             self._list_view.controls.clear()
-            colors = get_colors(self.page) if self.page else {}
+            colors = get_colors(self.page)
 
             if not self._mensajes:
                 self._list_view.controls.append(
                     ft.Container(
                         content=ft.Column([
-                            ft.Icon(ft.Icons.INBOX_OUTLINED, size=60, color=colors.get('text_hint', '#666')),
-                            ft.Text("No hay mensajes en la bandeja", size=16, color=colors.get('text_secondary', '#999'))
+                            ft.Icon(ft.Icons.INBOX_OUTLINED, size=60, color=colors['text_hint']),
+                            ft.Text("No hay mensajes en la bandeja", size=16, color=colors['text_secondary'])
                         ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
                         expand=True, alignment=ft.Alignment.CENTER, padding=50
                     )
@@ -121,8 +125,8 @@ class BandejaWhatsAppView(ft.Container):
 
     def _build_card(self, msg: dict, colors: dict) -> ft.Container | None:
         try:
-            icono = ft.Icon(ft.Icons.IMAGE_OUTLINED, size=24, color=colors.get('primary', '#BB86FC')) if msg.get('tipo') == 'image' else \
-                    ft.Icon(ft.Icons.TEXT_FIELDS, size=24, color=colors.get('accent', '#03DAC6'))
+            icono = ft.Icon(ft.Icons.IMAGE_OUTLINED, size=24, color=colors['accent']) if msg.get('tipo') == 'image' else \
+                    ft.Icon(ft.Icons.TEXT_FIELDS, size=24, color=colors['accent'])
 
             estado_icono = self._estado_icon(msg.get('estado', ''))
             estado_text = self._estado_text(msg)
@@ -146,41 +150,42 @@ class BandejaWhatsAppView(ft.Container):
                             ft.Container(
                                 content=estado_icono,
                                 padding=5, border_radius=5,
-                                bgcolor=colors.get('surface_variant', '#333')
+                                bgcolor=colors['surface_variant']
                             ),
                             ft.Text(estado_text, size=12, weight="bold"),
-                            ft.Text(created, size=11, color=colors.get('text_hint', '#777')),
+                            ft.Text(created, size=11, color=colors['text_hint']),
                         ], spacing=8),
-                        ft.Text(preview, size=13, color=colors.get('text_primary', '#fff')),
+                        ft.Text(preview, size=13, color=colors['text_primary']),
                     ], expand=True, spacing=2),
                     ft.Column([
                         ft.IconButton(ft.Icons.REPLAY, icon_size=18,
                                       on_click=lambda _, mid=msg['id']: self._on_retry_one(mid)),
-                        ft.IconButton(ft.Icons.DELETE_OUTLINE, icon_size=18, icon_color=ft.Colors.RED_400,
+                        ft.IconButton(ft.Icons.DELETE_OUTLINE, icon_size=18, icon_color=colors['error'],
                                       on_click=lambda _, mid=msg['id']: self._on_delete_one(mid)),
                     ], spacing=0),
                 ], spacing=10),
                 padding=12, border_radius=10,
-                bgcolor=colors.get('surface', '#252525'),
-                border=ft.Border.all(1, colors.get('border', '#333'))
+                bgcolor=colors['surface'],
+                border=ft.Border.all(1, colors['border'])
             )
         except Exception as ex:
             print(f"[BANDEJA] Error construyendo card: {ex}")
             return ft.Container(
-                content=ft.Text(f"Error mostrando mensaje", size=12, color=ft.Colors.RED_400),
+                content=ft.Text(f"Error mostrando mensaje", size=12, color=colors['error']),
                 padding=10, border_radius=8,
-                bgcolor=colors.get('surface', '#252525')
+                bgcolor=colors['surface']
             )
 
     def _estado_icon(self, estado: str) -> ft.Control:
+        colors = get_colors(self.page)
         if estado == 'sent':
-            return ft.Icon(ft.Icons.CHECK_CIRCLE, size=16, color=ft.Colors.GREEN_400)
+            return ft.Icon(ft.Icons.CHECK_CIRCLE, size=16, color=colors['success'])
         elif estado == 'failed':
-            return ft.Icon(ft.Icons.ERROR, size=16, color=ft.Colors.RED_400)
+            return ft.Icon(ft.Icons.ERROR, size=16, color=colors['error'])
         elif estado == 'sending':
             return ft.ProgressRing(width=16, height=16, stroke_width=2)
         else:
-            return ft.Icon(ft.Icons.HOURGLASS_EMPTY, size=16, color=ft.Colors.ORANGE_400)
+            return ft.Icon(ft.Icons.HOURGLASS_EMPTY, size=16, color=colors['warning'])
 
     def _estado_text(self, msg: dict) -> str:
         try:

@@ -34,13 +34,14 @@ def get_safe_colors(page):
         if c:
             return c
     return {
-        'white': '#FFFFFF', 'bg': '#1A1A1A', 'surface': '#2D2D2D',
-        'card': '#333333', 'card_hover': '#3A3A3A', 'border': '#404040',
-        'accent': '#7C4DFF', 'accent_dark': '#651FFF',
-        'success': '#4CAF50', 'error': '#F44336', 'warning': '#FF9800',
-        'text_primary': '#FFFFFF', 'text_secondary': '#B0B0B0',
-        'text_hint': '#757575',
-        'input_border': '#555555',
+        'white': '#FFFFFF', 'bg': '#FFFFFF', 'surface': '#F6F4FA',
+        'card': '#FFFFFF', 'card_hover': '#EDE9F5', 'border': '#D8D2E4',
+        'accent': '#6200EE', 'accent_dark': '#3700B3',
+        'primary': '#000000', 'surface_variant': '#E7E0EC',
+        'success': '#388E3C', 'error': '#D32F2F', 'warning': '#F57C00', 'info': '#1976D2',
+        'text_primary': '#000000', 'text_secondary': '#4F4A5A',
+        'text_hint': '#85808F',
+        'input_border': '#CBC4DA',
     }
 
 

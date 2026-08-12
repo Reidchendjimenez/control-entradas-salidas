@@ -119,7 +119,7 @@ class ValidacionFields:
 
         self.validar_btn = ft.ElevatedButton(
             "✓ Validar Entradas",
-            bgcolor=self.theme_colors.get('success', '#4CAF50'),
+            bgcolor=self.theme_colors['success'],
             color="white",
             disabled=True,
             height=45
@@ -265,8 +265,8 @@ class ValidacionFields:
             content=content_col,
             padding=15,
             border_radius=12,
-            border=ft.Border.all(1, self.theme_colors.get('border', '#333333')),
-            bgcolor=self.theme_colors.get('surface', '#252525')
+            border=ft.Border.all(1, self.theme_colors['border']),
+            bgcolor=self.theme_colors['surface']
         )
 
     def get_doc_section(self):

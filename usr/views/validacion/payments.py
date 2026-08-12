@@ -79,14 +79,14 @@ class PaymentsManager:
             "Faltante: 0 VES",
             size=14,
             weight=ft.FontWeight.BOLD,
-            color=self.theme_colors.get('warning', '#FF9800')
+            color=self.theme_colors['warning']
         )
 
         self.resumen_container = ft.Container(
             content=ft.Row([self.faltante_icon, self.faltante_text], spacing=8),
             padding=15,
             border_radius=10,
-            border=ft.Border.all(1, self.theme_colors.get('border', '#333333'))
+            border=ft.Border.all(1, self.theme_colors['border'])
         )
 
         self.controls_container = ft.Container(visible=False)
@@ -264,15 +264,15 @@ class PaymentsManager:
 
             if abs(faltante) < 0.01:
                 self.faltante_icon.name = ft.Icons.CHECK_CIRCLE
-                self.faltante_icon.color = ft.Colors.GREEN_400
+                self.faltante_icon.color = self.theme_colors['success']
                 self.faltante_text.value = "✅ PAGO COMPLETO"
             elif faltante > 0:
                 self.faltante_icon.name = ft.Icons.WARNING_AMBER_ROUNDED
-                self.faltante_icon.color = ft.Colors.ORANGE_400
+                self.faltante_icon.color = self.theme_colors['warning']
                 self.faltante_text.value = f"⚠️ FALTANTE: {faltante:,.2f} VES"
             else:
                 self.faltante_icon.name = ft.Icons.ERROR_OUTLINE
-                self.faltante_icon.color = ft.Colors.RED_400
+                self.faltante_icon.color = self.theme_colors['error']
                 self.faltante_text.value = f"❌ EXCEDENTE: {abs(faltante):,.2f} VES"
 
             if self.page:
@@ -298,8 +298,8 @@ class PaymentsManager:
             content=content_col,
             padding=15,
             border_radius=12,
-            border=ft.Border.all(1, self.theme_colors.get('border', '#333333')),
-            bgcolor=self.theme_colors.get('surface', '#252525')
+            border=ft.Border.all(1, self.theme_colors['border']),
+            bgcolor=self.theme_colors['surface']
         )
 
     def get_pagos(self):

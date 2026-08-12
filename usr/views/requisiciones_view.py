@@ -33,7 +33,7 @@ class RequisicionesView(ft.Container):
         super().__init__()
         self.visible = False
         self.expand = True
-        self.bgcolor = '#1A1A1A'
+        self.bgcolor = get_colors(None)['bg']
         self.padding = 0
 
         self.requisiciones_list = ft.ListView(expand=True, spacing=10, padding=20)
@@ -112,7 +112,7 @@ class RequisicionesView(ft.Container):
             dlg = ft.AlertDialog(
                 title=ft.Text(f"Errores de sincronización ({len(rows)})", size=16, weight="bold"),
                 content=ft.Column(
-                    [ft.Text(ln, size=12, color=self.colors.get('error', ft.Colors.RED_400)) for ln in lines],
+                    [ft.Text(ln, size=12, color=self.colors['error']) for ln in lines],
                     scroll=ft.ScrollMode.AUTO, tight=True, spacing=6,
                 ),
                 actions=[
@@ -162,6 +162,7 @@ class RequisicionesView(ft.Container):
     def _update_sync_indicator(self):
         """Lee la cola de sync y pinta el indicador: ok / pendientes / fallidos."""
         try:
+            colors = _colors(self.page)
             from usr.database.sync_queue import get_sync_queue
             status = get_sync_queue().get_status()
             pending = status.get('pending', 0)
@@ -169,12 +170,12 @@ class RequisicionesView(ft.Container):
 
             if failed > 0:
                 icon = ft.Icons.ERROR_ROUNDED
-                color = ft.Colors.RED_400
+                color = colors['error']
                 text = f"{failed} error(es)"
                 tip = f"{failed} operaciones fallaron y se reintentarán. Pulse para ver."
             elif pending > 0:
                 icon = ft.Icons.CLOUD_UPLOAD
-                color = ft.Colors.AMBER_400
+                color = colors['warning']
                 text = f"{pending} pendiente(s)"
                 tip = f"{pending} cambios sin subir a Supabase todavía."
             else:
@@ -182,7 +183,7 @@ class RequisicionesView(ft.Container):
                 if last and len(last) >= 16:
                     last = last[:16]
                 icon = ft.Icons.CLOUD_DONE
-                color = ft.Colors.GREEN_400
+                color = colors['success']
                 text = "sincronizado"
                 tip = f"Todo subido. Último sync: {last}" if last else "Todo subido."
             self.sync_indicator.content = ft.Row(
@@ -197,41 +198,20 @@ class RequisicionesView(ft.Container):
 
     def _build_ui(self):
         self.colors = _colors(self.page)
-        header = ft.Container(
-            content=ft.ResponsiveRow([
-                ft.Container(
-                    content=ft.Row([
-                        ft.Column([
-                            ft.Text("Requisiciones", size=26, weight="bold", color=self.colors['text_primary']),
-                            ft.Text("Gestión de traslados", size=13, color=self.colors['text_secondary']),
-                        ], spacing=0),
-                        ft.Container(expand=True),
-                        self._sync_indicator(),
-                    ], alignment=ft.MainAxisAlignment.START),
-                    col={"xs": 12, "sm": 8},
-                ),
-                ft.Container(
-                    content=ft.Row([
-                        ft.IconButton(
-                            ft.Icons.REFRESH_ROUNDED,
-                            icon_color=self.colors['white'],
-                            bgcolor=self.colors['surface'],
-                            on_click=lambda _: self._on_refresh(),
-                            tooltip="Actualizar desde Supabase",
-                        ),
-                        ft.IconButton(
-                            ft.Icons.ADD_ROUNDED,
-                            icon_color=self.colors['white'],
-                            bgcolor=self.colors['accent'],
-                            on_click=lambda _: self._show_crear_vista(),
-                            tooltip="Nueva requisición",
-                        ),
-                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN, spacing=4),
-                    col={"xs": 12, "sm": 4},
-                ),
-            ], spacing=4, alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-            padding=ft.Padding.only(left=16, right=16, top=16, bottom=10),
+        self._sync_indicator()
+        self._btn_refresh = ft.IconButton(
+            ft.Icons.REFRESH_ROUNDED,
+            icon_color=self.colors['white'],
             bgcolor=self.colors['surface'],
+            on_click=lambda _: self._on_refresh(),
+            tooltip="Actualizar desde Supabase",
+        )
+        self._btn_agregar = ft.IconButton(
+            ft.Icons.ADD_ROUNDED,
+            icon_color=self.colors['white'],
+            bgcolor=self.colors['accent'],
+            on_click=lambda _: self._show_crear_vista(),
+            tooltip="Nueva requisición",
         )
 
         self.list_container = ft.Container(
@@ -241,13 +221,31 @@ class RequisicionesView(ft.Container):
         )
 
         self.content = ft.Column([
-            header,
             self.list_container,
         ], expand=True, spacing=0)
         self.content.bgcolor = self.colors['bg']
         self.update()
 
-        self._load_requisiciones()
+    async def _load_requisiciones_async(self):
+        await asyncio.to_thread(self._load_requisiciones)
+
+    def get_header_actions(self):
+        return [self.sync_indicator, self._btn_refresh, self._btn_agregar]
+
+    def on_view_shown(self):
+        # Al re-mostrar, volver siempre a la lista raíz (por si el usuario había
+        # quedado en una sub-vista: visualizar/auditar) SIN recrear controles,
+        # reutilizando el list_container ya montado.
+        try:
+            if getattr(self, '_vista_actual', 'lista') != 'lista':
+                self._vista_actual = 'lista'
+                if getattr(self, 'list_container', None) is not None:
+                    self.content = ft.Column([self.list_container], expand=True, spacing=0)
+        except Exception:
+            pass
+        # Al mostrar la vista: devuelve el futuro de la carga.
+        if self.page:
+            return self.page.run_task(self._load_requisiciones_async)
 
     def did_mount(self):
         if getattr(self, '_mounted', False):
@@ -257,7 +255,8 @@ class RequisicionesView(ft.Container):
                 page = self.page
             except RuntimeError:
                 return
-            self._build_ui()
+            if not getattr(self, 'content', None):
+                self._build_ui()
             register_sync_callback(self._on_sync_complete)
             self._mounted = True
         except Exception as e:
@@ -335,10 +334,17 @@ class RequisicionesView(ft.Container):
                         )
                     )
 
-            if self.requisiciones_list.page:
-                self.requisiciones_list.update()
-            if self.list_container and self.list_container.page:
-                self.list_container.update()
+            try:
+                if self.requisiciones_list.page is not None:
+                    self.requisiciones_list.update()
+            except RuntimeError:
+                pass
+            if self.list_container is not None:
+                try:
+                    if self.list_container.page is not None:
+                        self.list_container.update()
+                except RuntimeError:
+                    pass
             if self.page:
                 self.page.update()
         except Exception as e:
@@ -565,10 +571,10 @@ class RequisicionesView(ft.Container):
             overlay = ft.Container(
                 content=ft.Container(
                     content=ft.Column([
-                        ft.ProgressBar(width=200, color=colors.get('accent', ft.Colors.PURPLE), bgcolor=ft.Colors.TRANSPARENT),
-                        ft.Text(message, size=13, color=colors.get('text_primary'), weight="w500", text_align=ft.TextAlign.CENTER),
+                        ft.ProgressBar(width=200, color=colors['accent'], bgcolor=ft.Colors.TRANSPARENT),
+                        ft.Text(message, size=13, color=colors['text_primary'], weight="w500", text_align=ft.TextAlign.CENTER),
                     ], tight=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                    bgcolor=colors.get('card', '#252525'),
+                    bgcolor=colors['card'],
                     padding=20,
                     border_radius=15,
                     border=ft.Border.all(1, colors.get('border')),
@@ -663,6 +669,7 @@ class RequisicionesView(ft.Container):
             return False
 
     async def _preguntar_reintentar(self, req_editando, origen, destino, observaciones, user_id):
+        colors = _colors(self.page)
         self._set_loading_overlay(False)
         dlg = ft.AlertDialog(
             modal=True,
@@ -670,7 +677,7 @@ class RequisicionesView(ft.Container):
             content=ft.Text("No se pudo sincronizar. ¿Reintentar?"),
             actions=[
                 ft.TextButton("No", on_click=lambda e: self._cerrar_dlg(dlg) or self._volver_lista()),
-                ft.ElevatedButton("Reintentar", bgcolor=ft.Colors.BLUE_600, color="white",
+                ft.ElevatedButton("Reintentar", bgcolor=colors['accent'], color=colors['white'],
                     on_click=lambda e: self._cerrar_dlg(dlg) or self.page.run_task(self._reintentar_sync_req, req_editando, user_id)),
             ],
             actions_alignment=ft.MainAxisAlignment.END,

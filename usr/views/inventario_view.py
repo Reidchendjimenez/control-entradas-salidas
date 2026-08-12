@@ -39,7 +39,7 @@ class InventarioView(ft.Container):
         self.visible = False
         self.expand = True
         self.padding = ft.Padding.only(left=10, right=10, bottom=16, top=8)
-        self.bgcolor = '#1A1A1A'
+        self.bgcolor = get_colors(None)['bg']
 
         self.search_field = None
         self.productos_list = None
@@ -84,7 +84,7 @@ class InventarioView(ft.Container):
         if hasattr(self, 'search_field') and self.search_field:
             self.search_field.border_color = colors['input_border']
             self.search_field.focused_border_color = colors['accent']
-        if hasattr(self, 'header_container'):
+        if hasattr(self, 'content') and self.content is not None:
             self._build_ui()
         if hasattr(self, 'categorias_grid') and not self.categoria_seleccionada:
             if self._categorias_cache:
@@ -116,8 +116,6 @@ class InventarioView(ft.Container):
             if not self.content:
                 self._build_ui()
             if not self._is_initialized:
-                if page:
-                    page.run_task(self._load_categorias)
                 self._is_initialized = True
             self._safe_update_connection_indicator()
             from usr.database.sync_callbacks import register_sync_callback
@@ -127,6 +125,11 @@ class InventarioView(ft.Container):
                 while True:
                     time.sleep(10)
                     if not hasattr(self, '_mounted') or not self._mounted:
+                        continue
+                    # No competir con el barrido de cambio de vista: si hay una
+                    # transición en curso, omitir este ciclo (se reintenta en 10s).
+                    transitioning = bool(getattr(getattr(self, 'app_controller', None), '_switching_view', False))
+                    if transitioning:
                         continue
                     self._safe_update_connection_indicator()
                     if not self.visible:
@@ -152,6 +155,22 @@ class InventarioView(ft.Container):
         from usr.database.sync_callbacks import unregister_sync_callback
         unregister_sync_callback(self._on_sync_complete)
 
+    def on_view_shown(self):
+        # Al re-mostrar la vista, volver siempre a la raíz (grid de categorías)
+        # por si el usuario había quedado en una sub-vista al navegar fuera.
+        try:
+            self.categoria_seleccionada = None
+            if self.main_content_area is not None:
+                self.main_content_area.content = self.categorias_grid
+            if getattr(self, 'search_field', None) is not None:
+                self.search_field.visible = True
+        except Exception:
+            pass
+        # Al mostrar la vista: devuelve el futuro de la carga para que el
+        # controlador oculte el overlay solo cuando termine.
+        if self.page:
+            return self.page.run_task(self._load_categorias)
+
     def _on_sync_complete(self):
         try:
             if self.page and self.visible:
@@ -167,7 +186,7 @@ class InventarioView(ft.Container):
             colors = get_safe_colors(self.page)
 
             self._connection_indicator = ft.Container(
-                content=ft.Icon(ft.Icons.WIFI, color=ft.Colors.GREEN_400, size=18),
+                content=ft.Icon(ft.Icons.WIFI, color=colors['success'], size=18),
                 tooltip="Conectado", padding=5,
                 on_click=self._on_sync_indicator_click
             )
@@ -192,21 +211,6 @@ class InventarioView(ft.Container):
                 icon_color=colors['text_secondary'],
             )
 
-            self.header_container = ft.Container(
-                content=ft.Row([
-                    ft.Column([
-                        ft.Text("Inventario", size=22, weight=ft.FontWeight.BOLD, color=colors['text_primary']),
-                        ft.Text("Gestión de existencias", size=12, color=colors['text_secondary']),
-                    ], expand=True, spacing=0),
-                    ft.Container(),
-                    self._connection_indicator,
-                    self._btn_lista_compra,
-                    self._btn_lista_compra_active,
-                    self._btn_refresh,
-                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-                margin=ft.Margin.only(bottom=10),
-            )
-
             self.search_field = ft.TextField(
                 hint_text="Buscar...",
                 prefix_icon=ft.Icons.SEARCH_ROUNDED,
@@ -217,7 +221,6 @@ class InventarioView(ft.Container):
             )
 
             self.content = ft.Column([
-                self.header_container,
                 self.search_field,
                 ft.Container(height=5),
                 self.main_content_area,
@@ -232,7 +235,16 @@ class InventarioView(ft.Container):
             show_error("Error building UI", e, "inventario_view._build_ui")
             logger.error(f"Error UI: {e}")
 
+    def get_header_actions(self):
+        return [
+            self._connection_indicator,
+            self._btn_lista_compra_active,
+            self._btn_lista_compra,
+            self._btn_refresh,
+        ]
+
     def _on_refresh(self):
+        colors = get_safe_colors(self.page)
         if not self.page:
             return
         from usr.database.base import is_online as base_is_online
@@ -250,7 +262,7 @@ class InventarioView(ft.Container):
                 self.page.overlay.remove(control)
         snack = ft.SnackBar(
             content=ft.Text("🔄 Actualizando..."),
-            bgcolor=ft.Colors.BLUE_600, duration=1,
+            bgcolor=colors['info'], duration=1,
         )
         self.page.overlay.append(snack)
         snack.open = True
@@ -285,6 +297,7 @@ class InventarioView(ft.Container):
         self.page.update()
 
     def _update_connection_indicator(self):
+        colors = get_safe_colors(self.page)
         try:
             from usr.database import get_sync_manager, get_pending_movimientos_count
             from usr.database.base import is_online as base_is_online
@@ -299,10 +312,10 @@ class InventarioView(ft.Container):
             online = base_is_online()
 
             if online:
-                self._connection_indicator.content = ft.Icon(ft.Icons.WIFI, color=ft.Colors.GREEN_400, size=18)
+                self._connection_indicator.content = ft.Icon(ft.Icons.WIFI, color=colors['success'], size=18)
                 self._connection_indicator.tooltip = f"Conectado - {pending} cambios pendientes" if pending else "Conectado"
             else:
-                self._connection_indicator.content = ft.Icon(ft.Icons.WIFI_OFF, color=ft.Colors.RED_400, size=18)
+                self._connection_indicator.content = ft.Icon(ft.Icons.WIFI_OFF, color=colors['error'], size=18)
                 self._connection_indicator.tooltip = f"Modo offline - {pending} cambios pendientes"
             try:
                 self._connection_indicator.update()
@@ -313,10 +326,43 @@ class InventarioView(ft.Container):
         except Exception:
             pass
 
+    def _fetch_categorias_server(self):
+        """Lee caché local y (si hay conexión) consulta el servidor. Corre en
+        hilo aparte para no bloquear el event loop ni la animación de entrada."""
+        try:
+            local_categorias = LocalReplica.get_categorias()
+            if not local_categorias:
+                return None
+            from usr.database.base import check_connection
+            if not check_connection():
+                return local_categorias
+            db = next(get_db_adaptive())
+            try:
+                categorias = db.query(Categoria).order_by(Categoria.nombre).all()
+                cats_data = [
+                    {"id": c.id, "nombre": c.nombre, "color": c.color,
+                     "descripcion": c.descripcion, "imagen": c.imagen,
+                     "activo": c.activo, "visible_en_pos": 1 if c.visible_en_pos else 0,
+                     "created_at": str(c.created_at) if c.created_at else None,
+                     "updated_at": str(c.updated_at) if c.updated_at else None}
+                    for c in categorias
+                ]
+                LocalReplica.save_categorias(cats_data)
+                return cats_data
+            finally:
+                if db:
+                    db.close()
+        except Exception as e:
+            logger.error(f"Error leyendo categorías en hilo: {e}")
+            return None
+
     async def _load_categorias(self, force_refresh=False):
         if not self.page:
             return
         try:
+            colors = get_safe_colors(self.page)
+            # Caché local primero (rápido) para pintar algo de inmediato sin
+            # bloquear el event loop; luego el refresco de servidor en hilo.
             local_categorias = LocalReplica.get_categorias()
             if local_categorias:
                 self._categorias_cache = local_categorias
@@ -324,39 +370,31 @@ class InventarioView(ft.Container):
                     create_categoria_card_from_dict(c, get_safe_colors(self.page), self._on_categoria_click)
                     for c in local_categorias
                 ]
+                try:
+                    self.update()
+                except Exception:
+                    pass
+
+            cats_data = await asyncio.to_thread(self._fetch_categorias_server)
+            if cats_data is None:
+                return
+            self._categorias_cache = cats_data
+            self.categorias_grid.controls = [
+                create_categoria_card_from_dict(c, get_safe_colors(self.page), self._on_categoria_click)
+                for c in cats_data
+            ]
+            try:
                 self.update()
-            if force_refresh or True:
-                from usr.database.base import check_connection
-                if check_connection():
-                    db = next(get_db_adaptive())
-                    try:
-                        categorias = db.query(Categoria).order_by(Categoria.nombre).all()
-                        cats_data = [
-                            {"id": c.id, "nombre": c.nombre, "color": c.color,
-                             "descripcion": c.descripcion, "imagen": c.imagen,
-                             "activo": c.activo, "visible_en_pos": 1 if c.visible_en_pos else 0,
-                             "created_at": str(c.created_at) if c.created_at else None,
-                             "updated_at": str(c.updated_at) if c.updated_at else None}
-                            for c in categorias
-                        ]
-                        LocalReplica.save_categorias(cats_data)
-                        self._categorias_cache = cats_data
-                        self.categorias_grid.controls = [
-                            create_categoria_card_from_dict(c, get_safe_colors(self.page), self._on_categoria_click)
-                            for c in cats_data
-                        ]
-                        self.update()
-                        if self.page and force_refresh:
-                            snack = ft.SnackBar(
-                                content=ft.Text("✓ Datos actualizados desde servidor"),
-                                bgcolor=ft.Colors.GREEN_700, duration=2,
-                            )
-                            self.page.overlay.append(snack)
-                            snack.open = True
-                            self.page.update()
-                    finally:
-                        if db:
-                            db.close()
+            except Exception:
+                pass
+            if force_refresh:
+                snack = ft.SnackBar(
+                    content=ft.Text("✓ Datos actualizados desde servidor"),
+                    bgcolor=colors['success'], duration=2,
+                )
+                self.page.overlay.append(snack)
+                snack.open = True
+                self.page.update()
         except Exception as e:
             show_error("Error loading categories", e, "inventario_view._load_categorias")
             logger.error(f"Error carga categorías: {e}")
@@ -668,6 +706,7 @@ class InventarioView(ft.Container):
             return None, None
         try:
             conn = get_local_conn()
+            colors = get_safe_colors(self.page)
             cursor = conn.cursor()
             cursor.execute("SELECT id, producto_id FROM compras_lista ORDER BY id DESC")
             rows = cursor.fetchall()
@@ -685,7 +724,7 @@ class InventarioView(ft.Container):
                     categoria_id = producto.get("categoria_id") if isinstance(producto, dict) else getattr(producto, "categoria_id", None)
                     cat_info = LocalReplica.get_categoria(categoria_id) if categoria_id else None
                     categoria_nombre = cat_info.get("nombre", "Sin categoría") if cat_info else "Sin categoría"
-                    categoria_color = cat_info.get("color", "#757575") if cat_info else "#757575"
+                    categoria_color = cat_info.get("color", colors['text_hint']) if cat_info else colors['text_hint']
                     existencias = LocalReplica.get_existencias(producto_id=producto_id)
                     stock_principal_row = next((e for e in existencias if e.get("almacen") == "principal"), None)
                     stock_restaurante_row = next((e for e in existencias if e.get("almacen") == "restaurante"), None)
@@ -852,13 +891,14 @@ class InventarioView(ft.Container):
                 pass
 
     def _eliminar_item_req(self, idx, tabla):
+        colors = get_safe_colors(self.page)
         if idx < len(self.lista_requisicion):
             self.lista_requisicion.pop(idx)
             tabla.controls.clear()
             if not self.lista_requisicion:
                 tabla.controls.append(
                     ft.Container(
-                        content=ft.Text("Sin productos agregados", color=ft.Colors.GREY_400, text_align="center"),
+                        content=ft.Text("Sin productos agregados", color=colors['text_secondary'], text_align="center"),
                         padding=20,
                     )
                 )
@@ -867,15 +907,15 @@ class InventarioView(ft.Container):
                     tabla.controls.append(
                         ft.Container(
                             content=ft.Row([
-                                ft.Text(f"{i+1}.", size=12, color=ft.Colors.GREY_500, width=30),
+                                ft.Text(f"{i+1}.", size=12, color=colors['text_secondary'], width=30),
                                 ft.Text(item["nombre"], size=13, weight="bold", expand=True),
-                                ft.Text(f"{item['cantidad']:.2f} {item['unidad']}", size=12, color=ft.Colors.BLUE_700),
+                                ft.Text(f"{item['cantidad']:.2f} {item['unidad']}", size=12, color=colors['accent']),
                                 ft.IconButton(
-                                    ft.Icons.DELETE_OUTLINE, icon_color=ft.Colors.RED_400, icon_size=18,
+                                    ft.Icons.DELETE_OUTLINE, icon_color=colors['error'], icon_size=18,
                                     on_click=lambda _, index=i: self._eliminar_item_req(index, tabla),
                                 ),
                             ], spacing=10),
-                            padding=10, bgcolor=ft.Colors.GREY_50, border_radius=8,
+                            padding=10, bgcolor=colors['bg'], border_radius=8,
                         )
                     )
             tabla.update()

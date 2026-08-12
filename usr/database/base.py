@@ -24,7 +24,7 @@ def get_local_engine():
     settings = get_settings()
     current_url = settings.LOCAL_DATABASE_URL
     if _local_engine is None or current_url != _last_engine_url:
-        _local_engine = create_engine(current_url, future=True)
+        _local_engine = create_engine(current_url, future=True, pool_size=40)
         _local_session_local = None
         _last_engine_url = current_url
     return _local_engine

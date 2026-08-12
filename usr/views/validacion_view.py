@@ -23,7 +23,7 @@ class ValidacionView(ft.Container):
         self.visible = False
         self.expand = True
         self.padding = ft.Padding.only(left=10, right=10, bottom=16, top=8)
-        self.bgcolor = '#1A1A1A'
+        self.bgcolor = get_colors(None)['bg']
         
         self.entradas_list = ft.ListView(expand=True, spacing=10, padding=ft.Padding.only(top=10))
         self.search_field = None
@@ -52,7 +52,6 @@ class ValidacionView(ft.Container):
                 return
             self._build_controls()
             if page and page.session:
-                page.run_task(self._load_entradas_pendientes)
                 self.update()
             
             self._update_connection_indicator()
@@ -64,6 +63,12 @@ class ValidacionView(ft.Container):
 
     def will_unmount(self):
         unregister_sync_callback(self._on_sync_complete)
+
+    def on_view_shown(self):
+        # Al mostrar la vista: devuelve el futuro de la carga para que el
+        # controlador oculte el overlay solo cuando termine.
+        if self.page:
+            return self.page.run_task(self._load_entradas_pendientes)
 
     def _on_sync_complete(self):
         try:
@@ -77,10 +82,11 @@ class ValidacionView(ft.Container):
         if not hasattr(self, '_connection_indicator') or not self._connection_indicator:
             return
         try:
+            colors = get_colors(self.page)
             online = is_online()
             self._connection_indicator.content = ft.Icon(
                 ft.Icons.WIFI if online else ft.Icons.WIFI_OFF,
-                color=ft.Colors.GREEN_400 if online else ft.Colors.RED_400,
+                color=colors['success'] if online else colors['error'],
                 size=18
             )
             self._connection_indicator.tooltip = "Conectado" if online else "Sin conexión"
@@ -100,6 +106,11 @@ class ValidacionView(ft.Container):
                 try:
                     page = self.page
                 except RuntimeError:
+                    continue
+                # No competir con el barrido de cambio de vista: si hay una
+                # transición en curso, omitir este ciclo (se reintenta en 10s).
+                transitioning = bool(getattr(getattr(self, 'app_controller', None), '_switching_view', False))
+                if transitioning:
                     continue
                 self._update_connection_indicator()
                 # Solo forzar refresh de la página si la vista está visible,
@@ -136,13 +147,13 @@ class ValidacionView(ft.Container):
             overlay = ft.Container(
                 content=ft.Container(
                     content=ft.Column([
-                        ft.ProgressBar(width=200, color=colors.get('primary', ft.Colors.PURPLE), bgcolor=ft.Colors.TRANSPARENT),
-                        ft.Text(message, size=13, color=colors.get('text_primary'), weight="w500", text_align=ft.TextAlign.CENTER),
+                        ft.ProgressBar(width=200, color=colors['accent'], bgcolor=ft.Colors.TRANSPARENT),
+                        ft.Text(message, size=13, color=colors['text_primary'], weight="w500", text_align=ft.TextAlign.CENTER),
                     ], tight=True, horizontal_alignment=ft.CrossAxisAlignment.CENTER),
-                    bgcolor=colors.get('surface', '#252525'),
+                    bgcolor=colors['surface'],
                     padding=20,
                     border_radius=15,
-                    border=ft.Border.all(1, colors.get('border')),
+                    border=ft.Border.all(1, colors['border']),
                     width=250,
                 ),
                 bgcolor=ft.Colors.with_opacity(0.5, ft.Colors.BLACK),
@@ -176,7 +187,7 @@ class ValidacionView(ft.Container):
         
         # Connection indicator
         self._connection_indicator = ft.Container(
-            content=ft.Icon(ft.Icons.WIFI, color=ft.Colors.GREEN_400, size=18),
+            content=ft.Icon(ft.Icons.WIFI, color=colors['success'], size=18),
             tooltip="Conectado",
             padding=5,
             on_click=self._on_sync_indicator_click
@@ -195,38 +206,26 @@ class ValidacionView(ft.Container):
         
         self.validate_button = ft.ElevatedButton(
             "Validar seleccionadas",
-            bgcolor=ft.Colors.BLUE_600,
-            color="white",
+            bgcolor=colors['info'],
+            color=colors['white'],
             disabled=True,
             on_click=self._show_validar_dialog
         )
         
         self.clear_button = ft.ElevatedButton(
             "Limpiar selección",
-            bgcolor=ft.Colors.ORANGE_600,
-            color="white",
+            bgcolor=colors['warning'],
+            color=colors['white'],
             disabled=True,
             on_click=lambda _: self._clear_selection()
         )
         
-        header = ft.Container(
-            content=ft.Column([
-                ft.Row([
-                    ft.Column([
-                        ft.Text("Validación", size=26, weight=ft.FontWeight.BOLD, color=colors['text_primary']),
-                        ft.Text("Vincular entradas a facturas", size=13, color=colors['text_secondary']),
-                    ], expand=True, spacing=0),
-                    self._connection_indicator,
-                    ft.IconButton(
-                        ft.Icons.REFRESH_ROUNDED,
-                        on_click=lambda _: self._on_refresh(),
-                        icon_color=colors['text_secondary'],
-                    )
-                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
-            ], spacing=0),
-            padding=ft.Padding.only(bottom=10)
+        self._btn_refresh = ft.IconButton(
+            ft.Icons.REFRESH_ROUNDED,
+            on_click=lambda _: self._on_refresh(),
+            icon_color=colors['text_secondary'],
         )
-        
+
         controls = ft.Container(
             content=ft.Column([
                 self.search_field,
@@ -235,8 +234,11 @@ class ValidacionView(ft.Container):
             padding=ft.Padding.symmetric(horizontal=20, vertical=10),
         )
         
-        self.content = ft.Column([header, controls, self.entradas_list], spacing=0, expand=True)
+        self.content = ft.Column([controls, self.entradas_list], spacing=0, expand=True)
         self.update()
+
+    def get_header_actions(self):
+        return [self._connection_indicator, self._btn_refresh]
 
     def _on_sync_indicator_click(self, e=None):
         from usr.database import get_sync_manager
@@ -376,6 +378,7 @@ class ValidacionView(ft.Container):
         if self.is_loading:
             return
         self.is_loading = True
+        colors = get_colors(self.page)
         
         self.entradas_list.controls = [ft.ProgressBar()]
         if self.page:
@@ -389,8 +392,8 @@ class ValidacionView(ft.Container):
             if not entradas:
                 self.entradas_list.controls.append(ft.Container(
                     content=ft.Column([
-                        ft.Icon(ft.Icons.FACT_CHECK_OUTLINED, size=50, color=ft.Colors.GREY_300),
-                        ft.Text("Sin entradas pendientes", color=ft.Colors.GREY_400)
+                        ft.Icon(ft.Icons.FACT_CHECK_OUTLINED, size=50, color=colors['text_hint']),
+                        ft.Text("Sin entradas pendientes", color=colors['text_secondary'])
                     ], horizontal_alignment="center"),
                     padding=ft.Padding.only(top=100),
                     alignment="center"
@@ -457,7 +460,7 @@ class ValidacionView(ft.Container):
             cantidad_texto = f"{entrada.cantidad} {unidad}"
         
         if peso > 0.001:
-            peso_badge = ft.Text(f"⚖️ {peso:.3f} kg", size=10, color='#FF9800')
+            peso_badge = ft.Text(f"⚖️ {peso:.3f} kg", size=10, color=colors['warning'])
         else:
             peso_badge = ft.Text()
         

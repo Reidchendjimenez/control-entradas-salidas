@@ -25,11 +25,11 @@ class ValidacionDialog:
         
         usuario_label = ft.Container(
             content=ft.Row([
-                ft.Icon(ft.Icons.PERSON, size=18, color=self.theme_colors.get('accent', '#BB86FC')),
+                ft.Icon(ft.Icons.PERSON, size=18, color=self.theme_colors['accent']),
                 ft.Text(f"Validado por: {nombre_usuario}", weight="bold", size=13, color=self.theme_colors.get('text_primary'))
             ]),
             padding=ft.Padding.symmetric(horizontal=12, vertical=8),
-            bgcolor=self.theme_colors.get('accent_dark', '#9A67EA'),
+            bgcolor=self.theme_colors['accent_dark'],
             border_radius=8
         )
         

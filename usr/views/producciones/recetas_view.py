@@ -8,14 +8,14 @@ from usr.views.producciones.helpers import colors as _colors
 
 def _build_card(receta, colors, on_edit, on_delete):
     tipo_text = "Simple" if receta.get('tipo') == 'simple' else "Compuesta"
-    tipo_color = '#4CAF50' if receta.get('tipo') == 'simple' else '#2196F3'
+    tipo_color = colors['success'] if receta.get('tipo') == 'simple' else colors['info']
     componentes = data.load_componentes(receta['id'])
     ing_count = sum(1 for c in componentes if c.get('tipo_componente') == 'INGREDIENTE')
     res_count = sum(1 for c in componentes if c.get('tipo_componente') == 'RESULTADO')
     var_count = sum(1 for c in componentes if c.get('peso_variable'))
 
     badges = ft.Row([
-        ft.Container(content=ft.Text(tipo_text, size=11, color=ft.Colors.WHITE, weight=ft.FontWeight.BOLD),
+        ft.Container(content=ft.Text(tipo_text, size=11, color=colors['white'], weight=ft.FontWeight.BOLD),
                      padding=ft.Padding.symmetric(horizontal=8, vertical=3),
                      bgcolor=tipo_color, border_radius=4),
         ft.Container(content=ft.Text(f"{len(componentes)} comp.", size=11, color=colors['text_secondary']),
@@ -24,7 +24,7 @@ def _build_card(receta, colors, on_edit, on_delete):
         ft.Container(content=ft.Text(f"Cant: {receta.get('cantidad_producida', 1)}", size=11, color=colors['text_secondary']),
                      padding=ft.Padding.symmetric(horizontal=8, vertical=3),
                      bgcolor=colors['card_hover'], border_radius=4),
-    ] + ([ft.Container(content=ft.Text(f"⚖️ {var_count} var.", size=11, color='#FF9800', weight=ft.FontWeight.BOLD),
+    ] + ([ft.Container(content=ft.Text(f"⚖️ {var_count} var.", size=11, color=colors['warning'], weight=ft.FontWeight.BOLD),
                        padding=ft.Padding.symmetric(horizontal=8, vertical=3),
                        bgcolor=colors['card_hover'], border_radius=4)] if var_count else []),
         spacing=6,
@@ -46,7 +46,7 @@ def _build_card(receta, colors, on_edit, on_delete):
                 ft.IconButton(
                     icon=ft.Icons.DELETE_OUTLINED,
                     icon_size=18,
-                    icon_color='#F44336',
+                    icon_color=colors['error'],
                     tooltip="Eliminar",
                     on_click=lambda _, r=receta: on_delete(r),
                 ),

@@ -1,16 +1,16 @@
 import flet as ft
 
 tipo_labels = {
-    'entrada': ('Entrada', ft.Colors.GREEN_400),
-    'salida': ('Salida', ft.Colors.RED_400),
-    'ajuste': ('Ajuste', ft.Colors.ORANGE_400),
-    'tr_entrada': ('Tr. Entrada', ft.Colors.BLUE_400),
-    'tr_salida': ('Tr. Salida', ft.Colors.PURPLE_400),
-    'validacion': ('Validación', ft.Colors.TEAL_400),
-    'venta': ('Venta', ft.Colors.GREEN_400),
-    'devolucion': ('Devolución', ft.Colors.TEAL_400),
-    'entrada_produccion': ('Ent. Producción', ft.Colors.GREEN_400),
-    'salida_produccion': ('Sal. Producción', ft.Colors.RED_400),
+    'entrada': ('Entrada', 'success'),
+    'salida': ('Salida', 'error'),
+    'ajuste': ('Ajuste', 'warning'),
+    'tr_entrada': ('Tr. Entrada', 'info'),
+    'tr_salida': ('Tr. Salida', 'accent'),
+    'validacion': ('Validación', 'success'),
+    'venta': ('Venta', 'success'),
+    'devolucion': ('Devolución', 'info'),
+    'entrada_produccion': ('Ent. Producción', 'success'),
+    'salida_produccion': ('Sal. Producción', 'error'),
 }
 
 def _fmt_cantidad(cant):
@@ -52,8 +52,9 @@ def build_movimiento_card(m, colors, producto=None, page=None):
         numero_doc = getattr(factura, 'numero_factura', '') if factura else ''
         tipo_doc = getattr(factura, 'tipo_documento', '') if factura else ''
 
-    tipo_info = tipo_labels.get(tipo, (tipo or '?', ft.Colors.GREY_400))
-    label, color = tipo_info
+    tipo_info = tipo_labels.get(tipo, (tipo or '?', 'text_secondary'))
+    label, color_key = tipo_info
+    color = colors.get(color_key, colors['text_secondary'])
 
     # Para productos pesables, la variación real de stock es el peso (kg),
     # no el número de unidades. El medio de la tarjeta debe mostrar el peso.
@@ -69,7 +70,7 @@ def build_movimiento_card(m, colors, producto=None, page=None):
     if tipo in ('salida', 'salida_produccion', 'venta'):
         cant_medio = -abs(cant_medio)
 
-    sign_color = colors.get('success', ft.Colors.GREEN_400) if cant_medio >= 0 else ft.Colors.RED_400
+    sign_color = colors['success'] if cant_medio >= 0 else colors['error']
     sign = '+' if cant_medio >= 0 else ''
 
     info_parts = [usuario]
@@ -81,7 +82,7 @@ def build_movimiento_card(m, colors, producto=None, page=None):
         ft.Row([
             ft.Text(fecha, size=10, color=colors['text_secondary']),
             ft.Container(
-                content=ft.Text(label, size=9, color='white', weight='bold'),
+                content=ft.Text(label, size=9, color=colors['white'], weight='bold'),
                 bgcolor=color, padding=ft.Padding.only(left=4, top=1, right=4, bottom=1), border_radius=3,
             ),
         ], spacing=6),

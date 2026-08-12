@@ -31,7 +31,7 @@ class ConfiguracionView(ft.Container):
         self.visible = False
         self.expand = True
         self.padding = 0
-        self.bgcolor = "#1A1A1A"
+        self.bgcolor = _colors(None)['bg']
 
         self.selected_image_path = None
         self.active_dialog = None
@@ -47,7 +47,7 @@ class ConfiguracionView(ft.Container):
         self.offline_status_indicator = ft.Text(
             "ONLINE" if is_online_flag else "OFFLINE",
             size=14,
-            color=ft.Colors.GREEN_400 if is_online_flag else ft.Colors.RED_400,
+            color=_colors(None)['success'] if is_online_flag else _colors(None)['error'],
             weight=ft.FontWeight.BOLD,
         )
 
@@ -65,8 +65,6 @@ class ConfiguracionView(ft.Container):
                 page.on_resize = self._on_resize
             if not self.content:
                 self._build_ui()
-            if page:
-                page.run_task(self._load_data_async)
             self._fully_initialized = True
         except Exception as e:
             logger.error(f"Error en did_mount de ConfiguracionView: {e}", exc_info=True)
@@ -85,25 +83,6 @@ class ConfiguracionView(ft.Container):
 
     def _build_ui(self):
         colors = _colors(self.page)
-        header = ft.Container(
-            content=ft.Column([
-                ft.Row([
-                    ft.Container(
-                        content=ft.Icon(ft.Icons.SETTINGS, size=32, color=colors['white']),
-                        bgcolor=colors['accent'],
-                        padding=12,
-                        border_radius=12
-                    ),
-                    ft.Column([
-                        ft.Text("Configuracion", size=26, weight=ft.FontWeight.BOLD, color=colors['text_primary']),
-                        ft.Text("Gestione categorias y catalogo de productos", size=13, color=colors['text_secondary']),
-                    ], spacing=2, expand=True),
-                ], alignment=ft.MainAxisAlignment.START),
-            ], spacing=8),
-            padding=ft.Padding.only(left=20, right=20, top=20, bottom=15),
-            bgcolor=colors['surface'],
-            border_radius=ft.BorderRadius.only(bottom_left=20, bottom_right=20),
-        )
 
         self.tabs = ft.Tabs(
             selected_index=0,
@@ -128,8 +107,16 @@ class ConfiguracionView(ft.Container):
             ]),
         )
 
-        self.content = ft.Column([header, self.tabs], expand=True, spacing=0)
+        self.content = ft.Column([self.tabs], expand=True, spacing=0)
         self.update()
+
+    def get_header_actions(self):
+        return []
+
+    def on_view_shown(self):
+        # Al mostrar la vista: devuelve el futuro de la carga.
+        if self.page:
+            return self.page.run_task(self._load_data_async)
 
     def _build_categorias_tab(self):
         colors = _colors(self.page)

@@ -20,13 +20,13 @@ def build_historial_tab(page):
 
             estado = produccion.get('estado', 'completado')
             if estado == 'cancelada':
-                estado_color = '#F44336'
+                estado_color = colors['error']
                 estado_icon = ft.Icons.CANCEL_OUTLINED
             elif estado == 'pendiente':
-                estado_color = '#FF9800'
+                estado_color = colors['warning']
                 estado_icon = ft.Icons.PENDING_ACTIONS
             else:
-                estado_color = '#4CAF50'
+                estado_color = colors['success']
                 estado_icon = ft.Icons.CHECK_CIRCLE_OUTLINE
 
             card = ft.Container(
@@ -36,7 +36,7 @@ def build_historial_tab(page):
                         ft.Text(produccion.get('receta_nombre', '?'), size=16, weight=ft.FontWeight.BOLD, color=colors['text_primary']),
                         ft.Container(expand=True),
                         ft.Container(
-                            content=ft.Text(estado.upper(), size=10, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                            content=ft.Text(estado.upper(), size=10, weight=ft.FontWeight.BOLD, color=colors['white']),
                             padding=ft.Padding.symmetric(horizontal=8, vertical=2),
                             bgcolor=estado_color,
                             border_radius=4,
@@ -51,7 +51,7 @@ def build_historial_tab(page):
                     ft.Row([
                         ft.Container(
                             content=ft.Column([
-                                ft.Text(f"Salidas: {len(salidas)}", size=12, color='#FF9800'),
+                                ft.Text(f"Salidas: {len(salidas)}", size=12, color=colors['warning']),
                                 *[ft.Text(
                                     f"  - {d.get('producto_nombre', '?')} x{d['cantidad']} {d.get('unidad', '')}".rstrip(),
                                     size=11, color=colors['text_secondary'],
@@ -61,7 +61,7 @@ def build_historial_tab(page):
                         ),
                         ft.Container(
                             content=ft.Column([
-                                ft.Text(f"Entradas: {len(entradas)}", size=12, color='#4CAF50'),
+                                ft.Text(f"Entradas: {len(entradas)}", size=12, color=colors['success']),
                                 *[ft.Text(
                                     f"  + {d.get('producto_nombre', '?')} x{d['cantidad']} {d.get('unidad', '')}".rstrip(),
                                     size=11, color=colors['text_secondary'],
