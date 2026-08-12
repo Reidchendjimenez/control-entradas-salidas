@@ -11,17 +11,32 @@ class ControlEntradasSalidasApp:
         self.navigation_rail = None
         self.navigation_bar = None
         self.content_area = None
-        self._view_switcher = None
         self.current_view = None
         self.current_view_index = 0
         self.views = []
-        self._layout_row = None
         self.settings = None
         self._switching_view = False
 
-    _VIEW_ANIM_DURATION = 400
-    _VIEW_ANIM_IN = ft.AnimationCurve.EASE_OUT_CUBIC
-    _VIEW_ANIM_OUT = ft.AnimationCurve.EASE_IN
+        # Caché de rutas: una ft.View por tab (índice 0..7). Cada View contiene
+        # su propio shell (raíl, barra de sync, área de contenido) y una única
+        # vista pesada, de modo que la navegación nativa por page.views activa
+        # las transiciones Material sin duplicar controles entre vistas.
+        self._route_views = {}
+        self._sync_bars = {}
+        self._content_areas = {}
+        self._rails = {}
+        self._theme_toggles = {}
+
+    _ROUTES = [
+        "/inventario",      # 0
+        "/validacion",      # 1
+        "/stock",           # 2
+        "/producciones",    # 3
+        "/requisiciones",   # 4
+        "/historial",       # 5
+        "/ajustes",         # 6
+        "/bandeja",         # 7
+    ]
 
     async def arrancar_interfaz(self, page: ft.Page, settings, vistas_cargadas):
         self.page = page
@@ -61,12 +76,17 @@ class ControlEntradasSalidasApp:
 
             self._setup_theme()
             self._create_layout()
-            self._handle_responsive_layout(self.page.width)
             self._register_sync_callback()
-            self._show_view(0)
 
+            self.page.on_route_change = self._on_route_change
             self.page.on_resized = self._on_page_resized
+            # Limpiar cualquier control residual de la fase de arranque (splash/login).
+            self.page.clean()
             self.page.update()
+
+            # Arrancar en la primera ruta; page.go dispara on_route_change,
+            # que monta la View correspondiente en page.views.
+            self.page.go(self._ROUTES[0])
         except Exception as e:
             logger.error(f"Error crítico en arrancar_interfaz: {e}", exc_info=True)
             show_error("Error al iniciar la interfaz", e, "ControlEntradasSalidasApp.arrancar_interfaz")
@@ -74,7 +94,22 @@ class ControlEntradasSalidasApp:
     def _setup_theme(self):
         if not self.page:
             return
-        self.page.theme = ft.Theme(color_scheme_seed=ft.Colors.DEEP_PURPLE_700, visual_density=ft.VisualDensity.COMFORTABLE, use_material3=True)
+        # Transiciones nativas de ruta (Material). Se activan al navegar entre
+        # las ft.View de page.views. cupertino: deslizamiento horizontal
+        # (la vista nueva entra deslizándose desde la derecha), como el push
+        # clásico de navegación; aplicado en todas las plataformas.
+        self.page.theme = ft.Theme(
+            color_scheme_seed=ft.Colors.DEEP_PURPLE_700,
+            visual_density=ft.VisualDensity.COMFORTABLE,
+            use_material3=True,
+            page_transitions=ft.PageTransitionsTheme(
+                android=ft.PageTransitionTheme.CUPERTINO,
+                ios=ft.PageTransitionTheme.CUPERTINO,
+                windows=ft.PageTransitionTheme.CUPERTINO,
+                macos=ft.PageTransitionTheme.CUPERTINO,
+                linux=ft.PageTransitionTheme.CUPERTINO,
+            ),
+        )
         self.page.bgcolor = '#1A1A1A'
 
     def _toggle_theme(self, e=None):
@@ -85,11 +120,12 @@ class ControlEntradasSalidasApp:
             self.page.theme_mode = ft.ThemeMode.DARK if is_dark else ft.ThemeMode.LIGHT
             self.page.bgcolor = '#1A1A1A' if is_dark else '#F5F5F5'
 
-            if hasattr(self, 'content_area') and self.content_area:
-                self.content_area.bgcolor = '#252525' if is_dark else '#FFFFFF'
-
-            if hasattr(self, 'navigation_rail') and self.navigation_rail:
-                self.navigation_rail.bgcolor = '#1E1E1E' if is_dark else '#F3E5F5'
+            for route, rail in self._rails.items():
+                rail.bgcolor = '#1E1E1E' if is_dark else '#F3E5F5'
+            for route, area in self._content_areas.items():
+                area.bgcolor = '#252525' if is_dark else '#FFFFFF'
+            if self.navigation_bar:
+                self.navigation_bar.bgcolor = ft.Colors.SURFACE_CONTAINER_HIGHEST
 
             if hasattr(self, 'theme_toggle') and self.theme_toggle:
                 self.theme_toggle.icon = ft.Icons.LIGHT_MODE if is_dark else ft.Icons.DARK_MODE
@@ -106,75 +142,95 @@ class ControlEntradasSalidasApp:
 
     def _create_layout(self):
         try:
-            self._view_switcher = ft.AnimatedSwitcher(
-                content=ft.Container(expand=True),
-                duration=self._VIEW_ANIM_DURATION,
-                reverse_duration=self._VIEW_ANIM_DURATION,
-                switch_in_curve=self._VIEW_ANIM_IN,
-                switch_out_curve=self._VIEW_ANIM_OUT,
-                transition=ft.AnimatedSwitcherTransition.FADE,
-                expand=True,
-            )
+            # Cada tab construye su propia ft.View (shell + vista pesada).
+            # Se cachean una única vez: la navegación solo alterna cuál está
+            # activa en page.views, preservando el estado de las vistas.
+            for index, route in enumerate(self._ROUTES):
+                self._route_views[route] = self._build_route_view(index)
 
-            self.content_area = ft.Container(
-                content=self._view_switcher,
-                expand=True,
-                bgcolor='#1A1A1A'
-            )
-
-            self.theme_toggle = ft.IconButton(icon=ft.Icons.LIGHT_MODE, tooltip="Modo Claro", on_click=self._toggle_theme, icon_color=ft.Colors.AMBER)
-
-            self.navigation_rail = ft.NavigationRail(
-                selected_index=0, extended=False, label_type=ft.NavigationRailLabelType.ALL, min_width=100, bgcolor='#1E1E1E',
-                leading=self.theme_toggle,
-                destinations=[
-                    ft.NavigationRailDestination(icon=ft.Icons.SHOPPING_CART_OUTLINED, selected_icon=ft.Icons.SHOPPING_CART, label="Inventario"),
-                    ft.NavigationRailDestination(icon=ft.Icons.CHECKLIST_OUTLINED, selected_icon=ft.Icons.CHECKLIST, label="Validación"),
-                    ft.NavigationRailDestination(icon=ft.Icons.WAREHOUSE_OUTLINED, selected_icon=ft.Icons.WAREHOUSE, label="Stock"),
-                    ft.NavigationRailDestination(icon=ft.Icons.FACTORY_OUTLINED, selected_icon=ft.Icons.FACTORY, label="Producciones"),
-                    ft.NavigationRailDestination(icon=ft.Icons.LOCAL_SHIPPING_OUTLINED, selected_icon=ft.Icons.LOCAL_SHIPPING, label="Requisiciones"),
-                    ft.NavigationRailDestination(icon=ft.Icons.HISTORY_OUTLINED, selected_icon=ft.Icons.HISTORY, label="Historial"),
-                    ft.NavigationRailDestination(icon=ft.Icons.SETTINGS_OUTLINED, selected_icon=ft.Icons.SETTINGS, label="Ajustes"),
-                    ft.NavigationRailDestination(icon=ft.Icons.MAIL_OUTLINED, selected_icon=ft.Icons.MAIL, label="Bandeja"),
-                ], on_change=self._on_navigation_change,
-            )
-
-            self.navigation_bar = ft.NavigationBar(
-                visible=False, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-                destinations=[
-                    ft.NavigationBarDestination(icon=ft.Icons.SHOPPING_CART_OUTLINED, label="Inventario"),
-                    ft.NavigationBarDestination(icon=ft.Icons.CHECKLIST_OUTLINED, label="Validar"),
-                    ft.NavigationBarDestination(icon=ft.Icons.WAREHOUSE_OUTLINED, label="Stock"),
-                    ft.NavigationBarDestination(icon=ft.Icons.MORE_VERT, label="Más"),
-                ], on_change=self._on_navigation_change,
-            )
-
-            self.sync_status_bar = ft.Container(
-                height=0, visible=True,
-                bgcolor='#2D2D2D',
-                padding=ft.Padding.symmetric(horizontal=12, vertical=0),
-                border_radius=ft.BorderRadius.all(8),
-                content=ft.Row([
-                    ft.ProgressRing(width=14, height=14, stroke_width=2, color='#BB86FC'),
-                    ft.Text("", size=12, color='#BBBBBB', expand=True, no_wrap=False),
-                ], spacing=8, alignment=ft.MainAxisAlignment.START),
-            )
-
-            self._layout_row = ft.SafeArea(content=ft.Row([self.navigation_rail, self.content_area], expand=True, spacing=0), expand=True)
-            self.page.clean()
-            self.page.padding = 5
-            self._sync_safe = ft.SafeArea(
-                content=self.sync_status_bar,
-                avoid_intrusions_left=True, avoid_intrusions_top=True,
-                avoid_intrusions_right=True, avoid_intrusions_bottom=False,
-            )
-            self.page.add(ft.Column([
-                self._sync_safe,
-                self._layout_row,
-            ], spacing=4, expand=True))
+            # Referencias al shell de la vista inicial (se reajustan al navegar).
+            self._sync_active_refs(self._ROUTES[0])
         except Exception as e:
             logger.error(f"Error en _create_layout: {e}", exc_info=True)
             show_error("Error al crear el layout de la app", e, "ControlEntradasSalidasApp._create_layout")
+
+    def _sync_active_refs(self, route: str):
+        """Apunta las referencias globales al shell de la ruta activa."""
+        self.navigation_rail = self._rails.get(route)
+        self.content_area = self._content_areas.get(route)
+        self.sync_status_bar = self._sync_bars.get(route)
+        self.theme_toggle = self._theme_toggles.get(route)
+
+    def _build_route_view(self, index: int) -> ft.View:
+        """Construye la ft.View completa para un tab, con su propio shell."""
+        heavy_view = self.views[index]
+
+        theme_toggle = ft.IconButton(icon=ft.Icons.LIGHT_MODE, tooltip="Modo Claro", on_click=self._toggle_theme, icon_color=ft.Colors.AMBER)
+
+        rail = ft.NavigationRail(
+            selected_index=index, extended=False, label_type=ft.NavigationRailLabelType.ALL,
+            min_width=100, bgcolor='#1E1E1E', leading=theme_toggle,
+            destinations=[
+                ft.NavigationRailDestination(icon=ft.Icons.SHOPPING_CART_OUTLINED, selected_icon=ft.Icons.SHOPPING_CART, label="Inventario"),
+                ft.NavigationRailDestination(icon=ft.Icons.CHECKLIST_OUTLINED, selected_icon=ft.Icons.CHECKLIST, label="Validación"),
+                ft.NavigationRailDestination(icon=ft.Icons.WAREHOUSE_OUTLINED, selected_icon=ft.Icons.WAREHOUSE, label="Stock"),
+                ft.NavigationRailDestination(icon=ft.Icons.FACTORY_OUTLINED, selected_icon=ft.Icons.FACTORY, label="Producciones"),
+                ft.NavigationRailDestination(icon=ft.Icons.LOCAL_SHIPPING_OUTLINED, selected_icon=ft.Icons.LOCAL_SHIPPING, label="Requisiciones"),
+                ft.NavigationRailDestination(icon=ft.Icons.HISTORY_OUTLINED, selected_icon=ft.Icons.HISTORY, label="Historial"),
+                ft.NavigationRailDestination(icon=ft.Icons.SETTINGS_OUTLINED, selected_icon=ft.Icons.SETTINGS, label="Ajustes"),
+                ft.NavigationRailDestination(icon=ft.Icons.MAIL_OUTLINED, selected_icon=ft.Icons.MAIL, label="Bandeja"),
+            ],
+            on_change=self._on_navigation_change,
+        )
+
+        content_area = ft.Container(
+            content=ft.Column([heavy_view], expand=True, spacing=0),
+            expand=True,
+            bgcolor='#1A1A1A',
+        )
+
+        sync_status_bar = ft.Container(
+            height=0, visible=True,
+            bgcolor='#2D2D2D',
+            padding=ft.Padding.symmetric(horizontal=12, vertical=0),
+            border_radius=ft.BorderRadius.all(8),
+            content=ft.Row([
+                ft.ProgressRing(width=14, height=14, stroke_width=2, color='#BB86FC'),
+                ft.Text("", size=12, color='#BBBBBB', expand=True, no_wrap=False),
+            ], spacing=8, alignment=ft.MainAxisAlignment.START),
+        )
+
+        sync_safe = ft.SafeArea(
+            content=sync_status_bar,
+            avoid_intrusions_left=True, avoid_intrusions_top=True,
+            avoid_intrusions_right=True, avoid_intrusions_bottom=False,
+        )
+
+        layout_row = ft.SafeArea(
+            content=ft.Row([rail, content_area], expand=True, spacing=0),
+            expand=True,
+        )
+
+        # Guardar referencias clave para actualizaciones selectivas sin depender
+        # de un rastreo frágil del árbol de controles.
+        route = self._ROUTES[index]
+        self._rails[route] = rail
+        self._content_areas[route] = content_area
+        self._sync_bars[route] = sync_status_bar
+        self._theme_toggles[route] = theme_toggle
+
+        return ft.View(
+            route=self._ROUTES[index],
+            controls=[
+                ft.Column([
+                    sync_safe,
+                    layout_row,
+                ], spacing=4, expand=True),
+            ],
+            padding=5,
+            spacing=0,
+            bgcolor='#121212',
+        )
 
     def _on_sync_progress(self, msg: str):
         """Recibe mensajes de progreso del SyncManager."""
@@ -187,38 +243,42 @@ class ControlEntradasSalidasApp:
             is_start = msg.endswith('completa...')
             is_empty = 'No hay' in msg or '0 registros' in msg or '0 requisiciones' in msg
 
-            bar = self.sync_status_bar
-            text = bar.content.controls[1]
-            spinner = bar.content.controls[0]
+            bars = list(dict.fromkeys(
+                [self.sync_status_bar] + list(self._sync_bars.values())
+            ))
 
             clean = msg.replace('[SYNC] ', '').replace('[SYNC-DEBUG] ', '').strip()
 
-            if is_start:
-                bar.height = 30
-                spinner.visible = True
-                text.value = clean
-                text.color = '#BBBBBB'
-                bar.bgcolor = '#2D2D2D'
-            elif is_done:
-                text.value = f"✓ {clean}"
-                text.color = '#4CAF50'
-                spinner.visible = False
-                bar.bgcolor = '#1B3D1B'
-                # Auto-ocultar tras 4s
-                import threading
-                threading.Thread(target=self._hide_sync_bar, args=(4,), daemon=True).start()
-            elif is_error:
-                text.value = f"✗ {clean}"
-                text.color = '#F44336'
-                spinner.visible = False
-                bar.bgcolor = '#3D1B1B'
-                threading.Thread(target=self._hide_sync_bar, args=(6,), daemon=True).start()
-            else:
-                bar.height = 30
-                spinner.visible = True
-                text.value = clean
-                text.color = '#BBBBBB'
-                bar.bgcolor = '#2D2D2D'
+            for bar in bars:
+                if not bar or not bar.content:
+                    continue
+                text = bar.content.controls[1]
+                spinner = bar.content.controls[0]
+                if is_start:
+                    bar.height = 30
+                    spinner.visible = True
+                    text.value = clean
+                    text.color = '#BBBBBB'
+                    bar.bgcolor = '#2D2D2D'
+                elif is_done:
+                    text.value = f"✓ {clean}"
+                    text.color = '#4CAF50'
+                    spinner.visible = False
+                    bar.bgcolor = '#1B3D1B'
+                    import threading
+                    threading.Thread(target=self._hide_sync_bar, args=(4,), daemon=True).start()
+                elif is_error:
+                    text.value = f"✗ {clean}"
+                    text.color = '#F44336'
+                    spinner.visible = False
+                    bar.bgcolor = '#3D1B1B'
+                    threading.Thread(target=self._hide_sync_bar, args=(6,), daemon=True).start()
+                else:
+                    bar.height = 30
+                    spinner.visible = True
+                    text.value = clean
+                    text.color = '#BBBBBB'
+                    bar.bgcolor = '#2D2D2D'
 
             if self.page:
                 self.page.update()
@@ -260,15 +320,113 @@ class ControlEntradasSalidasApp:
             w = 1024
 
         if w < 700:
-            self.navigation_rail.visible = False
+            # Móvil: raíl oculto + navigation_bar persistente de la página.
+            for rail in self._rails.values():
+                rail.visible = False
+            for area in self._content_areas.values():
+                area.border_radius = 0
+            if self.navigation_bar is None:
+                self._build_navigation_bar()
             self.page.navigation_bar = self.navigation_bar
             self.navigation_bar.visible = True
-            self.content_area.border_radius = 0
         else:
-            self.navigation_rail.visible = True
+            for rail in self._rails.values():
+                rail.visible = True
+            for area in self._content_areas.values():
+                area.border_radius = ft.BorderRadius.only(top_left=20)
+            if self.navigation_bar:
+                self.navigation_bar.visible = False
             self.page.navigation_bar = None
-            self.navigation_bar.visible = False
-            self.content_area.border_radius = ft.BorderRadius.only(top_left=20)
+
+    def _build_navigation_bar(self):
+        """NavigationBar inferior para móvil (persistente en la página)."""
+        self.navigation_bar = ft.NavigationBar(
+            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+            destinations=[
+                ft.NavigationBarDestination(icon=ft.Icons.SHOPPING_CART_OUTLINED, label="Inventario"),
+                ft.NavigationBarDestination(icon=ft.Icons.CHECKLIST_OUTLINED, label="Validar"),
+                ft.NavigationBarDestination(icon=ft.Icons.WAREHOUSE_OUTLINED, label="Stock"),
+                ft.NavigationBarDestination(icon=ft.Icons.MORE_VERT, label="Más"),
+            ], on_change=self._on_navigation_change,
+        )
+
+    def _route_to_index(self, route: str) -> int:
+        try:
+            return self._ROUTES.index(route)
+        except ValueError:
+            return 0
+
+    def _on_route_change(self, e):
+        """Deriva page.views a partir de page.route (patrón oficial de Flet)."""
+        if self.page is None:
+            return
+        try:
+            route = getattr(e, 'route', None) or self.page.route or self._ROUTES[0]
+            index = self._route_to_index(route)
+            view_route = self._ROUTES[index]
+
+            prev_view = self.current_view
+
+            self._sync_active_refs(view_route)
+
+            self.current_view_index = index
+            self.current_view = self.views[index]
+
+            if self.navigation_bar:
+                self.navigation_bar.selected_index = index if index < 3 else 3
+
+            # Las vistas pesadas arrancan con visible=False por diseño; al montarse
+            # en el árbol activo deben marcarse visibles.
+            heavy = self.views[index]
+            heavy.visible = True
+
+            # Apagar la vista anterior: sus monitores/callbacks comprueban
+            # self.visible antes de forzar refrescos de página.
+            if prev_view is not None and prev_view is not heavy:
+                prev_view.visible = False
+
+            # Cerrar cualquier BottomSheet abierto al cambiar de tab.
+            for prev in [o for o in self.page.overlay if isinstance(o, ft.BottomSheet)]:
+                prev.open = False
+                self.page.overlay.remove(prev)
+
+            target = self._route_views[view_route]
+
+            # Sustituir la pila: un único View activo por ruta. El cliente
+            # detecta el cambio de ruta y aplica la transición nativa del tema.
+            self.page.views.clear()
+            self.page.views.append(target)
+            self.page.update()
+
+            # Garantizar que la vista pesada está construida. El framework ya
+            # llama did_mount al montar controles; este respaldo es idempotente
+            # gracias al guard _mounted de cada vista.
+            if hasattr(heavy, 'did_mount'):
+                try:
+                    heavy.did_mount()
+                except Exception as em:
+                    logger.warning(f"did_mount falló para vista {index}: {em}")
+
+            # Sincronizar el índice del raíl con el tab activo.
+            rail = self._rails.get(view_route)
+            if rail is not None:
+                rail.selected_index = index
+
+            if hasattr(heavy, '_update_connection_indicator'):
+                try:
+                    if hasattr(heavy, '_connection_indicator'):
+                        heavy._update_connection_indicator()
+                except Exception:
+                    pass
+
+            # Re-aplicar layout responsive: page.navigation_bar se delega al root
+            # view (views[0]), que cambia en cada navegación.
+            self._handle_responsive_layout(self.page.width)
+
+            self.page.update()
+        except Exception as ex:
+            logger.error(f"Error en _on_route_change: {ex}", exc_info=True)
+            show_error("Error al cambiar de vista", ex, "ControlEntradasSalidasApp._on_route_change")
 
     def _on_navigation_change(self, e):
         if self.page is None:
@@ -279,8 +437,7 @@ class ControlEntradasSalidasApp:
                 if index == 3:
                     self._show_more_menu()
                     return
-                self.current_view_index = index
-                self._show_view(index)
+                self.page.go(self._ROUTES[index])
                 return
 
             if isinstance(e.control, ft.NavigationRail):
@@ -299,11 +456,16 @@ class ControlEntradasSalidasApp:
                 index = mapping.get(label)
                 if index is None:
                     return
-                self.current_view_index = index
-                self._show_view(index)
+                self.page.go(self._ROUTES[index])
         except Exception as e:
             logger.error(f"Error en _on_navigation_change: {e}", exc_info=True)
             show_error("Error al cambiar de vista", e, "ControlEntradasSalidasApp._on_navigation_change")
+
+    def _show_view(self, index: int):
+        """Compatibilidad: navega a la ruta del tab indicado."""
+        if index < 0 or index >= len(self._ROUTES):
+            return
+        self.page.go(self._ROUTES[index])
 
     def _show_more_menu(self):
         if self.page is None:
@@ -382,90 +544,3 @@ class ControlEntradasSalidasApp:
         except Exception as e:
             logger.error(f"Error en _show_more_menu: {e}", exc_info=True)
             show_error("Error al abrir el menú de más opciones", e, "ControlEntradasSalidasApp._show_more_menu")
-
-    def _show_view(self, index: int):
-        try:
-            if not self.views or index < 0 or index >= len(self.views):
-                keys = list(range(len(self.views))) if self.views else "None"
-                self._view_switcher.content = ft.Container(
-                    content=ft.Text(f"Error: Vista {index} no encontrada. Keys: {keys}", color=ft.Colors.RED),
-                    alignment=ft.Alignment.CENTER, expand=True,
-                )
-                self.page.update()
-                return
-            view = self.views[index]
-
-            if self.current_view:
-                self.current_view.visible = False
-                if hasattr(self.current_view, 'will_unmount'):
-                    try:
-                        self.current_view.will_unmount()
-                    except Exception as e:
-                        logger.warning(f"will_unmount falló: {e}")
-
-            # Insertar la vista en el switcher, que anima la transición (fade).
-            # Las vistas se crean vacías (sin content); la UI se construye en did_mount/_build_ui.
-            # IMPORTANTE: AnimatedSwitcher no anima si el nuevo content es del mismo
-            # tipo y key que el anterior (lo trata como el mismo widget y solo lo
-            # actualiza). Por eso se asigna un key único por vista.
-            self._view_switcher.content = ft.Column([view], expand=True, spacing=0, key=f"view_{index}")
-            view.visible = True
-            self.current_view = view
-            self.current_view_index = index
-
-            if self.navigation_bar:
-                if index < 3:
-                    self.navigation_bar.selected_index = index
-                else:
-                    self.navigation_bar.selected_index = 3
-
-            # Construir UI si aún no existe Y la vista ya está montada (page disponible).
-            # Si aún no está montada, did_mount (llamado tras page.update()) la construirá.
-            if hasattr(view, '_build_ui') and getattr(view, 'content', None) is None:
-                try:
-                    _ = view.page
-                except RuntimeError:
-                    pass
-                else:
-                    try:
-                        view._build_ui()
-                    except Exception as e:
-                        logger.warning(f"_build_ui prematuro para vista {index}: {e}")
-        except Exception as e:
-            logger.error(f"Error en _show_view({index}): {e}", exc_info=True)
-            show_error(f"Error al mostrar la vista {index}", e, "ControlEntradasSalidasApp._show_view")
-            return
-
-        # Montar la vista en la página (setea view.page)
-        try:
-            self.page.update()
-        except Exception as e:
-            logger.warning(f"page.update() parcial al montar vista {index}: {e}")
-
-        # Flet no siempre invoca did_mount al intercambiar controles en un Column;
-        # lo llamamos de forma explícita para construir/inicializar la vista.
-        if hasattr(view, 'did_mount'):
-            try:
-                view.did_mount()
-            except Exception as e:
-                logger.warning(f"did_mount falló para vista {index}: {e}")
-
-        # Forzar refresco de la vista montada
-        for ctrl in (view, getattr(view, 'content', None), self.content_area):
-            if ctrl is not None and hasattr(ctrl, 'update'):
-                try:
-                    ctrl.update()
-                except Exception:
-                    pass
-
-        try:
-            self.page.update()
-        except Exception as e:
-            logger.warning(f"page.update() final al montar vista {index}: {e}")
-
-        if hasattr(view, '_update_connection_indicator'):
-            try:
-                if hasattr(view, '_connection_indicator') and view._connection_indicator in self.page.controls:
-                    view._update_connection_indicator()
-            except Exception:
-                pass

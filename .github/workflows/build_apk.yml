@@ -77,6 +77,7 @@ jobs:
           DB_USER = "${{ secrets.DB_USER }}"
           DB_PASSWORD = "${{ secrets.DB_PASSWORD }}"
           SQLITE_PATH = "./control_entradas_salidas.db"
+          UPDATE_URL = "https://raw.githubusercontent.com/reidchend/control-entradas-salidas/main/version.json"
           EOF
 
           # 3. Google Services (requerido para FCM/notificaciones)

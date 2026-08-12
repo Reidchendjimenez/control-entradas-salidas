@@ -92,7 +92,7 @@ control-entradas-salidas/
 ├── main.py                        # Entry point: sistema de inventario (redirige a app_updates/)
 ├── main_pos.py                    # Entry point: módulo POS (compilable como .exe independiente)
 ├── usr/
-│   ├── app_controller.py          # Controlador principal, navegación entre vistas
+│   ├── app_controller.py          # Controlador principal; routing nativo (page.views/page.go, 8 rutas)
 │   ├── app_launcher.py            # Arranque: login, sync inicial, carga de vistas
 │   ├── notifications.py           # Sistema centralizado de snackbars/banners
 │   ├── theme.py                   # Paleta de colores (light/dark)
@@ -263,8 +263,9 @@ Regla: si un control tira `TypeError: got an unexpected keyword argument 'text'`
 - **Solución**: Siempre utilizar rutas absolutas obtenidas mediante `os.path.abspath` en `usr/database/conn.py`.
 
 #### 4. Cambio de vistas sin animación en móvil
-- **Causa**: Cada cambio reconstruía `content_area.content` sin transición.
-- **Solución**: El área de vistas usa `ft.AnimatedSwitcher` (fade, 260 ms, `EASE_OUT_BACK` de entrada) y `_show_view` solo sustituye su `content`, delegando en Flet la animación nativa. Los loops de monitoreo de conexión solo llaman `page.update()` si la vista está visible. Al cambiar de vista se refrescan los datos desde la BD local. Evitar re-montar vistas con `opacity=0`/`visible=False` en un `ft.Stack`: en Flet 0.86 puede dejar la vista invisible si la animación inicial no arranca.
+- **Causa**: Anteriormente cada cambio reconstruía `content_area.content` sin transición y se intentó resolver con `ft.AnimatedSwitcher`.
+- **Solución actual**: La navegación usa **routing nativo de Flet** (`page.views` + `page.go`). Cada tab construye su propia `ft.View` cacheada (shell + vista pesada) y `_on_route_change` sustituye la pila con `page.views.clear()` + `append(target)`, delegando en Flet la transición nativa (`PageTransitionsTheme`: `cupertino` en todas las plataformas, deslizamiento horizontal de la vista entrante). Al navegar fuera se marca la vista como `visible=False` y los loops de monitoreo de conexión solo llaman `page.update()` si la vista está visible.
+- **Ciclo de vida en re-montaje**: Flet desmonta/remonta las vistas reales en cada navegación (`session.py` llama `will_unmount()` a los controles removidos y `did_mount()` a los añadidos). Por eso `did_mount` de cada vista re-registra su callback de sync (idempotente) y reinicia monitores de conexión detenidos por `will_unmount`, en cada montaje — no solo la primera vez guardando por `_mounted`.
 
 ---
 
@@ -355,6 +356,13 @@ Si se agregan nuevas dependencias en `requirements.txt`, se debe recompilar:
 ---
 
 ## Historial de Cambios
+
+### Version 2.7.0 (Agosto 2026)
+- ✨ **Routing nativo de Flet**: La navegación entre los 8 tabs migró de `ft.AnimatedSwitcher` (intercambio de `content`) a **routing nativo** con `page.views` + `page.go`. Cada tab construye una `ft.View` cacheada única (raíl + barra de sync + área de contenido + vista pesada) y `_on_route_change` sustituye la pila con `page.views.clear()` + `append(target)`. Esto habilita la **transición nativa** entre vistas (`PageTransitionsTheme: cupertino` en todas las plataformas): la vista nueva entra **deslizándose desde la derecha**.
+- 🔧 **Ciclo de vida de vistas en re-montaje**: Flet desmonta/remonta las vistas en cada navegación (`session.py` invoca `will_unmount`/`did_mount`). Se corrigió que `did_mount` de `inventario`, `stock`, `validacion`, `requisiciones` e `historial_facturas` **re-registre su callback de sync** en cada montaje (idempotente) y reinicie los monitores de conexión detenidos por `will_unmount`, sin arranques duplicados.
+- 🐛 **Corregido**: `ValidacionView` registraba su callback de sync solo en `build()` (que nunca se invocaba); ahora se registra en `did_mount`. Bug latente resuelto.
+- 🔧 **`app_controller`**: `_on_route_change` apaga (`visible=False`) la vista previa al navegar — los monitores/callbacks comprueban `visible` antes de forzar refrescos de página.
+- 🗑️ **Eliminado**: `_view_switcher`, `_layout_row`, `_collect_controls` y la marca `_is_content_area` del diseño basado en `AnimatedSwitcher`.
 
 ### Version 2.6.2 (Agosto 2026)
 - 🐛 **Corregido**: Errores residuales de migración a Flet 0.86.5:

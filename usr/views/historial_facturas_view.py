@@ -312,14 +312,36 @@ self._build_fecha_tab(),
     #  LOGICA DE DATOS
     # ══════════════════════════════════════════════════════════════
     def did_mount(self):
-        if getattr(self, '_mounted', False):
-            return
         try:
             try:
                 page = self.page
             except RuntimeError:
                 return
             from usr.error_handler import show_error
+
+            # En cada montaje se re-registra el callback de sync (idempotente);
+            # will_unmount lo desregistra y el guard _mounted no debe impedirlo.
+            register_sync_callback(self._on_sync_complete)
+
+            if getattr(self, '_mounted', False):
+                # Re-montaje: will_unmount detuvo el monitor de conexión; reiniciarlo.
+                # Se marca el flag antes de programar para evitar arranques duplicados.
+                if not getattr(self, '_conn_check_active', False):
+                    self._conn_check_active = True
+                    async def check_conn_loop():
+                        while self._conn_check_active:
+                            await asyncio.sleep(10)
+                            if self._conn_check_active:
+                                self._update_connection_indicator()
+                                # Solo forzar refresh de la página si la vista está visible.
+                                if not self.visible:
+                                    continue
+                                try: page.update()
+                                except Exception:
+                                    pass
+                    page.run_task(check_conn_loop)
+                return
+
             try:
                 self._build_ui()
                 page.run_task(self._initial_load)
@@ -341,9 +363,6 @@ self._build_fecha_tab(),
                             pass
 
             page.run_task(check_conn_loop)
-
-            # Registrar callback para sync automático
-            register_sync_callback(self._on_sync_complete)
             self._mounted = True
         except Exception as e:
             self._mounted = False
