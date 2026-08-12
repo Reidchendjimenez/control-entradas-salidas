@@ -216,7 +216,7 @@ class ControlEntradasSalidasApp:
             )
             self.page.drawer = self.drawer
 
-            # Botón en FAB para abrir el drawer (END_FLOAT = abajo-derecha, no choca con NavigationBar)
+            # Botón en overlay para abrir el drawer (z-index garantizado, no tapado por views)
             self.open_drawer_btn = ft.FloatingActionButton(
                 icon=ft.Icons.MENU,
                 tooltip="Menú",
@@ -224,6 +224,8 @@ class ControlEntradasSalidasApp:
                 bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
                 mini=True,
             )
+            self.page.overlay.append(self.open_drawer_btn)
+            # También setear en page.floating_action_button por compatibilidad
             self.page.floating_action_button = self.open_drawer_btn
             self.page.floating_action_button_location = ft.FloatingActionButtonLocation.END_FLOAT
 
