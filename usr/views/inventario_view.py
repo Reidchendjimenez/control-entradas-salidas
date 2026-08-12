@@ -129,6 +129,8 @@ class InventarioView(ft.Container):
                     if not hasattr(self, '_mounted') or not self._mounted:
                         continue
                     self._safe_update_connection_indicator()
+                    if not self.visible:
+                        continue
                     try:
                         page.update()
                     except Exception as e:

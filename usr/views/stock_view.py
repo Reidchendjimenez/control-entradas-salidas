@@ -85,6 +85,9 @@ class StockView(ft.Container):
                 continue
             try:
                 self._update_connection_indicator()
+                # Solo forzar refresh de la página si la vista está visible.
+                if not self.visible:
+                    continue
                 page.update()
             except Exception:
                 pass

@@ -6,6 +6,40 @@ import certifi
 os.environ['SSL_CERT_FILE'] = certifi.where()
 
 
+class _NullStream:
+    """Sustituto de std out/err cuando el .exe compilado se ejecuta en modo
+    --windowed (sin consola): PyInstaller deja sys.stdout/sys.stderr en None y
+    uvicorn (que Flet usa para su servidor web) muere al llamar es.isatty()
+    sobre None al configurar sus logs. Con un objeto que responde a isatty(),
+    fileno(), write(), flush() y encoding, uvicorn configura el logging sin
+    estallar y los mensajes se descartan en silencio."""
+
+    def isatty(self) -> bool:
+        return False
+
+    def fileno(self) -> int:
+        return -1
+
+    def write(self, *args, **kwargs):
+        return 0
+
+    def flush(self):
+        pass
+
+    @property
+    def encoding(self) -> str:
+        return 'utf-8'
+
+
+# Reemplazar stdout/stderr si están ausentes ANTES de arrancar Flet/uvicorn.
+# No hacerlo con el mismo objeto para ambos: es suficiente, pero mantenerlos
+# separados evita sorpresas si alguna librería compara identidades.
+if sys.stdout is None:
+    sys.stdout = _NullStream()
+if sys.stderr is None:
+    sys.stderr = _NullStream()
+
+
 def resource_path(relative_path: str) -> str:
     """Ruta a recursos empaquetados (assets, .env, etc.).
 

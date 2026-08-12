@@ -333,6 +333,9 @@ self._build_fecha_tab(),
                     await asyncio.sleep(10)
                     if self._conn_check_active:
                         self._update_connection_indicator()
+                        # Solo forzar refresh de la página si la vista está visible.
+                        if not self.visible:
+                            continue
                         try: page.update()
                         except Exception:
                             pass

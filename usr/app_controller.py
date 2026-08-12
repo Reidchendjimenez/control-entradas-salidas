@@ -11,12 +11,17 @@ class ControlEntradasSalidasApp:
         self.navigation_rail = None
         self.navigation_bar = None
         self.content_area = None
+        self._view_switcher = None
         self.current_view = None
         self.current_view_index = 0
         self.views = []
         self._layout_row = None
         self.settings = None
         self._switching_view = False
+
+    _VIEW_ANIM_DURATION = 400
+    _VIEW_ANIM_IN = ft.AnimationCurve.EASE_OUT_CUBIC
+    _VIEW_ANIM_OUT = ft.AnimationCurve.EASE_IN
 
     async def arrancar_interfaz(self, page: ft.Page, settings, vistas_cargadas):
         self.page = page
@@ -101,8 +106,18 @@ class ControlEntradasSalidasApp:
 
     def _create_layout(self):
         try:
+            self._view_switcher = ft.AnimatedSwitcher(
+                content=ft.Container(expand=True),
+                duration=self._VIEW_ANIM_DURATION,
+                reverse_duration=self._VIEW_ANIM_DURATION,
+                switch_in_curve=self._VIEW_ANIM_IN,
+                switch_out_curve=self._VIEW_ANIM_OUT,
+                transition=ft.AnimatedSwitcherTransition.FADE,
+                expand=True,
+            )
+
             self.content_area = ft.Container(
-                content=ft.Column(expand=True, spacing=0),
+                content=self._view_switcher,
                 expand=True,
                 bgcolor='#1A1A1A'
             )
@@ -341,8 +356,23 @@ class ControlEntradasSalidasApp:
                 _item(ft.Icons.MAIL_OUTLINED, "Bandeja", lambda e, i=7: on_nav(e, i)),
             ])
 
+            # Reutilizar el BottomSheet: eliminar cualquier instancia previa del
+            # overlay antes de agregar la nueva. Si se acumularan, cada menú abierto
+            # dejaría una hoja sin montar en la página y la app se volvería lenta.
+            for prev in [o for o in self.page.overlay if isinstance(o, ft.BottomSheet)]:
+                prev.open = False
+                self.page.overlay.remove(prev)
+
             self.bottom_sheet = ft.BottomSheet(
-                content=ft.Container(content=menu_content, padding=ft.Padding.only(bottom=20), bgcolor=surface),
+                content=ft.Container(
+                    content=menu_content,
+                    # Altura acotada para que el menú solo cubra la parte baja de la
+                    # pantalla y no suba hasta arriba (6 filas cabrían en "fullscreen").
+                    height=360,
+                    padding=ft.Padding.only(bottom=20),
+                    bgcolor=surface,
+                ),
+                show_drag_handle=True,
                 bgcolor=surface,
                 scrollable=True,
             )
@@ -357,7 +387,7 @@ class ControlEntradasSalidasApp:
         try:
             if not self.views or index < 0 or index >= len(self.views):
                 keys = list(range(len(self.views))) if self.views else "None"
-                self.content_area.content = ft.Container(
+                self._view_switcher.content = ft.Container(
                     content=ft.Text(f"Error: Vista {index} no encontrada. Keys: {keys}", color=ft.Colors.RED),
                     alignment=ft.Alignment.CENTER, expand=True,
                 )
@@ -373,9 +403,12 @@ class ControlEntradasSalidasApp:
                     except Exception as e:
                         logger.warning(f"will_unmount falló: {e}")
 
-            # Insertar la vista en el área de contenido.
+            # Insertar la vista en el switcher, que anima la transición (fade).
             # Las vistas se crean vacías (sin content); la UI se construye en did_mount/_build_ui.
-            self.content_area.content = ft.Column([view], expand=True, spacing=0)
+            # IMPORTANTE: AnimatedSwitcher no anima si el nuevo content es del mismo
+            # tipo y key que el anterior (lo trata como el mismo widget y solo lo
+            # actualiza). Por eso se asigna un key único por vista.
+            self._view_switcher.content = ft.Column([view], expand=True, spacing=0, key=f"view_{index}")
             view.visible = True
             self.current_view = view
             self.current_view_index = index

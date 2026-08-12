@@ -102,6 +102,10 @@ class ValidacionView(ft.Container):
                 except RuntimeError:
                     continue
                 self._update_connection_indicator()
+                # Solo forzar refresh de la página si la vista está visible,
+                # para no causar tirones al navegar mientras está oculta.
+                if not self.visible:
+                    continue
                 try:
                     page.update()
                 except:

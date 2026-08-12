@@ -403,24 +403,72 @@ class SyncManager:
         # (p.ej. por un lock de una sesión anterior), lock_timeout lo aborta a los
         # 3s en vez de dejar "idle in transaction" reteniendo el lock y bloqueando
         # las lecturas de TODOS los dispositivos.
+        # Primero se consulta el esquema actual (lectura barata, sin locks de DDL)
+        # para saber qué columnas/tablas ya existen. Así se omiten los ALTERs ya
+        # aplicados en lugar de ejecutarlos a ciegas: cada ALTER de una tabla con
+        # tráfico (categorias/productos) puede esperar hasta lock_timeout=3s y
+        # hacer el sync lento.
+        tablas_existentes = set()
+        columnas_existentes = {}  # tabla -> set de columnas
+        try:
+            with remote_engine.connect() as esquema:
+                result = esquema.execute(text(
+                    "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'"
+                ))
+                tablas_existentes = {row[0] for row in result.fetchall()}
+                result = esquema.execute(text(
+                    "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public'"
+                ))
+                for tabla, columna in result.fetchall():
+                    columnas_existentes.setdefault(tabla, set()).add(columna)
+        except Exception as e:
+            self._log(f"[SYNC] No se pudo leer esquema remoto ({str(e)[:60]}); se intentarán todas las migraciones")
+
+        def _columna_existe(tabla, columna):
+            return columna in columnas_existentes.get(tabla, set())
+
+        def _tabla_existe(tabla):
+            return tabla in tablas_existentes
+
+        # (SQL, condición_de_skip): si la condición es True, la migración ya está
+        # aplicada y se omite. Usar lambdas para evaluarlo en cada ejecución.
         migraciones = [
-            "ALTER TABLE requisicion_detalles ADD COLUMN IF NOT EXISTS verificado INTEGER DEFAULT 0",
-            "ALTER TABLE categorias ADD COLUMN IF NOT EXISTS visible_en_pos INTEGER DEFAULT 1",
-            "ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_venta REAL DEFAULT 0",
-            "CREATE TABLE IF NOT EXISTS recetas (id SERIAL PRIMARY KEY, nombre TEXT NOT NULL, tipo TEXT NOT NULL, producto_base_id INTEGER, producto_final_id INTEGER, cantidad_producida REAL DEFAULT 1, activo INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT)",
-            "CREATE TABLE IF NOT EXISTS receta_componentes (id SERIAL PRIMARY KEY, receta_id INTEGER NOT NULL, producto_id INTEGER NOT NULL, cantidad REAL NOT NULL, unidad TEXT DEFAULT 'unidad', tipo_componente TEXT NOT NULL, peso_variable INTEGER DEFAULT 0)",
-            "CREATE TABLE IF NOT EXISTS producciones (id SERIAL PRIMARY KEY, receta_id INTEGER NOT NULL, cantidad REAL NOT NULL, estado TEXT DEFAULT 'completado', usuario TEXT, observaciones TEXT, fecha_produccion TEXT, cocineros TEXT, created_at TEXT)",
-            "CREATE TABLE IF NOT EXISTS produccion_detalles (id SERIAL PRIMARY KEY, produccion_id INTEGER NOT NULL, producto_id INTEGER NOT NULL, tipo TEXT NOT NULL, cantidad REAL NOT NULL, unidad TEXT DEFAULT 'unidad', movimiento_id INTEGER)",
-            "CREATE TABLE IF NOT EXISTS movimientos_archivo (id INTEGER PRIMARY KEY, producto_id INTEGER NOT NULL, factura_id INTEGER, requisicion_id INTEGER, tipo TEXT NOT NULL, cantidad REAL NOT NULL, cantidad_anterior REAL DEFAULT 0, cantidad_nueva REAL DEFAULT 0, peso_total REAL DEFAULT 0, registrado_por TEXT, observaciones TEXT, almacen TEXT, fecha_movimiento TEXT, created_at TEXT)",
-            "CREATE TABLE IF NOT EXISTS stock_checkpoint (producto_id INTEGER NOT NULL, almacen TEXT NOT NULL, cantidad REAL DEFAULT 0, PRIMARY KEY (producto_id, almacen))",
-            "CREATE TABLE IF NOT EXISTS periodos (id SERIAL PRIMARY KEY, periodo TEXT NOT NULL UNIQUE, fecha_apertura TEXT NOT NULL, registrado_por TEXT)",
-            "ALTER TABLE movimientos_archivo ADD COLUMN IF NOT EXISTS requisicion_id INTEGER",
-            "ALTER TABLE receta_componentes ADD COLUMN IF NOT EXISTS peso_variable INTEGER DEFAULT 0",
-            "ALTER TABLE producciones ADD COLUMN IF NOT EXISTS cocineros TEXT",
-            "ALTER TABLE movimientos ALTER COLUMN tipo TYPE VARCHAR(30)",
-            "ALTER TABLE movimientos_archivo ALTER COLUMN tipo TYPE VARCHAR(30)",
+            ("ALTER TABLE requisicion_detalles ADD COLUMN IF NOT EXISTS verificado INTEGER DEFAULT 0",
+             lambda: _columna_existe("requisicion_detalles", "verificado")),
+            ("ALTER TABLE categorias ADD COLUMN IF NOT EXISTS visible_en_pos INTEGER DEFAULT 1",
+             lambda: _columna_existe("categorias", "visible_en_pos")),
+            ("ALTER TABLE productos ADD COLUMN IF NOT EXISTS precio_venta REAL DEFAULT 0",
+             lambda: _columna_existe("productos", "precio_venta")),
+            ("CREATE TABLE IF NOT EXISTS recetas (id SERIAL PRIMARY KEY, nombre TEXT NOT NULL, tipo TEXT NOT NULL, producto_base_id INTEGER, producto_final_id INTEGER, cantidad_producida REAL DEFAULT 1, activo INTEGER DEFAULT 1, created_at TEXT, updated_at TEXT)",
+             lambda: _tabla_existe("recetas")),
+            ("CREATE TABLE IF NOT EXISTS receta_componentes (id SERIAL PRIMARY KEY, receta_id INTEGER NOT NULL, producto_id INTEGER NOT NULL, cantidad REAL NOT NULL, unidad TEXT DEFAULT 'unidad', tipo_componente TEXT NOT NULL, peso_variable INTEGER DEFAULT 0)",
+             lambda: _tabla_existe("receta_componentes")),
+            ("CREATE TABLE IF NOT EXISTS producciones (id SERIAL PRIMARY KEY, receta_id INTEGER NOT NULL, cantidad REAL NOT NULL, estado TEXT DEFAULT 'completado', usuario TEXT, observaciones TEXT, fecha_produccion TEXT, cocineros TEXT, created_at TEXT)",
+             lambda: _tabla_existe("producciones")),
+            ("CREATE TABLE IF NOT EXISTS produccion_detalles (id SERIAL PRIMARY KEY, produccion_id INTEGER NOT NULL, producto_id INTEGER NOT NULL, tipo TEXT NOT NULL, cantidad REAL NOT NULL, unidad TEXT DEFAULT 'unidad', movimiento_id INTEGER)",
+             lambda: _tabla_existe("produccion_detalles")),
+            ("CREATE TABLE IF NOT EXISTS movimientos_archivo (id INTEGER PRIMARY KEY, producto_id INTEGER NOT NULL, factura_id INTEGER, requisicion_id INTEGER, tipo TEXT NOT NULL, cantidad REAL NOT NULL, cantidad_anterior REAL DEFAULT 0, cantidad_nueva REAL DEFAULT 0, peso_total REAL DEFAULT 0, registrado_por TEXT, observaciones TEXT, almacen TEXT, fecha_movimiento TEXT, created_at TEXT)",
+             lambda: _tabla_existe("movimientos_archivo")),
+            ("CREATE TABLE IF NOT EXISTS stock_checkpoint (producto_id INTEGER NOT NULL, almacen TEXT NOT NULL, cantidad REAL DEFAULT 0, PRIMARY KEY (producto_id, almacen))",
+             lambda: _tabla_existe("stock_checkpoint")),
+            ("CREATE TABLE IF NOT EXISTS periodos (id SERIAL PRIMARY KEY, periodo TEXT NOT NULL UNIQUE, fecha_apertura TEXT NOT NULL, registrado_por TEXT)",
+             lambda: _tabla_existe("periodos")),
+            ("ALTER TABLE movimientos_archivo ADD COLUMN IF NOT EXISTS requisicion_id INTEGER",
+             lambda: _columna_existe("movimientos_archivo", "requisicion_id")),
+            ("ALTER TABLE receta_componentes ADD COLUMN IF NOT EXISTS peso_variable INTEGER DEFAULT 0",
+             lambda: _columna_existe("receta_componentes", "peso_variable")),
+            ("ALTER TABLE producciones ADD COLUMN IF NOT EXISTS cocineros TEXT",
+             lambda: _columna_existe("producciones", "cocineros")),
+            ("ALTER TABLE movimientos ALTER COLUMN tipo TYPE VARCHAR(30)",
+             lambda: _tabla_existe("movimientos")),
+            ("ALTER TABLE movimientos_archivo ALTER COLUMN tipo TYPE VARCHAR(30)",
+             lambda: _tabla_existe("movimientos_archivo")),
         ]
-        for migracion in migraciones:
+        aplicadas = 0
+        for migracion, ya_aplicada in migraciones:
+            if ya_aplicada():
+                aplicadas += 1
+                continue
             try:
                 with remote_engine.connect() as mig:
                     try:
@@ -431,6 +479,8 @@ class SyncManager:
                     mig.commit()
             except Exception as pe:
                 self._log(f"[SYNC] Migración remota omitida ({str(pe)[:80]}): {migracion[:60]}")
+        if aplicadas:
+            self._log(f"[SYNC] {aplicadas} migraciones ya aplicadas (omitidas)")
 
         with remote_engine.connect() as conn:
             for local_table, server_table in tables_to_sync:

@@ -262,6 +262,10 @@ Regla: si un control tira `TypeError: got an unexpected keyword argument 'text'`
 - **Causa**: Uso de rutas relativas que crean una DB en la raíz y otra en `app_updates/`.
 - **Solución**: Siempre utilizar rutas absolutas obtenidas mediante `os.path.abspath` en `usr/database/conn.py`.
 
+#### 4. Cambio de vistas sin animación en móvil
+- **Causa**: Cada cambio reconstruía `content_area.content` sin transición.
+- **Solución**: El área de vistas usa `ft.AnimatedSwitcher` (fade, 260 ms, `EASE_OUT_BACK` de entrada) y `_show_view` solo sustituye su `content`, delegando en Flet la animación nativa. Los loops de monitoreo de conexión solo llaman `page.update()` si la vista está visible. Al cambiar de vista se refrescan los datos desde la BD local. Evitar re-montar vistas con `opacity=0`/`visible=False` en un `ft.Stack`: en Flet 0.86 puede dejar la vista invisible si la animación inicial no arranca.
+
 ---
 
 ## 📈 Flujo de Trabajo para Desarrolladores
