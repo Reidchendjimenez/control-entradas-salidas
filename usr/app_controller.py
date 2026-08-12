@@ -24,7 +24,6 @@ class ControlEntradasSalidasApp:
         self._route_views = {}
         self._sync_bars = {}
         self._content_areas = {}
-        self._rails = {}
         self._theme_toggles = {}
 
     _ROUTES = [
@@ -79,7 +78,6 @@ class ControlEntradasSalidasApp:
             self._register_sync_callback()
 
             self.page.on_route_change = self._on_route_change
-            self.page.on_resized = self._on_page_resized
             # Limpiar cualquier control residual de la fase de arranque (splash/login).
             self.page.clean()
             self.page.update()
@@ -123,8 +121,6 @@ class ControlEntradasSalidasApp:
             self.page.theme_mode = ft.ThemeMode.DARK if is_dark else ft.ThemeMode.LIGHT
             self.page.bgcolor = '#1A1A1A' if is_dark else '#F5F5F5'
 
-            for route, rail in self._rails.items():
-                rail.bgcolor = '#1E1E1E' if is_dark else '#F3E5F5'
             for route, area in self._content_areas.items():
                 area.bgcolor = '#252525' if is_dark else '#FFFFFF'
             if self.navigation_bar:
@@ -145,13 +141,24 @@ class ControlEntradasSalidasApp:
 
     def _create_layout(self):
         try:
-            # Cada tab construye su propia ft.View (shell + vista pesada).
-            # Se cachean una única vez: la navegación solo alterna cuál está
-            # activa en page.views, preservando el estado de las vistas.
+            # NavigationBar persistente (fuera de page.views) con 8 destinos.
+            # Los 3 primeros visibles; el 4º ("Más") abre BottomSheet con el resto.
+            self.navigation_bar = ft.NavigationBar(
+                bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+                destinations=[
+                    ft.NavigationBarDestination(icon=ft.Icons.SHOPPING_CART_OUTLINED, selected_icon=ft.Icons.SHOPPING_CART, label="Inventario"),
+                    ft.NavigationBarDestination(icon=ft.Icons.CHECKLIST_OUTLINED, selected_icon=ft.Icons.CHECKLIST, label="Validación"),
+                    ft.NavigationBarDestination(icon=ft.Icons.WAREHOUSE_OUTLINED, selected_icon=ft.Icons.WAREHOUSE, label="Stock"),
+                    ft.NavigationBarDestination(icon=ft.Icons.MORE_HORIZ, selected_icon=ft.Icons.MORE_HORIZ, label="Más"),
+                ],
+                on_change=self._on_navigation_change,
+            )
+            self.page.navigation_bar = self.navigation_bar
+
+            # Cada tab construye su propia ft.View (solo contenido + barra de sync).
             for index, route in enumerate(self._ROUTES):
                 self._route_views[route] = self._build_route_view(index)
 
-            # Referencias al shell de la vista inicial (se reajustan al navegar).
             self._sync_active_refs(self._ROUTES[0])
         except Exception as e:
             logger.error(f"Error en _create_layout: {e}", exc_info=True)
@@ -159,32 +166,15 @@ class ControlEntradasSalidasApp:
 
     def _sync_active_refs(self, route: str):
         """Apunta las referencias globales al shell de la ruta activa."""
-        self.navigation_rail = self._rails.get(route)
         self.content_area = self._content_areas.get(route)
         self.sync_status_bar = self._sync_bars.get(route)
         self.theme_toggle = self._theme_toggles.get(route)
 
     def _build_route_view(self, index: int) -> ft.View:
-        """Construye la ft.View completa para un tab, con su propio shell."""
+        """Construye la ft.View para un tab (solo contenido + barra de sync)."""
         heavy_view = self.views[index]
 
         theme_toggle = ft.IconButton(icon=ft.Icons.LIGHT_MODE, tooltip="Modo Claro", on_click=self._toggle_theme, icon_color=ft.Colors.AMBER)
-
-        rail = ft.NavigationRail(
-            selected_index=index, extended=False, label_type=ft.NavigationRailLabelType.ALL,
-            min_width=100, bgcolor='#1E1E1E', leading=theme_toggle,
-            destinations=[
-                ft.NavigationRailDestination(icon=ft.Icons.SHOPPING_CART_OUTLINED, selected_icon=ft.Icons.SHOPPING_CART, label="Inventario"),
-                ft.NavigationRailDestination(icon=ft.Icons.CHECKLIST_OUTLINED, selected_icon=ft.Icons.CHECKLIST, label="Validación"),
-                ft.NavigationRailDestination(icon=ft.Icons.WAREHOUSE_OUTLINED, selected_icon=ft.Icons.WAREHOUSE, label="Stock"),
-                ft.NavigationRailDestination(icon=ft.Icons.FACTORY_OUTLINED, selected_icon=ft.Icons.FACTORY, label="Producciones"),
-                ft.NavigationRailDestination(icon=ft.Icons.LOCAL_SHIPPING_OUTLINED, selected_icon=ft.Icons.LOCAL_SHIPPING, label="Requisiciones"),
-                ft.NavigationRailDestination(icon=ft.Icons.HISTORY_OUTLINED, selected_icon=ft.Icons.HISTORY, label="Historial"),
-                ft.NavigationRailDestination(icon=ft.Icons.SETTINGS_OUTLINED, selected_icon=ft.Icons.SETTINGS, label="Ajustes"),
-                ft.NavigationRailDestination(icon=ft.Icons.MAIL_OUTLINED, selected_icon=ft.Icons.MAIL, label="Bandeja"),
-            ],
-            on_change=self._on_navigation_change,
-        )
 
         content_area = ft.Container(
             content=ft.Column([heavy_view], expand=True, spacing=0),
@@ -209,15 +199,8 @@ class ControlEntradasSalidasApp:
             avoid_intrusions_right=True, avoid_intrusions_bottom=False,
         )
 
-        layout_row = ft.SafeArea(
-            content=ft.Row([rail, content_area], expand=True, spacing=0),
-            expand=True,
-        )
-
-        # Guardar referencias clave para actualizaciones selectivas sin depender
-        # de un rastreo frágil del árbol de controles.
+        # Guardar referencias clave para actualizaciones selectivas.
         route = self._ROUTES[index]
-        self._rails[route] = rail
         self._content_areas[route] = content_area
         self._sync_bars[route] = sync_status_bar
         self._theme_toggles[route] = theme_toggle
@@ -227,7 +210,7 @@ class ControlEntradasSalidasApp:
             controls=[
                 ft.Column([
                     sync_safe,
-                    layout_row,
+                    ft.SafeArea(content=content_area, expand=True),
                 ], spacing=4, expand=True),
             ],
             padding=5,
@@ -308,51 +291,6 @@ class ControlEntradasSalidasApp:
         except Exception as e:
             print(f"[APP] Error registrando callback sync: {e}")
 
-    def _on_page_resized(self, e):
-        if e and hasattr(e, 'width') and e.width is not None:
-            self._handle_responsive_layout(e.width)
-            if self.page:
-                self.page.update()
-
-    def _handle_responsive_layout(self, width):
-        if width is None:
-            width = 1024
-        try:
-            w = float(width)
-        except (ValueError, TypeError):
-            w = 1024
-
-        if w < 700:
-            # Móvil: raíl oculto + navigation_bar persistente de la página.
-            for rail in self._rails.values():
-                rail.visible = False
-            for area in self._content_areas.values():
-                area.border_radius = 0
-            if self.navigation_bar is None:
-                self._build_navigation_bar()
-            self.page.navigation_bar = self.navigation_bar
-            self.navigation_bar.visible = True
-        else:
-            for rail in self._rails.values():
-                rail.visible = True
-            for area in self._content_areas.values():
-                area.border_radius = ft.BorderRadius.only(top_left=20)
-            if self.navigation_bar:
-                self.navigation_bar.visible = False
-            self.page.navigation_bar = None
-
-    def _build_navigation_bar(self):
-        """NavigationBar inferior para móvil (persistente en la página)."""
-        self.navigation_bar = ft.NavigationBar(
-            bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
-            destinations=[
-                ft.NavigationBarDestination(icon=ft.Icons.SHOPPING_CART_OUTLINED, label="Inventario"),
-                ft.NavigationBarDestination(icon=ft.Icons.CHECKLIST_OUTLINED, label="Validar"),
-                ft.NavigationBarDestination(icon=ft.Icons.WAREHOUSE_OUTLINED, label="Stock"),
-                ft.NavigationBarDestination(icon=ft.Icons.MORE_VERT, label="Más"),
-            ], on_change=self._on_navigation_change,
-        )
-
     def _route_to_index(self, route: str) -> int:
         try:
             return self._ROUTES.index(route)
@@ -410,21 +348,12 @@ class ControlEntradasSalidasApp:
                 except Exception as em:
                     logger.warning(f"did_mount falló para vista {index}: {em}")
 
-            # Sincronizar el índice del raíl con el tab activo.
-            rail = self._rails.get(view_route)
-            if rail is not None:
-                rail.selected_index = index
-
             if hasattr(heavy, '_update_connection_indicator'):
                 try:
                     if hasattr(heavy, '_connection_indicator'):
                         heavy._update_connection_indicator()
                 except Exception:
                     pass
-
-            # Re-aplicar layout responsive: page.navigation_bar se delega al root
-            # view (views[0]), que cambia en cada navegación.
-            self._handle_responsive_layout(self.page.width)
 
             self.page.update()
         except Exception as ex:
@@ -437,29 +366,14 @@ class ControlEntradasSalidasApp:
         try:
             if isinstance(e.control, ft.NavigationBar):
                 index = int(e.control.selected_index)
-                if index == 3:
+                if index == 3:  # "Más"
                     self._show_more_menu()
+                    # Resetear el índice seleccionado al anterior tras abrir el menú
+                    self.navigation_bar.selected_index = self.current_view_index if self.current_view_index < 3 else 0
+                    self.page.update()
                     return
                 self.page.go(self._ROUTES[index])
                 return
-
-            if isinstance(e.control, ft.NavigationRail):
-                selected_dest = e.control.destinations[e.control.selected_index]
-                label = selected_dest.label
-                mapping = {
-                    "Inventario": 0,
-                    "Validación": 1,
-                    "Stock": 2,
-                    "Producciones": 3,
-                    "Requisiciones": 4,
-                    "Historial": 5,
-                    "Ajustes": 6,
-                    "Bandeja": 7,
-                }
-                index = mapping.get(label)
-                if index is None:
-                    return
-                self.page.go(self._ROUTES[index])
         except Exception as e:
             logger.error(f"Error en _on_navigation_change: {e}", exc_info=True)
             show_error("Error al cambiar de vista", e, "ControlEntradasSalidasApp._on_navigation_change")
