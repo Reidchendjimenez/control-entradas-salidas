@@ -334,7 +334,7 @@ class ControlEntradasSalidasApp:
                     on_click=on_toggle_theme,
                 ),
                 ft.Container(height=1, bgcolor=item_border),
-                *_item(ft.Icons.FACTORY_OUTLINED, "Producciones", lambda e, i=3: on_nav(e, i)),
+                _item(ft.Icons.FACTORY_OUTLINED, "Producciones", lambda e, i=3: on_nav(e, i)),
                 _item(ft.Icons.LOCAL_SHIPPING_OUTLINED, "Requisiciones", lambda e, i=4: on_nav(e, i)),
                 _item(ft.Icons.HISTORY_OUTLINED, "Historial", lambda e, i=5: on_nav(e, i)),
                 _item(ft.Icons.SETTINGS_OUTLINED, "Ajustes", lambda e, i=6: on_nav(e, i)),
