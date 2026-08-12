@@ -1,7 +1,7 @@
 # Graph Report - control-entradas-salidas  (2026-08-12)
 
 ## Corpus Check
-- 131 files · ~196,609 words
+- 131 files · ~196,720 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -146,7 +146,7 @@ Cohesion: 0.16
 Nodes (4): Obtiene contornos activos para POS., Categorias de platos (sin padre) excluyendo las de contornos., Reemplaza la grilla y dispara la animacion de entrada escalonada., Muestra las sub-categorias de una categoria padre junto a sus productos…
 
 ### Community 8 - "stock_view.py"
-Cohesion: 0.30
+Cohesion: 0.26
 Nodes (9): build_product_card(), filter_products_db(), get_existencias_map(), get_existencias_producto(), get_producto_historial(), get_stock_stats(), load_categories(), load_products() (+1 more)
 
 ### Community 9 - "LocalReplica"
@@ -234,7 +234,7 @@ Cohesion: 0.16
 Nodes (15): Tasa de cambio guardada (Bs por USD). None si no hay ninguna., _escpos_ticket(), _get_next_correlativo(), imprimir_comanda(), Genera los bytes ESC/POS para un ticket de comanda. Si correlativo es None se…, Imprime una comanda en la impresora configurada o auto-detectada. Retorna True…, Obtiene el siguiente numero de correlativo y lo incrementa., convertir() (+7 more)
 
 ### Community 33 - "get_safe_colors"
-Cohesion: 0.62
+Cohesion: 0.40
 Nodes (4): build_stat_card(), get_color_mapping(), get_mapped_color(), get_safe_colors()
 
 ### Community 34 - "app_launcher.py"
