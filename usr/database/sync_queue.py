@@ -61,9 +61,36 @@ class SyncQueue:
         conn.close()
     
     @staticmethod
+    def _ensure_tables(conn):
+        """Asegura que las tablas de la cola existan (defensa ante arranques
+        donde init_queue() no se haya llamado todavía)."""
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS sync_queue (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                table_name TEXT NOT NULL,
+                operation TEXT NOT NULL,
+                data TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                retries INTEGER DEFAULT 0,
+                last_error TEXT,
+                status TEXT DEFAULT 'pending'
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS sync_metadata (
+                key TEXT PRIMARY KEY,
+                value TEXT,
+                updated_at TEXT
+            )
+        """)
+        conn.commit()
+
+    @staticmethod
     def add_pending(table_name: str, operation: str, data: dict) -> int:
         """Agrega una operación a la cola de sync."""
         conn = get_local_conn()
+        SyncQueue._ensure_tables(conn)
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -88,6 +115,7 @@ class SyncQueue:
     def get_pending(limit: int = 50) -> List[Dict]:
         """Obtiene operaciones pendientes Y fallidas con reintentos disponibles."""
         conn = get_local_conn()
+        SyncQueue._ensure_tables(conn)
         cursor = conn.cursor()
         
         # Primero, convertir failed -> pending para los que se van a procesar
@@ -115,6 +143,7 @@ class SyncQueue:
     def mark_completed(queue_id: int) -> None:
         """Marca operación como completada."""
         conn = get_local_conn()
+        SyncQueue._ensure_tables(conn)
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -130,6 +159,7 @@ class SyncQueue:
     def mark_failed(queue_id: int, error: str) -> None:
         """Marca operación como fallida."""
         conn = get_local_conn()
+        SyncQueue._ensure_tables(conn)
         cursor = conn.cursor()
         
         cursor.execute("""
@@ -145,6 +175,7 @@ class SyncQueue:
     def get_status() -> dict:
         """Obtiene estado de la cola."""
         conn = get_local_conn()
+        SyncQueue._ensure_tables(conn)
         cursor = conn.cursor()
         
         cursor.execute("""

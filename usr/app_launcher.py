@@ -235,6 +235,15 @@ async def main(page: ft.Page):
         from usr.database.local_replica import LocalReplica
         from usr.database.sync import init_sync_manager
 
+        # Asegurar tablas de sync ANTES de cualquier full_sync.
+        # (init_local_tables también se llama en login_view, pero cuando el usuario
+        #  ya está registrado sin PIN se salta el login y el sync inicial fallaría
+        #  con "no such table: sync_queue").
+        try:
+            init_local_tables()
+        except Exception as e_tbl:
+            print(f"[WARN] Error init_local_tables: {e_tbl}")
+
         await asyncio.sleep(0.1)
         from usr.views.login_view import LoginView
         setup_done = asyncio.Event()

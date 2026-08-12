@@ -300,6 +300,11 @@ class ControlEntradasSalidasApp:
             theme_icon = ft.Icons.LIGHT_MODE if is_dark else ft.Icons.DARK_MODE
             theme_label = "Modo Claro" if is_dark else "Modo Oscuro"
 
+            surface = '#1E1E1E' if is_dark else '#FFFFFF'
+            text_color = '#FFFFFF' if is_dark else '#1A1A1A'
+            icon_color = '#BB86FC' if is_dark else '#6200EE'
+            item_border = '#3D3D3D' if is_dark else '#E0E0E0'
+
             def on_toggle_theme(e):
                 self.bottom_sheet.open = False
                 self.page.update()
@@ -310,24 +315,37 @@ class ControlEntradasSalidasApp:
                 self.page.update()
                 self._show_view(idx)
 
+            def _item(icon, label, onclick):
+                return ft.Container(
+                    content=ft.Row([
+                        ft.Icon(icon, size=24, color=icon_color),
+                        ft.Text(label, size=16, color=text_color),
+                    ], spacing=15),
+                    padding=ft.Padding.all(15),
+                    bgcolor=surface,
+                    on_click=onclick,
+                )
+
             menu_content = ft.Column(spacing=0, controls=[
                 ft.Container(
-                    content=ft.Row([ft.Icon(theme_icon, size=24), ft.Text(theme_label, size=16)], spacing=15),
+                    content=ft.Row([ft.Icon(theme_icon, size=24, color=icon_color), ft.Text(theme_label, size=16, color=text_color)], spacing=15),
                     padding=ft.Padding.all(15),
+                    bgcolor=surface,
                     on_click=on_toggle_theme,
                 ),
-                ft.Divider(height=1, color='#3D3D3D'),
-                *[
-                    ft.Container(
-                        content=ft.Row([ft.Icon(icon, size=24), ft.Text(label, size=16)], spacing=15),
-                        padding=ft.Padding.all(15),
-                        on_click=lambda e, i=idx: on_nav(e, i),
-                    )
-                    for icon, label, idx in opciones
-                ],
+                ft.Container(height=1, bgcolor=item_border),
+                *_item(ft.Icons.FACTORY_OUTLINED, "Producciones", lambda e, i=3: on_nav(e, i)),
+                _item(ft.Icons.LOCAL_SHIPPING_OUTLINED, "Requisiciones", lambda e, i=4: on_nav(e, i)),
+                _item(ft.Icons.HISTORY_OUTLINED, "Historial", lambda e, i=5: on_nav(e, i)),
+                _item(ft.Icons.SETTINGS_OUTLINED, "Ajustes", lambda e, i=6: on_nav(e, i)),
+                _item(ft.Icons.MAIL_OUTLINED, "Bandeja", lambda e, i=7: on_nav(e, i)),
             ])
 
-            self.bottom_sheet = ft.BottomSheet(content=ft.Container(content=menu_content, padding=ft.Padding.only(bottom=20)))
+            self.bottom_sheet = ft.BottomSheet(
+                content=ft.Container(content=menu_content, padding=ft.Padding.only(bottom=20), bgcolor=surface),
+                bgcolor=surface,
+                scrollable=True,
+            )
             self.page.overlay.append(self.bottom_sheet)
             self.bottom_sheet.open = True
             self.page.update()

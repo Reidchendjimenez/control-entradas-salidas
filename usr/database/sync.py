@@ -135,6 +135,8 @@ class SyncManager:
         
         self._log("[SYNC] Iniciando sincronización completa...")
         
+        download_ok = False
+        
         # Cada paso es independiente: un fallo en uno no debe bloquear a los demás
         # (p.ej. un error subiendo movimientos no debe impedir la descarga/poda de
         #  requisiciones que ya fueron eliminadas en el servidor).
