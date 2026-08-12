@@ -45,7 +45,16 @@ def _ssl_context():
 
 
 def _read_env(var_name: str) -> str:
-    """Lee UPDATE_URL desde .env. Busca en _get_app_dir() (y config/), _MEIPASS, y dirs Flet 0.86."""
+    """Lee UPDATE_URL. Prioridad:
+    1. Variable ya cargada en os.environ (config.config importa el .env del
+       paquete/Flet 0.86 e inyecta las claves en el entorno; en el APK el .env
+       vive dentro del paquete, no en los directorios de datos).
+    2. Archivos .env de los directorios local/datos/_MEIPASS."""
+    # 1. Usar lo que config.config ya resolvió (o cualquier otro código)
+    val = os.environ.get(var_name, "")
+    if val:
+        return val
+
     app_dir = _get_app_dir()
     locations = [app_dir]
 
@@ -63,6 +72,11 @@ def _read_env(var_name: str) -> str:
         p = os.getenv(var)
         if p:
             locations.append(p)
+
+    # 3. Carpeta del paquete config/ (donde Flet 0.86 deja el código de la app)
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if os.path.isdir(os.path.join(here, "config")):
+        locations.append(os.path.join(here, "config"))
 
     for base in locations:
         for candidate in (".env", "config/.env"):

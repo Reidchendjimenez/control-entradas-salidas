@@ -106,6 +106,15 @@ class InventarioView(ft.Container):
                 self.page.run_task(self._load_categorias)
 
     def did_mount(self):
+        # En cada montaje (primera vez o re-montaje tras navegar) se re-registra
+        # el callback de sync; will_unmount lo desregistra y el guard _mounted no
+        # debe impedir restaurarlo. register_sync_callback es idempotente.
+        try:
+            from usr.database.sync_callbacks import register_sync_callback
+            register_sync_callback(self._on_sync_complete)
+        except Exception as e:
+            logger.warning(f"Registro de callback de sync falló en did_mount: {e}")
+
         if getattr(self, '_mounted', False):
             return
         try:
@@ -118,8 +127,6 @@ class InventarioView(ft.Container):
             if not self._is_initialized:
                 self._is_initialized = True
             self._safe_update_connection_indicator()
-            from usr.database.sync_callbacks import register_sync_callback
-            register_sync_callback(self._on_sync_complete)
             import time
             def check_connection_loop():
                 while True:

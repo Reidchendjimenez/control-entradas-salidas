@@ -42,18 +42,27 @@ class StockView(ft.Container):
         self.active_dialog = None
 
     def did_mount(self):
-        if getattr(self, '_mounted', False):
-            return
         try:
             try:
                 page = self.page
             except RuntimeError:
                 return
-            self._build_ui()
-            page.run_task(self._start_connection_monitor)
-            
+
+            # En cada montaje se re-registra el callback de sync (idempotente);
+            # will_unmount lo desregistra y el guard _mounted no debe impedirlo.
             from usr.database.sync_callbacks import register_sync_callback
             register_sync_callback(self._on_sync_complete)
+
+            if getattr(self, '_mounted', False):
+                # Re-montaje: will_unmount detuvo el monitor de conexión; reiniciarlo.
+                # Se marca el flag antes de programar para evitar arranques duplicados.
+                if not getattr(self, '_conn_check_active', True):
+                    self._conn_check_active = True
+                    page.run_task(self._start_connection_monitor)
+                return
+
+            self._build_ui()
+            page.run_task(self._start_connection_monitor)
             self._mounted = True
         except Exception as e:
             self._mounted = False

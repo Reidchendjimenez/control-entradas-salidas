@@ -59,14 +59,19 @@ class ProduccionesView(ft.Container):
         )
 
     def did_mount(self):
-        if getattr(self, '_mounted', False):
-            return
         try:
             try:
                 page = self.page
             except RuntimeError:
                 return
+
+            # En cada montaje se reestablece el flag de ejecución; will_unmount
+            # lo apaga al desmontar y el guard _mounted no debe impedir restaurarlo.
             self._running = True
+
+            if getattr(self, '_mounted', False):
+                return
+
             self._build_ui()
             self._update_connection_indicator()
             self._mounted = True

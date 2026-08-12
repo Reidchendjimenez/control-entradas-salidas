@@ -92,7 +92,7 @@ control-entradas-salidas/
 ├── main.py                        # Entry point: sistema de inventario (redirige a app_updates/)
 ├── main_pos.py                    # Entry point: módulo POS (compilable como .exe independiente)
 ├── usr/
-│   ├── app_controller.py          # Controlador principal, navegación entre vistas
+│   ├── app_controller.py          # Controlador principal; routing nativo (page.views/page.go) + NavigationBar persistente
 │   ├── app_launcher.py            # Arranque: login, sync inicial, carga de vistas
 │   ├── notifications.py           # Sistema centralizado de snackbars/banners
 │   ├── theme.py                   # Paleta de colores (light/dark)
@@ -262,9 +262,9 @@ Regla: si un control tira `TypeError: got an unexpected keyword argument 'text'`
 - **Causa**: Uso de rutas relativas que crean una DB en la raíz y otra en `app_updates/`.
 - **Solución**: Siempre utilizar rutas absolutas obtenidas mediante `os.path.abspath` en `usr/database/conn.py`.
 
-#### 4. Cambio de vistas sin animación en móvil
-- **Causa**: Cada cambio reconstruía `content_area.content` sin transición.
-- **Solución**: El área de vistas usa `ft.AnimatedSwitcher` (fade, 260 ms, `EASE_OUT_BACK` de entrada) y `_show_view` solo sustituye su `content`, delegando en Flet la animación nativa. Los loops de monitoreo de conexión solo llaman `page.update()` si la vista está visible. Al cambiar de vista se refrescan los datos desde la BD local. Evitar re-montar vistas con `opacity=0`/`visible=False` en un `ft.Stack`: en Flet 0.86 puede dejar la vista invisible si la animación inicial no arranca.
+#### 4. Cambio de vistas con animación lateral no deseada
+- **Causa**: Anteriormente el `NavigationRail` lateral estaba dentro de cada `ft.View`, así que al navegar **todo el View (incluido el rail) hacía slide**.
+- **Solución actual**: La navegación usa **routing nativo de Flet** (`page.views` + `page.go`) con **`ft.NavigationBar` persistente** (fuera de `page.views`). Cada tab construye su `ft.View` cacheada solo con contenido + barra de sync; la NavigationBar queda fija en la página y **no anima**. La transición nativa (`cupertino`) aplica solo al contenido. Al navegar fuera se marca la vista como `visible=False` y los loops de monitoreo de conexión solo llaman `page.update()` si la vista está visible.
 
 ---
 
@@ -355,6 +355,13 @@ Si se agregan nuevas dependencias en `requirements.txt`, se debe recompilar:
 ---
 
 ## Historial de Cambios
+
+### Version 2.7.0 (Agosto 2026)
+- ✨ **Routing nativo de Flet + NavigationBar persistente**: La navegación entre los 8 tabs usa `page.views` + `page.go` (routing nativo). Se eliminó el `NavigationRail` lateral y se adoptó **solo `ft.NavigationBar`** (barra inferior) persistente en la página, con 4 destinos visibles (Inventario, Validación, Stock, "Más") y un `BottomSheet` para las 4 opciones restantes (Producciones, Requisiciones, Historial, Ajustes, Bandeja). Esto evita que la barra lateral anime con el cambio de vista: **solo el contenido hace slide** (`cupertino`). Cada tab construye una `ft.View` cacheada única (barra de sync + área de contenido + vista pesada).
+- 🔧 **Ciclo de vida de vistas en re-montaje**: Flet desmonta/remonta las vistas en cada navegación (`session.py` invoca `will_unmount`/`did_mount`). Se corrigió que `did_mount` de `inventario`, `stock`, `validacion`, `requisiciones` e `historial_facturas` **re-registre su callback de sync** en cada montaje (idempotente) y reinicie los monitores de conexión detenidos por `will_unmount`, sin arranques duplicados.
+- 🐛 **Corregido**: `ValidacionView` registraba su callback de sync solo en `build()` (que nunca se invocaba); ahora se registra en `did_mount`. Bug latente resuelto.
+- 🔧 **`app_controller`**: `_on_route_change` apaga (`visible=False`) la vista previa al navegar — los monitores/callbacks comprueban `visible` antes de forzar refrescos de página.
+- 🗑️ **Eliminado**: `_view_switcher`, `_layout_row`, `_collect_controls` y la marca `_is_content_area` del diseño basado en `AnimatedSwitcher`.
 
 ### Version 2.6.2 (Agosto 2026)
 - 🐛 **Corregido**: Errores residuales de migración a Flet 0.86.5:

@@ -248,8 +248,6 @@ class RequisicionesView(ft.Container):
             return self.page.run_task(self._load_requisiciones_async)
 
     def did_mount(self):
-        if getattr(self, '_mounted', False):
-            return
         try:
             try:
                 page = self.page
@@ -257,7 +255,15 @@ class RequisicionesView(ft.Container):
                 return
             if not getattr(self, 'content', None):
                 self._build_ui()
+
+            # En cada montaje se re-registra el callback de sync (idempotente);
+            # will_unmount lo desregistra y el guard _mounted no debe impedirlo.
             register_sync_callback(self._on_sync_complete)
+
+            if getattr(self, '_mounted', False):
+                return
+
+            self._build_ui()
             self._mounted = True
         except Exception as e:
             self._mounted = False
