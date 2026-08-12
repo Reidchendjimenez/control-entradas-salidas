@@ -1,16 +1,16 @@
 # Graph Report - control-entradas-salidas  (2026-08-12)
 
 ## Corpus Check
-- 133 files · ~197,925 words
+- 133 files · ~198,365 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 1794 nodes · 4461 edges · 110 communities (71 shown, 39 thin omitted)
+- 1798 nodes · 4468 edges · 109 communities (70 shown, 39 thin omitted)
 - Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 80 edges (avg confidence: 0.59)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `b32c3edc`
+- Built from commit: `aff77658`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -19,20 +19,20 @@
 - show_error_with_copy
 - ConfigPOSView
 - requisiciones_view.py
-- show_error
-- base.py
-- get_colors
+- ._do_totalizar
+- ProduccionesView
+- producciones/data.py
 - ComandaPedidoView
-- stock/data.py
-- inventario_view.py
-- get_sync_queue
+- stock_view.py
+- show_success
+- get_db_adaptive
 - Historial de Cambios
 - InventarioView
-- StockView
-- whatsapp_notifier.py
-- requisiciones/components.py
+- schedule_load
+- validacion_view.py
+- Requisicion
 - comprobar_y_aplicar_actualizaciones
-- ValidacionView
+- get_colors
 - ._download_all_from_server
 - ._download_all_from_server
 - launcher.py
@@ -44,81 +44,80 @@
 - What You Must Do When Invoked
 - What You Must Do When Invoked
 - SyncManager
-- producciones/data.py
+- producciones/dialogs.py
 - LoadingSplash
 - movimientos.py
 - AuditView
-- get_safe_colors
+- BandejaWhatsAppView
 - app_launcher.py
 - RequisicionesView
 - historial_facturas_view.py
 - POSSyncManager
-- LocalReplica
+- get_local_conn
 - .get_last_sync
-- .aplicar_movimientos_venta
-- .set_pos_setting
+- ._confirmar_anulacion
+- views/config.py
 - printer.py
-- obtener_tasa_bcv
+- comanda_view.py
 - VisualizeView
-- splash.py
+- .get_pos_setting
 - main_pos.py
 - ._go_to_main
-- get_db_adaptive
+- requisiciones/data.py
 - _colors
 - graphify reference: extra exports and benchmark
 - SyncQueue
-- validacion_view.py
+- is_online
 - .get_producto_by_id
-- error_handler.py
-- .get_venta_anulada_by_comanda
+- show_error
+- ._ver_detalle
 - _NullStream
 - ._log
-- ._enqueue_venta
-- form.py
+- inventario_view.py
+- RequisicionForm
 - graphify reference: query, path, explain
 - .save_componentes
 - .clear_categorias
-- .dedupe_existencias_producto
-- Settings
+- LocalReplica
+- get_settings
 - graphify reference: add a URL and watch a folder
 - graphify reference: commit hook and native CLAUDE.md integration
 - graphify reference: incremental update and cluster-only
 - reset_requisiciones.py
-- .eliminar_usuario_dispositivo
-- pos/data.py
+- run_when_connected
+- cards.py
 - graphify reference: GitHub clone and cross-repo merge
 - graphify reference: transcribe video and audio
 - _frozen_runtime_hook.py
 - install_opencode.sh
-- .get_proveedor_by_nombre
+- .clear_productos
 - .delete_receta
-- ._enqueue_comanda
+- .delete_pos_categoria
 - .get_recetas
-- .get_componentes_by_receta
+- .get_almacenes
 - CLAUDE.md
 - .claude/CLAUDE.md
 - extraction-spec.md
-- .save_plato
+- .get_categorias
 - graphify.js
-- models/__init__.py
+- base.py
 - AGENTS.md
-- .delete_plato
+- .get_detalles_by_produccion
 - .delete_plato_categoria
-- .save_produccion_detalle
+- .get_movimientos_pendientes
 - .get_existencias
-- .get_categoria
+- .get_platos
 - .get_facturas
 - .get_habitaciones_ocupadas
-- .get_movimientos
-- .get_plato_contornos
-- .get_proveedores
-- .get_producciones
-- .get_productos
-- .get_receta_by_id
+- .get_platos_categorias
+- .get_platos_pos
+- .save_movimiento
+- .save_plato_contornos
+- .save_pos_categoria
+- .verificar_pin
 - .get_requisiciones
 - pos/__init__.py
 - lycoris-control
-- .get_ventas_correlativos
 
 ## God Nodes (most connected - your core abstractions)
 1. `LocalReplica` - 212 edges
@@ -137,121 +136,117 @@
   usr/app_launcher.py → config/config.py
 - `_get_remote_engine()` --calls--> `get_settings()`  [EXTRACTED]
   usr/database/archive.py → config/config.py
+- `get_local_engine()` --calls--> `get_settings()`  [EXTRACTED]
+  usr/database/base.py → config/config.py
 - `ajustar_existencia()` --calls--> `get_settings()`  [EXTRACTED]
   usr/views/inventario/movements.py → config/config.py
 - `registrar_movimiento()` --calls--> `get_settings()`  [EXTRACTED]
   usr/views/inventario/movements.py → config/config.py
-- `_sync_existencias_supabase_batch()` --calls--> `get_settings()`  [EXTRACTED]
-  usr/views/requisiciones/data.py → config/config.py
 
 ## Import Cycles
 - None detected.
 
-## Communities (110 total, 39 thin omitted)
+## Communities (109 total, 39 thin omitted)
 
 ### Community 0 - "POSLoginView"
 Cohesion: 0.05
 Nodes (9): ComandasView, Vista de Comandas del POS. Muestra dos puntos de entrada para comandas: - Mesas…, HabitacionesView, POSHomeView, Vista post-login del POS. Redirige al usuario a la pantalla de Comandas (mesas…, PosView, POSLoginView, MesasView (+1 more)
 
 ### Community 1 - "show_error_with_copy"
-Cohesion: 0.06
+Cohesion: 0.05
 Nodes (15): Exception, Mostrar mensaje de error con botón para copiar detalles al clipboard., show_error_with_copy(), check_proveedor_exists(), extract_from_image(), _extract_from_image_ocrspace(), _get_easyocr_reader(), parse_factura_text() (+7 more)
 
 ### Community 2 - "ConfigPOSView"
 Cohesion: 0.07
-Nodes (9): Obtiene categorías POS independientes., Obtiene categorías visibles en el POS., ConfigPOSView, Construye el contenido de la pestaña de impresora., Guarda la configuracion del membrete., Establece el correlativo inicial., Carga la lista de impresoras disponibles., Selecciona o deselecciona una impresora. (+1 more)
+Nodes (10): Obtiene categorías POS independientes., Obtiene categorías visibles en el POS., ConfigPOSView, Construye el contenido de la pestaña de impresora., Guarda la configuracion del membrete., Establece el correlativo inicial., Carga la lista de impresoras disponibles., Selecciona o deselecciona una impresora. (+2 more)
 
 ### Community 3 - "requisiciones_view.py"
-Cohesion: 0.18
-Nodes (19): build_detalle_row(), build_producto_busqueda_item(), get_almacenes(), get_detalles(), get_productos_activos(), build_agregar_producto_dialog(), build_agregar_producto_req_dialog(), build_buscador_productos() (+11 more)
-
-### Community 4 - "show_error"
 Cohesion: 0.11
-Nodes (27): Sistema centralizado de notificaciones para la aplicación. Proporciona…, Mostrar mensaje de éxito (verde)., Mostrar mensaje de error (rojo)., Mostrar mensaje de advertencia (naranja)., Mostrar mensaje informativo (azul)., Función interna para mostrar SnackBar. Args: action_text: Texto para botón de…, show_error(), show_info() (+19 more)
+Nodes (25): build_detalle_row(), build_empty_state(), build_producto_busqueda_item(), build_requisicion_card(), _parse_dt(), Tarjeta de una requisición en la lista., Convierte fecha (datetime o string ISO) a datetime de forma segura., buscar_productos() (+17 more)
 
-### Community 5 - "base.py"
-Cohesion: 0.13
-Nodes (17): get_settings(), Valores de BD empaquetados para builds compilados (Windows exe / Android APK).…, check_connection(), check_connection_async(), get_base(), get_connection_status(), get_engine(), get_local_engine() (+9 more)
+### Community 5 - "ProduccionesView"
+Cohesion: 0.12
+Nodes (4): build_historial_tab(), Construye el contenido del tab Historial., ProduccionesView, Tras descargar/cancelar, refrescar pendientes y recetas (dropdown).
 
-### Community 6 - "get_colors"
-Cohesion: 0.22
-Nodes (11): Vista de login del POS. Muestra: - Lista de cajeros registrados - Botón para…, apply_theme_to_button(), get_colors(), Constantes de colores para el tema de la aplicación, Aplica el tema a un ElevatedButton, Helper para obtener colores según el tema de la página, get_colors_safe(), get_producto_historial() (+3 more)
+### Community 6 - "producciones/data.py"
+Cohesion: 0.16
+Nodes (18): cancelar_produccion(), ejecutar_descargo(), load_detalle(), load_pendientes(), load_pendientes_de_receta(), load_producciones(), productos_producidos(), Capa de datos/negocio del módulo Producciones. Funciones puras (sin UI) que… (+10 more)
 
 ### Community 7 - "ComandaPedidoView"
 Cohesion: 0.08
-Nodes (9): Obtiene sub-categorias (platos_categorias) de una categoria de inventario., Obtiene sub-categorias (platos_categorias) de una categoria POS., Obtiene platos activos para mostrar en POS., Obtiene contornos activos para POS., Obtiene productos del POS: activos y marcados para la venta., ComandaPedidoView, Categorias de platos (sin padre) excluyendo las de contornos., Reemplaza la grilla y dispara la animacion de entrada escalonada. (+1 more)
+Nodes (9): Guarda la comanda abierta de la mesa/habitacion (upsert). Si ya existe una…, Obtiene sub-categorias (platos_categorias) de una categoria de inventario., Obtiene sub-categorias (platos_categorias) de una categoria POS., Obtiene contornos activos para POS., Obtiene productos del POS: activos y marcados para la venta., ComandaPedidoView, Categorias de platos (sin padre) excluyendo las de contornos., Reemplaza la grilla y dispara la animacion de entrada escalonada. (+1 more)
 
-### Community 8 - "stock/data.py"
-Cohesion: 0.24
-Nodes (7): build_product_card(), filter_products_db(), get_existencias_map(), get_stock_stats(), load_categories(), load_products(), load_warehouses()
+### Community 8 - "stock_view.py"
+Cohesion: 0.12
+Nodes (16): Constantes de colores para el tema de la aplicación, build_product_card(), build_stat_card(), filter_products_db(), get_existencias_map(), get_existencias_producto(), get_producto_historial(), get_stock_stats() (+8 more)
 
-### Community 9 - "inventario_view.py"
-Cohesion: 0.14
-Nodes (20): Obtiene existencia por producto y almacén., Actualiza la existencia existente o la crea si no existe (sin duplicar)., Guarda un movimiento en la BD local., Marca un movimiento como sincronizado., create_categoria_card(), create_categoria_card_from_dict(), get_card_bg(), show_agregar_producto_dialog() (+12 more)
+### Community 9 - "show_success"
+Cohesion: 0.11
+Nodes (21): Obtiene existencia por producto y almacén., Marca un movimiento como sincronizado., Obtiene productos de la BD local., Exception, Muestra el error en consola Y en pantalla como SnackBar rojo., show_error(), Mostrar mensaje de éxito (verde)., show_success() (+13 more)
 
-### Community 10 - "get_sync_queue"
-Cohesion: 0.14
-Nodes (18): Script único para migrar datos POS existentes a Supabase. Agrega todos los…, _migrate_old_tables(), Réplica local SQLite para trabajo offline. Almacena una copia de los datos de…, Migra datos de tablas old (local_*) a tablas nuevas si existen datos en old., Migraciones automáticas para tablas POS., _run_pos_migrations(), get_pending_movimientos_count(), get_sync_manager() (+10 more)
+### Community 10 - "get_db_adaptive"
+Cohesion: 0.09
+Nodes (28): Script único para migrar datos POS existentes a Supabase. Agrega todos los…, get_connection_status(), get_db_adaptive(), get_local_session(), Retorna el estado de conexión (solo para indicador)., Generator que proporciona una sesión SQLite local., Alias de get_session() para compatibilidad., _migrate_old_tables() (+20 more)
 
 ### Community 11 - "Historial de Cambios"
 Cohesion: 0.04
 Nodes (45): 1. El código actualizado no se refleja en el App, 1. Smart Launcher & Dynamic Updates, 1. Variables `snack` sin definir, 2. Código de depuración en producción, 2. Fallo en Notificaciones tras Actualización, 2. Motor de Sincronización (Offline-First), 3. Bases de Datos Duplicadas, 3. Flujo de Requisiciones (Audit Workflow) (+37 more)
 
 ### Community 12 - "InventarioView"
+Cohesion: 0.10
+Nodes (6): get_safe_colors(), create_categoria_header(), create_compra_lista_card(), InventarioView, Lee datos de la BD local y retorna (items, colors)., Recarga datos y reconstruye la lista de compras con un ListView fresco.
+
+### Community 13 - "schedule_load"
 Cohesion: 0.09
-Nodes (8): Obtiene todas las categorías de la BD local., get_safe_colors(), create_categoria_header(), create_compra_lista_card(), InventarioView, Lee caché local y (si hay conexión) consulta el servidor. Corre en hilo aparte…, Lee datos de la BD local y retorna (items, colors)., Recarga datos y reconstruye la lista de compras con un ListView fresco.
+Nodes (9): clear_all_callbacks(), notify_sync_complete(), Manejo de callbacks de sincronización entre vistas., Agenda una corrutina de carga de vista en el event loop ACTIVO y retorna una…, Elimina un callback registrado., Notifica a todos los callbacks registrados., Limpia todos los callbacks registrados., schedule_load() (+1 more)
 
-### Community 13 - "StockView"
-Cohesion: 0.12
-Nodes (4): Elimina un callback registrado., unregister_sync_callback(), get_existencias_producto(), StockView
+### Community 14 - "validacion_view.py"
+Cohesion: 0.18
+Nodes (17): Tâche de fond pour l'envoi WhatsApp sans bloquer l'UI, count_pending(), delete_from_queue(), format_validation_message(), _get_queue_conn(), get_queued_messages(), process_queue_now(), Módulo para enviar notificaciones a WhatsApp desde Python Uso el servidor… (+9 more)
 
-### Community 14 - "whatsapp_notifier.py"
-Cohesion: 0.08
-Nodes (23): Control, Agenda una corrutina de carga de vista en el event loop ACTIVO y retorna una…, schedule_load(), Tâche de fond pour l'envoi WhatsApp sans bloquer l'UI, BandejaWhatsAppView, _notify_error(), Container, count_pending() (+15 more)
-
-### Community 15 - "requisiciones/components.py"
-Cohesion: 0.27
-Nodes (6): build_empty_state(), build_requisicion_card(), _parse_dt(), Tarjeta de una requisición en la lista., Convierte fecha (datetime o string ISO) a datetime de forma segura., contar_detalles()
+### Community 15 - "Requisicion"
+Cohesion: 0.14
+Nodes (5): Base, Requisicion, RequisicionDetalle, load_requisiciones(), RequisicionService
 
 ### Community 16 - "comprobar_y_aplicar_actualizaciones"
 Cohesion: 0.22
 Nodes (13): Text, comprobar_y_aplicar_actualizaciones(), _download_file(), _fetch_url(), _get_app_dir(), Page, Bloqueante — corre en executor., Comprueba, descarga e instala actualizaciones de código de forma dinámica. (+5 more)
 
-### Community 17 - "ValidacionView"
-Cohesion: 0.16
-Nodes (3): Registra un callback que se ejecuta después de cada sync., register_sync_callback(), ValidacionView
+### Community 17 - "get_colors"
+Cohesion: 0.14
+Nodes (8): Registra un callback que se ejecuta después de cada sync., register_sync_callback(), Vista de login del POS. Muestra: - Lista de cajeros registrados - Botón para…, get_colors(), Helper para obtener colores según el tema de la página, get_colors_safe(), build_ajuste_dialog(), ValidacionView
 
 ### Community 18 - "._download_all_from_server"
 Cohesion: 0.07
-Nodes (13): Limpia todos los movimientos., Guarda múltiples movimientos (para sync desde servidor) con deduplicación., Guarda facturas en la base de datos local., Guarda pagos de facturas en la base de datos local., Guarda los detalles de las requisiciones (upsert). Incluye verificado para…, Guarda lista de recetas (bulk upsert para sync)., Guarda lista de componentes de receta (bulk upsert para sync)., Guarda lista de producciones (bulk upsert para sync). (+5 more)
+Nodes (13): Limpia todos los movimientos., Guarda múltiples movimientos (para sync desde servidor) con deduplicación., Guarda facturas en la base de datos local., Guarda pagos de facturas en la base de datos local., Guarda los detalles de las requisiciones (upsert). Incluye verificado para…, Elimina registros locales que no están en la lista de IDs remotos y no están…, Guarda lista de recetas (bulk upsert para sync)., Guarda lista de componentes de receta (bulk upsert para sync). (+5 more)
 
 ### Community 19 - "._download_all_from_server"
 Cohesion: 0.07
-Nodes (14): Recalcula las existencias basándose en todos los movimientos. Si hay…, Elimina registros locales que no están en la lista de IDs remotos y no están…, Aplica comandas descargadas de Supabase (upsert por sync_uuid). Retorna cuantas…, Aplica ventas descargadas de Supabase (upsert por sync_uuid). Resuelve…, Restaura movimientos.venta_id desde venta_sync_uuid tras una descarga., Bulk upsert pos_categorias para sync (categorias POS independientes)., Bulk upsert platos_categorias para sync., Bulk upsert platos para sync. (+6 more)
+Nodes (14): Recalcula las existencias basándose en todos los movimientos. Si hay…, Aplica comandas descargadas de Supabase (upsert por sync_uuid). Retorna cuantas…, Aplica ventas descargadas de Supabase (upsert por sync_uuid). Resuelve…, Restaura movimientos.venta_id desde venta_sync_uuid tras una descarga., Bulk upsert pos_categorias para sync (categorias POS independientes)., Bulk upsert platos_categorias para sync., Bulk upsert platos para sync., Bulk upsert plato_ingredientes para sync. (+6 more)
 
 ### Community 20 - "launcher.py"
-Cohesion: 0.22
-Nodes (12): init_pos_sync_manager(), Page, Registrar la página activa. Llamar desde main.py al iniciar., set_page(), main(), Page, Launcher para el POS con soporte de actualizaciones., _resource_path() (+4 more)
+Cohesion: 0.25
+Nodes (9): get_pos_sync_manager(), init_pos_sync_manager(), Page, Registrar la página activa. Llamar desde main.py al iniciar., set_page(), main(), Page, Launcher para el POS con soporte de actualizaciones. (+1 more)
 
 ### Community 21 - "ControlEntradasSalidasApp"
-Cohesion: 0.08
-Nodes (16): ControlEntradasSalidasApp, Page, Recibe mensajes de progreso del SyncManager. Puede ejecutarse en un hilo nativo…, Registra el callback de progreso en el SyncManager., Cierra el BottomSheet del menú 'Más' y ejecuta `accion` tras la animación de…, Reenvía el estado autoritativo de visibilidad del Stack y fuerza el repintado…, Exception, Muestra el error en consola Y en pantalla como SnackBar rojo. (+8 more)
+Cohesion: 0.07
+Nodes (17): ControlEntradasSalidasApp, Page, Reenvía el estado autoritativo de visibilidad del Stack y fuerza el repintado…, Recibe mensajes de progreso del SyncManager. Puede ejecutarse en un hilo nativo…, Registra el callback de progreso en el SyncManager., Cierra el menú de acciones (header móvil) SIN restaurar las acciones al header.…, Despliega en móvil las acciones del header de la vista actual en un…, Cierra el BottomSheet del menú 'Más' y ejecuta `accion` tras la animación de… (+9 more)
 
 ### Community 22 - ".full_sync"
 Cohesion: 0.22
 Nodes (4): Guarda timestamp del último sync., Realiza una sincronización completa: sube pendientes y descarga del servidor., Fuerza una sincronización inmediata., Verifica si hay conexión a la base de datos remota.
 
 ### Community 23 - "HistorialFacturasView"
-Cohesion: 0.14
+Cohesion: 0.15
 Nodes (4): _c(), _colors(), HistorialFacturasView, Mapea colores de ft.Colors a tema dinámico
 
 ### Community 24 - "POSSyncIndicator"
-Cohesion: 0.17
-Nodes (8): get_pos_sync_manager(), get_pos_sync_indicator(), init_pos_sync_indicator(), POSSyncIndicator, Page, Barra de progreso global del POS. Aparece en la parte superior de todas las…, Activa/desactiva la barra. Solo se muestra durante un sync manual., Fuerza sync con Supabase y recarga todos los datos POS.
+Cohesion: 0.23
+Nodes (6): get_pos_sync_indicator(), init_pos_sync_indicator(), POSSyncIndicator, Page, Barra de progreso global del POS. Aparece en la parte superior de todas las…, Activa/desactiva la barra. Solo se muestra durante un sync manual.
 
 ### Community 25 - "RecetaEditor"
-Cohesion: 0.12
-Nodes (6): Ejecuta `handler` en el event loop de la página solo si la sesión web ya está…, run_when_connected(), Editor de receta en pantalla completa., Selector de producto con buscador (estilo sección de componentes). Muestra un…, Llama control.update() solo si el control ya está añadido a la página., RecetaEditor
+Cohesion: 0.18
+Nodes (4): Editor de receta en pantalla completa., Selector de producto con buscador (estilo sección de componentes). Muestra un…, Llama control.update() solo si el control ya está añadido a la página., RecetaEditor
 
 ### Community 26 - "What You Must Do When Invoked"
 Cohesion: 0.08
@@ -265,61 +260,65 @@ Nodes (24): For /graphify add and --watch, For /graphify query, For the commit h
 Cohesion: 0.13
 Nodes (6): Verifica la conexión real con Supabase (no la BD local ni Internet). Crea un…, Registra función a llamar con cada paso del sync (msg: str)., Registra función a llamar cada vez que termina un sync., Registra un callback que se ejecuta cuando termina un sync., Elimina un callback registrado., SyncManager
 
-### Community 29 - "producciones/data.py"
-Cohesion: 0.05
-Nodes (46): almacen_produccion_default(), cancelar_produccion(), ejecutar_descargo(), load_componentes(), load_detalle(), load_pendientes(), load_pendientes_de_receta(), load_producciones() (+38 more)
+### Community 29 - "producciones/dialogs.py"
+Cohesion: 0.14
+Nodes (23): almacen_produccion_default(), load_componentes(), planificar_descargo(), Calcula los ingredientes a descargar. Para recetas compuestas usa los…, Almacén por defecto para la descarga de materia prima de una producción. Se lee…, cancelar_produccion_dialog(), delete_receta_dialog(), descargo_dialog() (+15 more)
 
 ### Community 30 - "LoadingSplash"
-Cohesion: 0.12
-Nodes (8): LoadingSplash, Container, Splash a pantalla completa con fondo (imagen estática) y UI animada. No hereda…, Devuelve el Container raíz para añadir a la página: page.add(splash.control), Actualiza anillo, % y etiqueta en función del mensaje del sync., Actualiza solo la etiqueta de estado (para pasos fuera del sync)., Actualiza el indicador de paso (ej. '3/5')., Marca el 100% y detiene las animaciones.
+Cohesion: 0.09
+Nodes (12): _find_background_image(), LoadingSplash, Container, Page, Pantalla de carga (splash) animada que se muestra durante la sincronización.…, Splash a pantalla completa con fondo (imagen estática) y UI animada. No hereda…, Devuelve el Container raíz para añadir a la página: page.add(splash.control), Actualiza anillo, % y etiqueta en función del mensaje del sync. (+4 more)
 
 ### Community 31 - "movimientos.py"
-Cohesion: 0.36
-Nodes (8): _build_almacen_option(), build_historial_dialog(), build_movimiento_card(), _copiar_documento(), _es_movil(), _fmt_cantidad(), preguntar_almacen(), Pregunta al usuario qué almacén filtrar. Retorna el almacén seleccionado,…
+Cohesion: 0.33
+Nodes (9): _build_almacen_option(), build_historial_dialog(), build_movimiento_card(), _copiar_documento(), _es_movil(), _fmt_cantidad(), preguntar_almacen(), Pregunta al usuario qué almacén filtrar. Retorna el almacén seleccionado,… (+1 more)
 
-### Community 33 - "get_safe_colors"
-Cohesion: 0.47
-Nodes (4): build_stat_card(), get_color_mapping(), get_mapped_color(), get_safe_colors()
+### Community 33 - "BandejaWhatsAppView"
+Cohesion: 0.23
+Nodes (4): Control, BandejaWhatsAppView, _notify_error(), Container
 
 ### Community 34 - "app_launcher.py"
 Cohesion: 0.10
-Nodes (23): Logger, _get_app_dir(), main(), Page, Ruta a recursos empaquetados (assets, .env, etc.). - PyInstaller (Windows):…, Directorio base de la app (escribible para BD, logs, app_updates). Prioridad:…, resource_path(), main() (+15 more)
+Nodes (28): Logger, _get_app_dir(), Ruta a recursos empaquetados (assets, .env, etc.). - PyInstaller (Windows):…, Directorio base de la app (escribible para BD, logs, app_updates). Prioridad:…, resource_path(), main(), mostrar_error_critico(), Page (+20 more)
 
 ### Community 35 - "RequisicionesView"
-Cohesion: 0.09
-Nodes (5): Lee la cola de sync y pinta el indicador: ok / pendientes / fallidos., Fuerza una sincronización con Supabase y recarga la lista., Indicador de estado de la cola de sync (pendientes/fallidos/ok)., Al pulsar: refresca el estado y muestra los errores si hay fallidos., RequisicionesView
+Cohesion: 0.11
+Nodes (4): Lee la cola de sync y pinta el indicador: ok / pendientes / fallidos., Indicador de estado de la cola de sync (pendientes/fallidos/ok)., Al pulsar: refresca el estado y muestra los errores si hay fallidos., RequisicionesView
 
 ### Community 36 - "historial_facturas_view.py"
-Cohesion: 0.13
-Nodes (21): _candidate_env_paths(), Rutas candidatas para buscar .env en orden de prioridad., Connection, Path, get_db(), Generator que proporciona una sesión SQLite local. Esta es la única fuente de…, get_cache(), get_cache_any_age() (+13 more)
+Cohesion: 0.15
+Nodes (19): Connection, Path, get_db(), Generator que proporciona una sesión SQLite local. Esta es la única fuente de…, get_cache(), get_cache_any_age(), init_cache_db(), Sistema de caché local para trabajo offline. Solo maneja cache de datos (no… (+11 more)
 
-### Community 38 - "LocalReplica"
-Cohesion: 0.04
-Nodes (28): get_local_conn(), LocalReplica, Devuelve la lista de almacenes existentes (valores únicos)., Obtiene todas las existencias de un producto (sumadas por almacén)., Obtiene movimientos que no han sido sincronizados., Tras subir una requisición local, actualiza su id local al id remoto para que…, Verifica el PIN del usuario., Retorna la comanda abierta (con items parseados) de la mesa/habitacion, o None. (+20 more)
+### Community 38 - "get_local_conn"
+Cohesion: 0.05
+Nodes (17): archivar_movimientos_local(), Archiva movimientos en la BD local., get_local_conn(), Actualiza la existencia existente o la crea si no existe (sin duplicar)., Resetea el usuario (para cambio de operador)., Elimina una comanda (debe estar abierta/sin cobrar) y encola el borrado para…, Elimina una venta no impresa y sus movimientos, restaurando el stock., Mapa {id: correlativo} de las ventas indicadas (una sola consulta). (+9 more)
 
 ### Community 39 - ".get_last_sync"
 Cohesion: 0.29
 Nodes (3): Obtiene operaciones pendientes Y fallidas con reintentos disponibles., Obtiene timestamp del último sync., Estado de conexión y sincronización.
 
-### Community 40 - ".aplicar_movimientos_venta"
-Cohesion: 0.33
-Nodes (3): Sync_uuid de una venta (para el vinculo estable venta<->movimientos)., Registra movimientos tipo 'venta' (salida de mercancia) y descuenta existencias., Revierte la salida de mercancia de una venta anulada (tipo 'devolucion').
+### Community 40 - "._confirmar_anulacion"
+Cohesion: 0.10
+Nodes (8): Encola una comanda para subirla a Supabase (sync POS)., Reabre una comanda cerrada (para correccion/venta devuelta)., Registra una venta cobrada. Retorna el id de la venta., Encola una venta para subirla a Supabase (sync POS)., Marca una venta como anulada (devuelta)., Sync_uuid de una venta (para el vinculo estable venta<->movimientos)., Registra movimientos tipo 'venta' (salida de mercancia) y descuenta existencias., Revierte la salida de mercancia de una venta anulada (tipo 'devolucion').
 
-### Community 41 - ".set_pos_setting"
-Cohesion: 0.33
-Nodes (3): Guarda la tasa de cambio (Bs por USD) junto con la fecha de actualizacion., Guarda un setting de POS. Si sync=True, lo encola para subir a Supabase., Inicializa la tabla de cola.
+### Community 41 - "views/config.py"
+Cohesion: 0.14
+Nodes (14): Guarda la tasa de cambio (Bs por USD) junto con la fecha de actualizacion., Guarda un setting de POS. Si sync=True, lo encola para subir a Supabase., configurar_impresora(), _get_next_correlativo(), Guarda el tamaño del membrete: 'small', 'normal', 'large'., Guarda el dispositivo de impresora configurado., Configura el dispositivo de impresora a usar., Obtiene el siguiente numero de correlativo y lo incrementa. (+6 more)
 
 ### Community 42 - "printer.py"
-Cohesion: 0.05
-Nodes (55): Obtiene un setting de POS (ej: printer_device)., Tasa de cambio guardada (Bs por USD). None si no hay ninguna., configurar_impresora(), _escpos_ticket(), _find_printer_device(), _find_printer_device_auto(), _find_serial_printers(), _find_usb_printers() (+47 more)
+Cohesion: 0.13
+Nodes (23): _find_printer_device(), _find_printer_device_auto(), _find_serial_printers(), _find_usb_printers(), _find_windows_printers(), _get_configured_device(), _get_usb_out_endpoint(), imprimir_comanda() (+15 more)
 
-### Community 43 - "obtener_tasa_bcv"
-Cohesion: 0.29
-Nodes (8): _abrir_url(), obtener_tasa_bcv(), _obtener_tasa_fallback(), _obtener_tasa_sitio_oficial(), Respaldo: consulta la tasa USD en la API de bcv.today., Descarga una URL con User-Agent real y reintento sin verificar SSL., Consulta la tasa oficial del BCV (Bs por USD) desde el sitio oficial. Lanza…, Scrapea la tasa USD del sitio oficial del BCV (www.bcv.org.ve). El valor…
+### Community 43 - "comanda_view.py"
+Cohesion: 0.12
+Nodes (24): Tasa de cambio guardada (Bs por USD). None si no hay ninguna., _escpos_ticket(), Genera los bytes ESC/POS para un ticket de comanda. Si correlativo es None se…, _abrir_url(), actualizar_tasa(), convertir(), formatear_bs(), formatear_tasa() (+16 more)
 
-### Community 45 - "splash.py"
+### Community 44 - "VisualizeView"
 Cohesion: 0.33
-Nodes (4): _find_background_image(), Page, Pantalla de carga (splash) animada que se muestra durante la sincronización.…, Devuelve el 'src' de la imagen de fondo (estática) a usar, o None. En móvil los…
+Nodes (3): get_detalles(), Construye el texto de la requisición para compartir por WhatsApp., VisualizeView
+
+### Community 45 - ".get_pos_setting"
+Cohesion: 0.22
+Nodes (8): Obtiene un setting de POS (ej: printer_device)., _get_comanda_header(), get_correlativo_actual(), _get_header_size(), Lee el correlativo actual sin incrementarlo., Obtiene el tamaño del membrete: 'small', 'normal', 'large'., Obtiene la configuracion del membrete de comanda., Carga la configuracion del membrete y correlativo.
 
 ### Community 46 - "main_pos.py"
 Cohesion: 0.22
@@ -329,49 +328,45 @@ Nodes (9): assets_dir_path(), _get_app_dir(), main(), Page, Entry point alternat
 Cohesion: 0.21
 Nodes (6): init_local_db(), Inicializa la base de datos local con todas las tablas. Usa los mismos nombres…, Devuelve el usuario registrado en este dispositivo, o None., Registra el usuario de este dispositivo (solo una vez)., Crea todas las tablas locales., LoginView
 
-### Community 48 - "get_db_adaptive"
-Cohesion: 0.12
-Nodes (26): get_db_adaptive(), Generator que proporciona una sesión SQLite local., Existencia, Base, get_productos_activos(), Obtiene todos los productos activos del inventario., buscar_productos(), _cantidad_unidad_item() (+18 more)
+### Community 48 - "requisiciones/data.py"
+Cohesion: 0.13
+Nodes (20): Existencia, Base, Producto, Base, _cantidad_unidad_item(), crear_ajuste_stock(), _encolar_requisicion_sync(), get_requisicion_audit_data() (+12 more)
 
 ### Community 49 - "_colors"
 Cohesion: 0.07
-Nodes (50): archivar_en_supabase(), archivar_movimientos(), archivar_movimientos_local(), _get_remote_engine(), guardar_periodo_en_supabase(), Archiva en Supabase (si se puede) y siempre en local., Archiva en Supabase: guarda checkpoint, mueve movimientos viejos a archivo.…, Guarda el periodo aperturado en Supabase para que los demas dispositivos lo… (+42 more)
+Nodes (52): main(), Page, archivar_movimientos(), Archiva en Supabase (si se puede) y siempre en local., _create_categoria_card(), create_categoria_grid(), create_categoria_item_mobile(), save_categoria() (+44 more)
 
 ### Community 50 - "graphify reference: extra exports and benchmark"
 Cohesion: 0.22
 Nodes (8): graphify reference: extra exports and benchmark, Step 6b - Wiki (only if --wiki flag), Step 7 - Neo4j export (only if --neo4j or --neo4j-push flag), Step 7a - FalkorDB export (only if --falkordb or --falkordb-push flag), Step 7b - SVG export (only if --svg flag), Step 7c - GraphML export (only if --graphml flag), Step 7d - MCP server (only if --mcp flag), Step 8 - Token reduction benchmark (only if total_words > 5000)
 
 ### Community 51 - "SyncQueue"
-Cohesion: 0.15
-Nodes (9): Marca operación como completada., Maneja la cola de sincronización., Marca operación como fallida., Obtiene estado de la cola., Limpia operaciones completadas antiguas., Obtiene número de operaciones pendientes., Asegura que las tablas de la cola existan (defensa ante arranques donde…, Agrega una operación a la cola de sync. (+1 more)
+Cohesion: 0.12
+Nodes (11): Marca operación como completada., Maneja la cola de sincronización., Marca operación como fallida., Obtiene estado de la cola., Limpia operaciones completadas antiguas., Obtiene número de operaciones pendientes., Inicializa la tabla de cola., Asegura que las tablas de la cola existan (defensa ante arranques donde… (+3 more)
 
-### Community 52 - "validacion_view.py"
-Cohesion: 0.10
-Nodes (14): is_online(), Alias de check_connection() para compatibilidad., clear_all_callbacks(), notify_sync_complete(), Manejo de callbacks de sincronización entre vistas., Notifica a todos los callbacks registrados., Limpia todos los callbacks registrados., Factura (+6 more)
+### Community 52 - "is_online"
+Cohesion: 0.21
+Nodes (10): archivar_en_supabase(), _get_remote_engine(), guardar_periodo_en_supabase(), Archiva en Supabase: guarda checkpoint, mueve movimientos viejos a archivo.…, Guarda el periodo aperturado en Supabase para que los demas dispositivos lo…, check_connection(), is_online(), Verifica si hay conexión a internet (solo para indicador visual). No bloquea… (+2 more)
 
 ### Community 53 - ".get_producto_by_id"
 Cohesion: 0.32
 Nodes (3): Ingredientes de un plato/contorno., Resuelve cada item de la comanda a los productos de inventario a descontar. -…, Obtiene un producto por ID.
 
-### Community 54 - "error_handler.py"
-Cohesion: 0.15
-Nodes (14): Sistema global de manejo y notificación de errores. Este módulo mantiene…, Banner persistente para errores de sincronización., show_sync_error(), clear_notifications(), _get_colors(), _get_page(), Page, Obtiene la página activa desde sys o desde la pila de llamadas. (+6 more)
+### Community 54 - "show_error"
+Cohesion: 0.10
+Nodes (28): Sistema global de manejo y notificación de errores. Este módulo mantiene…, Banner persistente para errores de sincronización., show_sync_error(), clear_notifications(), _get_colors(), _get_page(), Page, Sistema centralizado de notificaciones para la aplicación. Proporciona… (+20 more)
 
-### Community 55 - ".get_venta_anulada_by_comanda"
-Cohesion: 0.25
+### Community 55 - "._ver_detalle"
+Cohesion: 0.15
 Nodes (3): Historial de ventas (mas recientes primero). Paginable por before_id., Ultima venta cobrada que sigue vigente (no anulada)., Ultima venta anulada de una comanda (para saber si el proximo cobro es una…
 
 ### Community 57 - "._log"
 Cohesion: 0.19
 Nodes (6): Print + notificar progreso visual., Notifica a todos los callbacks registrados., Inicia sincronización en segundo plano cada interval_seconds., Loop de sync en background., Procesa la cola de sync - sube pendientes y descarga cambios., Sube elementos de la cola a Supabase usando SQL directo.
 
-### Community 58 - "._enqueue_venta"
-Cohesion: 0.33
-Nodes (3): Registra una venta cobrada. Retorna el id de la venta., Encola una venta para subirla a Supabase (sync POS)., Marca una venta como anulada (devuelta).
-
-### Community 59 - "form.py"
-Cohesion: 0.13
-Nodes (6): build_producto_item_row(), build_requisicion_card(), _c(), _c(), RequisicionForm, RequisicionService
+### Community 58 - "inventario_view.py"
+Cohesion: 0.35
+Nodes (6): create_categoria_card(), create_categoria_card_from_dict(), get_card_bg(), generar_color(), create_producto_item_from_dict(), get_almacenes()
 
 ### Community 60 - "graphify reference: query, path, explain"
 Cohesion: 0.33
@@ -381,9 +376,13 @@ Nodes (5): For /graphify explain, For /graphify path, graphify reference: query,
 Cohesion: 0.33
 Nodes (4): Guarda una receta y retorna su ID., Reemplaza todos los componentes de una receta., guardar_receta(), Guarda receta + componentes. receta_data incluye id si es edición.
 
-### Community 64 - "Settings"
-Cohesion: 0.25
-Nodes (5): BaseSettings, Config, Identificador único del dispositivo., Construye la URL de conexión a la base de datos de forma segura., Settings
+### Community 63 - "LocalReplica"
+Cohesion: 0.05
+Nodes (18): LocalReplica, Obtiene todas las existencias de un producto (sumadas por almacén)., Obtiene movimientos de la BD local (con numero de documento de la factura si…, Tras subir una requisición local, actualiza su id local al id remoto para que…, Retorna la comanda abierta (con items parseados) de la mesa/habitacion, o None., Retorna el set de mesa_id que tienen comandas abiertas., Obtiene una receta por ID., Crea o actualiza una categoría de plato. (+10 more)
+
+### Community 64 - "get_settings"
+Cohesion: 0.14
+Nodes (10): BaseSettings, _candidate_env_paths(), Config, get_settings(), Identificador único del dispositivo., Rutas candidatas para buscar .env en orden de prioridad., Construye la URL de conexión a la base de datos de forma segura., Settings (+2 more)
 
 ### Community 65 - "graphify reference: add a URL and watch a folder"
 Cohesion: 0.50
@@ -397,17 +396,13 @@ Nodes (3): For git commit hook, For native CLAUDE.md integration, graphify refer
 Cohesion: 0.50
 Nodes (3): For --cluster-only, For --update (incremental re-extraction), graphify reference: incremental update and cluster-only
 
-### Community 70 - "pos/data.py"
-Cohesion: 0.50
-Nodes (3): get_existencia_producto(), Funciones de acceso a datos para el POS. Comparte la BD con el sistema de…, Obtiene la existencia actual de un producto en un almacén.
+### Community 70 - "cards.py"
+Cohesion: 0.83
+Nodes (3): build_producto_item_row(), build_requisicion_card(), _c()
 
-### Community 77 - "._enqueue_comanda"
-Cohesion: 0.29
-Nodes (3): Guarda la comanda abierta de la mesa/habitacion (upsert). Si ya existe una…, Encola una comanda para subirla a Supabase (sync POS)., Reabre una comanda cerrada (para correccion/venta devuelta).
-
-### Community 85 - "models/__init__.py"
+### Community 85 - "base.py"
 Cohesion: 0.07
-Nodes (19): Elimina y recrea todas las tablas de la base de datos., reset_database(), CompraListaItem, Base, MovimientoArchivo, Base, Movimiento, Base (+11 more)
+Nodes (24): get_base(), Base de datos - SQLite como única fuente de verdad. El sistema ahora funciona…, Elimina y recrea todas las tablas de la base de datos., reset_database(), Categoria, Base, CompraListaItem, Base (+16 more)
 
 ## Knowledge Gaps
 - **105 isolated node(s):** `Config`, `install_opencode.sh script`, `GITHUB_TOKEN`, `lycoris-control`, `graphify` (+100 more)
@@ -417,12 +412,12 @@ Nodes (19): Elimina y recrea todas las tablas de la base de datos., reset_databa
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `LocalReplica` connect `LocalReplica` to `POSLoginView`, `show_error_with_copy`, `ConfigPOSView`, `show_error`, `base.py`, `get_colors`, `ComandaPedidoView`, `inventario_view.py`, `get_sync_queue`, `InventarioView`, `StockView`, `whatsapp_notifier.py`, `ValidacionView`, `._download_all_from_server`, `._download_all_from_server`, `.full_sync`, `RecetaEditor`, `SyncManager`, `producciones/data.py`, `AuditView`, `app_launcher.py`, `POSSyncManager`, `.get_last_sync`, `.aplicar_movimientos_venta`, `.set_pos_setting`, `printer.py`, `._go_to_main`, `get_db_adaptive`, `_colors`, `SyncQueue`, `validacion_view.py`, `.get_producto_by_id`, `.get_venta_anulada_by_comanda`, `._enqueue_venta`, `.save_componentes`, `.clear_categorias`, `.dedupe_existencias_producto`, `.eliminar_usuario_dispositivo`, `pos/data.py`, `.get_proveedor_by_nombre`, `.delete_receta`, `._enqueue_comanda`, `.get_recetas`, `.get_componentes_by_receta`, `.save_plato`, `.delete_plato`, `.delete_plato_categoria`, `.save_produccion_detalle`, `.get_existencias`, `.get_categoria`, `.get_facturas`, `.get_habitaciones_ocupadas`, `.get_movimientos`, `.get_plato_contornos`, `.get_proveedores`, `.get_producciones`, `.get_productos`, `.get_receta_by_id`, `.get_requisiciones`, `.get_ventas_correlativos`?**
-  _High betweenness centrality (0.397) - this node is a cross-community bridge._
-- **Why does `get_local_conn()` connect `LocalReplica` to `POSLoginView`, `ConfigPOSView`, `requisiciones_view.py`, `base.py`, `ComandaPedidoView`, `inventario_view.py`, `get_sync_queue`, `InventarioView`, `whatsapp_notifier.py`, `._download_all_from_server`, `._download_all_from_server`, `.full_sync`, `SyncManager`, `RequisicionesView`, `historial_facturas_view.py`, `POSSyncManager`, `.get_last_sync`, `.aplicar_movimientos_venta`, `.set_pos_setting`, `printer.py`, `._go_to_main`, `_colors`, `SyncQueue`, `validacion_view.py`, `.get_producto_by_id`, `.get_venta_anulada_by_comanda`, `._enqueue_venta`, `.save_componentes`, `.clear_categorias`, `.dedupe_existencias_producto`, `.eliminar_usuario_dispositivo`, `.get_proveedor_by_nombre`, `.delete_receta`, `._enqueue_comanda`, `.get_recetas`, `.get_componentes_by_receta`, `.save_plato`, `.delete_plato`, `.delete_plato_categoria`, `.save_produccion_detalle`, `.get_existencias`, `.get_categoria`, `.get_facturas`, `.get_habitaciones_ocupadas`, `.get_movimientos`, `.get_plato_contornos`, `.get_proveedores`, `.get_producciones`, `.get_productos`, `.get_receta_by_id`, `.get_requisiciones`, `.get_ventas_correlativos`?**
-  _High betweenness centrality (0.082) - this node is a cross-community bridge._
-- **Why does `ConfigPOSView` connect `ConfigPOSView` to `POSLoginView`, `POSSyncIndicator`, `printer.py`, `LocalReplica`?**
-  _High betweenness centrality (0.051) - this node is a cross-community bridge._
+- **Why does `LocalReplica` connect `LocalReplica` to `POSLoginView`, `show_error_with_copy`, `ConfigPOSView`, `producciones/data.py`, `ComandaPedidoView`, `stock_view.py`, `show_success`, `get_db_adaptive`, `InventarioView`, `validacion_view.py`, `get_colors`, `._download_all_from_server`, `._download_all_from_server`, `.full_sync`, `RecetaEditor`, `SyncManager`, `producciones/dialogs.py`, `AuditView`, `BandejaWhatsAppView`, `app_launcher.py`, `POSSyncManager`, `get_local_conn`, `.get_last_sync`, `._confirmar_anulacion`, `views/config.py`, `printer.py`, `comanda_view.py`, `.get_pos_setting`, `._go_to_main`, `requisiciones/data.py`, `_colors`, `SyncQueue`, `is_online`, `.get_producto_by_id`, `show_error`, `._ver_detalle`, `inventario_view.py`, `.save_componentes`, `.clear_categorias`, `get_settings`, `.clear_productos`, `.delete_receta`, `.delete_pos_categoria`, `.get_recetas`, `.get_almacenes`, `.get_categorias`, `base.py`, `.get_detalles_by_produccion`, `.delete_plato_categoria`, `.get_movimientos_pendientes`, `.get_existencias`, `.get_platos`, `.get_facturas`, `.get_habitaciones_ocupadas`, `.get_platos_categorias`, `.get_platos_pos`, `.save_movimiento`, `.save_plato_contornos`, `.save_pos_categoria`, `.verificar_pin`, `.get_requisiciones`?**
+  _High betweenness centrality (0.377) - this node is a cross-community bridge._
+- **Why does `get_local_conn()` connect `get_local_conn` to `POSLoginView`, `ConfigPOSView`, `requisiciones_view.py`, `ComandaPedidoView`, `show_success`, `get_db_adaptive`, `InventarioView`, `validacion_view.py`, `._download_all_from_server`, `._download_all_from_server`, `.full_sync`, `SyncManager`, `RequisicionesView`, `historial_facturas_view.py`, `POSSyncManager`, `.get_last_sync`, `._confirmar_anulacion`, `views/config.py`, `.get_pos_setting`, `._go_to_main`, `_colors`, `SyncQueue`, `is_online`, `.get_producto_by_id`, `._ver_detalle`, `inventario_view.py`, `.save_componentes`, `.clear_categorias`, `LocalReplica`, `get_settings`, `.clear_productos`, `.delete_receta`, `.delete_pos_categoria`, `.get_recetas`, `.get_almacenes`, `.get_categorias`, `base.py`, `.get_detalles_by_produccion`, `.delete_plato_categoria`, `.get_movimientos_pendientes`, `.get_existencias`, `.get_platos`, `.get_facturas`, `.get_habitaciones_ocupadas`, `.get_platos_categorias`, `.get_platos_pos`, `.save_movimiento`, `.save_plato_contornos`, `.save_pos_categoria`, `.verificar_pin`, `.get_requisiciones`?**
+  _High betweenness centrality (0.074) - this node is a cross-community bridge._
+- **Why does `ConfigPOSView` connect `ConfigPOSView` to `POSLoginView`, `views/config.py`, `.get_pos_setting`, `LocalReplica`?**
+  _High betweenness centrality (0.043) - this node is a cross-community bridge._
 - **Are the 18 inferred relationships involving `LocalReplica` (e.g. with `SyncQueue` and `POSSyncManager`) actually correct?**
   _`LocalReplica` has 18 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 2 inferred relationships involving `get_local_conn()` (e.g. with `.procesar()` and `_get_queue_conn()`) actually correct?**
@@ -430,4 +425,4 @@ _Questions this graph is uniquely positioned to answer:_
 - **What connects `Config`, `install_opencode.sh script`, `GITHUB_TOKEN` to the rest of the system?**
   _105 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `POSLoginView` be split into smaller, more focused modules?**
-  _Cohesion score 0.05158324821246169 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05225718194254446 - nodes in this community are weakly interconnected._
