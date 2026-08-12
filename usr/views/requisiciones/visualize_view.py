@@ -47,7 +47,7 @@ class VisualizeView(ft.Container):
         try:
             msg = self._build_mensaje()
             if self.page:
-                self.page.run_task(ft.Clipboard().set, msg)
+                self.page.set_clipboard(msg)
                 show_success("Requisición copiada al portapapeles")
         except Exception as e:
             show_error(f"Error al copiar: {e}")
