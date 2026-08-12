@@ -33,8 +33,8 @@ hiddenimports = [
 # Recolectar TODOS los submodulos de flet (0.86 usa lazy __getattr__)
 hiddenimports += collect_submodules('flet')
 
-# Recolectar dependencias de configuracion (pydantic_settings SI se usa en config)
-for pkg in ('pydantic_settings', 'certifi'):
+# Recolectar paquetes completos con datos estáticos y binarios (flet incluye icons.json, flet.exe, etc.)
+for pkg in ('flet', 'pydantic_settings', 'certifi'):
     d, b, h = collect_all(pkg)
     datas += d
     binaries += b
@@ -44,7 +44,6 @@ for pkg in ('pydantic_settings', 'certifi'):
 hiddenimports += collect_submodules('sqlalchemy')
 
 # Asegurar modulos de flet que se usan dinamicamente (charts, auth, etc.)
-# collect_submodules ya los cubre, pero forzamos algunos criticos:
 hiddenimports += [
     'flet.auth',
     'flet.components',
@@ -64,9 +63,6 @@ hiddenimports += [
 
 # Librerias pesadas que NO se usan en la app: no empaquetarlas para que el
 # .exe sea mas liviano y arranque mas rapido en Windows.
-# IMPORTANTE: no excluir submodulos de la stdlib usados en cadena por flet/urllib
-# (ej. email.message, http.cookiejar), porque rompen el arranque del cliente desktop.
-# Tampoco excluir 'serious_python', 'dart_bridge', '_multiprocessing' (Flet 0.86 los usa).
 _excludes = [
     'tkinter', 'matplotlib', 'numpy', 'pandas', 'scipy',
     'unittest', 'pydoc', 'test',
