@@ -286,7 +286,8 @@ class RequisicionesView(ft.Container):
             if self._vista_actual == "lista":
                 async def _reload():
                     await asyncio.to_thread(self._load_requisiciones)
-                page.run_task(_reload)
+                from usr.database.sync_callbacks import run_when_connected
+                run_when_connected(page, _reload)
 
     def on_sync_complete(self):
         self._on_sync_complete()

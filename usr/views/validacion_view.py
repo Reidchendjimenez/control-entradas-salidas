@@ -82,7 +82,8 @@ class ValidacionView(ft.Container):
         except RuntimeError:
             return
         if page and self.visible:
-            page.run_task(self._load_entradas_pendientes)
+            from usr.database.sync_callbacks import run_when_connected
+            run_when_connected(page, self._load_entradas_pendientes)
 
     def _update_connection_indicator(self):
         if not hasattr(self, '_connection_indicator') or not self._connection_indicator:

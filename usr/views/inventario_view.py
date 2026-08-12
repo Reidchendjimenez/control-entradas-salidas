@@ -181,8 +181,9 @@ class InventarioView(ft.Container):
     def _on_sync_complete(self):
         try:
             if self.page and self.visible:
-                self.page.run_task(self._load_categorias)
-        except RuntimeError:
+                from usr.database.sync_callbacks import run_when_connected
+                run_when_connected(self.page, self._load_categorias)
+        except Exception:
             pass
 
     def on_sync_complete(self):

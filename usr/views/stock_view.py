@@ -116,7 +116,8 @@ class StockView(ft.Container):
                     await asyncio.to_thread(self._load_productos)
                 except Exception as e:
                     logger.error(f"Error recargando stock tras sync: {e}")
-            page.run_task(_reload)
+            from usr.database.sync_callbacks import run_when_connected
+            run_when_connected(page, _reload)
 
     def on_sync_complete(self):
         self._on_sync_complete()

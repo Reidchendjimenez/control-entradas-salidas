@@ -412,7 +412,8 @@ self._build_fecha_tab(),
                 except Exception as e:
                     logger.error(f"Error en _reload de sync: {e}")
 
-            page.run_task(_reload)
+            from usr.database.sync_callbacks import run_when_connected
+            run_when_connected(page, _reload)
     
     def on_sync_complete(self):
         self._on_sync_complete()

@@ -5,6 +5,28 @@ from typing import List, Callable
 
 _sync_callbacks: List[Callable] = []
 
+
+def run_when_connected(page, handler, *args, **kwargs):
+    """Ejecuta `handler` en el event loop de la página solo si la sesión web ya
+    está conectada.
+
+    `Page.run_task` exige `page.session.connection.loop`; durante el arranque el
+    sync puede notificar desde un hilo antes de que el cliente conecte y
+    connection es None, lo que producía un AttributeError y dejaba la coroutine
+    sin awaitear (RuntimeWarning).
+    """
+    if page is None:
+        return None
+    try:
+        session = getattr(page, 'session', None)
+        conn = getattr(session, 'connection', None) if session else None
+        if conn is None or getattr(conn, 'loop', None) is None:
+            return None
+        return page.run_task(handler, *args, **kwargs)
+    except Exception:
+        return None
+
+
 def register_sync_callback(callback: Callable):
     """Registra un callback que se ejecuta después de cada sync."""
     if callback not in _sync_callbacks:
