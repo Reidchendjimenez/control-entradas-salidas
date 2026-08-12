@@ -380,7 +380,8 @@ self._build_fecha_tab(),
         # la animación (efecto tosco).
         fut = None
         if self.page:
-            fut = self.page.run_task(self._initial_load)
+            from usr.database.sync_callbacks import schedule_load
+            fut = schedule_load(self._initial_load)
         
         # LIMPIEZA CRÍTICA: Eliminar controles del overlay para evitar AssertionError en page.update()
         if self.page and self.page.overlay:

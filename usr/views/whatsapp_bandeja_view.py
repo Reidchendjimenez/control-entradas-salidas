@@ -73,7 +73,8 @@ class BandejaWhatsAppView(ft.Container):
     def on_view_shown(self):
         # Al mostrar la vista: devuelve el futuro de la carga.
         if self.page:
-            return self.page.run_task(self._load_messages_async)
+            from usr.database.sync_callbacks import schedule_load
+            return schedule_load(self._load_messages_async)
 
     async def _load_messages_async(self):
         await asyncio.to_thread(self._load_messages)

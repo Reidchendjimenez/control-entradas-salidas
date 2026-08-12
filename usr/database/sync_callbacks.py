@@ -1,6 +1,7 @@
 """
 Manejo de callbacks de sincronización entre vistas.
 """
+import asyncio
 from typing import List, Callable
 
 _sync_callbacks: List[Callable] = []
@@ -23,6 +24,22 @@ def run_when_connected(page, handler, *args, **kwargs):
         if conn is None or getattr(conn, 'loop', None) is None:
             return None
         return page.run_task(handler, *args, **kwargs)
+    except Exception:
+        return None
+
+
+def schedule_load(coro_fn, *args, **kwargs):
+    """Agenda una corrutina de carga de vista en el event loop ACTIVO y retorna
+    una Task awaitable (o None si no se pudo agendar).
+
+    A diferencia de `Page.run_task`, NO depende de `page.session.connection.loop`
+    (que puede estar temporalmente a None al inicio o mientras el hilo websocket
+    reanuda), por lo que la vista se carga aunque la sesión aún no tenga
+    connection. Debe invocarse desde el event loop (p.ej. dentro de
+    `on_view_shown`, que corre agendada por el controlador).
+    """
+    try:
+        return asyncio.ensure_future(coro_fn(*args, **kwargs))
     except Exception:
         return None
 

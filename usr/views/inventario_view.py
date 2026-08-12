@@ -176,7 +176,8 @@ class InventarioView(ft.Container):
         # Al mostrar la vista: devuelve el futuro de la carga para que el
         # controlador oculte el overlay solo cuando termine.
         if self.page:
-            return self.page.run_task(self._load_categorias)
+            from usr.database.sync_callbacks import schedule_load
+            return schedule_load(self._load_categorias)
 
     def _on_sync_complete(self):
         try:

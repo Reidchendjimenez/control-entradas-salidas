@@ -74,7 +74,8 @@ class ValidacionView(ft.Container):
         # Al mostrar la vista: devuelve el futuro de la carga para que el
         # controlador oculte el overlay solo cuando termine.
         if self.page:
-            return self.page.run_task(self._load_entradas_pendientes)
+            from usr.database.sync_callbacks import schedule_load
+            return schedule_load(self._load_entradas_pendientes)
 
     def _on_sync_complete(self):
         try:

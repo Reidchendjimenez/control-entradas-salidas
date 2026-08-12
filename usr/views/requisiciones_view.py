@@ -245,7 +245,8 @@ class RequisicionesView(ft.Container):
             pass
         # Al mostrar la vista: devuelve el futuro de la carga.
         if self.page:
-            return self.page.run_task(self._load_requisiciones_async)
+            from usr.database.sync_callbacks import schedule_load
+            return schedule_load(self._load_requisiciones_async)
 
     def did_mount(self):
         try:

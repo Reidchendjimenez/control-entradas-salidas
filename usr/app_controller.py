@@ -756,7 +756,10 @@ class ControlEntradasSalidasApp:
             # timeout, para que una vista lenta no bloquee todas las demás.
             self._switch_start = time.monotonic()
             try:
-                self.page.run_task(self._switching_watchdog)
+                # Se agendan en el loop ACTIVO (no usamos page.run_task porque
+                # exige session.connection.loop, que puede ser None al inicio o
+                # mientras el hilo websocket reanuda; eso dejaba vistas vacías).
+                asyncio.ensure_future(self._switching_watchdog)
             except Exception:
                 pass
 
@@ -872,7 +875,9 @@ class ControlEntradasSalidasApp:
                 elif pending is not None:
                     self._pending_view = None
         try:
-            self.page.run_task(_cargar_y_ocultar)
+            # _show_view corre en el event loop (handlers/asyncio), así que
+            # agendamos la carga directamente sin depender de session.connection.
+            asyncio.ensure_future(_cargar_y_ocultar())
         except Exception:
             self._switching_view = False
             self._ocultar_loading()
