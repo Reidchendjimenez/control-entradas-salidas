@@ -24,7 +24,6 @@ class ControlEntradasSalidasApp:
         self._route_views = {}
         self._sync_bars = {}
         self._content_areas = {}
-        self._theme_toggles = {}
 
     _ROUTES = [
         "/inventario",      # 0
@@ -131,6 +130,11 @@ class ControlEntradasSalidasApp:
                 self.theme_toggle.icon_color = ft.Colors.AMBER if is_dark else ft.Colors.BLUE_GREY_700
                 self.theme_toggle.tooltip = "Modo Claro" if is_dark else "Modo Oscuro"
 
+            # Actualizar FAB de tema
+            if hasattr(self, 'theme_fab') and self.theme_fab:
+                self.theme_fab.icon = ft.Icons.LIGHT_MODE if is_dark else ft.Icons.DARK_MODE
+                self.theme_fab.tooltip = "Modo Claro" if is_dark else "Modo Oscuro"
+
             if self.current_view and hasattr(self.current_view, 'on_theme_change'):
                 self.current_view.on_theme_change()
 
@@ -155,6 +159,17 @@ class ControlEntradasSalidasApp:
             )
             self.page.navigation_bar = self.navigation_bar
 
+            # FAB persistente para toggle de tema (fuera de page.views, no anima)
+            self.theme_fab = ft.FloatingActionButton(
+                icon=ft.Icons.LIGHT_MODE,
+                tooltip="Cambiar tema",
+                on_click=self._toggle_theme,
+                bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
+                mini=True,
+            )
+            self.page.floating_action_button = self.theme_fab
+            self.page.floating_action_button_location = ft.FloatingActionButtonLocation.END_FLOAT
+
             # Cada tab construye su propia ft.View (solo contenido + barra de sync).
             for index, route in enumerate(self._ROUTES):
                 self._route_views[route] = self._build_route_view(index)
@@ -168,13 +183,10 @@ class ControlEntradasSalidasApp:
         """Apunta las referencias globales al shell de la ruta activa."""
         self.content_area = self._content_areas.get(route)
         self.sync_status_bar = self._sync_bars.get(route)
-        self.theme_toggle = self._theme_toggles.get(route)
 
     def _build_route_view(self, index: int) -> ft.View:
         """Construye la ft.View para un tab (solo contenido + barra de sync)."""
         heavy_view = self.views[index]
-
-        theme_toggle = ft.IconButton(icon=ft.Icons.LIGHT_MODE, tooltip="Modo Claro", on_click=self._toggle_theme, icon_color=ft.Colors.AMBER)
 
         content_area = ft.Container(
             content=ft.Column([heavy_view], expand=True, spacing=0),
@@ -199,11 +211,9 @@ class ControlEntradasSalidasApp:
             avoid_intrusions_right=True, avoid_intrusions_bottom=False,
         )
 
-        # Guardar referencias clave para actualizaciones selectivas.
         route = self._ROUTES[index]
         self._content_areas[route] = content_area
         self._sync_bars[route] = sync_status_bar
-        self._theme_toggles[route] = theme_toggle
 
         return ft.View(
             route=self._ROUTES[index],
