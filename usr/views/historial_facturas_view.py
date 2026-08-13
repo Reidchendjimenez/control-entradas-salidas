@@ -770,7 +770,7 @@ self._build_fecha_tab(),
 
 
     
-    def _show_export_dialog(self, e):
+    async def _show_export_dialog(self, e):
         colors = _colors(self.page)
         
         meses = [

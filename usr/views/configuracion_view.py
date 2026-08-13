@@ -66,7 +66,9 @@ class ConfiguracionView(ft.Container):
             if not self.content:
                 self._build_ui()
             self._fully_initialized = True
+            self._mounted = True
         except Exception as e:
+            self._mounted = False
             logger.error(f"Error en did_mount de ConfiguracionView: {e}", exc_info=True)
 
     def on_theme_change(self):
