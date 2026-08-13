@@ -78,6 +78,22 @@ def build_sistema_tab(view):
                         ),
                         ft.Divider(height=30, color=colors['border']),
                         ft.Text(
+                            "Apariencia",
+                            weight=ft.FontWeight.BOLD,
+                            size=14
+                        ),
+                        ft.Text(
+                            "Cambie entre el tema claro y oscuro de la aplicacion.",
+                            size=12,
+                            color=colors['text_secondary'],
+                        ),
+                        ft.Container(height=10),
+                        ft.Row([
+                            ft.Text("Tema:", size=14, color=colors['text_secondary']),
+                            _build_tema_switch(view),
+                        ], spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER),
+                        ft.Divider(height=30, color=colors['border']),
+                        ft.Text(
                             "Modo Offline",
                             weight=ft.FontWeight.BOLD,
                             size=14
@@ -149,6 +165,23 @@ def build_sistema_tab(view):
         padding=20,
         expand=True,
     )
+
+
+def _build_tema_switch(view):
+    def _on_change(e):
+        controller = getattr(view, 'app_controller', None)
+        if controller and hasattr(controller, '_toggle_theme'):
+            controller._toggle_theme()
+        else:
+            show_error("Controlador de tema no disponible")
+
+    try:
+        is_dark = view.page.theme_mode != ft.ThemeMode.LIGHT
+    except Exception:
+        is_dark = True
+    sw = ft.Switch(value=is_dark, on_change=_on_change)
+    view.tema_switch = sw
+    return sw
 
 
 def _build_negativo_switch():

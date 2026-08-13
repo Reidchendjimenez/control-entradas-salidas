@@ -74,6 +74,11 @@ class ConfiguracionView(ft.Container):
             return
         colors = _colors(self.page)
         self.bgcolor = colors['bg']
+        if hasattr(self, 'tema_switch') and self.tema_switch:
+            try:
+                self.tema_switch.value = self.page.theme_mode != ft.ThemeMode.LIGHT
+            except Exception:
+                pass
         self.update()
 
     def _on_resize(self, e):

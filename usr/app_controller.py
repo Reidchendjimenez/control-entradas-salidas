@@ -27,7 +27,6 @@ class ControlEntradasSalidasApp:
         self._switch_start = 0.0
         self._SWITCH_TIMEOUT = 20.0  # s: recuperación si una carga se cuelga
         self._is_mobile_layout = False
-        self._actions_expanded = False
 
     VIEW_META = {
         0: ("Inventario", "Gestión de existencias", ft.Icons.SHOPPING_CART_OUTLINED),
@@ -60,6 +59,7 @@ class ControlEntradasSalidasApp:
             v_req.app_controller = self
             v_inv.app_controller = self
             v_val.app_controller = self
+            v_cfg.app_controller = self
 
             self.views = [
                 v_inv,    # 0
@@ -116,30 +116,73 @@ class ControlEntradasSalidasApp:
             if meta[2]:
                 self.header_icon.name = meta[2]
             view = self.views[index] if self.views and 0 <= index < len(self.views) else None
+            # Limpiar ambos contenedores: en móvil las acciones de la vista
+            # anterior viven en _actions_bar_row y no deben mezclarse con las
+            # nuevas de header_actions.
             self.header_actions.controls.clear()
+            if hasattr(self, '_actions_bar_row') and self._actions_bar_row:
+                self._actions_bar_row.controls.clear()
             if view and hasattr(view, 'get_header_actions'):
                 try:
                     actions = view.get_header_actions()
                     self.header_actions.controls.extend(list(actions or []))
                 except Exception as e:
                     logger.warning(f"get_header_actions de vista {index} falló: {e}")
-            # En móvil, el botón toggle de acciones solo se muestra si la vista
-            # tiene acciones que desplegar. Si cambia la vista y la barra está
-            # abierta, se cierra para mostrar las nuevas acciones.
-            if hasattr(self, 'actions_toggle_button') and self.actions_toggle_button:
-                try:
-                    es_movil = bool(getattr(self, '_is_mobile_layout', False))
-                    tiene_acciones = bool(self.header_actions.controls)
-                    self.actions_toggle_button.visible = es_movil and tiene_acciones
-                    if not tiene_acciones or not es_movil:
-                        self._actions_expanded = False
-                        if hasattr(self, 'actions_bar') and self.actions_bar:
-                            self.actions_bar.visible = False
-                            self.actions_toggle_button.icon = ft.Icons.MORE_VERT
-                except Exception:
-                    pass
+            self._apply_header_actions_placement()
         except Exception as e:
             logger.error(f"Error en _update_header: {e}", exc_info=True)
+
+    def _apply_header_actions_placement(self):
+        """Coloca las acciones de la vista donde corresponde según el layout.
+
+        Las acciones viven en self.header_actions (inline en escritorio) o en
+        self._actions_bar_row (barra desplegable en móvil). Un control no puede
+        tener dos padres a la vez, así que según el layout los movemos entre un
+        lugar y otro.
+        """
+        try:
+            # Recogemos las acciones del padre actual y reubicamos.
+            acciones = list(self.header_actions.controls)
+            if hasattr(self, '_actions_bar_row') and self._actions_bar_row:
+                acciones.extend(self._actions_bar_row.controls)
+            es_movil = bool(getattr(self, '_is_mobile_layout', False))
+            self.header_actions.controls.clear()
+            if hasattr(self, '_actions_bar_row') and self._actions_bar_row:
+                self._actions_bar_row.controls.clear()
+            if hasattr(self, 'actions_bar') and self.actions_bar:
+                self.actions_bar.visible = False
+            if es_movil:
+                # En móvil las acciones van a la barra desplegable y se muestra
+                # el botón toggle solo si hay acciones que desplegar.
+                if hasattr(self, '_actions_bar_row') and self._actions_bar_row:
+                    self._actions_bar_row.controls.extend(acciones)
+                if hasattr(self, 'actions_toggle_button') and self.actions_toggle_button:
+                    self.actions_toggle_button.visible = bool(acciones)
+            else:
+                self.header_actions.controls.extend(acciones)
+                if hasattr(self, 'actions_toggle_button') and self.actions_toggle_button:
+                    self.actions_toggle_button.visible = False
+        except Exception as e:
+            logger.debug(f"placement de acciones falló: {e}")
+
+    def _toggle_actions_bar(self, e=None):
+        """Muestra u oculta la barra de acciones bajo el encabezado (móvil).
+
+        En móvil los botones de la vista actual (p.ej. Probar Bot / Reintentar
+        todos de la Bandeja) no caben en el header, así que se mueven a esta
+        barra y se despliegan al pulsar el botón toggle.
+        """
+        if self.page is None:
+            return
+        try:
+            if hasattr(self, 'actions_bar') and self.actions_bar:
+                self.actions_bar.visible = not self.actions_bar.visible
+            try:
+                self.page.update()
+            except Exception:
+                pass
+        except Exception as ex:
+            logger.debug(f"toggle actions bar falló: {ex}")
 
     def _toggle_theme(self, e=None):
         if not self.page:
@@ -159,11 +202,6 @@ class ControlEntradasSalidasApp:
             if hasattr(self, 'drawer_panel') and self.drawer_panel:
                 self._refresh_drawer_style()
                 self.drawer_panel.update()
-
-            if hasattr(self, 'theme_toggle') and self.theme_toggle:
-                self.theme_toggle.icon = ft.Icons.LIGHT_MODE if is_dark else ft.Icons.DARK_MODE
-                self.theme_toggle.icon_color = ft.Colors.AMBER if is_dark else ft.Colors.BLUE_GREY_700
-                self.theme_toggle.tooltip = "Modo Claro" if is_dark else "Modo Oscuro"
 
             if hasattr(self, 'app_header') and self.app_header:
                 hc = self._header_colors()
@@ -296,8 +334,6 @@ class ControlEntradasSalidasApp:
                 bgcolor=get_theme(is_dark)['surface']
             )
 
-            self.theme_toggle = ft.IconButton(icon=ft.Icons.LIGHT_MODE, tooltip="Modo Claro", on_click=self._toggle_theme, icon_color=ft.Colors.AMBER)
-
             hc = self._header_colors()
             self.header_icon = ft.Icon(ft.Icons.SHOPPING_CART_OUTLINED, size=26, color=hc['icon'])
             self.header_title = ft.Text("", size=22, weight=ft.FontWeight.BOLD, color=hc['title'])
@@ -311,27 +347,26 @@ class ControlEntradasSalidasApp:
                 icon=ft.Icons.MENU, tooltip="Abrir menú", on_click=self._open_drawer, visible=False,
             )
             # En móvil, los botones de acción que no caben en el header (p.ej.
-            # los de la Bandeja) se despliegan al pulsar este toggle, en una
-            # barra justo debajo del encabezado.
+            # los de la Bandeja) se mueven a una barra desplegable debajo del
+            # encabezado. En escritorio se muestran inline en header_actions.
             self.actions_toggle_button = ft.IconButton(
                 icon=ft.Icons.MORE_VERT, tooltip="Acciones de la vista",
                 on_click=self._toggle_actions_bar, visible=False,
             )
+            self._actions_bar_row = ft.Row(
+                spacing=8,
+                alignment=ft.MainAxisAlignment.END,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+            )
             self.actions_bar = ft.Container(
-                content=ft.Row(
-                    [self.header_actions],
-                    spacing=8,
-                    alignment=ft.MainAxisAlignment.END,
-                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                ),
+                content=self._actions_bar_row,
                 bgcolor=hc['bg'],
                 border_radius=ft.BorderRadius.all(14),
                 padding=ft.Padding.symmetric(horizontal=16, vertical=8),
                 visible=False,
-                animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
             )
             self.header_right = ft.Row(
-                [self.header_actions, self.actions_toggle_button, self.theme_toggle],
+                [self.header_actions, self.actions_toggle_button],
                 spacing=4, alignment=ft.MainAxisAlignment.END, vertical_alignment=ft.CrossAxisAlignment.CENTER,
             )
             # Separador flexible título/acciones; en móvil se desactiva para dar
@@ -512,21 +547,15 @@ class ControlEntradasSalidasApp:
             self.navigation_bar.visible = True
             self.content_area.border_radius = 0
             # En móvil las acciones del encabezado no caben (p.ej. los botones
-            # de la Bandeja). No se muestran inline: se despliegan al pulsar el
-            # botón toggle en una barra debajo del encabezado.
+            # de la Bandeja). No se muestran inline: se mueven a la barra
+            # desplegable que aparece al pulsar el toggle (⋮).
             if hasattr(self, 'header_right') and self.header_right:
                 try:
                     self.header_spacer.expand = True
                     self.header_right.expand = False
                     self.header_actions.expand = False
                     self.header_actions.scroll = None
-                    self.header_actions.visible = False
-                    self.actions_toggle_button.visible = bool(self.header_actions.controls)
-                    # En móvil, si se cambia a escritorio y estaba expandido,
-                    # colapsar para evitar estado inconsistente.
-                    self._actions_expanded = False
-                    if hasattr(self, 'actions_bar') and self.actions_bar:
-                        self.actions_bar.visible = False
+                    self._apply_header_actions_placement()
                 except Exception as ex:
                     logger.debug(f"header móvil no configurado: {ex}")
         else:
@@ -543,12 +572,7 @@ class ControlEntradasSalidasApp:
                     self.header_right.expand = False
                     self.header_actions.expand = False
                     self.header_actions.scroll = None
-                    self.header_actions.visible = True
-                    self.actions_toggle_button.visible = False
-                    # En escritorio no se usa la barra toggle; colapsar siempre.
-                    self._actions_expanded = False
-                    if hasattr(self, 'actions_bar') and self.actions_bar:
-                        self.actions_bar.visible = False
+                    self._apply_header_actions_placement()
                 except Exception as ex:
                     logger.debug(f"header escritorio no configurado: {ex}")
 
@@ -663,49 +687,16 @@ class ControlEntradasSalidasApp:
             logger.error(f"Error en _on_navigation_change: {e}", exc_info=True)
             show_error("Error al cambiar de vista", e, "ControlEntradasSalidasApp._on_navigation_change")
 
-    def _toggle_actions_bar(self, e=None):
-        """Muestra u oculta la barra de acciones bajo el encabezado (móvil).
-
-        En móvil los botones de la vista actual (p.ej. Probar Bot / Reintentar
-        todos de la Bandeja) no caben en el header, así que se ocultan y se
-        despliegan al pulsar el botón toggle. El header_actions está siempre
-        poblado por _update_header; la barra solo controla su visibilidad.
-        """
-        if self.page is None:
-            return
-        try:
-            self._actions_expanded = not self._actions_expanded
-            if hasattr(self, 'actions_bar') and self.actions_bar:
-                self.actions_bar.visible = self._actions_expanded
-            if hasattr(self, 'actions_toggle_button') and self.actions_toggle_button:
-                self.actions_toggle_button.icon = (
-                    ft.Icons.CLOSE if self._actions_expanded else ft.Icons.MORE_VERT
-                )
-            try:
-                self.page.update()
-            except Exception:
-                pass
-        except Exception as ex:
-            logger.debug(f"toggle actions bar falló: {ex}")
-
     def _show_more_menu(self):
         if self.page is None:
             return
         try:
-            opciones = [("factory", "Producciones", 3), ("assignment", "Requisiciones", 4), ("history", "Historial", 5), ("settings", "Ajustes", 6), ("mail", "Bandeja", 7)]
-
             is_dark = self.page.theme_mode == ft.ThemeMode.DARK
-            theme_icon = ft.Icons.LIGHT_MODE if is_dark else ft.Icons.DARK_MODE
-            theme_label = "Modo Claro" if is_dark else "Modo Oscuro"
 
             mc = get_theme(is_dark)
             surface = mc['more_surface']
             text_color = mc['text_primary']
             icon_color = mc['header_icon']
-            item_border = mc['border']
-
-            def on_toggle_theme(e):
-                self._cerrar_more_menu_y_despues(self._toggle_theme)
 
             def on_nav(e, idx):
                 self._cerrar_more_menu_y_despues(lambda: self._show_view(idx))
@@ -722,13 +713,6 @@ class ControlEntradasSalidasApp:
                 )
 
             menu_content = ft.Column(spacing=0, controls=[
-                ft.Container(
-                    content=ft.Row([ft.Icon(theme_icon, size=24, color=icon_color), ft.Text(theme_label, size=16, color=text_color)], spacing=15),
-                    padding=ft.Padding.all(15),
-                    bgcolor=surface,
-                    on_click=on_toggle_theme,
-                ),
-                ft.Container(height=1, bgcolor=item_border),
                 _item(ft.Icons.FACTORY_OUTLINED, "Producciones", lambda e, i=3: on_nav(e, i)),
                 _item(ft.Icons.LOCAL_SHIPPING_OUTLINED, "Requisiciones", lambda e, i=4: on_nav(e, i)),
                 _item(ft.Icons.HISTORY_OUTLINED, "Historial", lambda e, i=5: on_nav(e, i)),
@@ -837,7 +821,7 @@ class ControlEntradasSalidasApp:
                 # Se agendan en el loop ACTIVO (no usamos page.run_task porque
                 # exige session.connection.loop, que puede ser None al inicio o
                 # mientras el hilo websocket reanuda; eso dejaba vistas vacías).
-                asyncio.ensure_future(self._switching_watchdog)
+                asyncio.ensure_future(self._switching_watchdog())
             except Exception:
                 pass
 
@@ -864,12 +848,10 @@ class ControlEntradasSalidasApp:
             if old is not None and old is not view and self._buscar_en_stack(old):
                 old.visible = False
 
-            try:
-                self.page.update()
-            except Exception as e:
-                logger.warning(f"page.update() parcial al montar vista {index}: {e}")
-
-            # Post-montaje: construir/inicializar la vista.
+            # Montar/construir la vista ANTES de page.update(). Si Flet dispara
+            # did_mount automáticamente durante update() y la vista aún está a
+            # medio construir, la reentrancia lanzaba excepciones intermitentes
+            # que dejaban _mounted=False y la vista vacía permanentemente.
             if hasattr(view, 'did_mount'):
                 try:
                     view.did_mount()
@@ -880,7 +862,11 @@ class ControlEntradasSalidasApp:
                     except Exception:
                         pass
 
-            # Refrescar el encabezado global (título + acciones de la vista).
+            try:
+                self.page.update()
+            except Exception as e:
+                logger.warning(f"page.update() parcial al montar vista {index}: {e}")
+
             # Refrescar el encabezado global (título + acciones de la vista).
             try:
                 self._update_header(index)
@@ -907,6 +893,14 @@ class ControlEntradasSalidasApp:
         # esperamos a que finalice para no ocultar el overlay antes de tiempo.
         async def _cargar_y_ocultar():
             try:
+                # Red de seguridad: si el did_mount previo no alcanzó a dejar
+                # _mounted=True (fallo intermitente), reintentar una vez. El
+                # guard interno de cada vista (_mounted) hace did_mount idempotente.
+                if hasattr(view, 'did_mount') and not getattr(view, '_mounted', True):
+                    try:
+                        view.did_mount()
+                    except Exception as e:
+                        logger.error(f"Reintento de did_mount para vista {index} falló: {e}", exc_info=True)
                 if hasattr(view, 'on_view_shown') and getattr(view, '_mounted', True):
                     try:
                         resultado = view.on_view_shown()
