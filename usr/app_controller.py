@@ -27,6 +27,7 @@ class ControlEntradasSalidasApp:
         self._switch_start = 0.0
         self._SWITCH_TIMEOUT = 20.0  # s: recuperación si una carga se cuelga
         self._is_mobile_layout = False
+        self._actions_expanded = False
 
     VIEW_META = {
         0: ("Inventario", "Gestión de existencias", ft.Icons.SHOPPING_CART_OUTLINED),
@@ -122,12 +123,19 @@ class ControlEntradasSalidasApp:
                     self.header_actions.controls.extend(list(actions or []))
                 except Exception as e:
                     logger.warning(f"get_header_actions de vista {index} falló: {e}")
-            # En móvil, el botón hamburguesa de acciones solo se muestra si la
-            # vista tiene acciones que desplegar.
-            if hasattr(self, 'actions_menu_button') and self.actions_menu_button:
+            # En móvil, el botón toggle de acciones solo se muestra si la vista
+            # tiene acciones que desplegar. Si cambia la vista y la barra está
+            # abierta, se cierra para mostrar las nuevas acciones.
+            if hasattr(self, 'actions_toggle_button') and self.actions_toggle_button:
                 try:
                     es_movil = bool(getattr(self, '_is_mobile_layout', False))
-                    self.actions_menu_button.visible = es_movil and bool(self.header_actions.controls)
+                    tiene_acciones = bool(self.header_actions.controls)
+                    self.actions_toggle_button.visible = es_movil and tiene_acciones
+                    if not tiene_acciones or not es_movil:
+                        self._actions_expanded = False
+                        if hasattr(self, 'actions_bar') and self.actions_bar:
+                            self.actions_bar.visible = False
+                            self.actions_toggle_button.icon = ft.Icons.MORE_VERT
                 except Exception:
                     pass
         except Exception as e:
@@ -302,15 +310,28 @@ class ControlEntradasSalidasApp:
             self.menu_button = ft.IconButton(
                 icon=ft.Icons.MENU, tooltip="Abrir menú", on_click=self._open_drawer, visible=False,
             )
-            # En móvil, las acciones que no caben en el header (p.ej. los botones
-            # de la Bandeja) se muestran dentro de este menú hamburguesa vertical
-            # a la derecha del header, en vez de inline (se cortaban).
-            self.actions_menu_button = ft.IconButton(
+            # En móvil, los botones de acción que no caben en el header (p.ej.
+            # los de la Bandeja) se despliegan al pulsar este toggle, en una
+            # barra justo debajo del encabezado.
+            self.actions_toggle_button = ft.IconButton(
                 icon=ft.Icons.MORE_VERT, tooltip="Acciones de la vista",
-                on_click=self._show_actions_menu, visible=False,
+                on_click=self._toggle_actions_bar, visible=False,
+            )
+            self.actions_bar = ft.Container(
+                content=ft.Row(
+                    [self.header_actions],
+                    spacing=8,
+                    alignment=ft.MainAxisAlignment.END,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                ),
+                bgcolor=hc['bg'],
+                border_radius=ft.BorderRadius.all(14),
+                padding=ft.Padding.symmetric(horizontal=16, vertical=8),
+                visible=False,
+                animate=ft.Animation(200, ft.AnimationCurve.EASE_OUT),
             )
             self.header_right = ft.Row(
-                [self.header_actions, self.actions_menu_button, self.theme_toggle],
+                [self.header_actions, self.actions_toggle_button, self.theme_toggle],
                 spacing=4, alignment=ft.MainAxisAlignment.END, vertical_alignment=ft.CrossAxisAlignment.CENTER,
             )
             # Separador flexible título/acciones; en móvil se desactiva para dar
@@ -366,6 +387,7 @@ class ControlEntradasSalidasApp:
 
             self._layout_row = ft.SafeArea(content=ft.Column([
                 self.app_header,
+                self.actions_bar,
                 ft.Row([self.navigation_rail, self.content_area], expand=True, spacing=0, vertical_alignment=ft.CrossAxisAlignment.STRETCH),
             ], spacing=8), expand=True)
             self._root_stack = ft.Stack([self._layout_row, self.drawer_root], expand=True)
@@ -490,8 +512,8 @@ class ControlEntradasSalidasApp:
             self.navigation_bar.visible = True
             self.content_area.border_radius = 0
             # En móvil las acciones del encabezado no caben (p.ej. los botones
-            # de la Bandeja). No se muestran inline: se agrupan tras el botón
-            # hamburguesa (actions_menu_button) que las despliega en un menú.
+            # de la Bandeja). No se muestran inline: se despliegan al pulsar el
+            # botón toggle en una barra debajo del encabezado.
             if hasattr(self, 'header_right') and self.header_right:
                 try:
                     self.header_spacer.expand = True
@@ -499,7 +521,12 @@ class ControlEntradasSalidasApp:
                     self.header_actions.expand = False
                     self.header_actions.scroll = None
                     self.header_actions.visible = False
-                    self.actions_menu_button.visible = bool(self.header_actions.controls)
+                    self.actions_toggle_button.visible = bool(self.header_actions.controls)
+                    # En móvil, si se cambia a escritorio y estaba expandido,
+                    # colapsar para evitar estado inconsistente.
+                    self._actions_expanded = False
+                    if hasattr(self, 'actions_bar') and self.actions_bar:
+                        self.actions_bar.visible = False
                 except Exception as ex:
                     logger.debug(f"header móvil no configurado: {ex}")
         else:
@@ -517,7 +544,11 @@ class ControlEntradasSalidasApp:
                     self.header_actions.expand = False
                     self.header_actions.scroll = None
                     self.header_actions.visible = True
-                    self.actions_menu_button.visible = False
+                    self.actions_toggle_button.visible = False
+                    # En escritorio no se usa la barra toggle; colapsar siempre.
+                    self._actions_expanded = False
+                    if hasattr(self, 'actions_bar') and self.actions_bar:
+                        self.actions_bar.visible = False
                 except Exception as ex:
                     logger.debug(f"header escritorio no configurado: {ex}")
 
@@ -632,97 +663,30 @@ class ControlEntradasSalidasApp:
             logger.error(f"Error en _on_navigation_change: {e}", exc_info=True)
             show_error("Error al cambiar de vista", e, "ControlEntradasSalidasApp._on_navigation_change")
 
-    def _close_actions_menu(self):
-        """Cierra el menú de acciones (header móvil) SIN restaurar las acciones
-        al header. Se usa al cambiar de vista: la nueva vista traerá sus propias
-        acciones vía _update_header, así que las viejas se descartan."""
+    def _toggle_actions_bar(self, e=None):
+        """Muestra u oculta la barra de acciones bajo el encabezado (móvil).
+
+        En móvil los botones de la vista actual (p.ej. Probar Bot / Reintentar
+        todos de la Bandeja) no caben en el header, así que se ocultan y se
+        despliegan al pulsar el botón toggle. El header_actions está siempre
+        poblado por _update_header; la barra solo controla su visibilidad.
+        """
+        if self.page is None:
+            return
         try:
-            bs = getattr(self, '_actions_bottom_sheet', None)
-            if bs is None:
-                return
-            bs.on_dismiss = None
-            bs.open = False
-            if bs in self.page.overlay:
-                self.page.overlay.remove(bs)
-            self._actions_bottom_sheet = None
+            self._actions_expanded = not self._actions_expanded
+            if hasattr(self, 'actions_bar') and self.actions_bar:
+                self.actions_bar.visible = self._actions_expanded
+            if hasattr(self, 'actions_toggle_button') and self.actions_toggle_button:
+                self.actions_toggle_button.icon = (
+                    ft.Icons.CLOSE if self._actions_expanded else ft.Icons.MORE_VERT
+                )
             try:
                 self.page.update()
             except Exception:
                 pass
         except Exception as ex:
-            logger.debug(f"cerrar actions menu falló: {ex}")
-
-    def _show_actions_menu(self, e=None):
-        """Despliega en móvil las acciones del header de la vista actual en un
-        BottomSheet, ya que inline no caben. Mueve los controles de
-        header_actions al menú y los devuelve al header al cerrar."""
-        if self.page is None:
-            return
-        try:
-            # Tomar las acciones actuales del header (ya pobladas por
-            # _update_header). En móvil header_actions.visible=False pero los
-            # controles están ahí.
-            actions = list(self.header_actions.controls)
-            if not actions:
-                return
-            # Moverlos al menú temporalmente (no pueden estar en dos padres).
-            self.header_actions.controls.clear()
-
-            is_dark = self.page.theme_mode == ft.ThemeMode.DARK
-            mc = get_theme(is_dark)
-
-            # Limpiar instancias previas del menú de acciones en el overlay.
-            for prev in [o for o in self.page.overlay
-                         if isinstance(o, ft.BottomSheet) and getattr(o, '_es_menu_acciones', False)]:
-                try:
-                    prev.on_dismiss = None
-                    prev.open = False
-                    self.page.overlay.remove(prev)
-                except Exception:
-                    pass
-
-            menu_content = ft.Column(actions, spacing=0, tight=True)
-            sheet = ft.BottomSheet(
-                content=ft.Container(
-                    content=menu_content,
-                    padding=ft.Padding.only(bottom=20, top=4, left=8, right=8),
-                    bgcolor=mc['more_surface'],
-                ),
-                show_drag_handle=True,
-                bgcolor=mc['more_surface'],
-            )
-            sheet._es_menu_acciones = True
-
-            def _on_dismiss(_ev):
-                # Devolver las acciones al header (quedan invisibles en móvil).
-                # Si _update_header ya repobló header_actions al cambiar de
-                # vista, descartamos estas (viejas) para no duplicar.
-                try:
-                    if self.header_actions.controls:
-                        actions.clear()
-                        self._actions_bottom_sheet = None
-                        return
-                    self.header_actions.controls.extend(actions)
-                    actions.clear()
-                    self._actions_bottom_sheet = None
-                    if self.page:
-                        self.page.update()
-                except Exception:
-                    pass
-
-            sheet.on_dismiss = _on_dismiss
-
-            self.page.overlay.append(sheet)
-            self._actions_bottom_sheet = sheet
-            sheet.open = True
-            self.page.update()
-        except Exception as ex:
-            logger.error(f"Error en _show_actions_menu: {ex}", exc_info=True)
-            try:
-                show_error("Error al abrir el menú de acciones", ex,
-                           "ControlEntradasSalidasApp._show_actions_menu")
-            except Exception:
-                pass
+            logger.debug(f"toggle actions bar falló: {ex}")
 
     def _show_more_menu(self):
         if self.page is None:
@@ -917,9 +881,7 @@ class ControlEntradasSalidasApp:
                         pass
 
             # Refrescar el encabezado global (título + acciones de la vista).
-            # En móvil, si el menú de acciones de la vista anterior seguía
-            # abierto, se cierra aquí (las acciones viejas se descartan):
-            self._close_actions_menu()
+            # Refrescar el encabezado global (título + acciones de la vista).
             try:
                 self._update_header(index)
             except Exception as e:
