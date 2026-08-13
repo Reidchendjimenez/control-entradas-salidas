@@ -221,8 +221,14 @@ class ProduccionesView(ft.Container):
         # barrido de entrada; el render de controles queda en el hilo principal.
         self._recetas = await asyncio.to_thread(data.load_recetas)
         self._productos = await asyncio.to_thread(data.load_productos)
+        
+        # Precargar componentes de todas las recetas para evitar N+1 queries en el render
+        componentes_por_receta = {}
+        for receta in self._recetas:
+            componentes_por_receta[receta['id']] = await asyncio.to_thread(data.load_componentes, receta['id'])
+        
         render_recetas(
-            self.page, self._recetas, self._productos,
+            self.page, self._recetas, self._productos, componentes_por_receta,
             self.recetas_list,
             on_change=self._refresh_recetas,
             on_edit=self._open_edit_receta,
@@ -231,8 +237,13 @@ class ProduccionesView(ft.Container):
 
     def _refresh_recetas(self):
         self._recetas = data.load_recetas()
+        # Recargar componentes para todas las recetas
+        componentes_por_receta = {}
+        for receta in self._recetas:
+            componentes_por_receta[receta['id']] = data.load_componentes(receta['id'])
+        
         render_recetas(
-            self.page, self._recetas, self._productos,
+            self.page, self._recetas, self._productos, componentes_por_receta,
             self.recetas_list,
             on_change=self._refresh_recetas,
             on_edit=self._open_edit_receta,

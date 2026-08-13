@@ -6,10 +6,9 @@ from usr.views.producciones.dialogs import delete_receta_dialog
 from usr.views.producciones.helpers import colors as _colors
 
 
-def _build_card(receta, colors, on_edit, on_delete):
+def _build_card(receta, colors, componentes, on_edit, on_delete):
     tipo_text = "Simple" if receta.get('tipo') == 'simple' else "Compuesta"
     tipo_color = colors['success'] if receta.get('tipo') == 'simple' else colors['info']
-    componentes = data.load_componentes(receta['id'])
     ing_count = sum(1 for c in componentes if c.get('tipo_componente') == 'INGREDIENTE')
     res_count = sum(1 for c in componentes if c.get('tipo_componente') == 'RESULTADO')
     var_count = sum(1 for c in componentes if c.get('peso_variable'))
@@ -61,17 +60,22 @@ def _build_card(receta, colors, on_edit, on_delete):
     )
 
 
-def render_recetas(page, recetas, productos, recetas_list, on_change, on_edit):
+def render_recetas(page, recetas, productos, componentes_por_receta, recetas_list, on_change, on_edit):
     """Re-renderiza una lista existente (útil tras refresh).
 
     on_edit(receta): callback para abrir el editor.
     on_change(): callback tras eliminar/guardar (refresca la lista).
+    componentes_por_receta: dict {receta_id: [componentes]} precargado para evitar N+1 queries.
     """
     colors = _colors(page)
     cards = []
     for receta in recetas:
+        # Usar componentes precargados o cargar fallback (por seguridad)
+        componentes = componentes_por_receta.get(receta['id'])
+        if componentes is None:
+            componentes = data.load_componentes(receta['id'])
         cards.append(_build_card(
-            receta, colors,
+            receta, colores, componentes,
             on_edit=lambda r, _oe=on_edit: _oe(r),
             on_delete=lambda r, _oc=on_change: delete_receta_dialog(page, r, on_confirmed=_oc),
         ))
