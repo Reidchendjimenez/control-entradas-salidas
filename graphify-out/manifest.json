@@ -15,13 +15,13 @@
     "semantic_hash": ""
   },
   "config/config.py": {
-    "mtime": 1786552777.140999,
-    "ast_hash": "7a16ecd1d95654f9f84bee5ebe1aeab9",
+    "mtime": 1786587047.145022,
+    "ast_hash": "b5631676b62e2d55b1591d4472619992",
     "semantic_hash": ""
   },
   "config/db_config.py": {
-    "mtime": 1786552777.140999,
-    "ast_hash": "c36dcfa50dd3a155e18c1df0bb596225",
+    "mtime": 1786587047.145022,
+    "ast_hash": "657091c631a16313d50ca0269d62ce22",
     "semantic_hash": ""
   },
   "init_db.py": {
@@ -65,8 +65,8 @@
     "semantic_hash": ""
   },
   "usr/app_controller.py": {
-    "mtime": 1786582767.5343766,
-    "ast_hash": "4d781f14d7fba6466930dbea34ad4696",
+    "mtime": 1786589514.1458652,
+    "ast_hash": "3d81cb4d98550aa26359f0a2c93c35cd",
     "semantic_hash": ""
   },
   "usr/app_launcher.py": {
@@ -350,18 +350,18 @@
     "semantic_hash": ""
   },
   "usr/views/configuracion/sistema.py": {
-    "mtime": 1786580776.8424897,
+    "mtime": 1786583240.5003498,
     "ast_hash": "a29416fe3b9080e1d7fed1b2754d74bb",
     "semantic_hash": ""
   },
   "usr/views/configuracion_view.py": {
-    "mtime": 1786580782.8344893,
-    "ast_hash": "e89fbf5b96e0188ee3ca7cc498976d9b",
+    "mtime": 1786588963.9269001,
+    "ast_hash": "ac504f0bf1e5345527db9ce5338d4e68",
     "semantic_hash": ""
   },
   "usr/views/historial_facturas_view.py": {
-    "mtime": 1786576925.7237086,
-    "ast_hash": "16321c968a4e6ab96b86dc39915027da",
+    "mtime": 1786588994.3668983,
+    "ast_hash": "7aad8ba58af2cd7eb9fa42981e209dca",
     "semantic_hash": ""
   },
   "usr/views/inventario/__init__.py": {
@@ -445,13 +445,13 @@
     "semantic_hash": ""
   },
   "usr/views/producciones/recetas_view.py": {
-    "mtime": 1786572323.79697,
-    "ast_hash": "85869e349fafbff459806cc9e209ef2c",
+    "mtime": 1786587047.1500218,
+    "ast_hash": "4fb51a7bfc857a661bc17833d0dd998a",
     "semantic_hash": ""
   },
   "usr/views/producciones/view.py": {
-    "mtime": 1786574287.1958585,
-    "ast_hash": "880d4ee06f7ed59394650e0773707c08",
+    "mtime": 1786587047.1500218,
+    "ast_hash": "0d0ce649ce019f19f8809866b66dcddc",
     "semantic_hash": ""
   },
   "usr/views/requisiciones/__init__.py": {
@@ -505,8 +505,8 @@
     "semantic_hash": ""
   },
   "usr/views/requisiciones_view.py": {
-    "mtime": 1786576925.7247086,
-    "ast_hash": "796a65c90df6d23eefcbafbcb6f2de77",
+    "mtime": 1786589062.781894,
+    "ast_hash": "57e1dd2258f12d6424c7fb8787951e3a",
     "semantic_hash": ""
   },
   "usr/views/splash.py": {
@@ -535,8 +535,8 @@
     "semantic_hash": ""
   },
   "usr/views/stock_view.py": {
-    "mtime": 1786576925.7257085,
-    "ast_hash": "9f3bf90d8aad1988d3421f91cc65cb8e",
+    "mtime": 1786589015.038897,
+    "ast_hash": "f0b5548440326df6881568548299e45d",
     "semantic_hash": ""
   },
   "usr/views/validacion/__init__.py": {
@@ -570,8 +570,8 @@
     "semantic_hash": ""
   },
   "usr/views/validacion_view.py": {
-    "mtime": 1786576925.7257085,
-    "ast_hash": "65822779b7832a1b2fbd18bcc8f90df9",
+    "mtime": 1786589519.179865,
+    "ast_hash": "5e66f4cf9c83d701b57f37f99307f1e1",
     "semantic_hash": ""
   },
   "usr/views/whatsapp_bandeja_view.py": {
@@ -660,8 +660,8 @@
     "semantic_hash": ""
   },
   "error_log.txt": {
-    "mtime": 1786552777.140999,
-    "ast_hash": "57593b05978417b82d947e1b39848bd1",
+    "mtime": 1786585559.8991163,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": ""
   },
   "matar proceso.txt": {
