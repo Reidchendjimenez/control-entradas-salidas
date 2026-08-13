@@ -1,6 +1,7 @@
 import asyncio
-import time
 import logging
+import os
+import time
 import flet as ft
 from sqlalchemy.orm import joinedload
 from usr.models import Categoria, Producto
@@ -52,24 +53,40 @@ class ConfiguracionView(ft.Container):
         )
 
     def did_mount(self):
+        trace = os.environ.get("TRACE_SWITCH") == "1"
+        def tr(msg):
+            if trace:
+                print(f"[SWITCH] did_mount(Config) | {msg}")
+        tr(f"ENTRADA (_mounted={getattr(self, '_mounted', 'unset')}, _fully={getattr(self, '_fully_initialized', 'unset')}, content={'SÍ' if getattr(self, 'content', None) else 'no'})")
         # Early exit if already fully initialized
         if getattr(self, '_fully_initialized', False):
+            tr("SALIDA: ya fully_initialized")
             return
         try:
             try:
                 page = self.page
             except RuntimeError:
+                tr("SALIDA: page sin montar")
                 return
             if page:
                 self.is_mobile = (page.width < 768) if page.width else False
+                tr(f"is_mobile={self.is_mobile} (page.width={page.width})")
                 page.on_resize = self._on_resize
+            # Marcar SIEMPRE al inicio (antes de construir/actualizar). Una
+            # llamada reentrante a did_mount (por update() interno durante el
+            # build o la serialización) debe ser no-op inmediato.
+            self._mounted = True
             if not self.content:
                 self._build_ui()
+                tr(f"Fue UI construida (content={'SÍ' if self.content else 'no'})")
+            else:
+                tr("content ya existía; no se reconstruyó")
             self._fully_initialized = True
-            self._mounted = True
+            tr("COMPLETO (_mounted=True)")
         except Exception as e:
             self._mounted = False
             logger.error(f"Error en did_mount de ConfiguracionView: {e}", exc_info=True)
+            tr(f"EXCEPCIÓN: {e}")
 
     def on_theme_change(self):
         if not self.page:
@@ -235,10 +252,16 @@ class ConfiguracionView(ft.Container):
         )
 
     async def _load_data_async(self):
+        trace = os.environ.get("TRACE_SWITCH") == "1"
+        def tr(m):
+            if trace:
+                print(f"[SWITCH] _load_data_async(Config) | {m}")
         """Cargar datos en background con progress ring"""
         # Si ya tenemos datos en cache, no recargar
         if hasattr(self, 'categorias_cache') and self.categorias_cache:
+            tr(f"cache existe, skip ({len(self.categorias_cache)} cats)")
             return
+        tr("cargando datos... (sin cache)")
             
         self.is_mobile = self.page.width < 768 if self.page else False
 
@@ -293,7 +316,9 @@ class ConfiguracionView(ft.Container):
             self.update()
             self._apply_producto_filters()
             await asyncio.to_thread(db.close)
+            tr(f"datos cargados y pintados: {len(cats)} cats, {len(prods)} prods; content={'SÍ' if self.content else 'no'}, tabs={'SÍ' if getattr(self, 'tabs', None) else 'no'}")
         except Exception as e:
+            tr(f"EXCEPCIÓN: {e}")
             show_error(f"Error al cargar datos: {str(e)}")
             if 'db' in locals():
                 await asyncio.to_thread(db.close)

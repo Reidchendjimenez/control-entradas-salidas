@@ -10,6 +10,7 @@ Delega la lógica a submódulos:
 """
 import flet as ft
 import logging
+import os
 import asyncio
 
 from usr.database.base import check_connection
@@ -59,10 +60,16 @@ class ProduccionesView(ft.Container):
         )
 
     def did_mount(self):
+        trace = os.environ.get("TRACE_SWITCH") == "1"
+        def tr(msg):
+            if trace:
+                print(f"[SWITCH] did_mount(Producciones) | {msg}")
+        tr(f"ENTRADA (_mounted={getattr(self, '_mounted', 'unset')}, content={'SÍ' if getattr(self, 'content', None) else 'no'})")
         try:
             try:
                 page = self.page
             except RuntimeError:
+                tr("SALIDA: page sin montar")
                 return
 
             # En cada montaje se reestablece el flag de ejecución; will_unmount
@@ -70,14 +77,27 @@ class ProduccionesView(ft.Container):
             self._running = True
 
             if getattr(self, '_mounted', False):
+                tr("SALIDA: ya montada")
                 return
 
-            self._build_ui()
-            self._update_connection_indicator()
+            # Marcar SIEMPRE al inicio (antes de construir/actualizar). Una
+            # llamada reentrante a did_mount (por update() interno durante el
+            # build o la serialización) debe ser no-op inmediato; si el flag se
+            # asigna al final, la reentrada entra al cuerpo completo y deja la
+            # vista sin pintar en web.
             self._mounted = True
+
+            if not getattr(self, 'content', None):
+                self._build_ui()
+                tr(f"controles construidos (content={'SÍ' if self.content else 'no'})")
+            else:
+                tr("content ya existía; no se reconstruyó")
+            self._update_connection_indicator()
+            tr("COMPLETO (_mounted=True)")
         except Exception as e:
             self._mounted = False
             logger.error(f"Error en did_mount de ProduccionesView: {e}", exc_info=True)
+            tr(f"EXCEPCIÓN: {e}")
 
     def will_unmount(self):
         self._running = False

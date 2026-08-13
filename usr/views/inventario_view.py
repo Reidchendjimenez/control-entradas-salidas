@@ -1,5 +1,6 @@
 import flet as ft
 import asyncio
+import os
 import threading
 import itertools
 from datetime import datetime
@@ -106,6 +107,11 @@ class InventarioView(ft.Container):
                 self.page.run_task(self._load_categorias)
 
     def did_mount(self):
+        trace = os.environ.get("TRACE_SWITCH") == "1"
+        def tr(msg):
+            if trace:
+                print(f"[SWITCH] did_mount(Inventario) | {msg}")
+        tr(f"ENTRADA (_mounted={getattr(self, '_mounted', 'unset')}, content={'SÍ' if getattr(self, 'content', None) else 'no'})")
         # En cada montaje (primera vez o re-montaje tras navegar) se re-registra
         # el callback de sync; will_unmount lo desregistra y el guard _mounted no
         # debe impedir restaurarlo. register_sync_callback es idempotente.
@@ -116,21 +122,37 @@ class InventarioView(ft.Container):
             logger.warning(f"Registro de callback de sync falló en did_mount: {e}")
 
         if getattr(self, '_mounted', False):
+            tr("SALIDA: ya montada")
             return
         try:
             try:
                 page = self.page
             except RuntimeError:
+                tr("SALIDA: page sin montar")
                 return
+            # Marcar SIEMPRE al inicio (antes de construir/actualizar). Una
+            # llamada reentrante a did_mount (por update() interno durante el
+            # build o la serialización) debe ser no-op inmediato; si el flag se
+            # asigna al final, la reentrada entra al cuerpo completo y deja la
+            # vista sin pintar en web.
+            self._mounted = True
             if not self.content:
                 self._build_ui()
+                tr(f"controles construidos (content={'SÍ' if self.content else 'no'})")
+            else:
+                tr("content ya existía; no se reconstruyó")
             if not self._is_initialized:
                 self._is_initialized = True
-            self._safe_update_connection_indicator()
-            import time
-            def check_connection_loop():
+            import asyncio
+            # NO usar threading.Thread para actualizar la UI: en Flet web toda
+            # actualización debe pasar por el event loop asyncio del servidor. Un
+            # page.update() lanzado desde un hilo crudo de Python compite con el
+            # loop que publica el árbol y corrompe el protocolo websocket,
+            # dejando la vista (y las siguientes) sin pintar. Se usa
+            # page.run_task() con un loop async, como hace Historial.
+            async def check_connection_loop():
                 while True:
-                    time.sleep(10)
+                    await asyncio.sleep(10)
                     if not hasattr(self, '_mounted') or not self._mounted:
                         continue
                     # No competir con el barrido de cambio de vista: si hay una
@@ -145,12 +167,20 @@ class InventarioView(ft.Container):
                         page.update()
                     except Exception as e:
                         logger.error(f"check_connection_loop: {e}")
-            self._connection_thread = threading.Thread(target=check_connection_loop, daemon=True)
-            self._connection_thread.start()
-            self._mounted = True
+
+            # _mounted ya fue asignado al inicio del did_mount; aquí solo se
+            # refresca el indicador (su update() interno ya no re-entra porque
+            # el flag está puesto).
+            self._safe_update_connection_indicator()
+            try:
+                page.run_task(check_connection_loop)
+            except Exception:
+                pass
+            tr("COMPLETO (_mounted=True, thread monitor iniciado)")
         except Exception as e:
             self._mounted = False
             logger.error(f"Error en did_mount de InventarioView: {e}", exc_info=True)
+            tr(f"EXCEPCIÓN: {e}")
 
     def _safe_update_connection_indicator(self):
         try:

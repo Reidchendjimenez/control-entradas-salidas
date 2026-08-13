@@ -1,6 +1,7 @@
 import asyncio
 import concurrent.futures
 import inspect
+import os
 import time
 from functools import partial
 import flet as ft
@@ -29,6 +30,10 @@ class ControlEntradasSalidasApp:
         self._SWITCH_TIMEOUT = 20.0  # s: recuperación si una carga se cuelga
         self._is_mobile_layout = False
         self._watchdog_task = None
+        # Traza de depuración del flujo de cambio de vista. Actívale con
+        # TRACE_SWITCH=1 para ver en el log en qué punto exacto se detiene.
+        self._trace_enabled = os.environ.get("TRACE_SWITCH") == "1"
+        self._trace_last = 0.0
 
     VIEW_META = {
         0: ("Inventario", "Gestión de existencias", ft.Icons.SHOPPING_CART_OUTLINED),
@@ -777,10 +782,12 @@ class ControlEntradasSalidasApp:
                 pass
 
     def _show_view(self, index: int):
+        self._trace("_show_view ENTRADA", index)
         # Evitar solapar cambios de vista: si ya hay uno en curso, encolamos
         # la última intención y la procesamos al terminar (ocultar el overlay).
         if self._switching_view:
             self._pending_view = index
+            self._trace(f"_show_view ENCOLADO (switching_view=True, pending={index})", index)
             return
         try:
             if not self.views or index < 0 or index >= len(self.views):
@@ -801,6 +808,7 @@ class ControlEntradasSalidasApp:
             # barrido redundante). Si la vista actual falló (_mounted=False), se
             # permite reintentarla tocándola de nuevo en lugar de ignorar el clic.
             if old is view and getattr(view, '_mounted', True):
+                self._trace("_show_view SALIDA (misma vista ya montada)", index)
                 return
 
             if self.navigation_bar:
@@ -812,10 +820,13 @@ class ControlEntradasSalidasApp:
             self.current_view = view
             self.current_view_index = index
             self._switching_view = True
+            self._switch_start = time.monotonic()
+            self._trace(f"_show_view candado OK (old: {type(old).__name__ if old else 'None'})", index)
 
             # Señal inmediata de cambio: mostramos la ventana de carga antes de
             # cualquier montaje/carga para que el usuario lo perciba al instante.
             self._mostrar_loading()
+            self._trace("overlay MOSTRADO", index)
 
             # Watchdog: si la carga de la vista se cuelga (p.ej. BD/red), forzamos
             # la recuperación de la navegación y ocultamos el overlay tras un
@@ -828,6 +839,7 @@ class ControlEntradasSalidasApp:
                 self._watchdog_task = asyncio.ensure_future(self._switching_watchdog())
             except Exception:
                 pass
+            self._trace(f"watchdog agendado (timeout={self._SWITCH_TIMEOUT}s)", index)
 
             # Preparar la vista: la agregamos al Stack UNA SOLA VEZ; en cambios
             # subsecuentes ya está montada (no se re-agrega ni se re-remueve,
@@ -838,6 +850,9 @@ class ControlEntradasSalidasApp:
                 self._view_stack.controls.append(view)
                 if old is not None and old is not view:
                     old.expand = True
+                self._trace(f"vista AGREGADA al Stack (len={len(self._view_stack.controls)})", index)
+            else:
+                self._trace(f"vista YA en el Stack (len={len(self._view_stack.controls)})", index)
             # Aseguramos visibilidad en CADA cambio: en el re-ingreso la vista
             # ya está en el Stack (no entra al bloque anterior) pero pudo haber
             # quedado oculta (visible=False) al navegar fuera de ella.
@@ -849,8 +864,14 @@ class ControlEntradasSalidasApp:
             view.opacity = 1.0
 
             # Ocultamos la vista anterior de inmediato (cambio natural, sin slide).
+            # Además del visible=False forzamos opacity=0.0 en la vista saliente:
+            # en Flet web, la capa de la última vista del Stack (caso típico:
+            # la Bandeja) queda pintada encima del resto aunque reciba
+            # visible=False, tapando las demás vistas e interceptando los clics.
+            # Anular su opacidad invalida esa capa en el cliente.
             if old is not None and old is not view and self._buscar_en_stack(old):
                 old.visible = False
+                old.opacity = 0.0
 
             # PUBLICAR EL ÁRBOL PRIMERO. El montaje se delega a _montar_y_cargar:
             # Flet dispara did_mount() automáticamente al publicar el árbol
@@ -861,10 +882,12 @@ class ControlEntradasSalidasApp:
                 self.page.update()
             except Exception as e:
                 logger.warning(f"page.update() parcial al mostrar vista {index}: {e}")
+            self._trace("page.update() tras publicar árbol", index)
 
             # Refrescar el encabezado global (título + acciones de la vista).
             try:
                 self._update_header(index)
+                self._trace("_update_header OK", index)
             except Exception as e:
                 logger.error(f"Error en _update_header({index}): {e}", exc_info=True)
                 try:
@@ -889,14 +912,17 @@ class ControlEntradasSalidasApp:
         # bloqueada.
         try:
             asyncio.ensure_future(self._montar_y_cargar(index))
+            self._trace(f"_montar_y_cargar AGENDADO (ensure_future)", index)
         except Exception:
             self._switching_view = False
             self._ocultar_loading()
 
     async def _montar_y_cargar(self, index: int):
         view = self.views[index] if self.views and 0 <= index < len(self.views) else None
+        self._trace("_montar_y_cargar ENTRADA", index)
         try:
             if view is None:
+                self._trace("_montar_y_cargar SALIDA (view=None)", index)
                 return
 
             # El montaje ocurre DESPUÉS de publicar el árbol (page.update() en
@@ -905,34 +931,44 @@ class ControlEntradasSalidasApp:
             # vez (los guards internos de cada vista hacen did_mount idempotente).
             if hasattr(view, 'did_mount') and not getattr(view, '_mounted', True):
                 try:
+                    self._trace(f"did_mount automático NO disparado; reintento manual (_mounted={getattr(view, '_mounted', None)})", index)
                     view.did_mount()
                 except Exception as e:
                     logger.error(f"Reintento de did_mount para vista {index} falló: {e}", exc_info=True)
 
             if not getattr(view, '_mounted', True):
                 logger.warning(f"Vista {index} no pudo montarse; se omite la carga de datos.")
+                self._trace(f"vista NO montada (_mounted=False); SALIDA", index)
                 await asyncio.sleep(0.12)
                 return
+            else:
+                self._trace(f"vista MONTADA (_mounted=True)", index)
 
             if not hasattr(view, 'on_view_shown'):
                 # Vista sin carga de datos: breve respiro para que el overlay sea
                 # perceptible como feedback de cambio.
+                self._trace("vista sin on_view_shown; SALIDA", index)
                 await asyncio.sleep(0.12)
                 return
 
             try:
+                self._trace("llamando on_view_shown()", index)
                 resultado = view.on_view_shown()
+                self._trace(f"on_view_shown devolvió {'awaitable' if (resultado is not None and inspect.isawaitable(resultado)) else type(resultado).__name__}", index)
                 if resultado is not None and inspect.isawaitable(resultado):
                     try:
                         await asyncio.wait_for(resultado, self._SWITCH_TIMEOUT)
+                        self._trace("on_view_shown COMPLETÓ (await finalizado)", index)
                     except asyncio.TimeoutError:
                         logger.warning(f"Carga de vista {index} agotó el timeout ({self._SWITCH_TIMEOUT}s)")
+                        self._trace(f"on_view_shown TIMEOUT ({self._SWITCH_TIMEOUT}s)", index)
                         try:
                             show_error(f"La vista {index} tardó demasiado en cargar", None, "ControlEntradasSalidasApp.on_view_shown")
                         except Exception:
                             pass
             except Exception as e:
                 logger.error(f"on_view_shown de vista {index} falló: {e}", exc_info=True)
+                self._trace(f"on_view_shown EXCEPCIÓN: {e}", index)
                 try:
                     show_error(f"Error al cargar la vista {index}", e, "ControlEntradasSalidasApp.on_view_shown")
                 except Exception:
@@ -941,11 +977,14 @@ class ControlEntradasSalidasApp:
             pass
         finally:
             self._ocultar_loading()
+            self._trace("finally: _ocultar_loading()", index)
             # Flet web intermitente: reafirma la visibilidad y fuerza el
             # repintado de la vista activa por si la anterior quedó pintada
             # encima (p.ej. la Bandeja, capa más alta del Stack).
             self._kick_repintado()
+            self._trace("finally: _kick_repintado()", index)
             self._switching_view = False
+            self._trace("finally: candado LIBERADO", index)
             if self._watchdog_task is not None:
                 try:
                     self._watchdog_task.cancel()
@@ -956,6 +995,7 @@ class ControlEntradasSalidasApp:
             pending = self._pending_view
             self._pending_view = None
             if pending is not None and pending != self.current_view_index:
+                self._trace(f"finally: procesando pending={pending}", index)
                 try:
                     self._show_view(pending)
                 except Exception:
@@ -965,11 +1005,13 @@ class ControlEntradasSalidasApp:
         try:
             await asyncio.sleep(self._SWITCH_TIMEOUT)
         except asyncio.CancelledError:
+            self._trace("watchdog CANCELADO (switch terminó a tiempo)", self.current_view_index)
             return
         # Solo intervienen si la conmutación sigue activa y arrancó hace el timeout.
         if getattr(self, '_switching_view', False) and \
            time.monotonic() - getattr(self, '_switch_start', 0) >= self._SWITCH_TIMEOUT:
             logger.warning("Watchdog: recuperando conmutación de vista bloqueada")
+            self._trace(f"WATCHDOG: conmutación bloqueada; recuperando", self.current_view_index)
             try:
                 self._ocultar_loading()
             except Exception:
@@ -985,21 +1027,44 @@ class ControlEntradasSalidasApp:
                 except Exception:
                     pass
 
+    def _trace(self, msg: str, index=None, delta_from=None):
+        """Imprime en el log (solo si TRACE_SWITCH=1) un marcador con delta de
+        tiempo para localizar en qué punto del flujo de cambio de vista se
+        detiene o falla la ejecución."""
+        if not self._trace_enabled:
+            return
+        now = time.monotonic()
+        if delta_from is not None:
+            d = f"{now - delta_from:6.3f}s"
+        else:
+            d = f"{now - self._trace_last:6.3f}s"
+        self._trace_last = now
+        name = self.VIEW_META.get(index, ("", "", None))[0] if index is not None else ""
+        print(f"[SWITCH] {d} | idx={index} {name:14} | {msg}")
+
     def _mostrar_loading(self):
         try:
             if hasattr(self, 'loading_overlay') and self.page:
                 self.loading_overlay.visible = True
+                self.loading_overlay.opacity = 1.0
                 self.page.update()
+                self._trace(f"overlay MOSTRADO (visible={self.loading_overlay.visible}, opacity={self.loading_overlay.opacity})")
         except Exception:
             pass
 
     def _ocultar_loading(self):
         try:
             if hasattr(self, 'loading_overlay') and self.page:
+                # Además del visible=False, anulamos la opacidad: en Flet web el
+                # overlay (última capa del Stack, texto "Cargando vista…") quedaba
+                # pintado encima de las vistas tras ocultarlo, tapándolas e
+                # interceptando los clics. Invalida su capa en el cliente.
                 self.loading_overlay.visible = False
+                self.loading_overlay.opacity = 0.0
                 self.page.update()
-        except Exception:
-            pass
+                self._trace(f"overlay OCULTO (visible={self.loading_overlay.visible}, opacity={self.loading_overlay.opacity})")
+        except Exception as e:
+            self._trace(f"overlay ocultado FALLÓ: {e}")
 
     def _kick_repintado(self):
         """Reenvía el estado autoritativo de visibilidad del Stack y fuerza el
@@ -1009,29 +1074,46 @@ class ControlEntradasSalidasApp:
         sobre el resto (caso típico: la Bandeja, última capa del Stack, con sus
         textos 'No hay mensajes…' y el resumen de enviados/fallidos). O el
         cliente nunca recibió el visible=False (modelo desactualizado) o su capa
-        quedó en caché. Aquí se reafirma la visibilidad y se aplica un cambio
-        real (opacity) a la vista activa para que su capa se repinte y tape
-        cualquier contenido residual de la vista anterior.
+        quedó en caché. Aquí se reafirma la visibilidad Y la opacidad (visible
+        solo a la activa; opacity=0 al resto, lo que invalida su capa y evita
+        que intercepte clics) además de aplicar un cambio real (opacity) a la
+        vista activa para que su capa se repinte y tape contenido residual.
         """
         try:
             if self.page is None or not hasattr(self, '_view_stack'):
                 return
             cur = self.current_view
-            # 1) Estado autoritativo: solo la vista activa visible.
+            # 1) Estado autoritativo: solo la vista activa visible y opaca.
             for v in list(self._view_stack.controls):
                 try:
                     target = (v is cur)
                     if bool(v.visible) != target:
                         v.visible = target
+                    if v is not cur:
+                        v.opacity = 0.0
                 except Exception:
                     continue
-            # 2) Cambio real sobre la vista activa para invalidar su capa.
+            # 2) El overlay de carga debe quedar oculto/transparente al final de
+            #    cualquier conmutación, aunque un _ocultar_loading haya fallado.
+            ov = getattr(self, 'loading_overlay', None)
+            if ov is not None and ov.visible:
+                try:
+                    ov.visible = False
+                    ov.opacity = 0.0
+                except Exception:
+                    pass
+            # 3) Cambio real sobre la vista activa para invalidar su capa.
             if cur is not None:
                 cur.opacity = 0.999 if getattr(cur, 'opacity', 1.0) != 0.999 else 1.0
             try:
                 self.page.update()
             except Exception:
                 pass
+            self._trace(
+                f"kick: overlay(visible={getattr(ov, 'visible', None)}, opacity={getattr(ov, 'opacity', None)}) | "
+                f"cur(visible={getattr(cur, 'visible', None)}, opacity={getattr(cur, 'opacity', None)}), "
+                f"ocultas={sum(1 for v in self._view_stack.controls if v is not cur and v.visible)}"
+            )
 
             async def _restaurar_opacidad():
                 await asyncio.sleep(0.06)

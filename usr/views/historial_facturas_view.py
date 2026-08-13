@@ -305,10 +305,16 @@ self._build_fecha_tab(),
     #  LOGICA DE DATOS
     # ══════════════════════════════════════════════════════════════
     def did_mount(self):
+        trace = os.environ.get("TRACE_SWITCH") == "1"
+        def tr(msg):
+            if trace:
+                print(f"[SWITCH] did_mount(Historial) | {msg}")
+        tr(f"ENTRADA (_mounted={getattr(self, '_mounted', 'unset')}, content={'SÍ' if getattr(self, 'content', None) else 'no'})")
         try:
             try:
                 page = self.page
             except RuntimeError:
+                tr("SALIDA: page sin montar")
                 return
             from usr.error_handler import show_error
 
@@ -333,12 +339,25 @@ self._build_fecha_tab(),
                                 except Exception:
                                     pass
                     page.run_task(check_conn_loop)
+                tr("SALIDA: ya montada (re-montaje)")
                 return
 
+            # Marcar SIEMPRE al inicio (antes de construir/actualizar). Una
+            # llamada reentrante a did_mount (por update() interno durante el
+            # build o la serialización) debe ser no-op inmediato; si el flag se
+            # asigna al final, la reentrada entra al cuerpo completo y deja la
+            # vista sin pintar en web.
+            self._mounted = True
+
             try:
-                self._build_ui()
+                if not getattr(self, 'content', None):
+                    self._build_ui()
+                    tr(f"controles construidos (content={'SÍ' if self.content else 'no'})")
+                else:
+                    tr("content ya existía; no se reconstruyó")
             except Exception as e:
                 show_error("Error al montar vista", e, "historial_facturas_view.did_mount")
+                tr(f"EXCEPCIÓN en _build_ui: {e}")
 
             # Loop de monitoreo asíncrono
             async def check_conn_loop():
@@ -355,10 +374,11 @@ self._build_fecha_tab(),
                             pass
 
             page.run_task(check_conn_loop)
-            self._mounted = True
+            tr("COMPLETO (_mounted=True, monitor iniciado)")
         except Exception as e:
             self._mounted = False
             logger.error(f"Error en did_mount de HistorialFacturasView: {e}", exc_info=True)
+            tr(f"EXCEPCIÓN: {e}")
 
     async def _initial_load(self):
         try:

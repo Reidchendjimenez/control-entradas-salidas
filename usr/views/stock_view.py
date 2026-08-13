@@ -1,5 +1,6 @@
 import flet as ft
 import asyncio
+import os
 from sqlalchemy import func
 from usr.database.base import get_db_adaptive
 from usr.models import Producto, Movimiento
@@ -42,10 +43,16 @@ class StockView(ft.Container):
         self.active_dialog = None
 
     def did_mount(self):
+        trace = os.environ.get("TRACE_SWITCH") == "1"
+        def tr(msg):
+            if trace:
+                print(f"[SWITCH] did_mount(Stock) | {msg}")
+        tr(f"ENTRADA (_mounted={getattr(self, '_mounted', 'unset')}, content={'SÍ' if getattr(self, 'content', None) else 'no'})")
         try:
             try:
                 page = self.page
             except RuntimeError:
+                tr("SALIDA: page sin montar")
                 return
 
             # En cada montaje se re-registra el callback de sync (idempotente);
@@ -59,14 +66,27 @@ class StockView(ft.Container):
                 if not getattr(self, '_conn_check_active', True):
                     self._conn_check_active = True
                     page.run_task(self._start_connection_monitor)
+                tr("SALIDA: ya montada (re-montaje)")
                 return
 
-            self._build_ui()
-            page.run_task(self._start_connection_monitor)
+            # Marcar SIEMPRE al inicio (antes de construir/actualizar). Una
+            # llamada reentrante a did_mount (por update() interno durante el
+            # build o la serialización) debe ser no-op inmediato; si el flag se
+            # asigna al final, la reentrada entra al cuerpo completo y deja la
+            # vista sin pintar en web.
             self._mounted = True
+
+            if not getattr(self, 'content', None):
+                self._build_ui()
+                tr(f"controles construidos (content={'SÍ' if self.content else 'no'})")
+            else:
+                tr("content ya existía; no se reconstruyó")
+            page.run_task(self._start_connection_monitor)
+            tr("COMPLETO (_mounted=True)")
         except Exception as e:
             self._mounted = False
             logger.error(f"Error en did_mount de StockView: {e}", exc_info=True)
+            tr(f"EXCEPCIÓN: {e}")
 
     def will_unmount(self):
         self._conn_check_active = False

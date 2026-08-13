@@ -3,6 +3,8 @@ warnings.filterwarnings("ignore", category=PendingDeprecationWarning)
 
 import asyncio
 import logging
+import os
+import time
 import traceback
 import flet as ft
 from datetime import datetime
@@ -232,11 +234,14 @@ class RequisicionesView(ft.Container):
         return [self.sync_indicator, self._btn_refresh, self._btn_agregar]
 
     def on_view_shown(self):
+        trace = os.environ.get("TRACE_SWITCH") == "1"
         # Al re-mostrar, volver siempre a la lista raíz (por si el usuario había
         # quedado en una sub-vista: visualizar/auditar) SIN recrear controles,
         # reutilizando el list_container ya montado.
         try:
             if getattr(self, '_vista_actual', 'lista') != 'lista':
+                if trace:
+                    print(f"[SWITCH] on_view_shown(Req) reinicia sub-vista {self._vista_actual} → lista")
                 self._vista_actual = 'lista'
                 if getattr(self, 'list_container', None) is not None:
                     self.content = ft.Column([self.list_container], expand=True, spacing=0)
@@ -248,27 +253,50 @@ class RequisicionesView(ft.Container):
             return schedule_load(self._load_requisiciones_async)
 
     def did_mount(self):
+        trace = os.environ.get("TRACE_SWITCH") == "1"
+        t0 = time.monotonic()
+        def tr(msg):
+            if trace:
+                print(f"[SWITCH] did_mount(Requisiciones) ±{time.monotonic()-t0:.3f}s | {msg}")
+        tr(f"ENTRADA (_mounted={getattr(self, '_mounted', 'unset')}, content={'SÍ' if getattr(self, 'content', None) else 'no'})")
         try:
             try:
                 page = self.page
             except RuntimeError:
+                tr("SALIDA: page sin montar (RuntimeError)")
                 return
-            if not getattr(self, 'content', None):
-                self._build_ui()
 
             # En cada montaje se re-registra el callback de sync (idempotente);
             # will_unmount lo desregistra y el guard _mounted no debe impedirlo.
             register_sync_callback(self._on_sync_complete)
 
             if getattr(self, '_mounted', False):
+                tr("SALIDA: ya montada (solo re-registro callback)")
                 return
 
-            self._build_ui()
+            # Marcar SIEMPRE al inicio (antes de construir/actualizar). Una
+            # llamada reentrante a did_mount (por update() interno durante el
+            # build o la serialización) debe ser no-op inmediato; si el flag se
+            # asigna al final, la reentrada entra al cuerpo completo y deja la
+            # vista sin pintar en web.
             self._mounted = True
+
+            # Construir el contenido UNA SOLA VEZ. Antes se llamaba a _build_ui()
+            # dos veces en el primer montaje (guard + llamada incondicional), lo
+            # que recreaba list_container/sync_indicator/botones/content por
+            # duplicado y el cliente terminaba sin recibir el contenido.
+            if not getattr(self, 'content', None):
+                self._build_ui()
+                tr(f"controLES NUEVOS construidos (content={'SÍ' if self.content else 'no'})")
+            else:
+                tr("content ya existía; no se reconstruyó")
+
+            tr("COMPLETO (_mounted=True)")
         except Exception as e:
             self._mounted = False
             from usr.error_handler import show_error
             logger.error(f"Error en did_mount de RequisicionesView: {e}", exc_info=True)
+            tr(f"EXCEPCIÓN: {e}")
 
     def will_unmount(self):
         unregister_sync_callback(self._on_sync_complete)
@@ -319,8 +347,13 @@ class RequisicionesView(ft.Container):
             show_error("Error al actualizar requisiciones", e)
 
     def _load_requisiciones(self):
+        trace = os.environ.get("TRACE_SWITCH") == "1"
+        def tr(m):
+            if trace:
+                print(f"[SWITCH] _load_requisiciones(Req) | {m}")
         try:
             reqs = load_requisiciones()
+            tr(f"BD: {len(reqs)} requisiciones; lista.controls={len(self.requisiciones_list.controls)}")
 
             self.requisiciones_list.controls.clear()
 
@@ -354,7 +387,9 @@ class RequisicionesView(ft.Container):
                     pass
             if self.page:
                 self.page.update()
+            tr(f"pintado: lista.controls={len(self.requisiciones_list.controls)}, list_container={'SÍ' if self.list_container else 'NO'}, content={'SÍ' if self.content else 'NO'}, page=OK")
         except Exception as e:
+            tr(f"EXCEPCIÓN: {e}")
             import traceback
             traceback.print_exc()
 

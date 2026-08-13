@@ -1,6 +1,7 @@
 import flet as ft
 import asyncio
 import os
+import time
 from sqlalchemy.orm import joinedload
 from usr.database.base import get_db_adaptive, is_online
 from usr.models import Movimiento
@@ -39,10 +40,17 @@ class ValidacionView(ft.Container):
         self.loading_overlay = None
 
     def did_mount(self):
+        trace = os.environ.get("TRACE_SWITCH") == "1"
+        t0 = time.monotonic()
+        def tr(msg):
+            if trace:
+                print(f"[SWITCH] did_mount(Validacion) ±{time.monotonic()-t0:.3f}s | {msg}")
+        tr(f"ENTRADA (_mounted={getattr(self, '_mounted', 'unset')})")
         try:
             try:
                 page = self.page
             except RuntimeError:
+                tr("SALIDA: page sin montar (RuntimeError)")
                 return
 
             # En cada montaje se re-registra el callback de sync (idempotente);
@@ -50,7 +58,16 @@ class ValidacionView(ft.Container):
             register_sync_callback(self._on_sync_complete)
 
             if getattr(self, '_mounted', False):
+                tr("SALIDA: ya montada")
                 return
+
+            # Marcar SIEMPRE al inicio (antes de construir/actualizar). Una
+            # llamada reentrante a did_mount (disparada por update() interno
+            # durante el build o por la serialización) debe ser un no-op
+            # inmediato; si el flag se asigna al final, la reentrada entra al
+            # cuerpo completo y deja la vista sin pintar en web (el log
+            # mostraba did_mount ejecutado 2-3 veces con _mounted=unset).
+            self._mounted = True
 
             # Construir el contenido UNA SOLA VEZ. No hay hook build(): Flet
             # lo dispara automáticamente durante la serialización y reconstruir
@@ -58,13 +75,17 @@ class ValidacionView(ft.Container):
             # del cliente desincronizados (vista visible pero no interactiva).
             if not self.content:
                 self._build_controls()
+                tr("controles construidos")
 
+            # _update_connection_indicator() hace _connection_indicator.update()
+            # que puede re-disparar did_mount; ya _mounted=True lo neutraliza.
             self._update_connection_indicator()
             self._start_connection_monitor()
-            self._mounted = True
+            tr("COMPLETO (_mounted=True)")
         except Exception as e:
             self._mounted = False
             logger.error(f"Error en did_mount de ValidacionView: {e}", exc_info=True)
+            tr(f"EXCEPCIÓN: {e}")
 
     def will_unmount(self):
         unregister_sync_callback(self._on_sync_complete)
@@ -106,10 +127,23 @@ class ValidacionView(ft.Container):
             pass
 
     def _start_connection_monitor(self):
-        import threading, time
-        def loop():
+        import asyncio, time
+        try:
+            page = self.page
+        except RuntimeError:
+            return
+        if not page:
+            return
+
+        # NO usar threading.Thread para actualizar la UI: en Flet web toda
+        # actualización debe pasar por el event loop asyncio del servidor. Un
+        # page.update()/control.update() lanzado desde un hilo crudo de Python
+        # compite con el loop que publica el árbol y corrompe el protocolo
+        # websocket, dejando la vista (y las siguientes) sin pintar. Se usa
+        # page.run_task() con un loop async, como hace Historial.
+        async def loop():
             while True:
-                time.sleep(10)
+                await asyncio.sleep(10)
                 try:
                     page = self.page
                 except RuntimeError:
@@ -128,8 +162,10 @@ class ValidacionView(ft.Container):
                     page.update()
                 except:
                     pass
-        self._connection_thread = threading.Thread(target=loop, daemon=True)
-        self._connection_thread.start()
+        try:
+            page.run_task(loop)
+        except Exception:
+            pass
 
     def _set_loading_overlay(self, visible: bool, message: str = "Procesando..."):
         try:
@@ -208,7 +244,7 @@ class ValidacionView(ft.Container):
             focused_border_color=colors.get('accent'),
             height=45,
             expand=1,
-            on_change=lambda _: self.page.run_task(self._load_entradas_pendientes)
+            on_change=lambda _: self._on_search_change()
         )
         
         self.validate_button = ft.ElevatedButton(
@@ -259,6 +295,11 @@ class ValidacionView(ft.Container):
         if self.page:
             self.page.update()
 
+    def _on_search_change(self):
+        if self.page:
+            from usr.database.sync_callbacks import schedule_load
+            schedule_load(self._load_entradas_pendientes)
+
     def _on_refresh(self):
         if not self.page:
             return
@@ -269,7 +310,8 @@ class ValidacionView(ft.Container):
             sync_mgr = get_sync_manager()
             if sync_mgr:
                 sync_mgr.force_sync_now()
-        self.page.run_task(self._load_entradas_pendientes)
+        from usr.database.sync_callbacks import schedule_load
+        schedule_load(self._load_entradas_pendientes)
 
         show_success("Datos refrescados correctamente")
 
@@ -385,10 +427,16 @@ class ValidacionView(ft.Container):
         dialog.show()
 
     async def _load_entradas_pendientes(self):
+        trace = os.environ.get("TRACE_SWITCH") == "1"
+        def tr(msg):
+            if trace:
+                print(f"[VAL] _load_entradas_pendientes | {msg}")
         if self.is_loading:
+            tr(f"SKIP is_loading=True (stale)")
             return
         self.is_loading = True
         colors = get_colors(self.page)
+        tr("ENTRADA (is_loading=True)")
         
         self.entradas_list.controls = [ft.ProgressBar()]
         if self.page:
@@ -397,6 +445,7 @@ class ValidacionView(ft.Container):
         try:
             # Ejecutamos la consulta en un hilo separado para no bloquear la UI
             entradas = await asyncio.to_thread(self._fetch_entradas_data)
+            tr(f"BD devolvió {len(entradas)} entradas")
             
             self.entradas_list.controls.clear()
             if not entradas:
@@ -413,13 +462,16 @@ class ValidacionView(ft.Container):
                     self.entradas_list.controls.append(self._create_entrada_card(ent))
             
             self._update_buttons()
+            tr(f"pintado: entradas_list.controls={len(self.entradas_list.controls)}, entradas_list.page={'SÍ' if self.entradas_list.page else 'no'}")
             if self.page:
                 self.update()
         except Exception as ex:
             logger.error(f"Error cargando entradas: {ex}")
+            tr(f"EXCEPCIÓN: {ex}")
             self.entradas_list.controls = [ft.Text(f"Error: {str(ex)}")]
         finally:
             self.is_loading = False
+            tr("finally is_loading=False")
             if self.page:
                 self.update()
 
@@ -568,13 +620,14 @@ class ValidacionView(ft.Container):
 
     def _clear_selection(self, e=None):
         self.selected_entradas.clear()
-        for card in self.cards_dict.values():
-            if card.page:
-                card.bgcolor = get_colors(self.page)['card']
-                card.border = ft.Border.all(1, get_colors(self.page)['border'])
-                card.update()
+        # NO actualizar card por card: N updates individuales saturan/corrompen
+        # el websocket en Flet web y la lista termina sin pintarse. Se recrea la
+        # lista completa con schedule_load (ensure_future sobre el loop activo,
+        # como on_view_shown), en lugar de page.run_task que exige
+        # session.connection.loop y puede fallar silenciosamente.
         if self.page:
-            self.page.run_task(self._load_entradas_pendientes)
+            from usr.database.sync_callbacks import schedule_load
+            schedule_load(self._load_entradas_pendientes)
 
     def _eliminar_entrada(self, entrada):
         db = next(get_db_adaptive())
@@ -590,7 +643,8 @@ class ValidacionView(ft.Container):
             db.commit()
             show_success(f"Eliminado: {entrada.cantidad}")
             if self.page:
-                self.page.run_task(self._load_entradas_pendientes)
+                from usr.database.sync_callbacks import schedule_load
+                schedule_load(self._load_entradas_pendientes)
             # Encolar eliminación para que Supabase también lo borre
             try:
                 from usr.database.sync_queue import get_sync_queue
