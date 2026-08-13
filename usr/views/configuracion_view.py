@@ -115,7 +115,6 @@ class ConfiguracionView(ft.Container):
         )
 
         self.content = ft.Column([self.tabs], expand=True, spacing=0)
-        self.update()
 
     def get_header_actions(self):
         return []

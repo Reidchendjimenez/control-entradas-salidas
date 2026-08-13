@@ -186,6 +186,7 @@ class StockView(ft.Container):
         if not self.page: return
         try:
             self._build_ui()
+            self.update()
             self._load_categorias()
             self._load_productos()
         except Exception as e:
@@ -290,7 +291,6 @@ class StockView(ft.Container):
         ], spacing=0, expand=True)
         self.content.bgcolor = colors['bg']
         self.content.bgcolor = colors['bg']
-        self.update()
 
     def get_header_actions(self):
         return [self._connection_indicator, self._btn_refresh]

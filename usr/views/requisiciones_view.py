@@ -224,7 +224,6 @@ class RequisicionesView(ft.Container):
             self.list_container,
         ], expand=True, spacing=0)
         self.content.bgcolor = self.colors['bg']
-        self.update()
 
     async def _load_requisiciones_async(self):
         await asyncio.to_thread(self._load_requisiciones)

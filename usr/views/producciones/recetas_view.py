@@ -75,7 +75,7 @@ def render_recetas(page, recetas, productos, componentes_por_receta, recetas_lis
         if componentes is None:
             componentes = data.load_componentes(receta['id'])
         cards.append(_build_card(
-            receta, colores, componentes,
+            receta, colors, componentes,
             on_edit=lambda r, _oe=on_edit: _oe(r),
             on_delete=lambda r, _oc=on_change: delete_receta_dialog(page, r, on_confirmed=_oc),
         ))

@@ -6,6 +6,9 @@ __pycache__/
 *.log
 server.log
 
+# graphify cache (regenerable)
+graphify-out/cache/
+
 # Environment files
 .env
 .env.local

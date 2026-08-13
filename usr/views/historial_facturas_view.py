@@ -103,6 +103,8 @@ class HistorialFacturasView(ft.Container):
     def on_theme_change(self):
         if not self.page: return
         self._build_ui()
+        if self.page:
+            self.update()
         self.page.run_task(self._initial_load)
 
     def _build_ui(self):
@@ -154,7 +156,6 @@ self._build_fecha_tab(),
 )
 
         self.content = ft.Column([tabs], expand=True, spacing=0)
-        self.update()
 
     def get_header_actions(self):
         return [self._connection_indicator, self._btn_export, self._btn_refresh]

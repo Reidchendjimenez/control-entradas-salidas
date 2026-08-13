@@ -1,5 +1,6 @@
 import asyncio
 import concurrent.futures
+import inspect
 import time
 from functools import partial
 import flet as ft
@@ -27,6 +28,7 @@ class ControlEntradasSalidasApp:
         self._switch_start = 0.0
         self._SWITCH_TIMEOUT = 20.0  # s: recuperación si una carga se cuelga
         self._is_mobile_layout = False
+        self._watchdog_task = None
 
     VIEW_META = {
         0: ("Inventario", "Gestión de existencias", ft.Icons.SHOPPING_CART_OUTLINED),
@@ -795,8 +797,10 @@ class ControlEntradasSalidasApp:
             view = self.views[index]
             old = self.current_view
 
-            # Misma vista: nada que hacer (evita un barrido redundante).
-            if old is view:
+            # Misma vista que ya está montada y visible: no hacer nada (evita un
+            # barrido redundante). Si la vista actual falló (_mounted=False), se
+            # permite reintentarla tocándola de nuevo en lugar de ignorar el clic.
+            if old is view and getattr(view, '_mounted', True):
                 return
 
             if self.navigation_bar:
@@ -821,7 +825,7 @@ class ControlEntradasSalidasApp:
                 # Se agendan en el loop ACTIVO (no usamos page.run_task porque
                 # exige session.connection.loop, que puede ser None al inicio o
                 # mientras el hilo websocket reanuda; eso dejaba vistas vacías).
-                asyncio.ensure_future(self._switching_watchdog())
+                self._watchdog_task = asyncio.ensure_future(self._switching_watchdog())
             except Exception:
                 pass
 
@@ -848,24 +852,15 @@ class ControlEntradasSalidasApp:
             if old is not None and old is not view and self._buscar_en_stack(old):
                 old.visible = False
 
-            # Montar/construir la vista ANTES de page.update(). Si Flet dispara
-            # did_mount automáticamente durante update() y la vista aún está a
-            # medio construir, la reentrancia lanzaba excepciones intermitentes
-            # que dejaban _mounted=False y la vista vacía permanentemente.
-            if hasattr(view, 'did_mount'):
-                try:
-                    view.did_mount()
-                except Exception as e:
-                    logger.error(f"did_mount falló para vista {index}: {e}", exc_info=True)
-                    try:
-                        show_error(f"Error al montar la vista {index}", e, "ControlEntradasSalidasApp.did_mount")
-                    except Exception:
-                        pass
-
+            # PUBLICAR EL ÁRBOL PRIMERO. El montaje se delega a _montar_y_cargar:
+            # Flet dispara did_mount() automáticamente al publicar el árbol
+            # (added_control.did_mount() en session.py), momento en que el control
+            # ya está montado de verdad y did_mount puede tocar self.page/update
+            # sin reentrancia ni _mounted=False.
             try:
                 self.page.update()
             except Exception as e:
-                logger.warning(f"page.update() parcial al montar vista {index}: {e}")
+                logger.warning(f"page.update() parcial al mostrar vista {index}: {e}")
 
             # Refrescar el encabezado global (título + acciones de la vista).
             try:
@@ -888,75 +883,89 @@ class ControlEntradasSalidasApp:
             show_error(f"Error al mostrar la vista {index}", e, "ControlEntradasSalidasApp._show_view")
             return
 
-        # Cargar los datos de la vista y, al terminar, ocultar la ventana de
-        # carga. Si on_view_shown devuelve el futuro de la carga asíncrona,
-        # esperamos a que finalice para no ocultar el overlay antes de tiempo.
-        async def _cargar_y_ocultar():
-            try:
-                # Red de seguridad: si el did_mount previo no alcanzó a dejar
-                # _mounted=True (fallo intermitente), reintentar una vez. El
-                # guard interno de cada vista (_mounted) hace did_mount idempotente.
-                if hasattr(view, 'did_mount') and not getattr(view, '_mounted', True):
-                    try:
-                        view.did_mount()
-                    except Exception as e:
-                        logger.error(f"Reintento de did_mount para vista {index} falló: {e}", exc_info=True)
-                if hasattr(view, 'on_view_shown') and getattr(view, '_mounted', True):
-                    try:
-                        resultado = view.on_view_shown()
-                        if resultado is not None:
-                            try:
-                                if isinstance(resultado, concurrent.futures.Future):
-                                    await asyncio.wait_for(asyncio.wrap_future(resultado), self._SWITCH_TIMEOUT)
-                                else:
-                                    await asyncio.wait_for(resultado, self._SWITCH_TIMEOUT)
-                            except asyncio.TimeoutError:
-                                logger.warning(f"Carga de vista {index} agotó el timeout ({self._SWITCH_TIMEOUT}s)")
-                                try:
-                                    show_error(f"La vista {index} tardó demasiado en cargar", None, "ControlEntradasSalidasApp.on_view_shown")
-                                except Exception:
-                                    pass
-                    except Exception as e:
-                        logger.error(f"on_view_shown de vista {index} falló: {e}", exc_info=True)
-                        try:
-                            show_error(f"Error al cargar la vista {index}", e, "ControlEntradasSalidasApp.on_view_shown")
-                        except Exception:
-                            pass
-                elif hasattr(view, 'on_view_shown'):
-                    logger.warning(f"Vista {index} no pudo montarse; se omite la carga de datos.")
-                else:
-                    # Vista sin carga de datos: breve respiro para que el
-                    # overlay sea perceptible como feedback de cambio.
-                    await asyncio.sleep(0.12)
-            except Exception:
-                pass
-            finally:
-                self._ocultar_loading()
-                # Flet web intermitente: reafirma la visibilidad y fuerza el
-                # repintado de la vista activa por si la anterior quedó pintada
-                # encima (p.ej. la Bandeja, capa más alta del Stack).
-                self._kick_repintado()
-                self._switching_view = False
-                # Procesar una intención de navegación pendiente (clic rápido).
-                pending = self._pending_view
-                if pending is not None and pending != self.current_view_index:
-                    self._pending_view = None
-                    try:
-                        self._show_view(pending)
-                    except Exception:
-                        pass
-                elif pending is not None:
-                    self._pending_view = None
+        # Montar (si falta), cargar los datos de la vista y, al terminar, ocultar
+        # la ventana de carga. El candado _switching_view SIEMPRE se libera en el
+        # finally, sin importar excepciones, para que la navegación nunca quede
+        # bloqueada.
         try:
-            # _show_view corre en el event loop (handlers/asyncio), así que
-            # agendamos la carga directamente sin depender de session.connection.
-            asyncio.ensure_future(_cargar_y_ocultar())
+            asyncio.ensure_future(self._montar_y_cargar(index))
         except Exception:
             self._switching_view = False
             self._ocultar_loading()
 
+    async def _montar_y_cargar(self, index: int):
+        view = self.views[index] if self.views and 0 <= index < len(self.views) else None
+        try:
+            if view is None:
+                return
+
+            # El montaje ocurre DESPUÉS de publicar el árbol (page.update() en
+            # _show_view): Flet ya invocó did_mount automáticamente. Si por un
+            # fallo intermitente quedó _mounted=False, lo reintentamos aquí una
+            # vez (los guards internos de cada vista hacen did_mount idempotente).
+            if hasattr(view, 'did_mount') and not getattr(view, '_mounted', True):
+                try:
+                    view.did_mount()
+                except Exception as e:
+                    logger.error(f"Reintento de did_mount para vista {index} falló: {e}", exc_info=True)
+
+            if not getattr(view, '_mounted', True):
+                logger.warning(f"Vista {index} no pudo montarse; se omite la carga de datos.")
+                await asyncio.sleep(0.12)
+                return
+
+            if not hasattr(view, 'on_view_shown'):
+                # Vista sin carga de datos: breve respiro para que el overlay sea
+                # perceptible como feedback de cambio.
+                await asyncio.sleep(0.12)
+                return
+
+            try:
+                resultado = view.on_view_shown()
+                if resultado is not None and inspect.isawaitable(resultado):
+                    try:
+                        await asyncio.wait_for(resultado, self._SWITCH_TIMEOUT)
+                    except asyncio.TimeoutError:
+                        logger.warning(f"Carga de vista {index} agotó el timeout ({self._SWITCH_TIMEOUT}s)")
+                        try:
+                            show_error(f"La vista {index} tardó demasiado en cargar", None, "ControlEntradasSalidasApp.on_view_shown")
+                        except Exception:
+                            pass
+            except Exception as e:
+                logger.error(f"on_view_shown de vista {index} falló: {e}", exc_info=True)
+                try:
+                    show_error(f"Error al cargar la vista {index}", e, "ControlEntradasSalidasApp.on_view_shown")
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        finally:
+            self._ocultar_loading()
+            # Flet web intermitente: reafirma la visibilidad y fuerza el
+            # repintado de la vista activa por si la anterior quedó pintada
+            # encima (p.ej. la Bandeja, capa más alta del Stack).
+            self._kick_repintado()
+            self._switching_view = False
+            if self._watchdog_task is not None:
+                try:
+                    self._watchdog_task.cancel()
+                except Exception:
+                    pass
+                self._watchdog_task = None
+            # Procesar una intención de navegación pendiente (clic rápido).
+            pending = self._pending_view
+            self._pending_view = None
+            if pending is not None and pending != self.current_view_index:
+                try:
+                    self._show_view(pending)
+                except Exception:
+                    pass
+
     async def _switching_watchdog(self):
-        await asyncio.sleep(self._SWITCH_TIMEOUT)
+        try:
+            await asyncio.sleep(self._SWITCH_TIMEOUT)
+        except asyncio.CancelledError:
+            return
         # Solo intervienen si la conmutación sigue activa y arrancó hace el timeout.
         if getattr(self, '_switching_view', False) and \
            time.monotonic() - getattr(self, '_switch_start', 0) >= self._SWITCH_TIMEOUT:
@@ -967,6 +976,7 @@ class ControlEntradasSalidasApp:
                 pass
             self._kick_repintado()
             self._switching_view = False
+            self._watchdog_task = None
             pending = self._pending_view
             self._pending_view = None
             if pending is not None:

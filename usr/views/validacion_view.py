@@ -57,9 +57,7 @@ class ValidacionView(ft.Container):
                 return
 
             self._build_controls()
-            if page and page.session:
-                self.update()
-            
+
             self._update_connection_indicator()
             self._start_connection_monitor()
             self._mounted = True
@@ -243,7 +241,10 @@ class ValidacionView(ft.Container):
         )
         
         self.content = ft.Column([controls, self.entradas_list], spacing=0, expand=True)
-        self.update()
+        # No llamar a self.update() aquí: se ejecuta durante did_mount (montaje
+        # de Flet) y disparaba "dictionary changed size during iteration",
+        # dejando _mounted=False y la vista vacía. El framework refleja el
+        # cambio al asignar self.content.
 
     def get_header_actions(self):
         return [self._connection_indicator, self._btn_refresh]
