@@ -445,8 +445,8 @@
     "semantic_hash": ""
   },
   "usr/views/producciones/recetas_view.py": {
-    "mtime": 1786587047.1500218,
-    "ast_hash": "4fb51a7bfc857a661bc17833d0dd998a",
+    "mtime": 1786591061.720767,
+    "ast_hash": "a456f0dd06f5a3aa033c86f0374bc193",
     "semantic_hash": ""
   },
   "usr/views/producciones/view.py": {
@@ -570,8 +570,8 @@
     "semantic_hash": ""
   },
   "usr/views/validacion_view.py": {
-    "mtime": 1786589519.179865,
-    "ast_hash": "5e66f4cf9c83d701b57f37f99307f1e1",
+    "mtime": 1786591932.1607118,
+    "ast_hash": "dbcb11702e0fc539c2f1556a0c33840a",
     "semantic_hash": ""
   },
   "usr/views/whatsapp_bandeja_view.py": {

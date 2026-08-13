@@ -38,10 +38,6 @@ class ValidacionView(ft.Container):
         self._connection_thread = None
         self.loading_overlay = None
 
-    def build(self):
-        self._build_controls()
-        register_sync_callback(self._on_sync_complete)
-
     def did_mount(self):
         try:
             try:
@@ -56,7 +52,12 @@ class ValidacionView(ft.Container):
             if getattr(self, '_mounted', False):
                 return
 
-            self._build_controls()
+            # Construir el contenido UNA SOLA VEZ. No hay hook build(): Flet
+            # lo dispara automáticamente durante la serialización y reconstruir
+            # aquí crearía dos generaciones de controles, dejando los on_click
+            # del cliente desincronizados (vista visible pero no interactiva).
+            if not self.content:
+                self._build_controls()
 
             self._update_connection_indicator()
             self._start_connection_monitor()
