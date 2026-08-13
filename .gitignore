@@ -1,4 +1,3 @@
-```
 # Compiled Python files
 *.pyc
 __pycache__/
@@ -11,4 +10,9 @@ server.log
 .env
 .env.local
 *.env.*
-```
+
+# Local databases (runtime, regeneradas al arrancar)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
