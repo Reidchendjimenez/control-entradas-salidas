@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/auth/session_controller.dart';
-import '../core/db/database_provider.dart';
+import '../../../core/auth/session_controller.dart';
+import '../../../core/db/database_provider.dart';
 
 /// Provider del controlador de sesión.
 final sessionProvider =

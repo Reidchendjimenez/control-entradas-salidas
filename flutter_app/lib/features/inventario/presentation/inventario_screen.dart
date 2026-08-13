@@ -1,7 +1,9 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/db/schema/app_database.dart';
 import '../../../core/db/database_provider.dart';
 import '../data/inventario_repository.dart';
 

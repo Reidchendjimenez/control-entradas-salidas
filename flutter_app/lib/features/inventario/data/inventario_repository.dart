@@ -164,10 +164,10 @@ class InventarioRepository {
             productoId: productoId,
             tipo: tipo,
             cantidad: cantidad,
-            cantidadAnterior: Value(cantAnterior),
-            cantidadNueva: Value(cantNueva),
-            pesoTotal: Value(pesoTotal),
-            registradoPor: Value(registradoPor),
+            cantidadAnterior: cantAnterior,
+            cantidadNueva: cantNueva,
+            pesoTotal: pesoTotal,
+            registradoPor: registradoPor,
             observaciones: Value(observaciones ?? ''),
             almacen: Value(almacenSel),
             fechaMovimiento: Value(DateTime.now()),
@@ -195,10 +195,10 @@ class InventarioRepository {
   }) {
     return _db.into(_db.existencias).insertOnConflictUpdate(
           ExistenciasCompanion.insert(
-            productoId: productoId,
-            almacen: almacen,
-            cantidad: cantidad,
-            unidad: unidad,
+            productoId: Value(productoId),
+            almacen: Value(almacen),
+            cantidad: Value(cantidad),
+            unidad: Value(unidad),
           ),
         );
   }
@@ -207,7 +207,7 @@ class InventarioRepository {
   // Lista de compra
   // ---------------------------------------------------------------------
 
-  Future<List<CompraListaItem>> getComprasLista() {
+  Future<List<ComprasLista>> getComprasLista() {
     return (_db.select(_db.comprasLista)
           ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
         .get();
@@ -221,8 +221,8 @@ class InventarioRepository {
       await (_db.delete(_db.comprasLista)..where((t) => t.productoId.equals(productoId))).go();
     } else {
       await _db.into(_db.comprasLista).insert(
-            CompraListaItemCompanion.insert(
-              productoId: productoId,
+            ComprasListaCompanion.insert(
+              productoId: Value(productoId),
               createdAt: Value(DateTime.now()),
             ),
           );

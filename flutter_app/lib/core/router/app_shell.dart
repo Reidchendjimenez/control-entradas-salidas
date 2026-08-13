@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../auth/presentation/login_screen.dart';
+import '../../features/auth/presentation/login_screen.dart';
 import '../auth/session_controller.dart';
 import '../state/theme_controller.dart';
 import '../../features/inventario/presentation/inventario_screen.dart';
@@ -55,7 +55,7 @@ class AppShell extends ConsumerWidget {
       theme: baseLight,
       darkTheme: baseDark,
       themeMode: themeMode,
-      home: session is _Authenticated
+      home: session is Authenticated
           ? _ShellAutenticado(destinos: _destinos)
           : const LoginScreen(),
     );

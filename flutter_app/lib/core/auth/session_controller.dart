@@ -14,10 +14,10 @@ class SessionController extends StateNotifier<SessionState> {
 
   Future<void> _cargar() async {
     final u = await _db.select(_db.dispositivoUsuario).getSingleOrNull();
-    if (u != null) {
+    if (u != null && u.pinHash != null) {
       state = SessionState.authenticated(
         nombre: u.nombre,
-        pinHash: u.pinHash,
+        pinHash: u.pinHash!,
       );
     }
   }
@@ -30,7 +30,7 @@ class SessionController extends StateNotifier<SessionState> {
     final id = await _db.into(_db.dispositivoUsuario).insert(
           DispositivoUsuarioCompanion.insert(
             nombre: nombre,
-            pinHash: pin, // TODO: hashear en producción
+            pinHash: Value(pin),
             configuradoEn: DateTime.now(),
           ),
         );
@@ -65,17 +65,17 @@ sealed class SessionState {
   const factory SessionState.authenticated({
     required String nombre,
     required String pinHash,
-  }) = _Authenticated;
+  }) = Authenticated;
 
-  const factory SessionState.unauthenticated() = _Unauthenticated;
+  const factory SessionState.unauthenticated() = Unauthenticated;
 }
 
-class _Authenticated implements SessionState {
+class Authenticated implements SessionState {
   final String nombre;
   final String pinHash;
-  const _Authenticated({required this.nombre, required this.pinHash});
+  const Authenticated({required this.nombre, required this.pinHash});
 }
 
-class _Unauthenticated implements SessionState {
-  const _Unauthenticated();
+class Unauthenticated implements SessionState {
+  const Unauthenticated();
 }
