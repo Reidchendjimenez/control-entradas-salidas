@@ -1,12 +1,19 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:drift/drift.dart';
 
-import '../../core/db/schema/app_database.dart';
+import '../db/database_provider.dart';
+import '../db/schema/app_database.dart';
+
+/// Provider del controlador de sesión.
+final sessionProvider =
+    StateNotifierProvider<SessionController, SessionState>((ref) {
+  return SessionController(ref.watch(appDatabaseProvider));
+});
 
 /// Controlador de sesión (autenticación PIN + nombre).
 /// Porta la lógica de `LoginView` y `LocalReplica.get_usuario_dispositivo()`.
 class SessionController extends StateNotifier<SessionState> {
-  SessionController(this._db) : super(SessionState.unauthenticated()) {
+  SessionController(this._db) : super(const SessionState.unauthenticated()) {
     _cargar();
   }
 
@@ -54,7 +61,7 @@ class SessionController extends StateNotifier<SessionState> {
   }
 
   void cerrarSesion() {
-    state = SessionState.unauthenticated();
+    state = const SessionState.unauthenticated();
   }
 }
 

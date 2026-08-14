@@ -1817,9 +1817,7 @@ class $ExistenciasTable extends Existencias
   @override
   late final GeneratedColumn<String> almacen = GeneratedColumn<String>(
       'almacen', aliasedName, false,
-      additionalChecks: GeneratedColumn.checkTextLength(maxTextLength: 50),
-      type: DriftSqlType.string,
-      requiredDuringInsert: true);
+      type: DriftSqlType.string, requiredDuringInsert: true);
   static const VerificationMeta _cantidadMeta =
       const VerificationMeta('cantidad');
   @override
@@ -7229,18 +7227,18 @@ class $ProduccionesTable extends Producciones
   late final GeneratedColumn<String> observaciones = GeneratedColumn<String>(
       'observaciones', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
-  static const VerificationMeta _cocinerosMeta =
-      const VerificationMeta('cocineros');
-  @override
-  late final GeneratedColumn<String> cocineros = GeneratedColumn<String>(
-      'cocineros', aliasedName, true,
-      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _fechaProduccionMeta =
       const VerificationMeta('fechaProduccion');
   @override
   late final GeneratedColumn<DateTime> fechaProduccion =
       GeneratedColumn<DateTime>('fecha_produccion', aliasedName, true,
           type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _cocinerosMeta =
+      const VerificationMeta('cocineros');
+  @override
+  late final GeneratedColumn<String> cocineros = GeneratedColumn<String>(
+      'cocineros', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _createdAtMeta =
       const VerificationMeta('createdAt');
   @override
@@ -7255,8 +7253,8 @@ class $ProduccionesTable extends Producciones
         estado,
         usuario,
         observaciones,
-        cocineros,
         fechaProduccion,
+        cocineros,
         createdAt
       ];
   @override
@@ -7298,15 +7296,15 @@ class $ProduccionesTable extends Producciones
           observaciones.isAcceptableOrUnknown(
               data['observaciones']!, _observacionesMeta));
     }
-    if (data.containsKey('cocineros')) {
-      context.handle(_cocinerosMeta,
-          cocineros.isAcceptableOrUnknown(data['cocineros']!, _cocinerosMeta));
-    }
     if (data.containsKey('fecha_produccion')) {
       context.handle(
           _fechaProduccionMeta,
           fechaProduccion.isAcceptableOrUnknown(
               data['fecha_produccion']!, _fechaProduccionMeta));
+    }
+    if (data.containsKey('cocineros')) {
+      context.handle(_cocinerosMeta,
+          cocineros.isAcceptableOrUnknown(data['cocineros']!, _cocinerosMeta));
     }
     if (data.containsKey('created_at')) {
       context.handle(_createdAtMeta,
@@ -7333,10 +7331,10 @@ class $ProduccionesTable extends Producciones
           .read(DriftSqlType.string, data['${effectivePrefix}usuario']),
       observaciones: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}observaciones']),
-      cocineros: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}cocineros']),
       fechaProduccion: attachedDatabase.typeMapping.read(
           DriftSqlType.dateTime, data['${effectivePrefix}fecha_produccion']),
+      cocineros: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}cocineros']),
       createdAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at']),
     );
@@ -7355,8 +7353,8 @@ class Produccione extends DataClass implements Insertable<Produccione> {
   final String estado;
   final String? usuario;
   final String? observaciones;
-  final String? cocineros;
   final DateTime? fechaProduccion;
+  final String? cocineros;
   final DateTime? createdAt;
   const Produccione(
       {required this.id,
@@ -7365,8 +7363,8 @@ class Produccione extends DataClass implements Insertable<Produccione> {
       required this.estado,
       this.usuario,
       this.observaciones,
-      this.cocineros,
       this.fechaProduccion,
+      this.cocineros,
       this.createdAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -7381,11 +7379,11 @@ class Produccione extends DataClass implements Insertable<Produccione> {
     if (!nullToAbsent || observaciones != null) {
       map['observaciones'] = Variable<String>(observaciones);
     }
-    if (!nullToAbsent || cocineros != null) {
-      map['cocineros'] = Variable<String>(cocineros);
-    }
     if (!nullToAbsent || fechaProduccion != null) {
       map['fecha_produccion'] = Variable<DateTime>(fechaProduccion);
+    }
+    if (!nullToAbsent || cocineros != null) {
+      map['cocineros'] = Variable<String>(cocineros);
     }
     if (!nullToAbsent || createdAt != null) {
       map['created_at'] = Variable<DateTime>(createdAt);
@@ -7405,12 +7403,12 @@ class Produccione extends DataClass implements Insertable<Produccione> {
       observaciones: observaciones == null && nullToAbsent
           ? const Value.absent()
           : Value(observaciones),
-      cocineros: cocineros == null && nullToAbsent
-          ? const Value.absent()
-          : Value(cocineros),
       fechaProduccion: fechaProduccion == null && nullToAbsent
           ? const Value.absent()
           : Value(fechaProduccion),
+      cocineros: cocineros == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cocineros),
       createdAt: createdAt == null && nullToAbsent
           ? const Value.absent()
           : Value(createdAt),
@@ -7427,8 +7425,8 @@ class Produccione extends DataClass implements Insertable<Produccione> {
       estado: serializer.fromJson<String>(json['estado']),
       usuario: serializer.fromJson<String?>(json['usuario']),
       observaciones: serializer.fromJson<String?>(json['observaciones']),
-      cocineros: serializer.fromJson<String?>(json['cocineros']),
       fechaProduccion: serializer.fromJson<DateTime?>(json['fechaProduccion']),
+      cocineros: serializer.fromJson<String?>(json['cocineros']),
       createdAt: serializer.fromJson<DateTime?>(json['createdAt']),
     );
   }
@@ -7442,8 +7440,8 @@ class Produccione extends DataClass implements Insertable<Produccione> {
       'estado': serializer.toJson<String>(estado),
       'usuario': serializer.toJson<String?>(usuario),
       'observaciones': serializer.toJson<String?>(observaciones),
-      'cocineros': serializer.toJson<String?>(cocineros),
       'fechaProduccion': serializer.toJson<DateTime?>(fechaProduccion),
+      'cocineros': serializer.toJson<String?>(cocineros),
       'createdAt': serializer.toJson<DateTime?>(createdAt),
     };
   }
@@ -7455,8 +7453,8 @@ class Produccione extends DataClass implements Insertable<Produccione> {
           String? estado,
           Value<String?> usuario = const Value.absent(),
           Value<String?> observaciones = const Value.absent(),
-          Value<String?> cocineros = const Value.absent(),
           Value<DateTime?> fechaProduccion = const Value.absent(),
+          Value<String?> cocineros = const Value.absent(),
           Value<DateTime?> createdAt = const Value.absent()}) =>
       Produccione(
         id: id ?? this.id,
@@ -7466,10 +7464,10 @@ class Produccione extends DataClass implements Insertable<Produccione> {
         usuario: usuario.present ? usuario.value : this.usuario,
         observaciones:
             observaciones.present ? observaciones.value : this.observaciones,
-        cocineros: cocineros.present ? cocineros.value : this.cocineros,
         fechaProduccion: fechaProduccion.present
             ? fechaProduccion.value
             : this.fechaProduccion,
+        cocineros: cocineros.present ? cocineros.value : this.cocineros,
         createdAt: createdAt.present ? createdAt.value : this.createdAt,
       );
   Produccione copyWithCompanion(ProduccionesCompanion data) {
@@ -7482,10 +7480,10 @@ class Produccione extends DataClass implements Insertable<Produccione> {
       observaciones: data.observaciones.present
           ? data.observaciones.value
           : this.observaciones,
-      cocineros: data.cocineros.present ? data.cocineros.value : this.cocineros,
       fechaProduccion: data.fechaProduccion.present
           ? data.fechaProduccion.value
           : this.fechaProduccion,
+      cocineros: data.cocineros.present ? data.cocineros.value : this.cocineros,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -7499,8 +7497,8 @@ class Produccione extends DataClass implements Insertable<Produccione> {
           ..write('estado: $estado, ')
           ..write('usuario: $usuario, ')
           ..write('observaciones: $observaciones, ')
-          ..write('cocineros: $cocineros, ')
           ..write('fechaProduccion: $fechaProduccion, ')
+          ..write('cocineros: $cocineros, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -7508,7 +7506,7 @@ class Produccione extends DataClass implements Insertable<Produccione> {
 
   @override
   int get hashCode => Object.hash(id, recetaId, cantidad, estado, usuario,
-      observaciones, cocineros, fechaProduccion, createdAt);
+      observaciones, fechaProduccion, cocineros, createdAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -7519,8 +7517,8 @@ class Produccione extends DataClass implements Insertable<Produccione> {
           other.estado == this.estado &&
           other.usuario == this.usuario &&
           other.observaciones == this.observaciones &&
-          other.cocineros == this.cocineros &&
           other.fechaProduccion == this.fechaProduccion &&
+          other.cocineros == this.cocineros &&
           other.createdAt == this.createdAt);
 }
 
@@ -7531,8 +7529,8 @@ class ProduccionesCompanion extends UpdateCompanion<Produccione> {
   final Value<String> estado;
   final Value<String?> usuario;
   final Value<String?> observaciones;
-  final Value<String?> cocineros;
   final Value<DateTime?> fechaProduccion;
+  final Value<String?> cocineros;
   final Value<DateTime?> createdAt;
   const ProduccionesCompanion({
     this.id = const Value.absent(),
@@ -7541,8 +7539,8 @@ class ProduccionesCompanion extends UpdateCompanion<Produccione> {
     this.estado = const Value.absent(),
     this.usuario = const Value.absent(),
     this.observaciones = const Value.absent(),
-    this.cocineros = const Value.absent(),
     this.fechaProduccion = const Value.absent(),
+    this.cocineros = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   ProduccionesCompanion.insert({
@@ -7552,8 +7550,8 @@ class ProduccionesCompanion extends UpdateCompanion<Produccione> {
     this.estado = const Value.absent(),
     this.usuario = const Value.absent(),
     this.observaciones = const Value.absent(),
-    this.cocineros = const Value.absent(),
     this.fechaProduccion = const Value.absent(),
+    this.cocineros = const Value.absent(),
     this.createdAt = const Value.absent(),
   })  : recetaId = Value(recetaId),
         cantidad = Value(cantidad);
@@ -7564,8 +7562,8 @@ class ProduccionesCompanion extends UpdateCompanion<Produccione> {
     Expression<String>? estado,
     Expression<String>? usuario,
     Expression<String>? observaciones,
-    Expression<String>? cocineros,
     Expression<DateTime>? fechaProduccion,
+    Expression<String>? cocineros,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -7575,8 +7573,8 @@ class ProduccionesCompanion extends UpdateCompanion<Produccione> {
       if (estado != null) 'estado': estado,
       if (usuario != null) 'usuario': usuario,
       if (observaciones != null) 'observaciones': observaciones,
-      if (cocineros != null) 'cocineros': cocineros,
       if (fechaProduccion != null) 'fecha_produccion': fechaProduccion,
+      if (cocineros != null) 'cocineros': cocineros,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -7588,8 +7586,8 @@ class ProduccionesCompanion extends UpdateCompanion<Produccione> {
       Value<String>? estado,
       Value<String?>? usuario,
       Value<String?>? observaciones,
-      Value<String?>? cocineros,
       Value<DateTime?>? fechaProduccion,
+      Value<String?>? cocineros,
       Value<DateTime?>? createdAt}) {
     return ProduccionesCompanion(
       id: id ?? this.id,
@@ -7598,8 +7596,8 @@ class ProduccionesCompanion extends UpdateCompanion<Produccione> {
       estado: estado ?? this.estado,
       usuario: usuario ?? this.usuario,
       observaciones: observaciones ?? this.observaciones,
-      cocineros: cocineros ?? this.cocineros,
       fechaProduccion: fechaProduccion ?? this.fechaProduccion,
+      cocineros: cocineros ?? this.cocineros,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -7625,11 +7623,11 @@ class ProduccionesCompanion extends UpdateCompanion<Produccione> {
     if (observaciones.present) {
       map['observaciones'] = Variable<String>(observaciones.value);
     }
-    if (cocineros.present) {
-      map['cocineros'] = Variable<String>(cocineros.value);
-    }
     if (fechaProduccion.present) {
       map['fecha_produccion'] = Variable<DateTime>(fechaProduccion.value);
+    }
+    if (cocineros.present) {
+      map['cocineros'] = Variable<String>(cocineros.value);
     }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
@@ -7646,8 +7644,8 @@ class ProduccionesCompanion extends UpdateCompanion<Produccione> {
           ..write('estado: $estado, ')
           ..write('usuario: $usuario, ')
           ..write('observaciones: $observaciones, ')
-          ..write('cocineros: $cocineros, ')
           ..write('fechaProduccion: $fechaProduccion, ')
+          ..write('cocineros: $cocineros, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -12603,8 +12601,8 @@ typedef $$ProduccionesTableCreateCompanionBuilder = ProduccionesCompanion
   Value<String> estado,
   Value<String?> usuario,
   Value<String?> observaciones,
-  Value<String?> cocineros,
   Value<DateTime?> fechaProduccion,
+  Value<String?> cocineros,
   Value<DateTime?> createdAt,
 });
 typedef $$ProduccionesTableUpdateCompanionBuilder = ProduccionesCompanion
@@ -12615,8 +12613,8 @@ typedef $$ProduccionesTableUpdateCompanionBuilder = ProduccionesCompanion
   Value<String> estado,
   Value<String?> usuario,
   Value<String?> observaciones,
-  Value<String?> cocineros,
   Value<DateTime?> fechaProduccion,
+  Value<String?> cocineros,
   Value<DateTime?> createdAt,
 });
 
@@ -12647,12 +12645,12 @@ class $$ProduccionesTableFilterComposer
   ColumnFilters<String> get observaciones => $composableBuilder(
       column: $table.observaciones, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<String> get cocineros => $composableBuilder(
-      column: $table.cocineros, builder: (column) => ColumnFilters(column));
-
   ColumnFilters<DateTime> get fechaProduccion => $composableBuilder(
       column: $table.fechaProduccion,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get cocineros => $composableBuilder(
+      column: $table.cocineros, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnFilters(column));
@@ -12686,12 +12684,12 @@ class $$ProduccionesTableOrderingComposer
       column: $table.observaciones,
       builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<String> get cocineros => $composableBuilder(
-      column: $table.cocineros, builder: (column) => ColumnOrderings(column));
-
   ColumnOrderings<DateTime> get fechaProduccion => $composableBuilder(
       column: $table.fechaProduccion,
       builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get cocineros => $composableBuilder(
+      column: $table.cocineros, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
       column: $table.createdAt, builder: (column) => ColumnOrderings(column));
@@ -12724,11 +12722,11 @@ class $$ProduccionesTableAnnotationComposer
   GeneratedColumn<String> get observaciones => $composableBuilder(
       column: $table.observaciones, builder: (column) => column);
 
-  GeneratedColumn<String> get cocineros =>
-      $composableBuilder(column: $table.cocineros, builder: (column) => column);
-
   GeneratedColumn<DateTime> get fechaProduccion => $composableBuilder(
       column: $table.fechaProduccion, builder: (column) => column);
+
+  GeneratedColumn<String> get cocineros =>
+      $composableBuilder(column: $table.cocineros, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -12766,8 +12764,8 @@ class $$ProduccionesTableTableManager extends RootTableManager<
             Value<String> estado = const Value.absent(),
             Value<String?> usuario = const Value.absent(),
             Value<String?> observaciones = const Value.absent(),
-            Value<String?> cocineros = const Value.absent(),
             Value<DateTime?> fechaProduccion = const Value.absent(),
+            Value<String?> cocineros = const Value.absent(),
             Value<DateTime?> createdAt = const Value.absent(),
           }) =>
               ProduccionesCompanion(
@@ -12777,8 +12775,8 @@ class $$ProduccionesTableTableManager extends RootTableManager<
             estado: estado,
             usuario: usuario,
             observaciones: observaciones,
-            cocineros: cocineros,
             fechaProduccion: fechaProduccion,
+            cocineros: cocineros,
             createdAt: createdAt,
           ),
           createCompanionCallback: ({
@@ -12788,8 +12786,8 @@ class $$ProduccionesTableTableManager extends RootTableManager<
             Value<String> estado = const Value.absent(),
             Value<String?> usuario = const Value.absent(),
             Value<String?> observaciones = const Value.absent(),
-            Value<String?> cocineros = const Value.absent(),
             Value<DateTime?> fechaProduccion = const Value.absent(),
+            Value<String?> cocineros = const Value.absent(),
             Value<DateTime?> createdAt = const Value.absent(),
           }) =>
               ProduccionesCompanion.insert(
@@ -12799,8 +12797,8 @@ class $$ProduccionesTableTableManager extends RootTableManager<
             estado: estado,
             usuario: usuario,
             observaciones: observaciones,
-            cocineros: cocineros,
             fechaProduccion: fechaProduccion,
+            cocineros: cocineros,
             createdAt: createdAt,
           ),
           withReferenceMapper: (p0) => p0

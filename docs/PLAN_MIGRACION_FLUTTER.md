@@ -247,13 +247,24 @@ En Flutter:
    - ✅ Tests unitarios de drift/outbox (3 pasando).
    - ⏳ Falta probar sync real: requiere `flutter run --dart-define=SUPABASE_ANON_KEY=...`.
 
-**Fase 2 — Login + shell + Inventario**
+**Fase 2 — Login + shell + Inventario** *(✅ HECHO — flutter_app)*
 9. Login + splash + shell (drawer/appbar), portar `app_controller`.
+   - ✅ `lib/features/auth/presentation/login_screen.dart` — registro/login con PIN (porta login_view.py).
+   - ✅ `lib/core/auth/session_controller.dart` — sesión + tabla drift `dispositivo_usuario`.
+   - ✅ `lib/core/router/app_shell.dart` — MaterialApp (login si no hay sesión; shell con drawer/nav si la hay), 8 destinos, toggle tema, logout.
 10. Inventario: productos/movimientos/categorías/lista compra completo.
+   - ✅ `lib/features/inventario/data/inventario_repository.dart` — CRUD drift + outbox + `registrarMovimiento` (entrada/salida/ajuste, stock por almacén, pesable).
+   - ✅ `lib/features/inventario/presentation/inventario_screen.dart` — panel de categorías + productos con búsqueda y diálogo de movimiento.
+   - ✅ Tests (3 pasando) + build web OK.
 
-**Fase 3 — Requisiciones + Stock**
+**Fase 3 — Requisiciones + Stock** *(✅ HECHO — flutter_app)*
 11. Módulo requisiciones completo (form, cards, visualizar, auditoría).
+    - ✅ `lib/features/requisiciones/data/requisiciones_repository.dart` — CRUD drift + outbox (`numero` único), `guardarRequisicion` (crear/editar con verificado preservado), `totalizarRequisicion` (tr_salida/tr_entrada + existencias + estado completada), `crearAjusteStock`, `marcarDetalleVerificado`, historial de movimientos.
+    - ✅ `lib/features/requisiciones/presentation/requisiciones_screen.dart` — lista de tarjetas con acciones por estado (visualizar siempre; editar/auditar/eliminar solo en pendiente), formulario maestro-detalle (buscador + cantidad/peso pesable), diálogo de auditoría con verificación y totalización.
 12. Módulo stock (checkpoint).
+    - ✅ `lib/features/stock/data/stock_repository.dart` — stats (total/bajo/agotado), `filterProductos` (búsqueda/categoría/almacén/estado), existencias por producto, historial, `ajustarExistencia` (tipo='ajuste', sin movimiento si no hay cambio).
+    - ✅ `lib/features/stock/presentation/stock_screen.dart` — tarjetas de estadísticas clicables, filtros, tarjetas de producto con stock por almacén, diálogos de historial/existencias/ajuste.
+    - ✅ Rutas `/requisiciones` y `/stock` conectadas en `app_shell.dart`. Build web OK + tests (4) pasando.
 
 **Fase 4 — Producciones + Validación + OCR**
 13. Producciones (recetas, editor, pendientes, historial).

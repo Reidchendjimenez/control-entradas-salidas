@@ -4,56 +4,54 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../auth/session_controller.dart';
 import '../state/theme_controller.dart';
+import '../../features/historial/presentation/historial_screen.dart';
 import '../../features/inventario/presentation/inventario_screen.dart';
+import '../../features/requisiciones/presentation/requisiciones_screen.dart';
+import '../../features/stock/presentation/stock_screen.dart';
+import '../../features/validacion/presentation/validacion_screen.dart';
+import '../../features/configuracion/presentation/configuracion_screen.dart';
+import '../sync/sync_service.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
 
-/// Shell principal:
-/// - si no hay sesión → LoginScreen (porta login_view.py).
-/// - si hay sesión → Scaffold con drawer de navegación (porta app_controller.py).
-///
-/// El drawer tiene 8 destinos (inventario, validación, stock, producciones,
-/// requisiciones, historial, ajustes, bandeja) que se implementan en las fases
-/// 2-5. Mientras no existan, muestran un placeholder.
+/// Shell principal — replica `usr/app_controller.py`:
+/// - sin sesión → LoginScreen.
+/// - con sesión → header custom (icono + título + subtítulo) sobre un
+///   NavigationRail (escritorio) o NavigationBar + drawer (móvil),
+///   todo con los colores de `usr/theme.py` (`get_theme`).
 class AppShell extends ConsumerWidget {
   const AppShell({super.key});
 
   static const List<_NavDest> _destinos = [
-    _NavDest(Icons.shopping_cart_outlined, 'Inventario', '/inventario'),
-    _NavDest(Icons.checklist_outlined, 'Validación', '/validacion'),
-    _NavDest(Icons.warehouse_outlined, 'Stock', '/stock'),
-    _NavDest(Icons.factory_outlined, 'Producciones', '/producciones'),
-    _NavDest(Icons.local_shipping_outlined, 'Requisiciones', '/requisiciones'),
-    _NavDest(Icons.history_outlined, 'Historial', '/historial'),
-    _NavDest(Icons.settings_outlined, 'Ajustes', '/ajustes'),
-    _NavDest(Icons.mail_outlined, 'Bandeja', '/bandeja'),
+    _NavDest(Icons.shopping_cart_outlined, 'Inventario',
+        'Gestión de existencias', '/inventario'),
+    _NavDest(Icons.checklist_outlined, 'Validación',
+        'Vincular entradas a facturas', '/validacion'),
+    _NavDest(Icons.warehouse_outlined, 'Stock',
+        'Control e inventario de productos y pesaje', '/stock'),
+    _NavDest(Icons.factory_outlined, 'Producciones',
+        'Recetas y órdenes de producción', '/producciones'),
+    _NavDest(Icons.local_shipping_outlined, 'Requisiciones',
+        'Gestión de traslados', '/requisiciones'),
+    _NavDest(Icons.history_outlined, 'Historial',
+        'Facturas y registro de entradas', '/historial'),
+    _NavDest(Icons.settings_outlined, 'Ajustes',
+        'Categorías y catálogo de productos', '/ajustes'),
+    _NavDest(Icons.mail_outlined, 'Bandeja',
+        'Mensajes y respuestas de WhatsApp', '/bandeja'),
   ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider);
     final themeMode = ref.watch(themeControllerProvider);
-
-    final baseDark = ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFFBB86FC),
-        brightness: Brightness.dark,
-      ),
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: const Color(0xFF000000),
-    );
-    final baseLight = ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFF6200EE),
-        brightness: Brightness.light,
-      ),
-      brightness: Brightness.light,
-    );
+    final appTheme = buildAppTheme(mode: themeMode);
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: baseLight,
-      darkTheme: baseDark,
+      title: 'Control Entradas y Salidas',
+      theme: appTheme.light(),
+      darkTheme: appTheme.dark(),
       themeMode: themeMode,
       home: session is Authenticated
           ? _ShellAutenticado(destinos: _destinos)
@@ -73,105 +71,335 @@ class _ShellAutenticado extends ConsumerStatefulWidget {
 class _ShellAutenticadoState extends ConsumerState<_ShellAutenticado> {
   int _index = 0;
 
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
+  @override
+  void initState() {
+    super.initState();
+    // Arranca el sync: fullSync inmediato + background cada 20s.
+    final engine = ref.read(syncEngineProvider);
+    if (engine != null) {
+      engine.fullSync();
+      engine.startBackgroundSync();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final ancho = MediaQuery.of(context).size.width;
     final esEscritorio = ancho >= 900;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final c = isDark ? AppColors.dark : AppColors.light;
     final dest = widget.destinos[_index];
 
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
+      key: _scaffoldKey,
+      body: SafeArea(
+        child: Column(
           children: [
-            Icon(dest.icono, size: 22),
-            const SizedBox(width: 10),
-            Text(dest.label),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.sync),
-            tooltip: 'Sincronizar',
-            onPressed: () => _dispararSync(context),
-          ),
-          IconButton(
-            icon: const Icon(Icons.brightness_6_outlined),
-            tooltip: 'Tema',
-            onPressed: () =>
-                ref.read(themeControllerProvider.notifier).toggle(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Cerrar sesión',
-            onPressed: () => ref.read(sessionProvider.notifier).cerrarSesion(),
-          ),
-        ],
-      ),
-      body: _DestinoPage(destino: dest),
-      drawer: esEscritorio
-          ? null
-          : Drawer(
-              child: ListView(
+            _AppHeader(
+              destinos: widget.destinos,
+              index: _index,
+              colors: c,
+              esEscritorio: esEscritorio,
+              onSync: () => _dispararSync(context),
+              onToggleTheme: () => ref
+                  .read(themeControllerProvider.notifier)
+                  .toggle(),
+              onLogout: () => ref.read(sessionProvider.notifier).cerrarSesion(),
+              onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
+            ),
+            Expanded(
+              child: Row(
                 children: [
-                  const DrawerHeader(
-                    decoration:
-                        BoxDecoration(color: Color(0xFF000000)),
-                    child: Text('Menú',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold)),
-                  ),
-                  ...[
-                    for (var i = 0; i < widget.destinos.length; i++)
-                      ListTile(
-                        leading: Icon(widget.destinos[i].icono),
-                        title: Text(widget.destinos[i].label),
-                        selected: i == _index,
-                        onTap: () {
-                          setState(() => _index = i);
-                          Navigator.pop(context);
-                        },
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: _color(c, 'surface'),
+                        borderRadius: esEscritorio
+                            ? const BorderRadius.only(
+                                topLeft: Radius.circular(20))
+                            : null,
                       ),
-                  ],
+                      child: _DestinoPage(destino: dest),
+                    ),
+                  ),
                 ],
               ),
             ),
+          ],
+        ),
+      ),
       bottomNavigationBar: esEscritorio
           ? null
-          : NavigationBar(
-              selectedIndex: _index > 3 ? 3 : _index,
-              onDestinationSelected: (i) {
-                if (i == 3) {
-                  // "Más": abrir drawer.
-                  Scaffold.of(context).openDrawer();
+          : _NavBarMobile(
+              destinos: widget.destinos,
+              index: _index,
+              colors: c,
+              onSelect: (i) {
+                if (i >= 3) {
+                  _scaffoldKey.currentState?.openDrawer();
                 } else {
                   setState(() => _index = i);
                 }
               },
-              destinations: [
-                NavigationDestination(
-                    icon: const Icon(Icons.shopping_cart_outlined),
-                    label: widget.destinos[0].label),
-                NavigationDestination(
-                    icon: const Icon(Icons.checklist_outlined),
-                    label: 'Validar'),
-                NavigationDestination(
-                    icon: const Icon(Icons.warehouse_outlined),
-                    label: 'Stock'),
-                const NavigationDestination(
-                    icon: Icon(Icons.more_vert), label: 'Más'),
-              ],
             ),
+      drawer: _AppDrawer(
+        destinos: widget.destinos,
+        index: _index,
+        colors: c,
+        onSelect: (i) {
+          setState(() => _index = i);
+          Navigator.pop(context);
+        },
+      ),
     );
   }
 
+  Color _color(Map<String, String> c, String key) =>
+      Color(int.parse(c[key]!.replaceFirst('#', '0xFF')));
+
   Future<void> _dispararSync(BuildContext context) async {
-    final snackbar = ScaffoldMessenger.of(context);
-    snackbar.showSnackBar(
+    final engine = ref.read(syncEngineProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    if (engine == null) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Supabase no configurado')),
+      );
+      return;
+    }
+    messenger.showSnackBar(
       const SnackBar(
         content: Text('Sincronizando...'),
         duration: Duration(seconds: 2),
+      ),
+    );
+    final ok = await engine.fullSync();
+    messenger.showSnackBar(
+      SnackBar(
+        content:
+            Text(ok ? 'Sincronización completa' : 'Error al sincronizar'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+}
+
+/// Header custom (app_controller.py `app_header`): bugb negro, ícono morado,
+/// título 22 bold + subtítulo 12, acciones a la derecha.
+class _AppHeader extends StatelessWidget {
+  const _AppHeader({
+    required this.destinos,
+    required this.index,
+    required this.colors,
+    required this.esEscritorio,
+    required this.onSync,
+    required this.onToggleTheme,
+    required this.onLogout,
+    required this.onOpenDrawer,
+  });
+
+  final List<_NavDest> destinos;
+  final int index;
+  final Map<String, String> colors;
+  final bool esEscritorio;
+  final VoidCallback onSync;
+  final VoidCallback onToggleTheme;
+  final VoidCallback onLogout;
+  final VoidCallback onOpenDrawer;
+
+  Color _color(String key) =>
+      Color(int.parse(colors[key]!.replaceFirst('#', '0xFF')));
+
+  @override
+  Widget build(BuildContext context) {
+    final dest = destinos[index];
+    return Container(
+      color: _color('header_bg'),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          if (esEscritorio)
+            IconButton(
+              icon: const Icon(Icons.menu),
+              color: _color('header_title'),
+              tooltip: 'Abrir menú',
+              onPressed: onOpenDrawer,
+            ),
+          Icon(dest.icono, size: 26, color: _color('header_icon')),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                dest.label,
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: _color('header_title'),
+                ),
+              ),
+              Text(
+                dest.subtitulo,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _color('header_subtitle'),
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.sync),
+            color: _color('header_subtitle'),
+            tooltip: 'Sincronizar',
+            onPressed: onSync,
+          ),
+          IconButton(
+            icon: const Icon(Icons.brightness_6_outlined),
+            color: _color('header_subtitle'),
+            tooltip: 'Tema',
+            onPressed: onToggleTheme,
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            color: _color('header_subtitle'),
+            tooltip: 'Cerrar sesión',
+            onPressed: onLogout,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Barra inferior móvil — `navigation_bar` de app_controller.py (4 ítems, el
+/// último abre el drawer "Más").
+class _NavBarMobile extends StatelessWidget {
+  const _NavBarMobile({
+    required this.destinos,
+    required this.index,
+    required this.colors,
+    required this.onSelect,
+  });
+
+  final List<_NavDest> destinos;
+  final int index;
+  final Map<String, String> colors;
+  final ValueChanged<int> onSelect;
+
+  Color _color(String key) =>
+      Color(int.parse(colors[key]!.replaceFirst('#', '0xFF')));
+
+  @override
+  Widget build(BuildContext context) {
+    return NavigationBar(
+      backgroundColor: _color('nav_bg'),
+      indicatorColor: _color('drawer_active_bg'),
+      selectedIndex: index > 3 ? 3 : index,
+      onDestinationSelected: onSelect,
+      destinations: [
+        NavigationDestination(
+            icon: Icon(destinos[0].icono), label: destinos[0].label),
+        NavigationDestination(
+            icon: Icon(destinos[1].icono), label: 'Validar'),
+        NavigationDestination(
+            icon: Icon(destinos[2].icono), label: 'Stock'),
+        const NavigationDestination(icon: Icon(Icons.more_vert), label: 'Más'),
+      ],
+    );
+  }
+}
+
+/// Drawer custom (overlay, lado izquierdo, tiles redondeados) —
+/// `drawer_panel` + `_drawer_items` de app_controller.py.
+class _AppDrawer extends StatelessWidget {
+  const _AppDrawer({
+    required this.destinos,
+    required this.index,
+    required this.colors,
+    required this.onSelect,
+  });
+
+  final List<_NavDest> destinos;
+  final int index;
+  final Map<String, String> colors;
+  final ValueChanged<int> onSelect;
+
+  Color _color(String key) =>
+      Color(int.parse(colors[key]!.replaceFirst('#', '0xFF')));
+
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+      backgroundColor: _color('drawer_bg'),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.horizontal(right: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 28, 8, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(left: 16, bottom: 20),
+                child: Text(
+                  'Menú',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: _color('drawer_on_surface'),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    for (var i = 0; i < destinos.length; i++)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 2),
+                        child: Material(
+                          color: i == index
+                              ? _color('drawer_active_bg')
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          child: ListTile(
+                            leading: Icon(
+                              destinos[i].icono,
+                              size: 22,
+                              color: i == index
+                                  ? _color('drawer_active_fg')
+                                  : _color('drawer_inactive_fg'),
+                            ),
+                            title: Text(
+                              destinos[i].label,
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: i == index
+                                    ? _color('drawer_active_fg')
+                                    : _color('drawer_inactive_fg'),
+                                fontWeight: i == index
+                                    ? FontWeight.w600
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            onTap: () => onSelect(i),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -185,6 +413,21 @@ class _DestinoPage extends StatelessWidget {
   Widget build(BuildContext context) {
     if (destino.ruta == '/inventario') {
       return const InventarioScreen();
+    }
+    if (destino.ruta == '/validacion') {
+      return const ValidacionScreen();
+    }
+    if (destino.ruta == '/requisiciones') {
+      return const RequisicionesScreen();
+    }
+    if (destino.ruta == '/stock') {
+      return const StockScreen();
+    }
+    if (destino.ruta == '/historial') {
+      return const HistorialScreen();
+    }
+    if (destino.ruta == '/ajustes') {
+      return const ConfiguracionScreen();
     }
     return Center(
       child: Column(
@@ -208,6 +451,7 @@ class _DestinoPage extends StatelessWidget {
 class _NavDest {
   final IconData icono;
   final String label;
+  final String subtitulo;
   final String ruta;
-  const _NavDest(this.icono, this.label, this.ruta);
+  const _NavDest(this.icono, this.label, this.subtitulo, this.ruta);
 }

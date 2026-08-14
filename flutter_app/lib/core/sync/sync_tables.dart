@@ -5,10 +5,19 @@ class SyncTableDescriptor {
   final String localTable;
   final String dedupeKey;
 
+  /// Columna de cambio para la descarga incremental. Si es no nula y la tabla
+  /// ya sincronizó alguna vez, se consulta `col >= last_sync` en vez de
+  /// descargar la tabla completa (reduce egress de Supabase).
+  ///
+  /// `null` ⇒ la tabla se descarga completa (tablas sin updated_at, p.ej.
+  /// `existencias`, `periodos`, o las POS que se gestionan aparte).
+  final String? incrementalColumn;
+
   const SyncTableDescriptor({
     required this.serverTable,
     required this.localTable,
     this.dedupeKey = '',
+    this.incrementalColumn,
   });
 }
 
@@ -17,17 +26,17 @@ class SyncTableDescriptor {
 /// El orden importa: se insertan por FK (proveedores antes que productos,
 /// facturas antes que movimientos, etc.) en la descarga masiva.
 const List<SyncTableDescriptor> syncedTables = [
-  SyncTableDescriptor(serverTable: 'categorias', localTable: 'categorias', dedupeKey: 'nombre'),
-  SyncTableDescriptor(serverTable: 'productos', localTable: 'productos', dedupeKey: 'codigo'),
+  SyncTableDescriptor(serverTable: 'categorias', localTable: 'categorias', dedupeKey: 'nombre', incrementalColumn: 'updated_at'),
+  SyncTableDescriptor(serverTable: 'productos', localTable: 'productos', dedupeKey: 'codigo', incrementalColumn: 'updated_at'),
   SyncTableDescriptor(serverTable: 'proveedores', localTable: 'proveedores', dedupeKey: 'nombre'),
   SyncTableDescriptor(serverTable: 'existencias', localTable: 'existencias'),
   SyncTableDescriptor(serverTable: 'stock_checkpoint', localTable: 'stock_checkpoint', dedupeKey: 'producto_id'),
   SyncTableDescriptor(serverTable: 'periodos', localTable: 'periodos'),
-  SyncTableDescriptor(serverTable: 'facturas', localTable: 'facturas', dedupeKey: 'numero_factura'),
+  SyncTableDescriptor(serverTable: 'facturas', localTable: 'facturas', dedupeKey: 'numero_factura', incrementalColumn: 'updated_at'),
   SyncTableDescriptor(serverTable: 'factura_pagos', localTable: 'factura_pagos'),
-  SyncTableDescriptor(serverTable: 'requisiciones', localTable: 'requisiciones', dedupeKey: 'numero'),
+  SyncTableDescriptor(serverTable: 'requisiciones', localTable: 'requisiciones', dedupeKey: 'numero', incrementalColumn: 'actualizada'),
   SyncTableDescriptor(serverTable: 'requisicion_detalles', localTable: 'requisicion_detalles'),
-  SyncTableDescriptor(serverTable: 'recetas', localTable: 'recetas'),
+  SyncTableDescriptor(serverTable: 'recetas', localTable: 'recetas', incrementalColumn: 'updated_at'),
   SyncTableDescriptor(serverTable: 'receta_componentes', localTable: 'receta_componentes'),
   SyncTableDescriptor(serverTable: 'producciones', localTable: 'producciones'),
   SyncTableDescriptor(serverTable: 'produccion_detalles', localTable: 'produccion_detalles'),

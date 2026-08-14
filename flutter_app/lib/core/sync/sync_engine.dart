@@ -63,12 +63,24 @@ class SyncEngine {
 
         switch (op) {
           case 'insert':
-            await _upsertRemote(table, data);
+            if (table == 'factura_pagos') {
+              await _upsertFacturaPago(data);
+            } else {
+              await _upsertRemote(table, data);
+            }
           case 'update':
-            await _upsertRemote(table, data);
+            if (table == 'factura_pagos') {
+              await _upsertFacturaPago(data);
+            } else {
+              await _upsertRemote(table, data);
+            }
           case 'delete':
-            final id = data['id'];
-            await client.from(table).delete().eq('id', id);
+            if (table == 'movimientos') {
+              await _deleteMovimientoPorMatch(data);
+            } else {
+              final id = data['id'];
+              await client.from(table).delete().eq('id', id);
+            }
         }
         await (_db.delete(_db.syncQueue)..where((t) => t.id.equals(item.id))).go();
         _log('[$table] $op subido');
@@ -82,6 +94,51 @@ class SyncEngine {
         _log('Error en outbox ${item.targetTable}/${item.operation}: $e');
       }
     }
+  }
+
+  /// Inserta un pago de factura resolviendo `factura_numero` → `factura_id`
+  /// remoto (réplica de `sync.py` caso `factura_pagos`).
+  Future<void> _upsertFacturaPago(Map<String, dynamic> data) async {
+    final numFac = data['factura_numero'] as String?;
+    if (numFac == null || numFac.isEmpty) {
+      throw StateError('factura_numero requerido para factura_pagos');
+    }
+    final remote = await client
+        .from('facturas')
+        .select('id')
+        .eq('numero_factura', numFac)
+        .maybeSingle();
+    if (remote == null || remote['id'] == null) {
+      throw StateError('Factura $numFac no encontrada en el servidor');
+    }
+    await client.from('factura_pagos').insert({
+      'factura_id': remote['id'],
+      'tipo_pago': data['tipo_pago'],
+      'monto': data['monto'],
+      'referencia': data['referencia'],
+      'tasa_cambio': data['tasa_cambio'],
+    });
+  }
+
+  /// Elimina un movimiento remoto por campos coincidentes (ID local != remoto,
+  /// réplica de `sync.py` caso `movimientos` delete).
+  Future<void> _deleteMovimientoPorMatch(Map<String, dynamic> data) async {
+    var query = client.from('movimientos').delete();
+    var hasMatch = false;
+    for (final key in [
+      'producto_id',
+      'tipo',
+      'cantidad',
+      'fecha_movimiento',
+      'almacen',
+    ]) {
+      final v = data[key];
+      if (v != null) {
+        query = query.eq(key, v);
+        hasMatch = true;
+      }
+    }
+    if (hasMatch) await query;
   }
 
   Future<void> _upsertRemote(String table, Map<String, dynamic> data) async {
@@ -135,17 +192,37 @@ class SyncEngine {
           continue; // postergar
         }
 
-        // Buscar coincidencia por campos clave.
-        final match = await client
-            .from('movimientos')
-            .select('id')
-            .eq('producto_id', mov.productoId)
-            .eq('tipo', mov.tipo)
-            .eq('cantidad', mov.cantidad)
-            .eq('fecha_movimiento', mov.fechaMovimiento?.toUtc().toIso8601String() ?? '')
-            .eq('almacen', mov.almacen ?? '')
-            .maybeSingle();
-
+        // Buscar coincidencia por campos clave. La fecha se compara por
+        // ventana del mismo segundo: el server puede guardarla sin
+        // microsegundos, así que el match exacto duplicaba filas.
+        Map<String, dynamic>? match;
+        if (mov.fechaMovimiento != null) {
+          final target = mov.fechaMovimiento!.toUtc();
+          final start = DateTime.utc(target.year, target.month, target.day,
+              target.hour, target.minute, target.second);
+          final rows = await client
+              .from('movimientos')
+              .select('id,fecha_movimiento')
+              .eq('producto_id', mov.productoId)
+              .eq('tipo', mov.tipo)
+              .eq('cantidad', mov.cantidad)
+              .gte('fecha_movimiento', start.toIso8601String())
+              .lt('fecha_movimiento', start.add(const Duration(seconds: 1)).toIso8601String())
+              .eq('almacen', mov.almacen ?? '')
+              .limit(5);
+            PostgrestMap? best;
+            var bestDelta = const Duration(seconds: 1);
+            for (final r in rows) {
+              final dt = _toDt(r['fecha_movimiento']);
+              if (dt == null) continue;
+              final delta = dt.toUtc().difference(target).abs();
+              if (delta < bestDelta) {
+                bestDelta = delta;
+                best = r;
+              }
+            }
+            match = best;
+        }
         if (match != null) {
           final updates = <String, dynamic>{};
           if (remoteFacturaId != null) updates['factura_id'] = remoteFacturaId;
@@ -168,8 +245,8 @@ class SyncEngine {
             'registrado_por': mov.registradoPor,
             'observaciones': mov.observaciones,
             'almacen': mov.almacen,
-            'fecha_movimiento':
-                mov.fechaMovimiento?.toUtc().toIso8601String(),
+            // Fecha normalizada sin microsegundos para match consistente.
+            'fecha_movimiento': _toSecondUtc(mov.fechaMovimiento)?.toIso8601String(),
           });
         }
 
@@ -223,9 +300,23 @@ class SyncEngine {
   // ---------------------------------------------------------------------
 
   Future<void> _downloadAllFromServer() async {
+    final lastSync = await _getLastFullSync();
+
     for (final desc in syncedTables) {
       try {
-        final data = await client.from(desc.serverTable).select();
+        // Descarga incremental cuando la tabla ya sincronizó y tiene columna
+        // de cambio: reduce egress (movimientos/productos grandes no se vuelven
+        // a descargar completos cada ciclo).
+        final inc = desc.incrementalColumn;
+        var q = client.from(desc.serverTable).select();
+        final localEmpty = await _isTableEmpty(desc.localTable);
+        if (!localEmpty && lastSync != null && inc != null) {
+          // `or(is.null, gte)` incluye filas cuya columna de cambio es NULL
+          // (p.ej. categorías sin `updated_at`); `gte` solo traería las nuevas.
+          final iso = lastSync.toIso8601String();
+          q = q.or('$inc.is.null,$inc.gte."$iso"');
+        }
+        final data = await q;
         final rows = (data as List).cast<Map<String, dynamic>>();
         if (rows.isEmpty) continue;
 
@@ -236,6 +327,38 @@ class SyncEngine {
       } catch (e) {
         _log('Error descargando ${desc.serverTable}: $e');
       }
+    }
+  }
+
+  /// True si la tabla local no tiene filas. Se usa para forzar una descarga
+  /// completa la primera vez, aunque ya exista `last_sync` (p.ej. tablas que
+  /// nunca se poblaron por `updated_at` NULL en el servidor).
+  Future<bool> _isTableEmpty(String table) async {
+    try {
+      final q = await _db.customSelect(
+        'SELECT EXISTS(SELECT 1 FROM $table) AS vacia',
+      ).getSingle();
+      return q.read<int>('vacia') == 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<DateTime?> _getLastFullSync() async {
+    try {
+      final row = await (_db.select(_db.syncMetadata)
+            ..where((t) => t.key.equals('last_sync_full')))
+          .getSingleOrNull();
+      if (row == null || row.value == null) return null;
+      final t = DateTime.tryParse(row.value!);
+      // Margen de 10s hacia atrás: las columnas son TEXT con ISO (a veces
+      // `+00:00` vs `Z`); el `gte` es lexicográfico y la escritura cae en el
+      // mismo segundo que `_setLastSync`. Re-bajar el límite cubre filas en
+      // ese límite (el upsert es idempotente, re-descargar 10s es barato).
+      if (t != null) return t.subtract(const Duration(seconds: 10));
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -254,9 +377,8 @@ class SyncEngine {
                 descripcion: Value(r['descripcion'] as String?),
                 imagen: Value(r['imagen'] as String?),
                 color: Value(r['color'] as String? ?? '#2196F3'),
-                activo: Value((r['activo'] as bool?) == true ? 1 : (r['activo'] as num?)?.toInt() ?? 1),
-                visibleEnPos: Value(
-                    (r['visible_en_pos'] as bool?) == true ? 1 : (r['visible_en_pos'] as num?)?.toInt() ?? 1),
+                activo: Value(_toBoolInt(r['activo'], def: 1)),
+                visibleEnPos: Value(_toBoolInt(r['visible_en_pos'], def: 1)),
                 createdAt: Value(_toDt(r['created_at'])),
                 updatedAt: Value(_toDt(r['updated_at'])),
               ),
@@ -317,6 +439,9 @@ class SyncEngine {
             );
           }
         case 'movimientos':
+          // Purgar TODOS los locales para reflejar fielmente el server
+          // (uploadPending ya subió los pendientes antes de esta descarga).
+          await _db.delete(_db.movimientos).go();
           for (final r in rows) {
             await _db.into(_db.movimientos).insertOnConflictUpdate(
               MovimientosCompanion.insert(
@@ -326,6 +451,28 @@ class SyncEngine {
                 requisicionId: Value(_toInt(r['requisicion_id'])),
                 ventaId: Value(_toInt(r['venta_id'])),
                 ventaSyncUuid: Value(r['venta_sync_uuid'] as String?),
+                tipo: r['tipo'] as String,
+                cantidad: _toDouble(r['cantidad']) ?? 0,
+                cantidadAnterior: Value(_toDouble(r['cantidad_anterior']) ?? 0),
+                cantidadNueva: Value(_toDouble(r['cantidad_nueva']) ?? 0),
+                pesoTotal: Value(_toDouble(r['peso_total']) ?? 0),
+                registradoPor: Value(r['registrado_por'] as String?),
+                observaciones: Value(r['observaciones'] as String?),
+                almacen: Value(r['almacen'] as String?),
+                fechaMovimiento: Value(_toDt(r['fecha_movimiento'])),
+                createdAt: Value(_toDt(r['created_at'])),
+                sincronizado: const Value(1),
+              ),
+            );
+          }
+        case 'movimientos_archivo':
+          for (final r in rows) {
+            await _db.into(_db.movimientosArchivo).insertOnConflictUpdate(
+              MovimientosArchivoCompanion.insert(
+                id: Value((r['id'] as num).toInt()),
+                productoId: _toInt(r['producto_id']) ?? 0,
+                facturaId: Value(_toInt(r['factura_id'])),
+                requisicionId: Value(_toInt(r['requisicion_id'])),
                 tipo: r['tipo'] as String,
                 cantidad: _toDouble(r['cantidad']) ?? 0,
                 cantidadAnterior: Value(_toDouble(r['cantidad_anterior']) ?? 0),
@@ -530,10 +677,21 @@ class SyncEngine {
     await _db.into(_db.syncMetadata).insertOnConflictUpdate(
       SyncMetadataCompanion.insert(
         key: 'last_sync_full',
-        value: Value(DateTime.now().toIso8601String()),
+        // UTC: las columnas remotas (timestamptz) devuelven UTC; guardar local
+        // rompería el `gte` en la descarga incremental.
+        value: Value(DateTime.now().toUtc().toIso8601String()),
         updatedAt: Value(DateTime.now()),
       ),
     );
+  }
+
+  /// Estado de modo offline forzado.
+  bool _offlineMode = false;
+
+  bool get isOffline => _offlineMode;
+
+  void setOfflineMode(bool v) {
+    _offlineMode = v;
   }
 }
 
@@ -549,6 +707,15 @@ DateTime? _toDt(Object? v) {
     return parsed?.toLocal();
   }
   return null;
+}
+
+/// Trunca la fecha a UTC al segundo (sin microsegundos), para que el match
+/// en el server sea estable (el server puede guardar sin microsegundos).
+DateTime? _toSecondUtc(DateTime? v) {
+  if (v == null) return null;
+  final u = v.toUtc();
+  return DateTime.utc(
+      u.year, u.month, u.day, u.hour, u.minute, u.second);
 }
 
 int? _toInt(Object? v) {

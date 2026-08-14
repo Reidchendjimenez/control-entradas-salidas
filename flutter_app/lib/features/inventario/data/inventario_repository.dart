@@ -159,15 +159,15 @@ class InventarioRepository {
       cantNueva = cantAnterior - cantAMover;
     }
 
-    final movimientoId = await _db.into(_db.movimientos).insert(
+    await _db.into(_db.movimientos).insert(
           MovimientosCompanion.insert(
             productoId: productoId,
             tipo: tipo,
             cantidad: cantidad,
-            cantidadAnterior: cantAnterior,
-            cantidadNueva: cantNueva,
-            pesoTotal: pesoTotal,
-            registradoPor: registradoPor,
+            cantidadAnterior: Value(cantAnterior),
+            cantidadNueva: Value(cantNueva),
+            pesoTotal: Value(pesoTotal),
+            registradoPor: Value(registradoPor),
             observaciones: Value(observaciones ?? ''),
             almacen: Value(almacenSel),
             fechaMovimiento: Value(DateTime.now()),
@@ -196,7 +196,7 @@ class InventarioRepository {
     return _db.into(_db.existencias).insertOnConflictUpdate(
           ExistenciasCompanion.insert(
             productoId: Value(productoId),
-            almacen: Value(almacen),
+            almacen: almacen,
             cantidad: Value(cantidad),
             unidad: Value(unidad),
           ),
@@ -204,13 +204,56 @@ class InventarioRepository {
   }
 
   // ---------------------------------------------------------------------
-  // Lista de compra
+  // Lista de compra (compras_lista) — porta usr/views/inventario/shopping_list.py
   // ---------------------------------------------------------------------
 
-  Future<List<ComprasLista>> getComprasLista() {
+  Future<List<ComprasListaData>> getComprasLista() {
     return (_db.select(_db.comprasLista)
           ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
         .get();
+  }
+
+  /// Versión con join a Producto + Categoría para la UI de lista de compra.
+  Future<List<ComprasListaItem>> getComprasListaConProductos() async {
+    final rows = await (_db.select(_db.comprasLista)
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+        .get();
+
+    if (rows.isEmpty) return [];
+
+    // Obtener productos relacionados
+    final productoIds = rows.map((r) => r.productoId).whereType<int>().toSet();
+    final productos = await (_db.select(_db.productos)
+          ..where((t) => t.id.isIn(productoIds)))
+        .get();
+
+    // Mapa id -> producto
+    final prodMap = {for (final p in productos) p.id: p};
+
+    // Obtener categorías de esos productos
+    final catIds = productos.map((p) => p.categoriaId).whereType<int>().toSet();
+    final categorias = await (_db.select(_db.categorias)
+          ..where((t) => t.id.isIn(catIds)))
+        .get();
+    final catMap = {for (final c in categorias) c.id: c};
+
+    return rows.map((row) {
+      final p = prodMap[row.productoId];
+      final cat = p != null && p.categoriaId != null ? catMap[p.categoriaId] : null;
+      if (p == null) return null;
+      return ComprasListaItem(
+        id: row.id,
+        productoId: p.id,
+        nombre: p.nombre,
+        precioVenta: p.precioVenta,
+        stockActual: p.stockActual,
+        unidadMedida: p.unidadMedida,
+        categoriaId: p.categoriaId ?? 0,
+        categoriaNombre: cat?.nombre ?? '',
+        categoriaColor: cat?.color ?? '#2196F3',
+        esPesable: p.esPesable == 1,
+      );
+    }).whereType<ComprasListaItem>().toList();
   }
 
   Future<void> toggleComprasLista(int productoId) async {
@@ -222,7 +265,7 @@ class InventarioRepository {
     } else {
       await _db.into(_db.comprasLista).insert(
             ComprasListaCompanion.insert(
-              productoId: Value(productoId),
+              productoId: productoId,
               createdAt: Value(DateTime.now()),
             ),
           );
@@ -232,4 +275,31 @@ class InventarioRepository {
   Future<void> deleteComprasLista(int productoId) {
     return (_db.delete(_db.comprasLista)..where((t) => t.productoId.equals(productoId))).go();
   }
+}
+
+/// Item para la UI de lista de compra (join Producto + Categoría).
+class ComprasListaItem {
+  ComprasListaItem({
+    required this.id,
+    required this.productoId,
+    required this.nombre,
+    required this.precioVenta,
+    required this.stockActual,
+    required this.unidadMedida,
+    required this.categoriaId,
+    required this.categoriaNombre,
+    required this.categoriaColor,
+    required this.esPesable,
+  });
+
+  final int id;
+  final int productoId;
+  final String nombre;
+  final double precioVenta;
+  final double stockActual;
+  final String unidadMedida;
+  final int categoriaId;
+  final String categoriaNombre;
+  final String categoriaColor;
+  final bool esPesable;
 }

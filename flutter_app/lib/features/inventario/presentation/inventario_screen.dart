@@ -1,19 +1,20 @@
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/schema/app_database.dart';
-import '../../../core/db/database_provider.dart';
+import '../data/inventario_providers.dart';
 import '../data/inventario_repository.dart';
-
-final inventarioRepoProvider = Provider<InventarioRepository>((ref) {
-  return InventarioRepository(ref.watch(appDatabaseProvider));
-});
+import 'widgets/categorias_grid.dart';
+import 'widgets/productos_panel.dart';
+import 'widgets/lista_compra_panel.dart';
+import 'dialogs/agregar_producto_dialog.dart';
 
 /// Pantalla de Inventario (porta `usr/views/inventario_view.py`).
-/// Muestra categorías → productos de la categoría → diálogos de movimiento
-/// (entrada/salida/ajuste). Incluye lista de compra.
+///
+/// Flujo estilo Flet:
+/// - Raíz: GridView de cards de categorías a pantalla completa.
+/// - Click en una categoría → vista de productos de esa categoría con back.
+/// - Lista de compra: panel con items agrupados por categoría.
 class InventarioScreen extends ConsumerStatefulWidget {
   const InventarioScreen({super.key});
 
@@ -22,219 +23,156 @@ class InventarioScreen extends ConsumerStatefulWidget {
 }
 
 class _InventarioScreenState extends ConsumerState<InventarioScreen> {
-  int? _categoriaSeleccionada;
+  Categoria? _categoria;
+  String _search = '';
+  bool _vistaListaCompra = false;
 
   @override
   Widget build(BuildContext context) {
     final repo = ref.watch(inventarioRepoProvider);
-    return Row(
+    final colors = Theme.of(context).colorScheme;
+
+    final Widget cuerpo = _vistaListaCompra
+        ? ListaCompraPanel(
+            repo: repo,
+            onClose: () => setState(() => _vistaListaCompra = false),
+          )
+            : _categoria != null
+                ? _buildProductosDeCategoria(repo, colors)
+                : CategoriasGrid(
+                    repo: repo,
+                    searchTerm: _search,
+                    onSelect: (c) => setState(() => _categoria = c),
+                  );
+
+    return Scaffold(
+      body: Column(
+        children: [
+          _buildHeader(repo, colors),
+          Expanded(child: cuerpo),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProductosDeCategoria(InventarioRepository repo, ColorScheme colors) {
+    final categoria = _categoria!;
+    return Column(
       children: [
-        // Panel izquierdo: categorías.
         Container(
-          width: 220,
-          decoration: BoxDecoration(
-            border: Border(
-                right: BorderSide(color: Theme.of(context).dividerColor)),
-          ),
-          child: StreamBuilder(
-            stream: repo.watchCategorias(),
-            builder: (context, snap) {
-              final cats = snap.data ?? [];
-              if (cats.isEmpty) {
-                return const Center(child: Text('Sin categorías'));
-              }
-              return ListView(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.apps),
-                    title: const Text('Todas'),
-                    selected: _categoriaSeleccionada == null,
-                    onTap: () => setState(() => _categoriaSeleccionada = null),
-                  ),
-                  ...cats.map((c) => ListTile(
-                        leading: CircleAvatar(
-                          backgroundColor: _parseColor(c.color),
-                          child: Text(
-                            c.nombre.isNotEmpty ? c.nombre[0] : '?',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                        title: Text(c.nombre),
-                        selected: _categoriaSeleccionada == c.id,
-                        onTap: () => setState(() => _categoriaSeleccionada = c.id),
-                      )),
-                ],
-              );
-            },
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.arrow_back),
+                tooltip: 'Volver a categorías',
+                onPressed: () => setState(() {
+                  _categoria = null;
+                  _search = '';
+                }),
+              ),
+              CircleAvatar(
+                radius: 12,
+                backgroundColor: _parseColor(categoria.color),
+                child: Text(
+                  categoria.nombre.isNotEmpty ? categoria.nombre[0].toUpperCase() : '?',
+                  style: const TextStyle(fontSize: 12, color: Colors.white),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  categoria.nombre,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
         ),
-        // Panel derecho: productos.
         Expanded(
-          child: _ProductosPanel(
+          child: ProductosPanel(
             repo: repo,
-            categoriaId: _categoriaSeleccionada,
+            categoriaId: categoria.id,
+            searchTerm: _search,
+            onAddProducto: () => showAgregarProductoDialog(context, ref),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildHeader(InventarioRepository repo, ColorScheme colors) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(bottom: BorderSide(color: colors.outlineVariant)),
+      ),
+      child: Row(
+        children: [
+          if (!_vistaListaCompra) ...[
+            Text(
+              _categoria != null ? 'Inventario' : 'Inventario',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: TextField(
+                decoration: InputDecoration(
+                  hintText: _categoria != null ? 'Buscar en ${_categoria!.nombre}...' : 'Buscar categoría...',
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  filled: true,
+                  fillColor: colors.surfaceContainerHighest,
+                ),
+                onChanged: (v) => setState(() => _search = v),
+              ),
+            ),
+            const SizedBox(width: 12),
+            IconButton(
+              icon: const Icon(Icons.shopping_cart_outlined),
+              tooltip: 'Lista de compras',
+              onPressed: () => setState(() => _vistaListaCompra = true),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: 'Agregar producto',
+              onPressed: () => showAgregarProductoDialog(context, ref),
+            ),
+          ] else ...[
+            IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => setState(() => _vistaListaCompra = false),
+            ),
+            const Text('Lista de Compras', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: 'Agregar a lista',
+              onPressed: () => showAgregarProductoDialog(context, ref),
+            ),
+            IconButton(
+              icon: const Icon(Icons.share),
+              tooltip: 'Enviar a WhatsApp',
+              onPressed: () {
+                // TODO: integrar WhatsApp
+              },
+            ),
+          ],
+        ],
+      ),
     );
   }
 
   Color _parseColor(String hex) {
     final v = int.tryParse(hex.replaceFirst('#', '0xFF'));
     return v != null ? Color(v) : Colors.blue;
-  }
-}
-
-class _ProductosPanel extends ConsumerStatefulWidget {
-  const _ProductosPanel({required this.repo, required this.categoriaId});
-  final InventarioRepository repo;
-  final int? categoriaId;
-
-  @override
-  ConsumerState<_ProductosPanel> createState() => _ProductosPanelState();
-}
-
-class _ProductosPanelState extends ConsumerState<_ProductosPanel> {
-  String _search = '';
-
-  Future<List<Producto>> _load() {
-    if (widget.categoriaId != null) {
-      return widget.repo.getProductosByCategoria(widget.categoriaId!);
-    }
-    return widget.repo.getAllProductos(searchTerm: _search);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(12),
-          child: TextField(
-            decoration: const InputDecoration(
-              hintText: 'Buscar producto...',
-              prefixIcon: Icon(Icons.search),
-              isDense: true,
-            ),
-            onChanged: (v) => setState(() => _search = v),
-          ),
-        ),
-        Expanded(
-          child: FutureBuilder<List<Producto>>(
-            future: _load(),
-            builder: (context, snap) {
-              if (snap.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              final prods = snap.data ?? [];
-              if (prods.isEmpty) {
-                return const Center(child: Text('Sin productos'));
-              }
-              return ListView.builder(
-                itemCount: prods.length,
-                itemBuilder: (context, i) {
-                  final p = prods[i];
-                  return ListTile(
-                    title: Text(p.nombre),
-                    subtitle: Text(
-                        '${p.unidadMedida} • Stock mín: ${p.stockMinimo}'),
-                    trailing: FutureBuilder<List<Existencia>>(
-                      future: widget.repo.getExistenciasByProducto(p.id),
-                      builder: (context, eSnap) {
-                        final total = (eSnap.data ?? [])
-                            .fold<double>(0, (a, e) => a + e.cantidad);
-                        return Text('${total.toStringAsFixed(2)}',
-                            style: Theme.of(context).textTheme.titleMedium);
-                      },
-                    ),
-                    onTap: () => _showMovimientoDialog(p),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _showMovimientoDialog(Producto p) async {
-    final cantidadCtrl = TextEditingController(text: '1');
-    String tipo = 'entrada';
-    String? almacen = p.almacenPredeterminado;
-
-    await showDialog<void>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSt) => AlertDialog(
-          title: Text(p.nombre),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'entrada', label: Text('Entrada')),
-                  ButtonSegment(value: 'salida', label: Text('Salida')),
-                  ButtonSegment(value: 'ajuste', label: Text('Ajuste')),
-                ],
-                selected: {tipo},
-                onSelectionChanged: (s) => setSt(() => tipo = s.first),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: cantidadCtrl,
-                decoration: const InputDecoration(labelText: 'Cantidad'),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                decoration: const InputDecoration(labelText: 'Almacén'),
-                value: almacen,
-                items: const [
-                  DropdownMenuItem(value: 'principal', child: Text('principal')),
-                  DropdownMenuItem(value: 'cocina', child: Text('cocina')),
-                  DropdownMenuItem(value: 'bar', child: Text('bar')),
-                ],
-                onChanged: (v) => setSt(() => almacen = v),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () async {
-                final cant = double.tryParse(cantidadCtrl.text) ?? 0;
-                if (cant <= 0) return;
-                final ok = await widget.repo.registrarMovimiento(
-                  productoId: p.id,
-                  tipo: tipo,
-                  cantidad: cant,
-                  almacen: almacen,
-                  unidadMedida: p.unidadMedida,
-                  esPesable: p.esPesable == 1,
-                );
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(ok
-                          ? 'Movimiento registrado'
-                          : 'Stock insuficiente'),
-                      backgroundColor: ok ? Colors.green : Colors.red,
-                    ),
-                  );
-                  if (ok) setState(() {});
-                }
-              },
-              child: const Text('Registrar'),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

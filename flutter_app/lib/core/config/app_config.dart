@@ -19,7 +19,9 @@ class AppConfig {
   }
 
   static String get supabaseAnonKey {
-    return const String.fromEnvironment('SUPABASE_ANON_KEY');
+    const fromEnv = String.fromEnvironment('SUPABASE_ANON_KEY');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    return 'sb_publishable_PSAgKL3D297u8QY-G-SNuw_kcKWdCu5';
   }
 
   /// URL del updater (equivalent a UPDATE_URL del .env).
@@ -34,7 +36,8 @@ class AppConfig {
       defaultValue: '8502');
 
   /// Intervalo del sync background en segundos (sync.py start_background_sync).
-  static const int syncIntervalSeconds = 20;
+  /// Subido de 20s a 300s para no exceder la cuota de egress de Supabase.
+  static const int syncIntervalSeconds = 300;
 
   static bool get hasSupabaseKey => supabaseAnonKey.isNotEmpty;
 }

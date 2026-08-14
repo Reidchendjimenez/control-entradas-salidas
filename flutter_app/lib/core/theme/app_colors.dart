@@ -8,7 +8,7 @@ class AppColors {
   static const dark = <String, String>{
     'bg': '#000000',
     'surface': '#0D0D14',
-    'card': '#15151F',
+    'card': '#14143b',
     'card_hover': '#1E1E2A',
     'text_primary': '#FFFFFF',
     'text_secondary': '#C4B5E0',

@@ -13,7 +13,10 @@ final syncEngineProvider = Provider<SyncEngine?>((ref) {
   final client = ref.watch(supabaseProvider);
   if (client == null) return null;
   final db = ref.watch(appDatabaseProvider);
-  return SyncEngine(db: db, client: client);
+  final engine = SyncEngine(db: db, client: client);
+  // Visibilizar el progreso del sync en los logs (vía LogBridge).
+  engine.onProgress = (msg) => print('[sync] $msg');
+  return engine;
 });
 
 /// Registra una operación pendiente en la cola de sync (outbox).

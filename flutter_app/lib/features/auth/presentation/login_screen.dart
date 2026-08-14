@@ -4,12 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/auth/session_controller.dart';
 import '../../../core/db/database_provider.dart';
 
-/// Provider del controlador de sesión.
-final sessionProvider =
-    StateNotifierProvider<SessionController, SessionState>((ref) {
-  return SessionController(ref.watch(appDatabaseProvider));
-});
-
 /// Pantalla de login / registro (porta `usr/views/login_view.py`).
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
