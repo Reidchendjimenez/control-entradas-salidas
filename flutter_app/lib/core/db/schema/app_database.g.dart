@@ -9176,6 +9176,553 @@ class DispositivoUsuarioCompanion
   }
 }
 
+class $WhatsappQueueTable extends WhatsappQueue
+    with TableInfo<$WhatsappQueueTable, WhatsappQueueData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WhatsappQueueTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _tipoMeta = const VerificationMeta('tipo');
+  @override
+  late final GeneratedColumn<String> tipo = GeneratedColumn<String>(
+      'tipo', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('text'));
+  static const VerificationMeta _mensajeMeta =
+      const VerificationMeta('mensaje');
+  @override
+  late final GeneratedColumn<String> mensaje = GeneratedColumn<String>(
+      'mensaje', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _imagenBase64Meta =
+      const VerificationMeta('imagenBase64');
+  @override
+  late final GeneratedColumn<String> imagenBase64 = GeneratedColumn<String>(
+      'imagen_base64', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _imagenPathMeta =
+      const VerificationMeta('imagenPath');
+  @override
+  late final GeneratedColumn<String> imagenPath = GeneratedColumn<String>(
+      'imagen_path', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _estadoMeta = const VerificationMeta('estado');
+  @override
+  late final GeneratedColumn<String> estado = GeneratedColumn<String>(
+      'estado', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('pending'));
+  static const VerificationMeta _intentosMeta =
+      const VerificationMeta('intentos');
+  @override
+  late final GeneratedColumn<int> intentos = GeneratedColumn<int>(
+      'intentos', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _maxIntentosMeta =
+      const VerificationMeta('maxIntentos');
+  @override
+  late final GeneratedColumn<int> maxIntentos = GeneratedColumn<int>(
+      'max_intentos', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(10));
+  static const VerificationMeta _ultimoErrorMeta =
+      const VerificationMeta('ultimoError');
+  @override
+  late final GeneratedColumn<String> ultimoError = GeneratedColumn<String>(
+      'ultimo_error', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        tipo,
+        mensaje,
+        imagenBase64,
+        imagenPath,
+        estado,
+        intentos,
+        maxIntentos,
+        ultimoError,
+        createdAt,
+        updatedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'whatsapp_queue';
+  @override
+  VerificationContext validateIntegrity(Insertable<WhatsappQueueData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('tipo')) {
+      context.handle(
+          _tipoMeta, tipo.isAcceptableOrUnknown(data['tipo']!, _tipoMeta));
+    }
+    if (data.containsKey('mensaje')) {
+      context.handle(_mensajeMeta,
+          mensaje.isAcceptableOrUnknown(data['mensaje']!, _mensajeMeta));
+    }
+    if (data.containsKey('imagen_base64')) {
+      context.handle(
+          _imagenBase64Meta,
+          imagenBase64.isAcceptableOrUnknown(
+              data['imagen_base64']!, _imagenBase64Meta));
+    }
+    if (data.containsKey('imagen_path')) {
+      context.handle(
+          _imagenPathMeta,
+          imagenPath.isAcceptableOrUnknown(
+              data['imagen_path']!, _imagenPathMeta));
+    }
+    if (data.containsKey('estado')) {
+      context.handle(_estadoMeta,
+          estado.isAcceptableOrUnknown(data['estado']!, _estadoMeta));
+    }
+    if (data.containsKey('intentos')) {
+      context.handle(_intentosMeta,
+          intentos.isAcceptableOrUnknown(data['intentos']!, _intentosMeta));
+    }
+    if (data.containsKey('max_intentos')) {
+      context.handle(
+          _maxIntentosMeta,
+          maxIntentos.isAcceptableOrUnknown(
+              data['max_intentos']!, _maxIntentosMeta));
+    }
+    if (data.containsKey('ultimo_error')) {
+      context.handle(
+          _ultimoErrorMeta,
+          ultimoError.isAcceptableOrUnknown(
+              data['ultimo_error']!, _ultimoErrorMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  WhatsappQueueData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WhatsappQueueData(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      tipo: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}tipo'])!,
+      mensaje: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}mensaje']),
+      imagenBase64: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}imagen_base64']),
+      imagenPath: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}imagen_path']),
+      estado: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}estado'])!,
+      intentos: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}intentos'])!,
+      maxIntentos: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}max_intentos'])!,
+      ultimoError: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}ultimo_error']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at']),
+    );
+  }
+
+  @override
+  $WhatsappQueueTable createAlias(String alias) {
+    return $WhatsappQueueTable(attachedDatabase, alias);
+  }
+}
+
+class WhatsappQueueData extends DataClass
+    implements Insertable<WhatsappQueueData> {
+  final int id;
+  final String tipo;
+  final String? mensaje;
+  final String? imagenBase64;
+  final String? imagenPath;
+  final String estado;
+  final int intentos;
+  final int maxIntentos;
+  final String? ultimoError;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+  const WhatsappQueueData(
+      {required this.id,
+      required this.tipo,
+      this.mensaje,
+      this.imagenBase64,
+      this.imagenPath,
+      required this.estado,
+      required this.intentos,
+      required this.maxIntentos,
+      this.ultimoError,
+      required this.createdAt,
+      this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['tipo'] = Variable<String>(tipo);
+    if (!nullToAbsent || mensaje != null) {
+      map['mensaje'] = Variable<String>(mensaje);
+    }
+    if (!nullToAbsent || imagenBase64 != null) {
+      map['imagen_base64'] = Variable<String>(imagenBase64);
+    }
+    if (!nullToAbsent || imagenPath != null) {
+      map['imagen_path'] = Variable<String>(imagenPath);
+    }
+    map['estado'] = Variable<String>(estado);
+    map['intentos'] = Variable<int>(intentos);
+    map['max_intentos'] = Variable<int>(maxIntentos);
+    if (!nullToAbsent || ultimoError != null) {
+      map['ultimo_error'] = Variable<String>(ultimoError);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    return map;
+  }
+
+  WhatsappQueueCompanion toCompanion(bool nullToAbsent) {
+    return WhatsappQueueCompanion(
+      id: Value(id),
+      tipo: Value(tipo),
+      mensaje: mensaje == null && nullToAbsent
+          ? const Value.absent()
+          : Value(mensaje),
+      imagenBase64: imagenBase64 == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imagenBase64),
+      imagenPath: imagenPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imagenPath),
+      estado: Value(estado),
+      intentos: Value(intentos),
+      maxIntentos: Value(maxIntentos),
+      ultimoError: ultimoError == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ultimoError),
+      createdAt: Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+    );
+  }
+
+  factory WhatsappQueueData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WhatsappQueueData(
+      id: serializer.fromJson<int>(json['id']),
+      tipo: serializer.fromJson<String>(json['tipo']),
+      mensaje: serializer.fromJson<String?>(json['mensaje']),
+      imagenBase64: serializer.fromJson<String?>(json['imagenBase64']),
+      imagenPath: serializer.fromJson<String?>(json['imagenPath']),
+      estado: serializer.fromJson<String>(json['estado']),
+      intentos: serializer.fromJson<int>(json['intentos']),
+      maxIntentos: serializer.fromJson<int>(json['maxIntentos']),
+      ultimoError: serializer.fromJson<String?>(json['ultimoError']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'tipo': serializer.toJson<String>(tipo),
+      'mensaje': serializer.toJson<String?>(mensaje),
+      'imagenBase64': serializer.toJson<String?>(imagenBase64),
+      'imagenPath': serializer.toJson<String?>(imagenPath),
+      'estado': serializer.toJson<String>(estado),
+      'intentos': serializer.toJson<int>(intentos),
+      'maxIntentos': serializer.toJson<int>(maxIntentos),
+      'ultimoError': serializer.toJson<String?>(ultimoError),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+    };
+  }
+
+  WhatsappQueueData copyWith(
+          {int? id,
+          String? tipo,
+          Value<String?> mensaje = const Value.absent(),
+          Value<String?> imagenBase64 = const Value.absent(),
+          Value<String?> imagenPath = const Value.absent(),
+          String? estado,
+          int? intentos,
+          int? maxIntentos,
+          Value<String?> ultimoError = const Value.absent(),
+          DateTime? createdAt,
+          Value<DateTime?> updatedAt = const Value.absent()}) =>
+      WhatsappQueueData(
+        id: id ?? this.id,
+        tipo: tipo ?? this.tipo,
+        mensaje: mensaje.present ? mensaje.value : this.mensaje,
+        imagenBase64:
+            imagenBase64.present ? imagenBase64.value : this.imagenBase64,
+        imagenPath: imagenPath.present ? imagenPath.value : this.imagenPath,
+        estado: estado ?? this.estado,
+        intentos: intentos ?? this.intentos,
+        maxIntentos: maxIntentos ?? this.maxIntentos,
+        ultimoError: ultimoError.present ? ultimoError.value : this.ultimoError,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+      );
+  WhatsappQueueData copyWithCompanion(WhatsappQueueCompanion data) {
+    return WhatsappQueueData(
+      id: data.id.present ? data.id.value : this.id,
+      tipo: data.tipo.present ? data.tipo.value : this.tipo,
+      mensaje: data.mensaje.present ? data.mensaje.value : this.mensaje,
+      imagenBase64: data.imagenBase64.present
+          ? data.imagenBase64.value
+          : this.imagenBase64,
+      imagenPath:
+          data.imagenPath.present ? data.imagenPath.value : this.imagenPath,
+      estado: data.estado.present ? data.estado.value : this.estado,
+      intentos: data.intentos.present ? data.intentos.value : this.intentos,
+      maxIntentos:
+          data.maxIntentos.present ? data.maxIntentos.value : this.maxIntentos,
+      ultimoError:
+          data.ultimoError.present ? data.ultimoError.value : this.ultimoError,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WhatsappQueueData(')
+          ..write('id: $id, ')
+          ..write('tipo: $tipo, ')
+          ..write('mensaje: $mensaje, ')
+          ..write('imagenBase64: $imagenBase64, ')
+          ..write('imagenPath: $imagenPath, ')
+          ..write('estado: $estado, ')
+          ..write('intentos: $intentos, ')
+          ..write('maxIntentos: $maxIntentos, ')
+          ..write('ultimoError: $ultimoError, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, tipo, mensaje, imagenBase64, imagenPath,
+      estado, intentos, maxIntentos, ultimoError, createdAt, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WhatsappQueueData &&
+          other.id == this.id &&
+          other.tipo == this.tipo &&
+          other.mensaje == this.mensaje &&
+          other.imagenBase64 == this.imagenBase64 &&
+          other.imagenPath == this.imagenPath &&
+          other.estado == this.estado &&
+          other.intentos == this.intentos &&
+          other.maxIntentos == this.maxIntentos &&
+          other.ultimoError == this.ultimoError &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class WhatsappQueueCompanion extends UpdateCompanion<WhatsappQueueData> {
+  final Value<int> id;
+  final Value<String> tipo;
+  final Value<String?> mensaje;
+  final Value<String?> imagenBase64;
+  final Value<String?> imagenPath;
+  final Value<String> estado;
+  final Value<int> intentos;
+  final Value<int> maxIntentos;
+  final Value<String?> ultimoError;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> updatedAt;
+  const WhatsappQueueCompanion({
+    this.id = const Value.absent(),
+    this.tipo = const Value.absent(),
+    this.mensaje = const Value.absent(),
+    this.imagenBase64 = const Value.absent(),
+    this.imagenPath = const Value.absent(),
+    this.estado = const Value.absent(),
+    this.intentos = const Value.absent(),
+    this.maxIntentos = const Value.absent(),
+    this.ultimoError = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  WhatsappQueueCompanion.insert({
+    this.id = const Value.absent(),
+    this.tipo = const Value.absent(),
+    this.mensaje = const Value.absent(),
+    this.imagenBase64 = const Value.absent(),
+    this.imagenPath = const Value.absent(),
+    this.estado = const Value.absent(),
+    this.intentos = const Value.absent(),
+    this.maxIntentos = const Value.absent(),
+    this.ultimoError = const Value.absent(),
+    required DateTime createdAt,
+    this.updatedAt = const Value.absent(),
+  }) : createdAt = Value(createdAt);
+  static Insertable<WhatsappQueueData> custom({
+    Expression<int>? id,
+    Expression<String>? tipo,
+    Expression<String>? mensaje,
+    Expression<String>? imagenBase64,
+    Expression<String>? imagenPath,
+    Expression<String>? estado,
+    Expression<int>? intentos,
+    Expression<int>? maxIntentos,
+    Expression<String>? ultimoError,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (tipo != null) 'tipo': tipo,
+      if (mensaje != null) 'mensaje': mensaje,
+      if (imagenBase64 != null) 'imagen_base64': imagenBase64,
+      if (imagenPath != null) 'imagen_path': imagenPath,
+      if (estado != null) 'estado': estado,
+      if (intentos != null) 'intentos': intentos,
+      if (maxIntentos != null) 'max_intentos': maxIntentos,
+      if (ultimoError != null) 'ultimo_error': ultimoError,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  WhatsappQueueCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? tipo,
+      Value<String?>? mensaje,
+      Value<String?>? imagenBase64,
+      Value<String?>? imagenPath,
+      Value<String>? estado,
+      Value<int>? intentos,
+      Value<int>? maxIntentos,
+      Value<String?>? ultimoError,
+      Value<DateTime>? createdAt,
+      Value<DateTime?>? updatedAt}) {
+    return WhatsappQueueCompanion(
+      id: id ?? this.id,
+      tipo: tipo ?? this.tipo,
+      mensaje: mensaje ?? this.mensaje,
+      imagenBase64: imagenBase64 ?? this.imagenBase64,
+      imagenPath: imagenPath ?? this.imagenPath,
+      estado: estado ?? this.estado,
+      intentos: intentos ?? this.intentos,
+      maxIntentos: maxIntentos ?? this.maxIntentos,
+      ultimoError: ultimoError ?? this.ultimoError,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (tipo.present) {
+      map['tipo'] = Variable<String>(tipo.value);
+    }
+    if (mensaje.present) {
+      map['mensaje'] = Variable<String>(mensaje.value);
+    }
+    if (imagenBase64.present) {
+      map['imagen_base64'] = Variable<String>(imagenBase64.value);
+    }
+    if (imagenPath.present) {
+      map['imagen_path'] = Variable<String>(imagenPath.value);
+    }
+    if (estado.present) {
+      map['estado'] = Variable<String>(estado.value);
+    }
+    if (intentos.present) {
+      map['intentos'] = Variable<int>(intentos.value);
+    }
+    if (maxIntentos.present) {
+      map['max_intentos'] = Variable<int>(maxIntentos.value);
+    }
+    if (ultimoError.present) {
+      map['ultimo_error'] = Variable<String>(ultimoError.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WhatsappQueueCompanion(')
+          ..write('id: $id, ')
+          ..write('tipo: $tipo, ')
+          ..write('mensaje: $mensaje, ')
+          ..write('imagenBase64: $imagenBase64, ')
+          ..write('imagenPath: $imagenPath, ')
+          ..write('estado: $estado, ')
+          ..write('intentos: $intentos, ')
+          ..write('maxIntentos: $maxIntentos, ')
+          ..write('ultimoError: $ultimoError, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -9205,6 +9752,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $SyncMetadataTable syncMetadata = $SyncMetadataTable(this);
   late final $DispositivoUsuarioTable dispositivoUsuario =
       $DispositivoUsuarioTable(this);
+  late final $WhatsappQueueTable whatsappQueue = $WhatsappQueueTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -9229,7 +9777,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         comprasLista,
         syncQueue,
         syncMetadata,
-        dispositivoUsuario
+        dispositivoUsuario,
+        whatsappQueue
       ];
 }
 
@@ -13671,6 +14220,264 @@ typedef $$DispositivoUsuarioTableProcessedTableManager = ProcessedTableManager<
     ),
     DispositivoUsuarioData,
     PrefetchHooks Function()>;
+typedef $$WhatsappQueueTableCreateCompanionBuilder = WhatsappQueueCompanion
+    Function({
+  Value<int> id,
+  Value<String> tipo,
+  Value<String?> mensaje,
+  Value<String?> imagenBase64,
+  Value<String?> imagenPath,
+  Value<String> estado,
+  Value<int> intentos,
+  Value<int> maxIntentos,
+  Value<String?> ultimoError,
+  required DateTime createdAt,
+  Value<DateTime?> updatedAt,
+});
+typedef $$WhatsappQueueTableUpdateCompanionBuilder = WhatsappQueueCompanion
+    Function({
+  Value<int> id,
+  Value<String> tipo,
+  Value<String?> mensaje,
+  Value<String?> imagenBase64,
+  Value<String?> imagenPath,
+  Value<String> estado,
+  Value<int> intentos,
+  Value<int> maxIntentos,
+  Value<String?> ultimoError,
+  Value<DateTime> createdAt,
+  Value<DateTime?> updatedAt,
+});
+
+class $$WhatsappQueueTableFilterComposer
+    extends Composer<_$AppDatabase, $WhatsappQueueTable> {
+  $$WhatsappQueueTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get tipo => $composableBuilder(
+      column: $table.tipo, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get mensaje => $composableBuilder(
+      column: $table.mensaje, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get imagenBase64 => $composableBuilder(
+      column: $table.imagenBase64, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get imagenPath => $composableBuilder(
+      column: $table.imagenPath, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get estado => $composableBuilder(
+      column: $table.estado, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get intentos => $composableBuilder(
+      column: $table.intentos, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get maxIntentos => $composableBuilder(
+      column: $table.maxIntentos, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get ultimoError => $composableBuilder(
+      column: $table.ultimoError, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$WhatsappQueueTableOrderingComposer
+    extends Composer<_$AppDatabase, $WhatsappQueueTable> {
+  $$WhatsappQueueTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get tipo => $composableBuilder(
+      column: $table.tipo, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get mensaje => $composableBuilder(
+      column: $table.mensaje, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get imagenBase64 => $composableBuilder(
+      column: $table.imagenBase64,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get imagenPath => $composableBuilder(
+      column: $table.imagenPath, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get estado => $composableBuilder(
+      column: $table.estado, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get intentos => $composableBuilder(
+      column: $table.intentos, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get maxIntentos => $composableBuilder(
+      column: $table.maxIntentos, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get ultimoError => $composableBuilder(
+      column: $table.ultimoError, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$WhatsappQueueTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WhatsappQueueTable> {
+  $$WhatsappQueueTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get tipo =>
+      $composableBuilder(column: $table.tipo, builder: (column) => column);
+
+  GeneratedColumn<String> get mensaje =>
+      $composableBuilder(column: $table.mensaje, builder: (column) => column);
+
+  GeneratedColumn<String> get imagenBase64 => $composableBuilder(
+      column: $table.imagenBase64, builder: (column) => column);
+
+  GeneratedColumn<String> get imagenPath => $composableBuilder(
+      column: $table.imagenPath, builder: (column) => column);
+
+  GeneratedColumn<String> get estado =>
+      $composableBuilder(column: $table.estado, builder: (column) => column);
+
+  GeneratedColumn<int> get intentos =>
+      $composableBuilder(column: $table.intentos, builder: (column) => column);
+
+  GeneratedColumn<int> get maxIntentos => $composableBuilder(
+      column: $table.maxIntentos, builder: (column) => column);
+
+  GeneratedColumn<String> get ultimoError => $composableBuilder(
+      column: $table.ultimoError, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$WhatsappQueueTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $WhatsappQueueTable,
+    WhatsappQueueData,
+    $$WhatsappQueueTableFilterComposer,
+    $$WhatsappQueueTableOrderingComposer,
+    $$WhatsappQueueTableAnnotationComposer,
+    $$WhatsappQueueTableCreateCompanionBuilder,
+    $$WhatsappQueueTableUpdateCompanionBuilder,
+    (
+      WhatsappQueueData,
+      BaseReferences<_$AppDatabase, $WhatsappQueueTable, WhatsappQueueData>
+    ),
+    WhatsappQueueData,
+    PrefetchHooks Function()> {
+  $$WhatsappQueueTableTableManager(_$AppDatabase db, $WhatsappQueueTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WhatsappQueueTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WhatsappQueueTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$WhatsappQueueTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> tipo = const Value.absent(),
+            Value<String?> mensaje = const Value.absent(),
+            Value<String?> imagenBase64 = const Value.absent(),
+            Value<String?> imagenPath = const Value.absent(),
+            Value<String> estado = const Value.absent(),
+            Value<int> intentos = const Value.absent(),
+            Value<int> maxIntentos = const Value.absent(),
+            Value<String?> ultimoError = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime?> updatedAt = const Value.absent(),
+          }) =>
+              WhatsappQueueCompanion(
+            id: id,
+            tipo: tipo,
+            mensaje: mensaje,
+            imagenBase64: imagenBase64,
+            imagenPath: imagenPath,
+            estado: estado,
+            intentos: intentos,
+            maxIntentos: maxIntentos,
+            ultimoError: ultimoError,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> tipo = const Value.absent(),
+            Value<String?> mensaje = const Value.absent(),
+            Value<String?> imagenBase64 = const Value.absent(),
+            Value<String?> imagenPath = const Value.absent(),
+            Value<String> estado = const Value.absent(),
+            Value<int> intentos = const Value.absent(),
+            Value<int> maxIntentos = const Value.absent(),
+            Value<String?> ultimoError = const Value.absent(),
+            required DateTime createdAt,
+            Value<DateTime?> updatedAt = const Value.absent(),
+          }) =>
+              WhatsappQueueCompanion.insert(
+            id: id,
+            tipo: tipo,
+            mensaje: mensaje,
+            imagenBase64: imagenBase64,
+            imagenPath: imagenPath,
+            estado: estado,
+            intentos: intentos,
+            maxIntentos: maxIntentos,
+            ultimoError: ultimoError,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$WhatsappQueueTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $WhatsappQueueTable,
+    WhatsappQueueData,
+    $$WhatsappQueueTableFilterComposer,
+    $$WhatsappQueueTableOrderingComposer,
+    $$WhatsappQueueTableAnnotationComposer,
+    $$WhatsappQueueTableCreateCompanionBuilder,
+    $$WhatsappQueueTableUpdateCompanionBuilder,
+    (
+      WhatsappQueueData,
+      BaseReferences<_$AppDatabase, $WhatsappQueueTable, WhatsappQueueData>
+    ),
+    WhatsappQueueData,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -13715,4 +14522,6 @@ class $AppDatabaseManager {
       $$SyncMetadataTableTableManager(_db, _db.syncMetadata);
   $$DispositivoUsuarioTableTableManager get dispositivoUsuario =>
       $$DispositivoUsuarioTableTableManager(_db, _db.dispositivoUsuario);
+  $$WhatsappQueueTableTableManager get whatsappQueue =>
+      $$WhatsappQueueTableTableManager(_db, _db.whatsappQueue);
 }

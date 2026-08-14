@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
-import '../../data/inventario_repository.dart';
-import '../../data/inventario_providers.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:control_entradas_salidas/core/db/schema/app_database.dart';
+import 'package:control_entradas_salidas/features/inventario/data/inventario_repository.dart';
+import 'package:control_entradas_salidas/features/inventario/data/inventario_providers.dart';
+import 'package:control_entradas_salidas/features/calculadora/presentation/calculadora_dialog.dart';
+import 'package:control_entradas_salidas/features/calculadora/presentation/calculadora_button.dart';
 import 'producto_card.dart';
 
 /// Panel derecho: productos filtrados por categoría o búsqueda.
@@ -13,13 +18,11 @@ class ProductosPanel extends ConsumerStatefulWidget {
     required this.repo,
     required this.categoriaId,
     required this.searchTerm,
-    required this.onAddProducto,
   });
 
   final InventarioRepository repo;
   final int? categoriaId;
   final String searchTerm;
-  final VoidCallback onAddProducto;
 
   @override
   ConsumerState<ProductosPanel> createState() => _ProductosPanelState();
@@ -79,6 +82,11 @@ class _ProductosPanelState extends ConsumerState<ProductosPanel> {
     String? almacen = p.almacenPredeterminado;
     if (!almacenes.contains(almacen)) almacen = almacenes.first;
 
+    final cantCtrl = TextEditingController(text: '1');
+    final undCtrl = TextEditingController();
+    final kgUndCtrl = TextEditingController();
+    final pesoTotalCtrl = TextEditingController();
+
     await showDialog<void>(
       context: context,
       builder: (ctx) => StatefulBuilder(
@@ -111,8 +119,11 @@ class _ProductosPanelState extends ConsumerState<ProductosPanel> {
                 const SizedBox(height: 12),
                 if (p.esPesable != 1)
                   TextField(
-                    decoration: const InputDecoration(labelText: 'Cantidad'),
-                    controller: TextEditingController(text: '1'),
+                    controller: cantCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Cantidad',
+                      suffixIcon: CalculadoraSuffixIcon(targetController: cantCtrl),
+                    ),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   )
                 else ...[
@@ -120,14 +131,22 @@ class _ProductosPanelState extends ConsumerState<ProductosPanel> {
                     children: [
                       Expanded(
                         child: TextField(
-                          decoration: const InputDecoration(labelText: 'Und.'),
+                          controller: undCtrl,
+                          decoration: InputDecoration(
+                            labelText: 'Und.',
+                            suffixIcon: CalculadoraSuffixIcon(targetController: undCtrl),
+                          ),
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: TextField(
-                          decoration: const InputDecoration(labelText: 'Kg/und.'),
+                          controller: kgUndCtrl,
+                          decoration: InputDecoration(
+                            labelText: 'Kg/und.',
+                            suffixIcon: CalculadoraSuffixIcon(targetController: kgUndCtrl),
+                          ),
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         ),
                       ),
@@ -135,7 +154,12 @@ class _ProductosPanelState extends ConsumerState<ProductosPanel> {
                   ),
                   const SizedBox(height: 8),
                   TextField(
-                    decoration: const InputDecoration(labelText: 'Peso Total (kg)', suffixText: 'kg'),
+                    controller: pesoTotalCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Peso Total (kg)',
+                      suffixText: 'kg',
+                      suffixIcon: CalculadoraSuffixIcon(targetController: pesoTotalCtrl),
+                    ),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   ),
                 ],

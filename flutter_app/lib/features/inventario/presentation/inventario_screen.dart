@@ -7,7 +7,6 @@ import '../data/inventario_repository.dart';
 import 'widgets/categorias_grid.dart';
 import 'widgets/productos_panel.dart';
 import 'widgets/lista_compra_panel.dart';
-import 'dialogs/agregar_producto_dialog.dart';
 
 /// Pantalla de Inventario (porta `usr/views/inventario_view.py`).
 ///
@@ -96,7 +95,6 @@ class _InventarioScreenState extends ConsumerState<InventarioScreen> {
             repo: repo,
             categoriaId: categoria.id,
             searchTerm: _search,
-            onAddProducto: () => showAgregarProductoDialog(context, ref),
           ),
         ),
       ],
@@ -113,11 +111,6 @@ class _InventarioScreenState extends ConsumerState<InventarioScreen> {
       child: Row(
         children: [
           if (!_vistaListaCompra) ...[
-            Text(
-              _categoria != null ? 'Inventario' : 'Inventario',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(width: 16),
             Expanded(
               child: TextField(
                 decoration: InputDecoration(
@@ -141,11 +134,6 @@ class _InventarioScreenState extends ConsumerState<InventarioScreen> {
               tooltip: 'Lista de compras',
               onPressed: () => setState(() => _vistaListaCompra = true),
             ),
-            IconButton(
-              icon: const Icon(Icons.add),
-              tooltip: 'Agregar producto',
-              onPressed: () => showAgregarProductoDialog(context, ref),
-            ),
           ] else ...[
             IconButton(
               icon: const Icon(Icons.arrow_back),
@@ -153,11 +141,6 @@ class _InventarioScreenState extends ConsumerState<InventarioScreen> {
             ),
             const Text('Lista de Compras', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const Spacer(),
-            IconButton(
-              icon: const Icon(Icons.add),
-              tooltip: 'Agregar a lista',
-              onPressed: () => showAgregarProductoDialog(context, ref),
-            ),
             IconButton(
               icon: const Icon(Icons.share),
               tooltip: 'Enviar a WhatsApp',

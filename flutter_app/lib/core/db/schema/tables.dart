@@ -299,3 +299,24 @@ class DispositivoUsuario extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+/// Cola local de mensajes de WhatsApp — réplica de
+/// `usr/database/local_replica.py` (`whatsapp_queue`). Es solo local (outbox):
+/// NO se sincroniza con Supabase; se envía por HTTP al bot.
+class WhatsappQueue extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get tipo => text().withDefault(const Constant('text'))();
+  TextColumn get mensaje => text().nullable()();
+  TextColumn get imagenBase64 => text().named('imagen_base64').nullable()();
+  TextColumn get imagenPath => text().named('imagen_path').nullable()();
+  TextColumn get estado => text().withDefault(const Constant('pending'))();
+  IntColumn get intentos => integer().withDefault(const Constant(0))();
+  IntColumn get maxIntentos =>
+      integer().named('max_intentos').withDefault(const Constant(10))();
+  TextColumn get ultimoError => text().named('ultimo_error').nullable()();
+  DateTimeColumn get createdAt => dateTime().named('created_at')();
+  DateTimeColumn get updatedAt => dateTime().named('updated_at').nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}

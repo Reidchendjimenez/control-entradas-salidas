@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,14 +8,15 @@ import '../auth/session_controller.dart';
 import '../state/theme_controller.dart';
 import '../../features/historial/presentation/historial_screen.dart';
 import '../../features/inventario/presentation/inventario_screen.dart';
+import '../../features/producciones/presentation/producciones_screen.dart';
 import '../../features/requisiciones/presentation/requisiciones_screen.dart';
 import '../../features/stock/presentation/stock_screen.dart';
 import '../../features/validacion/presentation/validacion_screen.dart';
 import '../../features/configuracion/presentation/configuracion_screen.dart';
+import '../../features/whatsapp/presentation/bandeja_screen.dart';
 import '../sync/sync_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
-
 /// Shell principal — replica `usr/app_controller.py`:
 /// - sin sesión → LoginScreen.
 /// - con sesión → header custom (icono + título + subtítulo) sobre un
@@ -53,8 +56,25 @@ class AppShell extends ConsumerWidget {
       theme: appTheme.light(),
       darkTheme: appTheme.dark(),
       themeMode: themeMode,
+      // Diálogos responsivos: en escritorio crecen (min 520, hasta 85% del
+      // ancho con tope de 1000) para aprovechar pantallas grandes; en móvil
+      // conservan el comportamiento por defecto de Material.
+      builder: (context, child) {
+        final ancho = MediaQuery.sizeOf(context).width;
+        final esEscritorio = ancho >= 600;
+        final constraints = esEscritorio
+            ? BoxConstraints(
+                minWidth: 520,
+                maxWidth: math.min(ancho * 0.85, 1000),
+              )
+            : const BoxConstraints(minWidth: 280);
+        return DialogTheme(
+          data: Theme.of(context).dialogTheme.copyWith(constraints: constraints),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       home: session is Authenticated
-          ? _ShellAutenticado(destinos: _destinos)
+          ? const _ShellAutenticado(destinos: _destinos)
           : const LoginScreen(),
     );
   }
@@ -91,6 +111,7 @@ class _ShellAutenticadoState extends ConsumerState<_ShellAutenticado> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final c = isDark ? AppColors.dark : AppColors.light;
     final dest = widget.destinos[_index];
+    final offline = ref.watch(isOfflineProvider);
 
     return Scaffold(
       key: _scaffoldKey,
@@ -102,6 +123,7 @@ class _ShellAutenticadoState extends ConsumerState<_ShellAutenticado> {
               index: _index,
               colors: c,
               esEscritorio: esEscritorio,
+              offline: offline,
               onSync: () => _dispararSync(context),
               onToggleTheme: () => ref
                   .read(themeControllerProvider.notifier)
@@ -186,13 +208,14 @@ class _ShellAutenticadoState extends ConsumerState<_ShellAutenticado> {
 }
 
 /// Header custom (app_controller.py `app_header`): bugb negro, ícono morado,
-/// título 22 bold + subtítulo 12, acciones a la derecha.
+/// título 22 bold + subtítulo 12, indicador global de conexión y acciones.
 class _AppHeader extends StatelessWidget {
   const _AppHeader({
     required this.destinos,
     required this.index,
     required this.colors,
     required this.esEscritorio,
+    required this.offline,
     required this.onSync,
     required this.onToggleTheme,
     required this.onLogout,
@@ -203,6 +226,7 @@ class _AppHeader extends StatelessWidget {
   final int index;
   final Map<String, String> colors;
   final bool esEscritorio;
+  final bool offline;
   final VoidCallback onSync;
   final VoidCallback onToggleTheme;
   final VoidCallback onLogout;
@@ -215,7 +239,16 @@ class _AppHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final dest = destinos[index];
     return Container(
-      color: _color('header_bg'),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_color('header_bg'), _color('header_bg_2')],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border(
+          bottom: BorderSide(color: _color('border')),
+        ),
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
@@ -250,6 +283,34 @@ class _AppHeader extends StatelessWidget {
             ],
           ),
           const Spacer(),
+          Tooltip(
+            message: offline ? 'Modo offline' : 'Conectado',
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  offline ? 'OFFLINE' : 'ONLINE',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                    color: offline
+                        ? const Color(0xFFFFB74D)
+                        : const Color(0xFF81C784),
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  offline ? Icons.wifi_off : Icons.wifi,
+                  size: 16,
+                  color: offline
+                      ? const Color(0xFFFFB74D)
+                      : const Color(0xFF81C784),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 4),
           IconButton(
             icon: const Icon(Icons.sync),
             color: _color('header_subtitle'),
@@ -420,6 +481,9 @@ class _DestinoPage extends StatelessWidget {
     if (destino.ruta == '/requisiciones') {
       return const RequisicionesScreen();
     }
+    if (destino.ruta == '/producciones') {
+      return const ProduccionesScreen();
+    }
     if (destino.ruta == '/stock') {
       return const StockScreen();
     }
@@ -428,6 +492,9 @@ class _DestinoPage extends StatelessWidget {
     }
     if (destino.ruta == '/ajustes') {
       return const ConfiguracionScreen();
+    }
+    if (destino.ruta == '/bandeja') {
+      return const BandejaScreen();
     }
     return Center(
       child: Column(

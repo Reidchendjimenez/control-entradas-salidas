@@ -19,6 +19,12 @@ final syncEngineProvider = Provider<SyncEngine?>((ref) {
   return engine;
 });
 
+/// Estado offline del SyncEngine (indicador de conexión global en el header).
+final isOfflineProvider = Provider<bool>((ref) {
+  final sync = ref.watch(syncEngineProvider);
+  return sync?.isOffline == true;
+});
+
 /// Registra una operación pendiente en la cola de sync (outbox).
 /// Réplica de `SyncQueue.add_pending()` de sync_queue.py.
 Future<int> addPending(

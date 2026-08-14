@@ -241,11 +241,12 @@ En Flutter:
    - ✅ `lib/core/sync/sync_service.dart` — `addPending()` (outbox) + provider del motor.
 7. Motor de sync `outbox` + descarga masiva + DDL idempotente + timer 20 s.
    - ✅ Flujo `fullSync`: outbox → movimientos pendientes (con reglas especiales: no-eliminado no se sube, `pos_*` excluida) → descarga de 15 tablas → `last_sync_full`.
+   - ✅ **Paginación de descarga** (2026-08-14): Supabase REST limita a 1000 filas por request; `_downloadAllFromServer` ahora pagina con `.range()` + `.order('id')` y purga `movimientos` una sola vez. Sin esto el detalle de facturas con movimientos históricos salía vacío.
    - ⏳ El DDL idempotente remoto se aplica una sola vez vía `supabase/schema.sql` (en REST no se ejecuta DDL por request).
-   - ⏳ Timer 20 s: `startBackgroundSync()` implementado; falta conectarlo a un widget de vida larga en la UI.
+   - ✅ Timer de sync: `startBackgroundSync()` conectado en `app_shell.dart`. Intervalo real **300 s** (no 20 s) para no exceder cuota de egress (`AppConfig.syncIntervalSeconds`).
 8. Prueba: sincronizar contra Supabase real y verificar recuento de filas por tabla contra la app Flet.
    - ✅ Tests unitarios de drift/outbox (3 pasando).
-   - ⏳ Falta probar sync real: requiere `flutter run --dart-define=SUPABASE_ANON_KEY=...`.
+   - ✅ Sync real verificado (2026-08-14): 1914 movimientos descargados completos contra Supabase de producción; detalle de factura con items OK. Test de reproducción temporal usado para el fix de paginación.
 
 **Fase 2 — Login + shell + Inventario** *(✅ HECHO — flutter_app)*
 9. Login + splash + shell (drawer/appbar), portar `app_controller`.
@@ -268,20 +269,28 @@ En Flutter:
 
 **Fase 4 — Producciones + Validación + OCR**
 13. Producciones (recetas, editor, pendientes, historial).
+    - ✅ `lib/features/producciones/*` completo (2026-08-14): repo con CRUD recetas + componentes + outbox, flujo pendiente → planificación descargo → ejecución (2 etapas, entradas/salidas con stock), cancelación con reversa, stock por producto en una query; tabs Recetas/En Producción/Historial; editor en pantalla completa con wizard; diálogos eliminar/cancelar/descargo con stock dinámico por almacén. Ruta `/producciones` conectada en `app_shell.dart`. `flutter analyze` sin issues en el feature (79 preexistentes).
 14. Validación con OCR (OCRSpace + ML Kit fallback) + pagos.
+    - ✅ `lib/features/validacion/*` completo con OCR **OCRSpace** (`validacion_dialog.dart::_procesarBytesOcr`) y pagos.
+    - ⏳ ML Kit fallback no portado (se mantiene OCRSpace como única vía).
 
 **Fase 5 — Facturas + Configuración + WhatsApp**
 15. Historial facturas, períodos.
+    - ✅ `lib/features/historial/*` completo (2026-08-14): tabs Facturas/Por Fecha, búsqueda + filtro fechas, chips de período, export Excel (`libro_compras_*.xlsx`), detalle de factura con productos (arreglado con la paginación del sync). Ruta `/historial` conectada.
+    - ✅ Períodos dentro de Configuración.
 16. Configuración completa.
+    - ✅ `lib/features/configuracion/*` — categorías, periodos, productos, proveedores, sistema. Ruta `/ajustes`.
 17. WhatsApp notifier + bandeja.
+    - ✅ `lib/features/whatsapp/*` (2026-08-14): tabla `whatsapp_queue` en drift (schemaVersion 2, local, sin sync) + repositorio con envío HTTP al bot (`/send`, `/send-image`, `/config`), cola con reintentos (pending/sending/sent/failed, max 10), `probarBot`, `formatValidationMessage`, stats; bandeja con cards (reintentar/eliminar por mensaje, reintentar todos, pull-to-refresh, timer 15s). Ruta `/bandeja` conectada. Bot: `https://lycorys-control.shares.zrok.io` (token `x-auth-token`).
+    - ✅ Envío automático desde Validación (2026-08-14): tras validar, arma el mensaje "Entrada Validada" con productos (kg si pesable), proveedor, factura y usuario, y lo envía fire-and-forget (texto o imagen pegada) con fallback a la cola.
 
-**Fase 6 — POS**
+**Fase 6 — POS** *(⏳ PENDIENTE — `lib/pos/` vacío)*
 18. POS: login PIN, mesas, habitaciones, comandas, ventas, config, tasas.
 19. Impresión térmica multipantalla (USB/serie/Bluetooth).
 
 **Fase 7 — Updater + pulido**
-20. Updater (version.json, zip, aplicar, reiniciar).
-21. Estados de sync en UI, responsive, off-line-first, logs/errores.
+20. Updater (version.json, zip, aplicar, reiniciar). *(⏳ PENDIENTE — no existe `lib/core/update/`)*
+21. Estados de sync en UI, responsive, off-line-first, logs/errores. *(parcial: indicador offline en Historial; falta barra de progreso global del sync)*
 22. Test E2E en dispositivo Android real contra la BD de producción (modo lectura) antes del corte.
 
 ---

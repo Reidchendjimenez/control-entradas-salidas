@@ -9,6 +9,8 @@ import 'package:http/http.dart' as http;
 
 import '../../data/validacion_providers.dart';
 import '../../data/validacion_repository.dart';
+import '../../../whatsapp/data/whatsapp_providers.dart';
+import '../../../whatsapp/data/whatsapp_repository.dart';
 import '../widgets/pagos_panel.dart';
 
 const _prefijos = {'Factura': 'F-', 'Nota de Entrega': 'NE-', 'Entrada': 'EV-'};
@@ -53,6 +55,7 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
   String? _proveedor; // valor del dropdown; '__nuevo__' abre campos nuevos
   DateTime _fecha = DateTime.now();
   bool _validando = false;
+  Uint8List? _imagenPegada;
 
   final _pagosKey = GlobalKey<PagosPanelState>();
   StreamSubscription? _pasteSub;
@@ -153,6 +156,28 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
       final monto = double.tryParse(_montoCtrl.text.trim()) ?? 0;
       final pagos = _pagosKey.currentState?.pagos ?? [];
 
+      // Capturar los productos ANTES de procesar (tras validar dejan de ser
+      // entradas pendientes) para armar el mensaje de WhatsApp.
+      final entradas = await repo.getEntradasPendientes();
+      final seleccionadas = entradas
+          .where((e) => widget.selectedEntradas.contains(e.id))
+          .toList();
+      final nombres = <String>[];
+      DateTime? fechaMin;
+      for (final e in seleccionadas) {
+        if (e.fecha != null &&
+            (fechaMin == null || e.fecha!.isBefore(fechaMin))) {
+          fechaMin = e.fecha;
+        }
+        if (e.esPesable && e.pesoTotal > 0) {
+          nombres.add('${e.nombre}: ${e.pesoTotal.toStringAsFixed(2)} kg');
+        } else {
+          nombres.add('${e.nombre}: ${e.cantidad.toInt()} ${e.unidad}');
+        }
+      }
+      final productosStr =
+          nombres.isEmpty ? 'Productos variados' : nombres.join('\n');
+
       final resultado = await repo.procesar(
         selectedEntradas: widget.selectedEntradas,
         proveedor: proveedor,
@@ -164,6 +189,27 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
         pagos: pagos,
         usuario: widget.usuario,
       );
+
+      // Envío WhatsApp en background (fire-and-forget): si el bot está apagado,
+      // el envío directo falla y el mensaje queda encolado en la bandeja.
+      final msg = formatValidationMessage(
+        productos: productosStr,
+        proveedor: proveedor,
+        factura: factura,
+        monto: monto,
+        usuario: resultado.usuario,
+        fechaEntrada: fechaMin,
+      );
+      final waRepo = ref.read(whatsappRepoProvider);
+      if (_imagenPegada != null) {
+        unawaited(waRepo.enviarImagen(
+          imagenBase64: base64Encode(_imagenPegada!),
+          caption: msg,
+        ));
+      } else {
+        unawaited(waRepo.enviarMensaje(msg));
+      }
+
       if (mounted) Navigator.pop(context, resultado);
     } catch (e) {
       if (mounted) {
@@ -202,6 +248,10 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
               const SizedBox(height: 12),
               _seccionDoc(scheme),
               const SizedBox(height: 12),
+              if (_imagenPegada != null) ...[
+                _seccionImagen(scheme),
+                const SizedBox(height: 12),
+              ],
               _seccionMonto(scheme),
               const SizedBox(height: 12),
               PagosPanel(key: _pagosKey),
@@ -369,6 +419,51 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
     );
   }
 
+  Widget _seccionImagen(ColorScheme scheme) {
+    return _section(
+      scheme,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.image_outlined, size: 20, color: scheme.primary),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text('Imagen del Documento',
+                    style:
+                        TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 18),
+                tooltip: 'Quitar imagen',
+                onPressed: () => setState(() => _imagenPegada = null),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: scheme.outlineVariant),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 140),
+                child: Image.memory(
+                  _imagenPegada!,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _seccionMonto(ColorScheme scheme) {
     return _section(
       scheme,
@@ -418,7 +513,10 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
   }
 
   Future<void> _procesarBytesOcr(Uint8List bytes) async {
-    setState(() => _validando = true);
+    setState(() {
+      _validando = true;
+      _imagenPegada = bytes;
+    });
     try {
       final base64Image = 'data:image/png;base64,${base64Encode(bytes)}';
       final response = await http.post(
@@ -492,7 +590,11 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
     );
     if (file == null) return;
 
-    setState(() => _validando = true);
+    final bytes = await file.readAsBytes();
+    setState(() {
+      _validando = true;
+      _imagenPegada = bytes;
+    });
     try {
       final raw = await _extractOcrSpace(file);
       if (raw == null || raw.isEmpty) {

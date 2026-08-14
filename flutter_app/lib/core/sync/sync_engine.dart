@@ -308,22 +308,46 @@ class SyncEngine {
         // de cambio: reduce egress (movimientos/productos grandes no se vuelven
         // a descargar completos cada ciclo).
         final inc = desc.incrementalColumn;
-        var q = client.from(desc.serverTable).select();
+        // `select()` devuelve PostgrestFilterBuilder (tiene `or`); los métodos
+        // `order`/`range` viven en PostgrestTransformBuilder (superclase), así
+        // que se usa una variable filtro y se pasa a la de transformación.
+        final filtro = client.from(desc.serverTable).select();
+        PostgrestTransformBuilder<List<Map<String, dynamic>>> q = filtro;
         final localEmpty = await _isTableEmpty(desc.localTable);
         if (!localEmpty && lastSync != null && inc != null) {
           // `or(is.null, gte)` incluye filas cuya columna de cambio es NULL
           // (p.ej. categorías sin `updated_at`); `gte` solo traería las nuevas.
           final iso = lastSync.toIso8601String();
-          q = q.or('$inc.is.null,$inc.gte."$iso"');
+          q = filtro.or('$inc.is.null,$inc.gte."$iso"');
         }
-        final data = await q;
-        final rows = (data as List).cast<Map<String, dynamic>>();
-        if (rows.isEmpty) continue;
+        // Orden estable para paginar sin solapamientos/omisiones (todas las
+        // tablas sincronizadas tienen `id`, salvo stock_checkpoint).
+        if (desc.localTable != 'stock_checkpoint') {
+          q = q.order('id');
+        }
 
-        // Los mapas de Supabase vienen con tipos Postgres; drift espera los
-        // tipos SQLite (int/real/text). Normalizamos y agregamos a drift.
-        await _upsertLocalBatch(desc, rows);
-        _log('${rows.length} ${desc.serverTable} descargados');
+        // Purgar los movimientos locales UNA sola vez antes de la descarga
+        // completa (reflejan fielmente el server; uploadPending ya subió los
+        // pendientes antes). No se repite por página.
+        if (desc.localTable == 'movimientos') {
+          await _db.delete(_db.movimientos).go();
+        }
+
+        // Supabase REST limita a 1000 filas por petición: paginar con `range`
+        // para no perder datos históricos (p.ej. movimientos de facturas
+        // antiguas, que quedaban sin vincular en el detalle).
+        const pageSize = 1000;
+        var offset = 0;
+        var total = 0;
+        while (true) {
+          final data = await q.range(offset, offset + pageSize - 1);
+          final rows = (data as List).cast<Map<String, dynamic>>();
+          if (rows.isEmpty) break;
+          await _upsertLocalBatch(desc, rows);
+          total += rows.length;
+          offset += pageSize;
+        }
+        if (total > 0) _log('$total ${desc.serverTable} descargados');
       } catch (e) {
         _log('Error descargando ${desc.serverTable}: $e');
       }
@@ -439,9 +463,8 @@ class SyncEngine {
             );
           }
         case 'movimientos':
-          // Purgar TODOS los locales para reflejar fielmente el server
-          // (uploadPending ya subió los pendientes antes de esta descarga).
-          await _db.delete(_db.movimientos).go();
+          // El purge local se hace una sola vez en `_downloadAllFromServer`
+          // (antes de paginar); aquí solo se insertan/upsertan filas.
           for (final r in rows) {
             await _db.into(_db.movimientos).insertOnConflictUpdate(
               MovimientosCompanion.insert(

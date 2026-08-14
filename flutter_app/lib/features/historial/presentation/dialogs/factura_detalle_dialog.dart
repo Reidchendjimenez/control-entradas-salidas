@@ -38,9 +38,7 @@ class _FacturaDetalleDialogState extends ConsumerState<_FacturaDetalleDialog> {
 
     return AlertDialog(
       title: const Text('Detalle Factura'),
-      content: SizedBox(
-        width: 450,
-        child: FutureBuilder<FacturaDetalle>(
+      content: FutureBuilder<FacturaDetalle>(
           future: _future,
           builder: (context, snap) {
             if (snap.connectionState != ConnectionState.done) {
@@ -132,7 +130,6 @@ class _FacturaDetalleDialogState extends ConsumerState<_FacturaDetalleDialog> {
             );
           },
         ),
-      ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cerrar')),
       ],

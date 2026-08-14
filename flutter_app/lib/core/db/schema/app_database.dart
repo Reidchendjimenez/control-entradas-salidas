@@ -37,6 +37,7 @@ part 'app_database.g.dart';
   SyncQueue,
   SyncMetadata,
   DispositivoUsuario,
+  WhatsappQueue,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
@@ -61,5 +62,14 @@ class AppDatabase extends _$AppDatabase {
 
   /// Réplica de `LocalReplica.init_queue()` en sync_queue.py.
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) => m.createAll(),
+        onUpgrade: (m, from, to) async {
+          // v1 → v2: agrega whatsapp_queue (cola local de WhatsApp).
+          await m.createAll();
+        },
+      );
 }

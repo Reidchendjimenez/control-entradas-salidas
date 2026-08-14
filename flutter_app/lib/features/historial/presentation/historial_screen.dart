@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/sync/sync_service.dart';
-import '../data/historial_providers.dart';
 import 'dialogs/exportar_dialog.dart';
 import 'facturas_tab.dart';
 import 'por_fecha_tab.dart';
 
 /// Pantalla de Historial de facturas (porta `historial_facturas_view.py`).
-/// Dos pestañas: "Facturas" y "Por Fecha", con indicador de conexión,
-/// botón de exportar y refrescar en el header.
+/// Dos pestañas: "Facturas" y "Por Fecha", con botón de exportar.
+/// El indicador de conexión y el refresh viven en el header global del shell.
 class HistorialScreen extends ConsumerStatefulWidget {
   const HistorialScreen({super.key});
 
@@ -36,11 +34,10 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen>
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final offline = ref.watch(isOfflineProvider);
 
     return Column(
       children: [
-        _buildHeader(scheme, offline),
+        _buildHeader(scheme),
         TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -64,53 +61,20 @@ class _HistorialScreenState extends ConsumerState<HistorialScreen>
     );
   }
 
-  Widget _buildHeader(ColorScheme scheme, bool offline) {
+  Widget _buildHeader(ColorScheme scheme) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
       child: Row(
         children: [
-          Expanded(
-            child: Text(
-              offline ? 'Modo offline' : 'Conectado',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: offline ? scheme.error : Colors.green,
-              ),
-            ),
-          ),
+          const Spacer(),
           IconButton(
             icon: Icon(Icons.download, color: scheme.primary),
             tooltip: 'Exportar a Excel',
             onPressed: () => showExportarDialog(context),
           ),
-          IconButton(
-            icon: Icon(Icons.refresh, color: scheme.primary),
-            tooltip: 'Refrescar',
-            onPressed: () => _refrescar(),
-          ),
-          Icon(
-            offline ? Icons.wifi_off : Icons.wifi,
-            size: 18,
-            color: offline ? scheme.error : Colors.green,
-          ),
+          const SizedBox(width: 8),
         ],
       ),
     );
-  }
-
-  Future<void> _refrescar() async {
-    final engine = ref.read(syncEngineProvider);
-    if (engine != null) {
-      await engine.fullSync();
-    }
-    ref.invalidate(facturasProvider);
-    ref.invalidate(porFechaProvider);
-    ref.invalidate(historialRepoProvider);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Actualizado'), duration: Duration(seconds: 2)),
-      );
-    }
   }
 }

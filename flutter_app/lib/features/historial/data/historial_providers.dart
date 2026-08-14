@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/database_provider.dart';
-import '../../../core/sync/sync_service.dart';
 import '../../../core/db/schema/app_database.dart';
 import 'historial_repository.dart';
 
@@ -19,10 +18,4 @@ final facturasProvider = FutureProvider<List<Factura>>((ref) {
 final porFechaProvider = FutureProvider.autoDispose
     .family<List<EntradaPorFecha>, ({DateTime ini, DateTime fin})>((ref, rango) {
   return ref.watch(historialRepoProvider).getEntradasPorFecha(rango.ini, rango.fin);
-});
-
-/// Estado offline del SyncEngine para el indicador de conexión.
-final isOfflineProvider = Provider<bool>((ref) {
-  final sync = ref.watch(syncEngineProvider);
-  return sync?.isOffline == true;
 });
