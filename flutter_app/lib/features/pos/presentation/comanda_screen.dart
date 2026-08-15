@@ -6,6 +6,7 @@ import '../data/pos_comanda_models.dart';
 import '../data/pos_providers.dart';
 import '../data/pos_repository.dart';
 import '../data/pos_session.dart';
+import 'dialogs/cobro_dialog.dart';
 import 'dialogs/contornos_dialog.dart';
 import 'widgets/catalogo_card.dart';
 import 'widgets/pos_top_bar.dart';
@@ -160,8 +161,77 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
   }
 
   void _cobrar() {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Cobro / caja de ventas disponible en la Fase 6.4')));
+    showDialog<bool>(
+      context: context,
+      builder: (ctx) => CobroDialog(
+        total: _total,
+        tasa: _tasa,
+        tasaFecha: _tasaFecha,
+        ubicacion: _ubicacion,
+        onConfirm: _confirmarCobro,
+      ),
+    );
+  }
+
+  Future<void> _confirmarCobro() async {
+    if (!mounted) return;
+    final repo = ref.read(posVentasRepoProvider);
+    final mesaI = widget.mesa?.id;
+    final habId = widget.habitacion?.id;
+    final total = _total;
+    final itemsJson = [for (final i in _items) i.toJson()];
+    int? ventaId;
+    try {
+      final comandaId = await repo.guardarComanda(
+        widget.sesion.sesionId,
+        itemsJson,
+        total,
+        mesaId: mesaI,
+        habitacionId: habId,
+      );
+      final anulada = await repo.getVentaAnuladaPorComanda(comandaId);
+      final ventaAnulaId = anulada?.id;
+      final correlativo = await repo.siguienteCorrelativo();
+
+      ventaId = await repo.registrarVenta(
+        correlativo,
+        total,
+        itemsJson,
+        comandaId: comandaId,
+        mesaId: mesaI,
+        habitacionId: habId,
+        usuarioId: widget.sesion.usuario.id,
+        sesionId: widget.sesion.sesionId,
+        ventaAnulaId: ventaAnulaId,
+        tasaBs: _tasa > 0 ? _tasa : null,
+      );
+      final movs = await repo.resolverMovimientosVenta(itemsJson);
+      if (movs.isNotEmpty) {
+        await repo.aplicarMovimientosVenta(ventaId, movs,
+            registradoPor: widget.sesion.usuario.nombre);
+      }
+      await repo.cerrarComanda(comandaId);
+      _comandaId = null;
+      _items.clear();
+      ref.invalidate(mesasOcupadasProvider);
+      ref.invalidate(habitacionesOcupadasProvider);
+      ref.invalidate(ventasProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+            'Comanda #${correlativo.toString().padLeft(5, '0')} cobrada'),
+      ));
+      widget.onBack();
+    } catch (ex) {
+      if (ventaId != null) {
+        try {
+          await repo.eliminarVentaYMovimientos(ventaId);
+        } catch (_) {}
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error al cobrar: $ex')));
+    }
   }
 
   // =========================================================================

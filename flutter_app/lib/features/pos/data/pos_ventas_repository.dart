@@ -135,6 +135,10 @@ class PosVentasRepository {
     if (c != null) await _encolarComanda(comandaId, c.syncUuid);
   }
 
+  /// Cierra la comanda tras cobrarla, réplica de `cerrar_comanda`.
+  Future<void> cerrarComanda(int comandaId) =>
+      cambiarEstadoComanda(comandaId, 'cerrada');
+
   /// Elimina comanda abierta y encola el borrado (con tombstone para que la
   /// descarga no la reintroduzca desde otro dispositivo).
   Future<void> eliminarComanda(int comandaId) async {
@@ -405,6 +409,130 @@ class PosVentasRepository {
       for (final v in rows)
         if (v.correlativo != null) v.id: v.correlativo!,
     };
+  }
+
+  /// Última venta anulada de una comanda (para saber si el próximo cobro
+  /// es una corrección), réplica de `get_venta_anulada_by_comanda`.
+  Future<PosVenta?> getVentaAnuladaPorComanda(int comandaId) {
+    return (_db.select(_db.posVentas)
+          ..where((t) =>
+              t.comandaId.equals(comandaId) & t.estado.equals('anulada'))
+          ..orderBy([(t) => OrderingTerm.desc(t.id)])
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  /// Última venta cobrada que sigue vigente, réplica de `get_ultima_venta_vigente`.
+  Future<PosVenta?> getUltimaVentaVigente() {
+    return (_db.select(_db.posVentas)
+          ..where((t) => t.estado.equals('vigente'))
+          ..orderBy([(t) => OrderingTerm.desc(t.id)])
+          ..limit(1))
+        .getSingleOrNull();
+  }
+
+  /// Reabre una comanda cerrada (para corrección/venta devuelta).
+  Future<void> reabrirComanda(int comandaId) =>
+      cambiarEstadoComanda(comandaId, 'abierta');
+
+  Future<Producto?> getProductoById(int productoId) {
+    return (_db.select(_db.productos)
+          ..where((t) => t.id.equals(productoId)))
+        .getSingleOrNull();
+  }
+
+  /// Ingredientes de un plato/contorno (con nombre del producto).
+  Future<List<({int id, int platoId, int productoId, double cantidad, String unidad, String nombre})>>
+      getPlatoIngredientes(int platoId) async {
+    final rows = await (_db.select(_db.platoIngredientes)
+          ..where((t) => t.platoId.equals(platoId)))
+        .get();
+    final nombres = <int, String>{};
+    for (final r in rows) {
+      final p = await getProductoById(r.productoId);
+      nombres[r.productoId] = p?.nombre ?? 'Producto #${r.productoId}';
+    }
+    return [
+      for (final r in rows)
+        (
+          id: r.id,
+          platoId: r.platoId,
+          productoId: r.productoId,
+          cantidad: r.cantidad,
+          unidad: r.unidad,
+          nombre: nombres[r.productoId] ?? '?',
+        ),
+    ];
+  }
+
+  /// Resuelve cada item de la comanda a los productos de inventario a
+  /// descontar (réplica de `resolver_movimientos_venta`):
+  /// - Item en tabla `productos`: descuenta el producto mismo (almacén restaurante).
+  /// - Plato/contorno con ingredientes: descuenta cada ingrediente x cantidad.
+  /// - Plato/contorno sin ingredientes: NO genera movimiento.
+  Future<List<Map<String, dynamic>>> resolverMovimientosVenta(
+      List<Map<String, dynamic>> items) async {
+    final acumulado = <(int, String), Map<String, dynamic>>{};
+
+    void acumular(int productoId, String nombre, double cantidad, String almacen) {
+      final key = (productoId, almacen);
+      final m = acumulado.putIfAbsent(key, () => {
+            'producto_id': productoId,
+            'producto_nombre': nombre,
+            'cantidad': 0.0,
+            'almacen': almacen,
+          });
+      m['cantidad'] = (m['cantidad'] as double) + cantidad;
+    }
+
+    Future<void> acumularIngredientes(int platoId, double cant) async {
+      final ing = await getPlatoIngredientes(platoId);
+      for (final i in ing) {
+        acumular(i.productoId, i.nombre, i.cantidad * cant, 'restaurante');
+      }
+    }
+
+    for (final item in items) {
+      final pid = item['id'] as int?;
+      final cant = (item['cantidad'] as num?)?.toDouble() ?? 1;
+      if (pid == null) continue;
+
+      final tipo = (item['tipo'] as String? ?? '').toLowerCase();
+      final prod = await getProductoById(pid);
+      if (tipo == 'producto' || prod != null) {
+        acumular(pid, prod?.nombre ?? 'Producto #$pid', cant, 'restaurante');
+      } else {
+        await acumularIngredientes(pid, cant);
+      }
+
+      final cids = <int>[
+        ...?((item['contorno_ids'] as List?)?.cast<num>().map((n) => n.toInt())),
+      ];
+      for (final cid in cids) {
+        await acumularIngredientes(cid, cant);
+      }
+    }
+    return acumulado.values.toList();
+  }
+
+  /// Descargos de inventario de una venta (réplica de `get_movimientos_venta`).
+  Future<List<Map<String, dynamic>>> getMovimientosVenta(int ventaId) async {
+    final rows = await (_db.select(_db.movimientos)
+          ..where((t) => t.ventaId.equals(ventaId) & t.tipo.equals('venta')))
+        .get();
+    final result = <Map<String, dynamic>>[];
+    for (final m in rows) {
+      final p = await getProductoById(m.productoId);
+      result.add({
+        'producto_id': m.productoId,
+        'cantidad': m.cantidad,
+        'almacen': m.almacen,
+        'producto_nombre': p?.nombre ?? 'Producto #${m.productoId}',
+      });
+    }
+    result.sort((a, b) =>
+        (a['producto_nombre'] as String).compareTo(b['producto_nombre'] as String));
+    return result;
   }
 
   Future<void> _encolarVenta(int ventaId, [String? syncUuid]) async {

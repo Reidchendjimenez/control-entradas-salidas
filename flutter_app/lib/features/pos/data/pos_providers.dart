@@ -61,3 +61,13 @@ final mesasOcupadasProvider = FutureProvider<Set<int>>((ref) {
 final habitacionesOcupadasProvider = FutureProvider<Set<int>>((ref) {
   return ref.watch(posVentasRepoProvider).getHabitacionesOcupadas();
 });
+
+/// Historial de ventas (más recientes primero), se invalida al cobrar/anular.
+final ventasProvider = FutureProvider<List<PosVenta>>((ref) {
+  return ref.watch(posVentasRepoProvider).getVentas(limit: 200);
+});
+
+/// Última venta vigente (para el botón "Anular última venta").
+final ultimaVentaVigenteProvider = FutureProvider<PosVenta?>((ref) {
+  return ref.watch(posVentasRepoProvider).getUltimaVentaVigente();
+});
