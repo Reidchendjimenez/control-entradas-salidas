@@ -89,6 +89,10 @@ class PosRepository {
     return q.get();
   }
 
+  Future<PosUsuario?> getUsuario(int usuarioId) =>
+      (_db.select(_db.posUsuarios)..where((t) => t.id.equals(usuarioId)))
+          .getSingleOrNull();
+
   Future<int> crearUsuario(String nombre,
       {String? pin, bool esAdmin = false}) async {
     final id = await _db.into(_db.posUsuarios).insert(
@@ -457,12 +461,81 @@ class PosRepository {
   // Platos + ingredientes + contornos
   // ---------------------------------------------------------------------
 
-  Future<List<Plato>> getPlatos({bool soloActivos = false, int? categoriaId}) {
+  Future<List<Plato>> getPlatos({
+    bool soloActivos = false,
+    int? categoriaId,
+    bool? esContorno,
+  }) {
     final q = _db.select(_db.platos)
       ..orderBy([(t) => OrderingTerm.asc(t.nombre)]);
     if (soloActivos) q.where((t) => t.activo.equals(1));
     if (categoriaId != null) q.where((t) => t.categoriaId.equals(categoriaId));
+    if (esContorno != null) q.where((t) => t.esContorno.equals(esContorno ? 1 : 0));
     return q.get();
+  }
+
+  /// Platos activos que no son contornos, para la sección PLATOS del POS
+  /// (port de `LocalReplica.get_platos_pos`).
+  Future<List<Plato>> getPlatosPos() => getPlatos(soloActivos: true, esContorno: false);
+
+  /// Contornos activos (platos con `es_contorno = 1`) para el POS
+  /// (port de `LocalReplica.get_contornos_activos`).
+  Future<List<Plato>> getContornosActivos() =>
+      getPlatos(soloActivos: true, esContorno: true);
+
+  /// Categorías de inventario visibles en el POS (activas + `visible_en_pos`)
+  /// (port de `LocalReplica.get_categorias_pos`).
+  Future<List<Categoria>> getCategoriasPos() {
+    final q = _db.select(_db.categorias)
+      ..where((t) => t.activo.equals(1) & t.visibleEnPos.equals(1))
+      ..orderBy([(t) => OrderingTerm.asc(t.nombre)]);
+    return q.get();
+  }
+
+  /// Productos de venta activos (tipo `Productos para la venta`), opcional por
+  /// categoría (port de `LocalReplica.get_productos_pos`).
+  Future<List<Producto>> getProductosPos({int? categoriaId}) {
+    final q = _db.select(_db.productos)
+      ..where((t) => t.activo.equals(1) & t.tipo.equals('Productos para la venta'));
+    if (categoriaId != null) q.where((t) => t.categoriaId.equals(categoriaId));
+    q.orderBy([(t) => OrderingTerm.asc(t.nombre)]);
+    return q.get();
+  }
+
+  /// Sub-categorías (platos_categorias) hijas de una categoría de inventario o
+  /// de una categoría POS (port de `get_subcategorias_by_*_padre`).
+  Future<List<PlatosCategoria>> getSubcategorias({
+    int? categoriaPadreId,
+    int? posCategoriaPadreId,
+  }) {
+    final q = _db.select(_db.platosCategorias)
+      ..where((t) => t.activo.equals(1))
+      ..orderBy([(t) => OrderingTerm.asc(t.nombre)]);
+    if (categoriaPadreId != null) {
+      q.where((t) => t.categoriaPadreId.equals(categoriaPadreId));
+    }
+    if (posCategoriaPadreId != null) {
+      q.where((t) => t.posCategoriaPadreId.equals(posCategoriaPadreId));
+    }
+    return q.get();
+  }
+
+  // ---------------------------------------------------------------------
+  // Tasa de cambio (pos_settings: tasa_cambio / tasa_cambio_actualizada_en)
+  // ---------------------------------------------------------------------
+
+  Future<double> getTasaCambio() async {
+    final v = await getSetting('tasa_cambio');
+    return double.tryParse(v ?? '') ?? 0;
+  }
+
+  Future<String> getTasaCambioFecha() async =>
+      await getSetting('tasa_cambio_actualizada_en') ?? '';
+
+  Future<void> setTasaCambio(double tasa, {bool sync = false}) async {
+    await setSetting('tasa_cambio', tasa.toStringAsFixed(4), sync: sync);
+    await setSetting('tasa_cambio_actualizada_en',
+        DateTime.now().toIso8601String(), sync: sync);
   }
 
   Future<List<PlatoIngrediente>> getIngredientes(int platoId) =>

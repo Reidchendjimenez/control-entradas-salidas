@@ -350,7 +350,6 @@ class _MovimientoDialogState extends ConsumerState<_MovimientoDialog> {
                       autofocus: true,
                       decoration: InputDecoration(
                         labelText: 'Peso Total (kg)',
-                        suffixText: 'kg',
                         suffixIcon: CalculadoraSuffixIcon(
                             targetController: _pesoTotalCtrl),
                       ),

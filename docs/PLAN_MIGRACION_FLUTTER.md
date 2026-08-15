@@ -289,10 +289,9 @@ En Flutter:
 
 **Fase 6 — POS** *(⏳ EN CURSO — se migra por sub-fases; cada sub-fase con su checklist)*
 - [x] **6.0 — Capa de datos POS** (drift + repositorios + motor sync por `sync_uuid` + ruta `/pos`)
-- [ ] **6.1 — Login PIN** (usuarios, seed admin, alta)
-- [ ] **6.2 — Home POS + Mesas + Habitaciones** (selector + apertura de comanda)
-- [ ] **6.3 — Comanda** (categorías → subcategorías → platos/productos, contornos, items, total)
-- [ ] **6.4 — Ventas / caja** (cierre → `pos_ventas` + movimientos, anulación)
+- [x] **6.1 — Login PIN** (usuarios, seed admin, alta)
+- [x] **6.2 — Home POS + Mesas + Habitaciones** (selector + apertura de comanda)
+- [x] **6.3 — Comanda** (categorías → subcategorías → platos/productos, contornos, items, total)- [ ] **6.4 — Ventas / caja** (cierre → `pos_ventas` + movimientos, anulación)
 - [ ] **6.5 — Config POS + tasa BCV**
 - [ ] **6.6 — Impresión térmica** (web: vista previa del ticket; Android/Windows: `esc_pos_printer`/serial)
 
@@ -301,6 +300,29 @@ En Flutter:
 - [x] `pos_repository.dart` + providers (CRUD usuarios/mesas/habitaciones/comandas/ventas/settings/platos/categorías/ingredientes/contornos/tasas).
 - [x] Motor sync POS (port `pos_sync.py`): descarga de 11 tablas + poda de huérfanos + subida por `sync_uuid`/id + tombstones + timer 30 s (las categorías/productos para la venta y movimientos de venta los gestiona el sync principal).
 - [x] Ruta `/pos` en `app_shell.dart` + `flutter analyze` + build web. *(build web pendiente de autorización del usuario)*
+
+**Fase 6.1 — Login PIN** *(✅ COMPLETADA — 2026-08-15)*
+- [x] `pos_session.dart`: notifier de sesión activa (login valida PIN, abre `pos_sesiones`; logout la cierra; restaura sesión al recargar vía `getSesionActiva`).
+- [x] Login en `pos_screen.dart` (`_LoginView`): seed "Desarrollador" (admin sin PIN) si no hay cajeros, lista de cajeros (`usuario_card.dart`), badges Admin/Con PIN/Sin PIN, botón "Iniciar sesión como X".
+- [x] `pin_dialog.dart`: PIN 4 dígitos con verificación en línea (error "PIN incorrecto") y soporte Enter.
+- [x] `nuevo_cajero_dialog.dart`: alta de cajero (nombre obligatorio, PIN opcional 4 dígitos, es admin).
+- [x] Home placeholder tras login (mesas/habitaciones/comandas en 6.2).
+- [x] `test/pos_login_test.dart` (4 tests: seed, PIN, sesión abierta/cerrada) + `flutter analyze` 0 errores.
+
+**Fase 6.2 — Home POS + Mesas + Habitaciones** *(✅ COMPLETADA — 2026-08-15)*
+- [x] Router por etapas en `pos_screen.dart` (`_PosRouter`): home → mesas/habitaciones → comanda; Ventas (6.4) y Config (6.5) con stub.
+- [x] `pos_home_screen.dart` (port `ComandasView`): top bar con avatar/rol/logout (config solo admin), header "Comandas" y 3 tarjetas de entrada (Mesas, Habitaciones, Ventas).
+- [x] `mesas_screen.dart` + `habitaciones_screen.dart` (ports de `MesasView`/`HabitacionesView`): grids con badge Ocupada/Libre·Disponible y estados vacíos; providers `mesasOcupadasProvider`/`habitacionesOcupadasProvider`.
+- [x] `comanda_screen.dart` (apertura de comanda): crea/reutiliza la comanda abierta de la mesa/hab (`guardarComanda` upsert) y permite liberarla (`eliminarComanda`); editor de productos en 6.3.
+- [x] Widgets compartidos: `pos_top_bar.dart`, `entry_card.dart`, `mesa_card.dart`, `habitacion_card.dart`.
+- [x] `test/pos_comanda_test.dart` (4 tests: ocupada, upsert, liberar, habitación) + `flutter analyze` 0 errores.
+
+**Fase 6.3 — Comanda** *(✅ COMPLETADA — 2026-08-15)*
+- [x] `pos_repository.dart`: `getPlatos` (con esContorno), `getPlatosPos` (excluye contornos), `getContornosActivos`, `getCategoriasPos` (visibleEnPos), `getProductosPos` (tipo "Productos para la venta"), `getSubcategorias` (padre inventario/POS), tasa BCV (`getTasaCambio`, `getTasaCambioFecha`, `setTasaCambio`).
+- [x] `pos_comanda_models.dart`: `ComandaItem` (id/tipo/nombre/precio/cantidad/contornos) + `formatearBs` + `formatearTasa`.
+- [x] `comanda_screen.dart` (editor completo): cabecera con mesa/habitación + contadores, grilla de categorías (categorías POS, subcategorías y PRODUCTOS), panel de platos/productos con contorno activo, botones acciones (Descontar, Cambiar mesa/hab, Imprimir, Salir), lista de items con +/- y total en Bs/USD.
+- [x] `widgets/catalogo_card.dart` (entrada de catálogo con badge) + `dialogs/contornos_dialog.dart` (selector multiselect).
+- [x] `test/pos_catalogo_test.dart` (7 tests: modelo JSON, categorías POS, productos venta, subcategorías, platos/contornos, tasa) + `flutter analyze` 0 errores + build web OK.
 
 **Fase 7 — Updater + pulido**
 20. Updater (version.json, zip, aplicar, reiniciar). *(⏳ PENDIENTE — no existe `lib/core/update/`)*

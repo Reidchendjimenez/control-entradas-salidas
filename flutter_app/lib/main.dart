@@ -6,14 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/logging/log_bridge.dart';
 import 'core/network/supabase_client.dart';
 import 'core/router/app_shell.dart';
-import 'features/calculadora/presentation/calculadora.dart' as _calc;
-
-// Force reference to prevent tree-shaking
-void _forceIncludeCalculadora() {
-  _calc.showCalculadoraDialog;
-  _calc.CalculadoraButton;
-  _calc.CalculadoraSuffixIcon;
-}
 
 void main() {
   runZonedGuarded(

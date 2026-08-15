@@ -3,67 +3,349 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/schema/app_database.dart';
 import '../data/pos_providers.dart';
+import '../data/pos_session.dart';
+import 'comanda_screen.dart';
+import 'dialogs/nuevo_cajero_dialog.dart';
+import 'dialogs/pin_dialog.dart';
+import 'habitaciones_screen.dart';
+import 'mesas_screen.dart';
+import 'pos_home_screen.dart';
+import 'widgets/pos_top_bar.dart';
+import 'widgets/usuario_card.dart';
 
-/// Pantalla base del módulo POS (Fase 6.0 — capa de datos). La UI completa
-/// (login PIN, mesas/habitaciones, comandas, caja, config) llega en 6.1–6.6.
+/// Pantalla del módulo POS.
+/// - Sin sesión: login PIN (Fase 6.1) — lista de cajeros, seed admin, alta.
+/// - Con sesión: router de etapas (Fase 6.2): selector → mesas/habitaciones →
+///   apertura de comanda. Ventas (6.4) y Config (6.5) son stubs por ahora.
 class PosScreen extends ConsumerWidget {
   const PosScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mesas = ref.watch(mesasProvider);
+    final sesion = ref.watch(posSessionProvider);
+    if (sesion == null) return const _LoginView();
+    return _PosRouter(key: ValueKey(sesion.sesionId), sesion: sesion);
+  }
+}
+
+// ===========================================================================
+// Router por etapas (post-login)
+// ===========================================================================
+
+enum _PosStage { home, mesas, habitaciones, comanda, ventas, config }
+
+class _PosRouter extends ConsumerStatefulWidget {
+  const _PosRouter({super.key, required this.sesion});
+  final PosSesionActiva sesion;
+
+  @override
+  ConsumerState<_PosRouter> createState() => _PosRouterState();
+}
+
+class _PosRouterState extends ConsumerState<_PosRouter> {
+  _PosStage _stage = _PosStage.home;
+  PosMesa? _mesa;
+  PosHabitacione? _habitacion;
+
+  void _go(_PosStage stage) {
+    setState(() {
+      _stage = stage;
+      _mesa = null;
+      _habitacion = null;
+    });
+  }
+
+  void _abrirMesa(PosMesa m) {
+    setState(() {
+      _mesa = m;
+      _habitacion = null;
+      _stage = _PosStage.comanda;
+    });
+  }
+
+  void _abrirHabitacion(PosHabitacione h) {
+    setState(() {
+      _habitacion = h;
+      _mesa = null;
+      _stage = _PosStage.comanda;
+    });
+  }
+
+  void _cerrarSesion() {
+    ref.read(posSessionProvider.notifier).cerrarSesion();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.sesion;
+    switch (_stage) {
+      case _PosStage.mesas:
+        return MesasScreen(
+          sesion: s,
+          onOpenMesa: _abrirMesa,
+          onBack: () => _go(_PosStage.home),
+          onLogout: _cerrarSesion,
+        );
+      case _PosStage.habitaciones:
+        return HabitacionesScreen(
+          sesion: s,
+          onOpenHabitacion: _abrirHabitacion,
+          onBack: () => _go(_PosStage.home),
+          onLogout: _cerrarSesion,
+        );
+      case _PosStage.comanda:
+        return ComandaScreen(
+          sesion: s,
+          mesa: _mesa,
+          habitacion: _habitacion,
+          onBack: () => _go(_mesa != null ? _PosStage.mesas : _PosStage.habitaciones),
+          onLogout: _cerrarSesion,
+        );
+      case _PosStage.ventas:
+        return _StubScreen(
+          icon: Icons.receipt_long,
+          titulo: 'Ventas',
+          mensaje: 'Historial y devoluciones llegan en la Fase 6.4.',
+          sesion: s,
+          onBack: () => _go(_PosStage.home),
+          onLogout: _cerrarSesion,
+        );
+      case _PosStage.config:
+        return _StubScreen(
+          icon: Icons.settings,
+          titulo: 'Configuración POS',
+          mensaje: 'Config POS y tasa BCV llegan en la Fase 6.5.',
+          sesion: s,
+          onBack: () => _go(_PosStage.home),
+          onLogout: _cerrarSesion,
+        );
+      case _PosStage.home:
+        return PosHomeScreen(
+          sesion: s,
+          onMesas: () => _go(_PosStage.mesas),
+          onHabitaciones: () => _go(_PosStage.habitaciones),
+          onVentas: () => _go(_PosStage.ventas),
+          onConfig: () => _go(_PosStage.config),
+          onLogout: _cerrarSesion,
+        );
+    }
+  }
+}
+
+/// Stub para sub-fases pendientes (6.4 / 6.5).
+class _StubScreen extends StatelessWidget {
+  const _StubScreen({
+    required this.icon,
+    required this.titulo,
+    required this.mensaje,
+    required this.sesion,
+    required this.onBack,
+    required this.onLogout,
+  });
+
+  final IconData icon;
+  final String titulo;
+  final String mensaje;
+  final PosSesionActiva sesion;
+  final VoidCallback onBack;
+  final VoidCallback onLogout;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(
+        children: [
+          PosTopBar(
+            usuario: sesion.usuario,
+            titulo: titulo,
+            onBack: onBack,
+            onLogout: onLogout,
+          ),
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 64, color: Colors.grey),
+                  const SizedBox(height: 12),
+                  const Text('Módulo pendiente'),
+                  const SizedBox(height: 4),
+                  Text(mensaje,
+                      style: const TextStyle(color: Colors.grey),
+                      textAlign: TextAlign.center),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ===========================================================================
+// Login PIN
+// ===========================================================================
+
+class _LoginView extends ConsumerStatefulWidget {
+  const _LoginView();
+
+  @override
+  ConsumerState<_LoginView> createState() => _LoginViewState();
+}
+
+class _LoginViewState extends ConsumerState<_LoginView> {
+  int? _selectedId;
+
+  @override
+  void initState() {
+    super.initState();
+    _seedAdmin();
+  }
+
+  /// Port de `POSLoginView._seed_default_admin`: si no hay cajeros, crea
+  /// "Desarrollador" (admin, sin PIN) para la primera entrada.
+  Future<void> _seedAdmin() async {
+    final repo = ref.read(posRepoProvider);
+    if ((await repo.getUsuarios()).isEmpty) {
+      await repo.crearUsuario('Desarrollador', esAdmin: true);
+      ref.invalidate(usuariosProvider);
+    }
+  }
+
+  Future<void> _login(PosUsuario u) async {
+    if (u.pinHash != null && u.pinHash!.isNotEmpty) {
+      final ok = await showPinDialog(context, u);
+      if (!ok && mounted) {
+        ref.invalidate(usuariosProvider);
+      }
+    } else {
+      await ref.read(posSessionProvider.notifier).iniciarSesion(u);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final usuarios = ref.watch(usuariosProvider);
-    final platos = ref.watch(platosProvider);
-    final comandas = ref.watch(comandasAbiertasProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('POS'),
         leading: const Icon(Icons.point_of_sale),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const Card(
-            child: ListTile(
-              leading: Icon(Icons.dataset),
-              title: Text('Capa de datos POS lista (Fase 6.0)'),
-              subtitle: Text(
-                  'Los repositorios y el motor de sync por sync_uuid ya están '
-                  'operativos. La interfaz (login PIN, mesas, comandas, caja) '
-                  'se construye en las fases 6.1–6.6.'),
-            ),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.storefront, size: 40, color: scheme.primary),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Lycoris POS',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Center(
+                child: Text(
+                  'Seleccione el cajero',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: scheme.onSurfaceVariant),
+                ),
+              ),
+              const SizedBox(height: 16),
+              usuarios.when(
+                loading: () =>
+                    const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(child: Text('Error: $e')),
+                data: (lista) => lista.isEmpty
+                    ? _sinCajeros()
+                    : Column(
+                        children: [
+                          for (final u in lista) ...[
+                            UsuarioCard(
+                              usuario: u,
+                              selected: u.id == _selectedId,
+                              onTap: () {
+                                setState(() => _selectedId = u.id);
+                                _login(u);
+                              },
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          const SizedBox(height: 8),
+                          _loginButton(lista),
+                        ],
+                      ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          _fila('Mesas', mesas.value ?? const []),
-          _fila('Usuarios', usuarios.value ?? const []),
-          _fila('Platos', platos.value ?? const []),
-          _fila('Comandas abiertas', comandas.value ?? const []),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _fila(String label, List<Object> lista) => Card(
-        child: ListTile(
-          leading: const Icon(Icons.chevron_right),
-          title: Text('$label: ${lista.length}'),
+  Widget _sinCajeros() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          children: [
+            const Icon(Icons.person_off_outlined, size: 48),
+            const SizedBox(height: 8),
+            const Text('No hay cajeros registrados',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text('Agregue uno con el botón de abajo',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                )),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => showNuevoCajeroDialog(context),
+              icon: const Icon(Icons.person_add_alt_1_outlined),
+              label: const Text('Nuevo cajero'),
+            ),
+          ],
         ),
-      );
+      ),
+    );
+  }
+
+  Widget _loginButton(List<PosUsuario> lista) {
+    final selected = lista.where((u) => u.id == _selectedId).firstOrNull;
+    return Row(
+      children: [
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: selected == null
+                ? null
+                : () {
+                    setState(() => _selectedId = selected.id);
+                    _login(selected);
+                  },
+            icon: const Icon(Icons.login),
+            label: Text(selected == null
+                ? 'Iniciar sesión'
+                : 'Iniciar sesión como ${selected.nombre}'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton.filledTonal(
+          tooltip: 'Nuevo cajero',
+          onPressed: () => showNuevoCajeroDialog(context),
+          icon: const Icon(Icons.person_add_alt_1),
+        ),
+      ],
+    );
+  }
 }
-
-final mesasProvider = FutureProvider<List<PosMesa>>((ref) {
-  return ref.watch(posRepoProvider).getMesas(soloActivos: true);
-});
-
-final usuariosProvider = FutureProvider<List<PosUsuario>>((ref) {
-  return ref.watch(posRepoProvider).getUsuarios();
-});
-
-final platosProvider = FutureProvider<List<Plato>>((ref) {
-  return ref.watch(posRepoProvider).getPlatos(soloActivos: true);
-});
-
-final comandasAbiertasProvider = FutureProvider<List<PosComanda>>((ref) {
-  return ref.watch(posVentasRepoProvider).getComandasAbiertas();
-});
