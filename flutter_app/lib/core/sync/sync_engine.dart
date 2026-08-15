@@ -6,6 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../db/schema/app_database.dart';
 import '../config/app_config.dart';
+import 'pos_sync_engine.dart';
+import 'sync_service.dart';
 import 'sync_tables.dart';
 
 /// Motor de sincronización — puerto de `usr/database/sync.py` + `pos_sync.py`.
@@ -56,8 +58,8 @@ class SyncEngine {
         // Movimientos no-eliminados no suben por outbox (se regeneran).
         if (table == 'movimientos' && op != 'delete') continue;
 
-        // Tablas POS excluidas de esta cola.
-        if (table.startsWith('pos_')) continue;
+        // Tablas del módulo POS (pos_*/platos_*) gestionadas por PosSyncEngine.
+        if (posTableNames.contains(table)) continue;
 
         final data = jsonDecode(item.data) as Map<String, dynamic>;
 
@@ -66,13 +68,13 @@ class SyncEngine {
             if (table == 'factura_pagos') {
               await _upsertFacturaPago(data);
             } else {
-              await _upsertRemote(table, data);
+              await _upsertRemote(table, data, 'insert');
             }
           case 'update':
             if (table == 'factura_pagos') {
               await _upsertFacturaPago(data);
             } else {
-              await _upsertRemote(table, data);
+              await _upsertRemote(table, data, 'update');
             }
           case 'delete':
             if (table == 'movimientos') {
@@ -122,26 +124,62 @@ class SyncEngine {
 
   /// Elimina un movimiento remoto por campos coincidentes (ID local != remoto,
   /// réplica de `sync.py` caso `movimientos` delete).
+  ///
+  /// La fecha se normaliza a UTC al segundo porque el server guarda
+  /// `fecha_movimiento` normalizada (ver `_uploadPendingMovimientos`); si no se
+  /// normalizara, el `.eq` nunca coincidía y el borrado se reportaba subido sin
+  /// eliminar nada. Se hace match progresivo: primero con el detalle exacto
+  /// (incluye cantidad_anterior/nueva), luego solo con la fecha, y por último
+  /// sin fecha, para cubrir filas que el server haya mergeado.
   Future<void> _deleteMovimientoPorMatch(Map<String, dynamic> data) async {
-    var query = client.from('movimientos').delete();
-    var hasMatch = false;
-    for (final key in [
-      'producto_id',
-      'tipo',
-      'cantidad',
-      'fecha_movimiento',
-      'almacen',
-    ]) {
-      final v = data[key];
-      if (v != null) {
-        query = query.eq(key, v);
-        hasMatch = true;
+    final fechaNorm = data['fecha_movimiento'] is String
+        ? toSecondUtcIsoString(DateTime.tryParse(data['fecha_movimiento'] as String))
+        : null;
+
+    Future<List<Map<String, dynamic>>> buscar(Map<String, Object?> extra) async {
+      var q = client.from('movimientos').select(
+          'id,cantidad_anterior,cantidad_nueva,fecha_movimiento');
+      for (final e in {
+        'producto_id': data['producto_id'],
+        'tipo': data['tipo'],
+        'almacen': data['almacen'],
+        'cantidad': data['cantidad'],
+      }.entries) {
+        if (e.value != null) q = q.eq(e.key, e.value!);
       }
+      for (final e in extra.entries) {
+        if (e.value != null) q = q.eq(e.key, e.value!);
+      }
+      return q.limit(20);
     }
-    if (hasMatch) await query;
+
+    var rows = await buscar({
+      if (fechaNorm != null) 'fecha_movimiento': fechaNorm,
+      'cantidad_anterior': data['cantidad_anterior'],
+      'cantidad_nueva': data['cantidad_nueva'],
+    });
+    if (rows.isEmpty && fechaNorm != null) {
+      rows = await buscar({'fecha_movimiento': fechaNorm});
+    }
+    if (rows.isEmpty) {
+      rows = await buscar(const {});
+    }
+    for (final r in rows) {
+      await client.from('movimientos').delete().eq('id', r['id']);
+    }
   }
 
-  Future<void> _upsertRemote(String table, Map<String, dynamic> data) async {
+  /// Tablas de catálogo creadas offline y referenciadas por hijos (FK). Al
+  /// subirlas, el server asigna el id (evita colisiones entre dispositivos) y
+  /// se re-mapea el id local en todas las tablas que lo referencian.
+  static const _catalogo = {'categorias', 'productos', 'proveedores'};
+
+  Future<void> _upsertRemote(String table, Map<String, dynamic> data, String op) async {
+    if (_catalogo.contains(table)) {
+      await _subirCatalogoRow(table, data);
+      return;
+    }
+
     final desc = syncedTables.firstWhere(
       (d) => d.serverTable == table,
       orElse: () => SyncTableDescriptor(serverTable: table, localTable: table),
@@ -157,19 +195,220 @@ class SyncEngine {
           .eq(desc.dedupeKey, cleaned[desc.dedupeKey])
           .maybeSingle();
       if (existing != null && existing['id'] != null) {
+        cleaned.remove('id');
         await client.from(table).update(cleaned).eq('id', existing['id']);
         return;
       }
     }
-    if (cleaned.containsKey('id')) {
-      cleaned.remove('id'); // deja que el server genere el id
+
+    if (op == 'update') {
+      // Edición de una fila que ya existe en el server: actualizar por id.
+      final id = cleaned['id'];
+      if (id == null) throw StateError('update de $table sin id');
+      final updated = await client.from(table).update(cleaned).eq('id', id).select('id');
+      if (updated.isEmpty) {
+        // No existe aún (se creó local y se editó antes de subir): insertar.
+        await client.from(table).insert(cleaned);
+      }
+      return;
     }
-    await client.from(table).insert(cleaned);
+
+    // Insert: sin id local, el server asigna el id (estas tablas no tienen
+    // hijos que referencien el id local o se resuelven por clave natural).
+    final sinId = Map<String, dynamic>.from(cleaned)..remove('id');
+    await client.from(table).insert(sinId);
+  }
+
+  /// Sube una fila de catálogo (categoría/producto/proveedor): si el server ya
+  /// la tiene por id o por clave natural, actualiza; si no, inserta sin id local
+  /// y re-mapea el id en las tablas hijas (evita colisiones multi-dispositivo).
+  Future<void> _subirCatalogoRow(String table, Map<String, dynamic> data) async {
+    if (table == 'productos' && data['categoria_id'] != null) {
+      await _garantizarCategoriaRemota(data['categoria_id'] as int);
+    }
+    final localId = data['id'];
+    final upd = Map<String, dynamic>.from(data)..remove('id');
+
+    if (localId != null) {
+      final porId = await client
+          .from(table)
+          .select('id')
+          .eq('id', localId)
+          .maybeSingle();
+      if (porId != null) {
+        await client.from(table).update(upd).eq('id', localId);
+        return;
+      }
+    }
+
+    final desc = syncedTables.firstWhere(
+      (d) => d.serverTable == table,
+      orElse: () => SyncTableDescriptor(serverTable: table, localTable: table),
+    );
+    if (desc.dedupeKey.isNotEmpty && data.containsKey(desc.dedupeKey)) {
+      final existing = await client
+          .from(table)
+          .select('id')
+          .eq(desc.dedupeKey, data[desc.dedupeKey])
+          .maybeSingle();
+      if (existing != null && existing['id'] != null) {
+        final remoteId = (existing['id'] as num).toInt();
+        if (localId != null && remoteId != localId) {
+          await _remapearLocal(table, localId, remoteId);
+        }
+        await client.from(table).update(upd).eq('id', remoteId);
+        return;
+      }
+    }
+
+    await _insertarPadre(table: table, data: data, localId: localId);
+  }
+
+  /// Inserta la fila sin id local (el server asigna `nextval`) y re-mapea el
+  /// id local en las tablas hijas.
+  Future<void> _insertarPadre({
+    required String table,
+    required Map<String, dynamic> data,
+    required int? localId,
+  }) async {
+    final sinId = Map<String, dynamic>.from(data)..remove('id');
+    final inserted = await client.from(table).insert(sinId).select();
+    if (inserted.isEmpty) throw StateError('insert de $table sin fila devuelta');
+    final remoteId = (inserted.first['id'] as num).toInt();
+    if (localId != null && remoteId != localId) {
+      await _remapearLocal(table, localId, remoteId);
+    }
+  }
+
+  /// Re-mapea un id local a su id remoto en todas las tablas que lo referencian
+  /// (SQLite no ejecuta FKs, así que el orden no importa).
+  Future<void> _remapearLocal(String table, int from, int to) async {
+    Future<void> upd(String sql) async {
+      try {
+        await _db.customStatement(sql, [to, from]);
+      } catch (e) {
+        _log('Remapeo $sql ($from->$to) falló: $e');
+      }
+    }
+
+    if (table == 'categorias') {
+      await upd('UPDATE productos SET categoria_id = ? WHERE categoria_id = ?');
+    } else if (table == 'productos') {
+      await upd('UPDATE productos SET id = ? WHERE id = ?');
+      await upd('UPDATE movimientos SET producto_id = ? WHERE producto_id = ?');
+      await upd('UPDATE movimientos_archivo SET producto_id = ? WHERE producto_id = ?');
+      await upd('UPDATE existencias SET producto_id = ? WHERE producto_id = ?');
+      await upd('UPDATE stock_checkpoint SET producto_id = ? WHERE producto_id = ?');
+      await upd('UPDATE compras_lista SET producto_id = ? WHERE producto_id = ?');
+      await upd('UPDATE requisicion_detalles SET producto_id = ? WHERE producto_id = ?');
+      await upd('UPDATE recetas SET producto_base_id = ? WHERE producto_base_id = ?');
+      await upd('UPDATE recetas SET producto_final_id = ? WHERE producto_final_id = ?');
+      await upd('UPDATE receta_componentes SET producto_id = ? WHERE producto_id = ?');
+      await upd('UPDATE produccion_detalles SET producto_id = ? WHERE producto_id = ?');
+      _log('Producto $from re-mapeado a $to');
+    }
+    // proveedores: no tienen tablas hijas → sin remapeo.
   }
 
   // ---------------------------------------------------------------------
   // 2. Subida de movimientos pendientes
   // ---------------------------------------------------------------------
+
+  /// Sube el producto referenciado por un movimiento si el server no lo tiene
+  /// aún (el outbox pudo no haber subido la creación, o se creó antes del fix).
+  /// El server asigna el id y se re-mapea (ver `_subirCatalogoRow`).
+  Future<void> _garantizarProductoRemoto(int productoId) async {
+    final exists = await client
+        .from('productos')
+        .select('id')
+        .eq('id', productoId)
+        .maybeSingle();
+    if (exists != null) return;
+
+    final local = await (_db.select(_db.productos)
+          ..where((t) => t.id.equals(productoId)))
+        .getSingleOrNull();
+    if (local == null) return;
+    if (local.categoriaId != null) {
+      await _garantizarCategoriaRemota(local.categoriaId!);
+    }
+    await _subirCatalogoRow('productos', productoToSyncMap(local));
+  }
+
+  /// Sube la categoría de un producto si el server no la tiene (misma lógica
+  /// de auto-curado para no romper `productos.categoria_id`).
+  Future<void> _garantizarCategoriaRemota(int categoriaId) async {
+    final exists = await client
+        .from('categorias')
+        .select('id')
+        .eq('id', categoriaId)
+        .maybeSingle();
+    if (exists != null) return;
+
+    final local = await (_db.select(_db.categorias)
+          ..where((t) => t.id.equals(categoriaId)))
+        .getSingleOrNull();
+    if (local == null) return;
+    await _subirCatalogoRow('categorias', categoriaToSyncMap(local));
+  }
+
+  /// Sube filas del catálogo local (categorías, productos, proveedores) que el
+  /// server no tiene. Cubre datos creados antes de que la creación encolara, o
+  /// cuyo encolado quedó huérfano. El server asigna el id y se re-mapea.
+  Future<void> _subirCatalogoLocalFaltante() async {
+    // Comprobaciones en paralelo (Future.wait): cada fila es independiente.
+    // El orden por tipo se conserva (categorías → productos → proveedores)
+    // porque un producto puede auto-curar su categoría; dentro de cada tipo
+    // todas las peticiones van a la vez, recortando la latencia del ciclo.
+    final categorias = await _db.select(_db.categorias).get();
+    await Future.wait(categorias.map((c) async {
+      try {
+        final exists = await client
+            .from('categorias')
+            .select('id')
+            .eq('id', c.id)
+            .maybeSingle();
+        if (exists == null) {
+          await _subirCatalogoRow('categorias', categoriaToSyncMap(c));
+        }
+      } catch (e) {
+        _log('Error subiendo categoría ${c.id}: $e');
+      }
+    }));
+
+    final productos = await _db.select(_db.productos).get();
+    await Future.wait(productos.map((p) async {
+      try {
+        final exists = await client
+            .from('productos')
+            .select('id')
+            .eq('id', p.id)
+            .maybeSingle();
+        if (exists == null) {
+          if (p.categoriaId != null) await _garantizarCategoriaRemota(p.categoriaId!);
+          await _subirCatalogoRow('productos', productoToSyncMap(p));
+        }
+      } catch (e) {
+        _log('Error subiendo producto ${p.id}: $e');
+      }
+    }));
+
+    final proveedores = await _db.select(_db.proveedores).get();
+    await Future.wait(proveedores.map((p) async {
+      try {
+        final exists = await client
+            .from('proveedores')
+            .select('id')
+            .eq('id', p.id)
+            .maybeSingle();
+        if (exists == null) {
+          await _subirCatalogoRow('proveedores', proveedorToSyncMap(p));
+        }
+      } catch (e) {
+        _log('Error subiendo proveedor ${p.id}: $e');
+      }
+    }));
+  }
 
   Future<void> _uploadPendingMovimientos() async {
     final pending = await (_db.select(_db.movimientos)
@@ -182,6 +421,19 @@ class SyncEngine {
 
     for (final mov in pending) {
       try {
+        // Auto-curado de FK: si el producto referenciado no existe en el
+        // server (ej. creado localmente antes de que el outbox lo subiera),
+        // se sube primero. Puede re-mapear el id del producto, así que se
+        // re-lee el movimiento para usar el id remoto vigente.
+        await _garantizarProductoRemoto(mov.productoId);
+        final actual = await (_db.select(_db.movimientos)
+              ..where((t) => t.id.equals(mov.id)))
+            .getSingleOrNull();
+        final productoId = actual?.productoId ?? mov.productoId;
+        // Id local vigente: se alinea con el del server al subir (abajo), para
+        // que la descarga incremental por `created_at` no reintroduzca la fila.
+        var localId = mov.id;
+
         int? remoteFacturaId = await _resolveFacturaIdRemoto(mov.facturaId);
         int? remoteRequisicionId =
             await _resolveRequisicionIdRemoto(mov.requisicionId, mov.tipo);
@@ -203,7 +455,7 @@ class SyncEngine {
           final rows = await client
               .from('movimientos')
               .select('id,fecha_movimiento')
-              .eq('producto_id', mov.productoId)
+              .eq('producto_id', productoId)
               .eq('tipo', mov.tipo)
               .eq('cantidad', mov.cantidad)
               .gte('fecha_movimiento', start.toIso8601String())
@@ -231,9 +483,17 @@ class SyncEngine {
           if (updates.isNotEmpty) {
             await client.from('movimientos').update(updates).eq('id', match['id']);
           }
+          // Alinear id local con el del server (misma fila ya subida en un
+          // ciclo anterior con la factura/requisición sin resolver).
+          final remoteId = _toInt(match['id']);
+          if (remoteId != null && remoteId != localId) {
+            await (_db.update(_db.movimientos)..where((t) => t.id.equals(localId)))
+                .write(MovimientosCompanion(id: Value(remoteId)));
+            localId = remoteId;
+          }
         } else {
-          await client.from('movimientos').insert({
-            'producto_id': mov.productoId,
+          final ins = await client.from('movimientos').insert({
+            'producto_id': productoId,
             'factura_id': remoteFacturaId,
             'requisicion_id': remoteRequisicionId ?? mov.requisicionId,
             'venta_sync_uuid': mov.ventaSyncUuid,
@@ -247,7 +507,13 @@ class SyncEngine {
             'almacen': mov.almacen,
             // Fecha normalizada sin microsegundos para match consistente.
             'fecha_movimiento': _toSecondUtc(mov.fechaMovimiento)?.toIso8601String(),
-          });
+          }).select('id').single();
+          final remoteId = _toInt(ins['id']);
+          if (remoteId != null && remoteId != localId) {
+            await (_db.update(_db.movimientos)..where((t) => t.id.equals(localId)))
+                .write(MovimientosCompanion(id: Value(remoteId)));
+            localId = remoteId;
+          }
         }
 
         if (mov.facturaId != null && remoteFacturaId == null) continue;
@@ -257,9 +523,9 @@ class SyncEngine {
           continue;
         }
 
-        await (_db.update(_db.movimientos)..where((t) => t.id.equals(mov.id)))
+        await (_db.update(_db.movimientos)..where((t) => t.id.equals(localId)))
             .write(const MovimientosCompanion(sincronizado: Value(1)));
-        _log('Movimiento ${mov.id} sincronizado');
+        _log('Movimiento $localId sincronizado');
       } catch (e) {
         _log('Error subiendo movimiento ${mov.id}: $e');
       }
@@ -302,55 +568,62 @@ class SyncEngine {
   Future<void> _downloadAllFromServer() async {
     final lastSync = await _getLastFullSync();
 
-    for (final desc in syncedTables) {
-      try {
-        // Descarga incremental cuando la tabla ya sincronizó y tiene columna
-        // de cambio: reduce egress (movimientos/productos grandes no se vuelven
-        // a descargar completos cada ciclo).
-        final inc = desc.incrementalColumn;
-        // `select()` devuelve PostgrestFilterBuilder (tiene `or`); los métodos
-        // `order`/`range` viven en PostgrestTransformBuilder (superclase), así
-        // que se usa una variable filtro y se pasa a la de transformación.
-        final filtro = client.from(desc.serverTable).select();
-        PostgrestTransformBuilder<List<Map<String, dynamic>>> q = filtro;
-        final localEmpty = await _isTableEmpty(desc.localTable);
-        if (!localEmpty && lastSync != null && inc != null) {
-          // `or(is.null, gte)` incluye filas cuya columna de cambio es NULL
-          // (p.ej. categorías sin `updated_at`); `gte` solo traería las nuevas.
-          final iso = lastSync.toIso8601String();
-          q = filtro.or('$inc.is.null,$inc.gte."$iso"');
-        }
-        // Orden estable para paginar sin solapamientos/omisiones (todas las
-        // tablas sincronizadas tienen `id`, salvo stock_checkpoint).
-        if (desc.localTable != 'stock_checkpoint') {
-          q = q.order('id');
-        }
+    // Descarga las tablas en paralelo (Future.wait): el HTTP es el cuello de
+    // botella y las tablas son independientes (SQLite no aplica FKs), así que
+    // bajar 16 tablas una a una en serie alargaba el ciclo 10-20s. Las
+    // escrituras se serializan solas en la única conexión de drift.
+    await Future.wait(syncedTables.map((desc) => _descargarTabla(desc, lastSync)));
+  }
 
-        // Purgar los movimientos locales UNA sola vez antes de la descarga
-        // completa (reflejan fielmente el server; uploadPending ya subió los
-        // pendientes antes). No se repite por página.
-        if (desc.localTable == 'movimientos') {
-          await _db.delete(_db.movimientos).go();
-        }
-
-        // Supabase REST limita a 1000 filas por petición: paginar con `range`
-        // para no perder datos históricos (p.ej. movimientos de facturas
-        // antiguas, que quedaban sin vincular en el detalle).
-        const pageSize = 1000;
-        var offset = 0;
-        var total = 0;
-        while (true) {
-          final data = await q.range(offset, offset + pageSize - 1);
-          final rows = (data as List).cast<Map<String, dynamic>>();
-          if (rows.isEmpty) break;
-          await _upsertLocalBatch(desc, rows);
-          total += rows.length;
-          offset += pageSize;
-        }
-        if (total > 0) _log('$total ${desc.serverTable} descargados');
-      } catch (e) {
-        _log('Error descargando ${desc.serverTable}: $e');
+  Future<void> _descargarTabla(
+    SyncTableDescriptor desc,
+    DateTime? lastSync,
+  ) async {
+    try {
+      // Descarga incremental cuando la tabla ya sincronizó y tiene columna
+      // de cambio: reduce egress (movimientos/productos grandes no se vuelven
+      // a descargar completos cada ciclo).
+      final inc = desc.incrementalColumn;
+      final incById = desc.incrementalById;
+      // `select()` devuelve PostgrestFilterBuilder (tiene `or`); los métodos
+      // `order`/`range` viven en PostgrestTransformBuilder (superclase), así
+      // que se usa una variable filtro y se pasa a la de transformación.
+      final filtro = client.from(desc.serverTable).select();
+      PostgrestTransformBuilder<List<Map<String, dynamic>>> q = filtro;
+      final localEmpty = await _isTableEmpty(desc.localTable);
+      // Incremental: solo las filas que cambiaron desde el último sync
+      // (reducir egress: con full-download cada ciclo se excedió la cuota
+      // de Supabase, 254%). Se omite el `is.null`: filas viejas sin
+      // timestamp nunca cambian, ya se descargaron la primera vez.
+      if (!localEmpty && lastSync != null && inc != null) {
+        q = filtro.gte(inc, lastSync.toIso8601String());
+      } else if (!localEmpty && incById != null) {
+        final maxId = await _maxLocalId(desc.localTable);
+        if (maxId != null) q = filtro.gt(incById, maxId);
       }
+      // Orden estable para paginar sin solapamientos/omisiones (todas las
+      // tablas sincronizadas tienen `id`, salvo stock_checkpoint).
+      if (desc.localTable != 'stock_checkpoint') {
+        q = q.order('id');
+      }
+
+      // Supabase REST limita a 1000 filas por petición: paginar con `range`
+      // para no perder datos históricos (p.ej. movimientos de facturas
+      // antiguas, que quedaban sin vincular en el detalle).
+      const pageSize = 1000;
+      var offset = 0;
+      var total = 0;
+      while (true) {
+        final data = await q.range(offset, offset + pageSize - 1);
+        final rows = (data as List).cast<Map<String, dynamic>>();
+        if (rows.isEmpty) break;
+        await _upsertLocalBatch(desc, rows);
+        total += rows.length;
+        offset += pageSize;
+      }
+      if (total > 0) _log('$total ${desc.serverTable} descargados');
+    } catch (e) {
+      _log('Error descargando ${desc.serverTable}: $e');
     }
   }
 
@@ -365,6 +638,20 @@ class SyncEngine {
       return q.read<int>('vacia') == 0;
     } catch (_) {
       return false;
+    }
+  }
+
+  /// Máximo id local de una tabla de solo-descarga. Como esos ids SIEMPRE son
+  /// los del server (SERIAL monotónico), `id > MAX(id)` trae exactamente las
+  /// filas nuevas sin re-descargar el historial.
+  Future<int?> _maxLocalId(String table) async {
+    try {
+      final q = await _db.customSelect(
+        'SELECT COALESCE(MAX(id),0) AS max_id FROM $table',
+      ).getSingle();
+      return q.read<int>('max_id');
+    } catch (_) {
+      return null;
     }
   }
 
@@ -451,7 +738,18 @@ class SyncEngine {
             );
           }
         case 'existencias':
+          // Deduplica por (producto_id, almacen) quedándose con el id más alto
+          // (último estado) para no reintroducir filas duplicadas del servidor.
+          final porClave = <(int?, String), Map<String, dynamic>>{};
           for (final r in rows) {
+            final clave = (_toInt(r['producto_id']), r['almacen'] as String);
+            final prev = porClave[clave];
+            if (prev == null ||
+                (_toInt(r['id']) ?? 0) > (_toInt(prev['id']) ?? 0)) {
+              porClave[clave] = r;
+            }
+          }
+          for (final r in porClave.values) {
             await _db.into(_db.existencias).insertOnConflictUpdate(
               ExistenciasCompanion.insert(
                 id: Value((r['id'] as num).toInt()),
@@ -463,8 +761,8 @@ class SyncEngine {
             );
           }
         case 'movimientos':
-          // El purge local se hace una sola vez en `_downloadAllFromServer`
-          // (antes de paginar); aquí solo se insertan/upsertan filas.
+          // Descarga incremental por `created_at` (ids locales alineados al
+          // server al subir); aquí solo se insertan/upsertan las filas nuevas.
           for (final r in rows) {
             await _db.into(_db.movimientos).insertOnConflictUpdate(
               MovimientosCompanion.insert(
@@ -675,6 +973,7 @@ class SyncEngine {
     _running = true;
     try {
       await _processOutbox();
+      await _subirCatalogoLocalFaltante();
       await _uploadPendingMovimientos();
       await _downloadAllFromServer();
       await _setLastSync();
@@ -694,6 +993,23 @@ class SyncEngine {
       const Duration(seconds: AppConfig.syncIntervalSeconds),
       (_) => fullSync(),
     );
+  }
+
+  /// Sube de inmediato las operaciones pendientes (outbox + movimientos
+  /// con `sincronizado=0`), sin descargar. Réplica de movements.py:
+  /// tras registrar un movimiento, intenta syncar al momento si hay
+  /// conexión; si falla, queda pendiente para el siguiente ciclo.
+  Future<void> pushPending() async {
+    if (_running) return;
+    _running = true;
+    try {
+      await _processOutbox();
+      await _uploadPendingMovimientos();
+    } catch (e) {
+      _log('Error en push pendientes: $e');
+    } finally {
+      _running = false;
+    }
   }
 
   Future<void> _setLastSync() async {
@@ -740,6 +1056,10 @@ DateTime? _toSecondUtc(DateTime? v) {
   return DateTime.utc(
       u.year, u.month, u.day, u.hour, u.minute, u.second);
 }
+
+/// Versión pública de `_toSecondUtc` como ISO string, para que el outbox de
+/// borrado de movimientos normalice la fecha igual que la subida.
+String? toSecondUtcIsoString(DateTime? v) => _toSecondUtc(v)?.toIso8601String();
 
 int? _toInt(Object? v) {
   if (v == null) return null;

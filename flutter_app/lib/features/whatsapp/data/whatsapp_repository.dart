@@ -104,7 +104,10 @@ class WhatsappRepository {
             headers: _headers,
             body: {'message': mensaje},
           )
-          .timeout(const Duration(seconds: 10));
+          // 30s como el de imagen: zrok se enfría en el primer request tras
+          // estar inactivo y 10s generaba timeouts falsos (el mensaje igual
+          // se encola y se reintenta, pero podía duplicarse en el retry).
+          .timeout(const Duration(seconds: 30));
       if (resp.statusCode != 200) {
         print('[WA] send texto -> ${resp.statusCode} ${resp.body}');
       }
@@ -128,7 +131,10 @@ class WhatsappRepository {
           .post(
             Uri.parse('$whatsappBotUrl/send-image'),
             headers: {..._headers, 'Content-Type': 'application/json'},
-            body: '{"imageBase64": "$b64", "caption": "$caption"}',
+            // jsonEncode escapa \n, comillas y unicode: interpolar texto crudo
+            // en JSON rompía el body cuando el caption llevaba saltos de línea
+            // (mensajes de validación) y el bot respondía 400.
+            body: jsonEncode({'imageBase64': b64, 'caption': caption}),
           )
           .timeout(const Duration(seconds: 30));
       return resp.statusCode == 200;

@@ -9723,6 +9723,5422 @@ class WhatsappQueueCompanion extends UpdateCompanion<WhatsappQueueData> {
   }
 }
 
+class $TemporalesTable extends Temporales
+    with TableInfo<$TemporalesTable, Temporale> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TemporalesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _imagenB64Meta =
+      const VerificationMeta('imagenB64');
+  @override
+  late final GeneratedColumn<String> imagenB64 = GeneratedColumn<String>(
+      'imagen_b64', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _tipoDocumentoMeta =
+      const VerificationMeta('tipoDocumento');
+  @override
+  late final GeneratedColumn<String> tipoDocumento = GeneratedColumn<String>(
+      'tipo_documento', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _nroFacturaMeta =
+      const VerificationMeta('nroFactura');
+  @override
+  late final GeneratedColumn<String> nroFactura = GeneratedColumn<String>(
+      'nro_factura', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _proveedorMeta =
+      const VerificationMeta('proveedor');
+  @override
+  late final GeneratedColumn<String> proveedor = GeneratedColumn<String>(
+      'proveedor', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _montoMeta = const VerificationMeta('monto');
+  @override
+  late final GeneratedColumn<double> monto = GeneratedColumn<double>(
+      'monto', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _fechaMeta = const VerificationMeta('fecha');
+  @override
+  late final GeneratedColumn<DateTime> fecha = GeneratedColumn<DateTime>(
+      'fecha', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        imagenB64,
+        tipoDocumento,
+        nroFactura,
+        proveedor,
+        monto,
+        fecha,
+        createdAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'temporales';
+  @override
+  VerificationContext validateIntegrity(Insertable<Temporale> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('imagen_b64')) {
+      context.handle(_imagenB64Meta,
+          imagenB64.isAcceptableOrUnknown(data['imagen_b64']!, _imagenB64Meta));
+    }
+    if (data.containsKey('tipo_documento')) {
+      context.handle(
+          _tipoDocumentoMeta,
+          tipoDocumento.isAcceptableOrUnknown(
+              data['tipo_documento']!, _tipoDocumentoMeta));
+    }
+    if (data.containsKey('nro_factura')) {
+      context.handle(
+          _nroFacturaMeta,
+          nroFactura.isAcceptableOrUnknown(
+              data['nro_factura']!, _nroFacturaMeta));
+    }
+    if (data.containsKey('proveedor')) {
+      context.handle(_proveedorMeta,
+          proveedor.isAcceptableOrUnknown(data['proveedor']!, _proveedorMeta));
+    }
+    if (data.containsKey('monto')) {
+      context.handle(
+          _montoMeta, monto.isAcceptableOrUnknown(data['monto']!, _montoMeta));
+    }
+    if (data.containsKey('fecha')) {
+      context.handle(
+          _fechaMeta, fecha.isAcceptableOrUnknown(data['fecha']!, _fechaMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Temporale map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Temporale(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      imagenB64: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}imagen_b64']),
+      tipoDocumento: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}tipo_documento']),
+      nroFactura: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}nro_factura']),
+      proveedor: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}proveedor']),
+      monto: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}monto']),
+      fecha: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}fecha']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+    );
+  }
+
+  @override
+  $TemporalesTable createAlias(String alias) {
+    return $TemporalesTable(attachedDatabase, alias);
+  }
+}
+
+class Temporale extends DataClass implements Insertable<Temporale> {
+  final int id;
+  final String? imagenB64;
+  final String? tipoDocumento;
+  final String? nroFactura;
+  final String? proveedor;
+  final double? monto;
+  final DateTime? fecha;
+  final DateTime createdAt;
+  const Temporale(
+      {required this.id,
+      this.imagenB64,
+      this.tipoDocumento,
+      this.nroFactura,
+      this.proveedor,
+      this.monto,
+      this.fecha,
+      required this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    if (!nullToAbsent || imagenB64 != null) {
+      map['imagen_b64'] = Variable<String>(imagenB64);
+    }
+    if (!nullToAbsent || tipoDocumento != null) {
+      map['tipo_documento'] = Variable<String>(tipoDocumento);
+    }
+    if (!nullToAbsent || nroFactura != null) {
+      map['nro_factura'] = Variable<String>(nroFactura);
+    }
+    if (!nullToAbsent || proveedor != null) {
+      map['proveedor'] = Variable<String>(proveedor);
+    }
+    if (!nullToAbsent || monto != null) {
+      map['monto'] = Variable<double>(monto);
+    }
+    if (!nullToAbsent || fecha != null) {
+      map['fecha'] = Variable<DateTime>(fecha);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  TemporalesCompanion toCompanion(bool nullToAbsent) {
+    return TemporalesCompanion(
+      id: Value(id),
+      imagenB64: imagenB64 == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imagenB64),
+      tipoDocumento: tipoDocumento == null && nullToAbsent
+          ? const Value.absent()
+          : Value(tipoDocumento),
+      nroFactura: nroFactura == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nroFactura),
+      proveedor: proveedor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(proveedor),
+      monto:
+          monto == null && nullToAbsent ? const Value.absent() : Value(monto),
+      fecha:
+          fecha == null && nullToAbsent ? const Value.absent() : Value(fecha),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory Temporale.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Temporale(
+      id: serializer.fromJson<int>(json['id']),
+      imagenB64: serializer.fromJson<String?>(json['imagenB64']),
+      tipoDocumento: serializer.fromJson<String?>(json['tipoDocumento']),
+      nroFactura: serializer.fromJson<String?>(json['nroFactura']),
+      proveedor: serializer.fromJson<String?>(json['proveedor']),
+      monto: serializer.fromJson<double?>(json['monto']),
+      fecha: serializer.fromJson<DateTime?>(json['fecha']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'imagenB64': serializer.toJson<String?>(imagenB64),
+      'tipoDocumento': serializer.toJson<String?>(tipoDocumento),
+      'nroFactura': serializer.toJson<String?>(nroFactura),
+      'proveedor': serializer.toJson<String?>(proveedor),
+      'monto': serializer.toJson<double?>(monto),
+      'fecha': serializer.toJson<DateTime?>(fecha),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  Temporale copyWith(
+          {int? id,
+          Value<String?> imagenB64 = const Value.absent(),
+          Value<String?> tipoDocumento = const Value.absent(),
+          Value<String?> nroFactura = const Value.absent(),
+          Value<String?> proveedor = const Value.absent(),
+          Value<double?> monto = const Value.absent(),
+          Value<DateTime?> fecha = const Value.absent(),
+          DateTime? createdAt}) =>
+      Temporale(
+        id: id ?? this.id,
+        imagenB64: imagenB64.present ? imagenB64.value : this.imagenB64,
+        tipoDocumento:
+            tipoDocumento.present ? tipoDocumento.value : this.tipoDocumento,
+        nroFactura: nroFactura.present ? nroFactura.value : this.nroFactura,
+        proveedor: proveedor.present ? proveedor.value : this.proveedor,
+        monto: monto.present ? monto.value : this.monto,
+        fecha: fecha.present ? fecha.value : this.fecha,
+        createdAt: createdAt ?? this.createdAt,
+      );
+  Temporale copyWithCompanion(TemporalesCompanion data) {
+    return Temporale(
+      id: data.id.present ? data.id.value : this.id,
+      imagenB64: data.imagenB64.present ? data.imagenB64.value : this.imagenB64,
+      tipoDocumento: data.tipoDocumento.present
+          ? data.tipoDocumento.value
+          : this.tipoDocumento,
+      nroFactura:
+          data.nroFactura.present ? data.nroFactura.value : this.nroFactura,
+      proveedor: data.proveedor.present ? data.proveedor.value : this.proveedor,
+      monto: data.monto.present ? data.monto.value : this.monto,
+      fecha: data.fecha.present ? data.fecha.value : this.fecha,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Temporale(')
+          ..write('id: $id, ')
+          ..write('imagenB64: $imagenB64, ')
+          ..write('tipoDocumento: $tipoDocumento, ')
+          ..write('nroFactura: $nroFactura, ')
+          ..write('proveedor: $proveedor, ')
+          ..write('monto: $monto, ')
+          ..write('fecha: $fecha, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, imagenB64, tipoDocumento, nroFactura,
+      proveedor, monto, fecha, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Temporale &&
+          other.id == this.id &&
+          other.imagenB64 == this.imagenB64 &&
+          other.tipoDocumento == this.tipoDocumento &&
+          other.nroFactura == this.nroFactura &&
+          other.proveedor == this.proveedor &&
+          other.monto == this.monto &&
+          other.fecha == this.fecha &&
+          other.createdAt == this.createdAt);
+}
+
+class TemporalesCompanion extends UpdateCompanion<Temporale> {
+  final Value<int> id;
+  final Value<String?> imagenB64;
+  final Value<String?> tipoDocumento;
+  final Value<String?> nroFactura;
+  final Value<String?> proveedor;
+  final Value<double?> monto;
+  final Value<DateTime?> fecha;
+  final Value<DateTime> createdAt;
+  const TemporalesCompanion({
+    this.id = const Value.absent(),
+    this.imagenB64 = const Value.absent(),
+    this.tipoDocumento = const Value.absent(),
+    this.nroFactura = const Value.absent(),
+    this.proveedor = const Value.absent(),
+    this.monto = const Value.absent(),
+    this.fecha = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  TemporalesCompanion.insert({
+    this.id = const Value.absent(),
+    this.imagenB64 = const Value.absent(),
+    this.tipoDocumento = const Value.absent(),
+    this.nroFactura = const Value.absent(),
+    this.proveedor = const Value.absent(),
+    this.monto = const Value.absent(),
+    this.fecha = const Value.absent(),
+    required DateTime createdAt,
+  }) : createdAt = Value(createdAt);
+  static Insertable<Temporale> custom({
+    Expression<int>? id,
+    Expression<String>? imagenB64,
+    Expression<String>? tipoDocumento,
+    Expression<String>? nroFactura,
+    Expression<String>? proveedor,
+    Expression<double>? monto,
+    Expression<DateTime>? fecha,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (imagenB64 != null) 'imagen_b64': imagenB64,
+      if (tipoDocumento != null) 'tipo_documento': tipoDocumento,
+      if (nroFactura != null) 'nro_factura': nroFactura,
+      if (proveedor != null) 'proveedor': proveedor,
+      if (monto != null) 'monto': monto,
+      if (fecha != null) 'fecha': fecha,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  TemporalesCompanion copyWith(
+      {Value<int>? id,
+      Value<String?>? imagenB64,
+      Value<String?>? tipoDocumento,
+      Value<String?>? nroFactura,
+      Value<String?>? proveedor,
+      Value<double?>? monto,
+      Value<DateTime?>? fecha,
+      Value<DateTime>? createdAt}) {
+    return TemporalesCompanion(
+      id: id ?? this.id,
+      imagenB64: imagenB64 ?? this.imagenB64,
+      tipoDocumento: tipoDocumento ?? this.tipoDocumento,
+      nroFactura: nroFactura ?? this.nroFactura,
+      proveedor: proveedor ?? this.proveedor,
+      monto: monto ?? this.monto,
+      fecha: fecha ?? this.fecha,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (imagenB64.present) {
+      map['imagen_b64'] = Variable<String>(imagenB64.value);
+    }
+    if (tipoDocumento.present) {
+      map['tipo_documento'] = Variable<String>(tipoDocumento.value);
+    }
+    if (nroFactura.present) {
+      map['nro_factura'] = Variable<String>(nroFactura.value);
+    }
+    if (proveedor.present) {
+      map['proveedor'] = Variable<String>(proveedor.value);
+    }
+    if (monto.present) {
+      map['monto'] = Variable<double>(monto.value);
+    }
+    if (fecha.present) {
+      map['fecha'] = Variable<DateTime>(fecha.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TemporalesCompanion(')
+          ..write('id: $id, ')
+          ..write('imagenB64: $imagenB64, ')
+          ..write('tipoDocumento: $tipoDocumento, ')
+          ..write('nroFactura: $nroFactura, ')
+          ..write('proveedor: $proveedor, ')
+          ..write('monto: $monto, ')
+          ..write('fecha: $fecha, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PosUsuariosTable extends PosUsuarios
+    with TableInfo<$PosUsuariosTable, PosUsuario> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PosUsuariosTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _nombreMeta = const VerificationMeta('nombre');
+  @override
+  late final GeneratedColumn<String> nombre = GeneratedColumn<String>(
+      'nombre', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _pinHashMeta =
+      const VerificationMeta('pinHash');
+  @override
+  late final GeneratedColumn<String> pinHash = GeneratedColumn<String>(
+      'pin_hash', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _esAdminMeta =
+      const VerificationMeta('esAdmin');
+  @override
+  late final GeneratedColumn<int> esAdmin = GeneratedColumn<int>(
+      'es_admin', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _activoMeta = const VerificationMeta('activo');
+  @override
+  late final GeneratedColumn<int> activo = GeneratedColumn<int>(
+      'activo', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(1));
+  static const VerificationMeta _creadoEnMeta =
+      const VerificationMeta('creadoEn');
+  @override
+  late final GeneratedColumn<DateTime> creadoEn = GeneratedColumn<DateTime>(
+      'creado_en', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, nombre, pinHash, esAdmin, activo, creadoEn];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pos_usuarios';
+  @override
+  VerificationContext validateIntegrity(Insertable<PosUsuario> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('nombre')) {
+      context.handle(_nombreMeta,
+          nombre.isAcceptableOrUnknown(data['nombre']!, _nombreMeta));
+    } else if (isInserting) {
+      context.missing(_nombreMeta);
+    }
+    if (data.containsKey('pin_hash')) {
+      context.handle(_pinHashMeta,
+          pinHash.isAcceptableOrUnknown(data['pin_hash']!, _pinHashMeta));
+    }
+    if (data.containsKey('es_admin')) {
+      context.handle(_esAdminMeta,
+          esAdmin.isAcceptableOrUnknown(data['es_admin']!, _esAdminMeta));
+    }
+    if (data.containsKey('activo')) {
+      context.handle(_activoMeta,
+          activo.isAcceptableOrUnknown(data['activo']!, _activoMeta));
+    }
+    if (data.containsKey('creado_en')) {
+      context.handle(_creadoEnMeta,
+          creadoEn.isAcceptableOrUnknown(data['creado_en']!, _creadoEnMeta));
+    } else if (isInserting) {
+      context.missing(_creadoEnMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PosUsuario map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PosUsuario(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      nombre: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}nombre'])!,
+      pinHash: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}pin_hash']),
+      esAdmin: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}es_admin'])!,
+      activo: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}activo'])!,
+      creadoEn: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}creado_en'])!,
+    );
+  }
+
+  @override
+  $PosUsuariosTable createAlias(String alias) {
+    return $PosUsuariosTable(attachedDatabase, alias);
+  }
+}
+
+class PosUsuario extends DataClass implements Insertable<PosUsuario> {
+  final int id;
+  final String nombre;
+  final String? pinHash;
+  final int esAdmin;
+  final int activo;
+  final DateTime creadoEn;
+  const PosUsuario(
+      {required this.id,
+      required this.nombre,
+      this.pinHash,
+      required this.esAdmin,
+      required this.activo,
+      required this.creadoEn});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['nombre'] = Variable<String>(nombre);
+    if (!nullToAbsent || pinHash != null) {
+      map['pin_hash'] = Variable<String>(pinHash);
+    }
+    map['es_admin'] = Variable<int>(esAdmin);
+    map['activo'] = Variable<int>(activo);
+    map['creado_en'] = Variable<DateTime>(creadoEn);
+    return map;
+  }
+
+  PosUsuariosCompanion toCompanion(bool nullToAbsent) {
+    return PosUsuariosCompanion(
+      id: Value(id),
+      nombre: Value(nombre),
+      pinHash: pinHash == null && nullToAbsent
+          ? const Value.absent()
+          : Value(pinHash),
+      esAdmin: Value(esAdmin),
+      activo: Value(activo),
+      creadoEn: Value(creadoEn),
+    );
+  }
+
+  factory PosUsuario.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PosUsuario(
+      id: serializer.fromJson<int>(json['id']),
+      nombre: serializer.fromJson<String>(json['nombre']),
+      pinHash: serializer.fromJson<String?>(json['pinHash']),
+      esAdmin: serializer.fromJson<int>(json['esAdmin']),
+      activo: serializer.fromJson<int>(json['activo']),
+      creadoEn: serializer.fromJson<DateTime>(json['creadoEn']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'nombre': serializer.toJson<String>(nombre),
+      'pinHash': serializer.toJson<String?>(pinHash),
+      'esAdmin': serializer.toJson<int>(esAdmin),
+      'activo': serializer.toJson<int>(activo),
+      'creadoEn': serializer.toJson<DateTime>(creadoEn),
+    };
+  }
+
+  PosUsuario copyWith(
+          {int? id,
+          String? nombre,
+          Value<String?> pinHash = const Value.absent(),
+          int? esAdmin,
+          int? activo,
+          DateTime? creadoEn}) =>
+      PosUsuario(
+        id: id ?? this.id,
+        nombre: nombre ?? this.nombre,
+        pinHash: pinHash.present ? pinHash.value : this.pinHash,
+        esAdmin: esAdmin ?? this.esAdmin,
+        activo: activo ?? this.activo,
+        creadoEn: creadoEn ?? this.creadoEn,
+      );
+  PosUsuario copyWithCompanion(PosUsuariosCompanion data) {
+    return PosUsuario(
+      id: data.id.present ? data.id.value : this.id,
+      nombre: data.nombre.present ? data.nombre.value : this.nombre,
+      pinHash: data.pinHash.present ? data.pinHash.value : this.pinHash,
+      esAdmin: data.esAdmin.present ? data.esAdmin.value : this.esAdmin,
+      activo: data.activo.present ? data.activo.value : this.activo,
+      creadoEn: data.creadoEn.present ? data.creadoEn.value : this.creadoEn,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PosUsuario(')
+          ..write('id: $id, ')
+          ..write('nombre: $nombre, ')
+          ..write('pinHash: $pinHash, ')
+          ..write('esAdmin: $esAdmin, ')
+          ..write('activo: $activo, ')
+          ..write('creadoEn: $creadoEn')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, nombre, pinHash, esAdmin, activo, creadoEn);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PosUsuario &&
+          other.id == this.id &&
+          other.nombre == this.nombre &&
+          other.pinHash == this.pinHash &&
+          other.esAdmin == this.esAdmin &&
+          other.activo == this.activo &&
+          other.creadoEn == this.creadoEn);
+}
+
+class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
+  final Value<int> id;
+  final Value<String> nombre;
+  final Value<String?> pinHash;
+  final Value<int> esAdmin;
+  final Value<int> activo;
+  final Value<DateTime> creadoEn;
+  const PosUsuariosCompanion({
+    this.id = const Value.absent(),
+    this.nombre = const Value.absent(),
+    this.pinHash = const Value.absent(),
+    this.esAdmin = const Value.absent(),
+    this.activo = const Value.absent(),
+    this.creadoEn = const Value.absent(),
+  });
+  PosUsuariosCompanion.insert({
+    this.id = const Value.absent(),
+    required String nombre,
+    this.pinHash = const Value.absent(),
+    this.esAdmin = const Value.absent(),
+    this.activo = const Value.absent(),
+    required DateTime creadoEn,
+  })  : nombre = Value(nombre),
+        creadoEn = Value(creadoEn);
+  static Insertable<PosUsuario> custom({
+    Expression<int>? id,
+    Expression<String>? nombre,
+    Expression<String>? pinHash,
+    Expression<int>? esAdmin,
+    Expression<int>? activo,
+    Expression<DateTime>? creadoEn,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (nombre != null) 'nombre': nombre,
+      if (pinHash != null) 'pin_hash': pinHash,
+      if (esAdmin != null) 'es_admin': esAdmin,
+      if (activo != null) 'activo': activo,
+      if (creadoEn != null) 'creado_en': creadoEn,
+    });
+  }
+
+  PosUsuariosCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? nombre,
+      Value<String?>? pinHash,
+      Value<int>? esAdmin,
+      Value<int>? activo,
+      Value<DateTime>? creadoEn}) {
+    return PosUsuariosCompanion(
+      id: id ?? this.id,
+      nombre: nombre ?? this.nombre,
+      pinHash: pinHash ?? this.pinHash,
+      esAdmin: esAdmin ?? this.esAdmin,
+      activo: activo ?? this.activo,
+      creadoEn: creadoEn ?? this.creadoEn,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (nombre.present) {
+      map['nombre'] = Variable<String>(nombre.value);
+    }
+    if (pinHash.present) {
+      map['pin_hash'] = Variable<String>(pinHash.value);
+    }
+    if (esAdmin.present) {
+      map['es_admin'] = Variable<int>(esAdmin.value);
+    }
+    if (activo.present) {
+      map['activo'] = Variable<int>(activo.value);
+    }
+    if (creadoEn.present) {
+      map['creado_en'] = Variable<DateTime>(creadoEn.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PosUsuariosCompanion(')
+          ..write('id: $id, ')
+          ..write('nombre: $nombre, ')
+          ..write('pinHash: $pinHash, ')
+          ..write('esAdmin: $esAdmin, ')
+          ..write('activo: $activo, ')
+          ..write('creadoEn: $creadoEn')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PosMesasTable extends PosMesas with TableInfo<$PosMesasTable, PosMesa> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PosMesasTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _numeroMeta = const VerificationMeta('numero');
+  @override
+  late final GeneratedColumn<String> numero = GeneratedColumn<String>(
+      'numero', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _nombreMeta = const VerificationMeta('nombre');
+  @override
+  late final GeneratedColumn<String> nombre = GeneratedColumn<String>(
+      'nombre', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _zonaMeta = const VerificationMeta('zona');
+  @override
+  late final GeneratedColumn<String> zona = GeneratedColumn<String>(
+      'zona', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _activoMeta = const VerificationMeta('activo');
+  @override
+  late final GeneratedColumn<int> activo = GeneratedColumn<int>(
+      'activo', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(1));
+  static const VerificationMeta _creadoEnMeta =
+      const VerificationMeta('creadoEn');
+  @override
+  late final GeneratedColumn<DateTime> creadoEn = GeneratedColumn<DateTime>(
+      'creado_en', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, numero, nombre, zona, activo, creadoEn];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pos_mesas';
+  @override
+  VerificationContext validateIntegrity(Insertable<PosMesa> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('numero')) {
+      context.handle(_numeroMeta,
+          numero.isAcceptableOrUnknown(data['numero']!, _numeroMeta));
+    } else if (isInserting) {
+      context.missing(_numeroMeta);
+    }
+    if (data.containsKey('nombre')) {
+      context.handle(_nombreMeta,
+          nombre.isAcceptableOrUnknown(data['nombre']!, _nombreMeta));
+    }
+    if (data.containsKey('zona')) {
+      context.handle(
+          _zonaMeta, zona.isAcceptableOrUnknown(data['zona']!, _zonaMeta));
+    }
+    if (data.containsKey('activo')) {
+      context.handle(_activoMeta,
+          activo.isAcceptableOrUnknown(data['activo']!, _activoMeta));
+    }
+    if (data.containsKey('creado_en')) {
+      context.handle(_creadoEnMeta,
+          creadoEn.isAcceptableOrUnknown(data['creado_en']!, _creadoEnMeta));
+    } else if (isInserting) {
+      context.missing(_creadoEnMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PosMesa map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PosMesa(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      numero: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}numero'])!,
+      nombre: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}nombre']),
+      zona: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}zona']),
+      activo: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}activo'])!,
+      creadoEn: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}creado_en'])!,
+    );
+  }
+
+  @override
+  $PosMesasTable createAlias(String alias) {
+    return $PosMesasTable(attachedDatabase, alias);
+  }
+}
+
+class PosMesa extends DataClass implements Insertable<PosMesa> {
+  final int id;
+  final String numero;
+  final String? nombre;
+  final String? zona;
+  final int activo;
+  final DateTime creadoEn;
+  const PosMesa(
+      {required this.id,
+      required this.numero,
+      this.nombre,
+      this.zona,
+      required this.activo,
+      required this.creadoEn});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['numero'] = Variable<String>(numero);
+    if (!nullToAbsent || nombre != null) {
+      map['nombre'] = Variable<String>(nombre);
+    }
+    if (!nullToAbsent || zona != null) {
+      map['zona'] = Variable<String>(zona);
+    }
+    map['activo'] = Variable<int>(activo);
+    map['creado_en'] = Variable<DateTime>(creadoEn);
+    return map;
+  }
+
+  PosMesasCompanion toCompanion(bool nullToAbsent) {
+    return PosMesasCompanion(
+      id: Value(id),
+      numero: Value(numero),
+      nombre:
+          nombre == null && nullToAbsent ? const Value.absent() : Value(nombre),
+      zona: zona == null && nullToAbsent ? const Value.absent() : Value(zona),
+      activo: Value(activo),
+      creadoEn: Value(creadoEn),
+    );
+  }
+
+  factory PosMesa.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PosMesa(
+      id: serializer.fromJson<int>(json['id']),
+      numero: serializer.fromJson<String>(json['numero']),
+      nombre: serializer.fromJson<String?>(json['nombre']),
+      zona: serializer.fromJson<String?>(json['zona']),
+      activo: serializer.fromJson<int>(json['activo']),
+      creadoEn: serializer.fromJson<DateTime>(json['creadoEn']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'numero': serializer.toJson<String>(numero),
+      'nombre': serializer.toJson<String?>(nombre),
+      'zona': serializer.toJson<String?>(zona),
+      'activo': serializer.toJson<int>(activo),
+      'creadoEn': serializer.toJson<DateTime>(creadoEn),
+    };
+  }
+
+  PosMesa copyWith(
+          {int? id,
+          String? numero,
+          Value<String?> nombre = const Value.absent(),
+          Value<String?> zona = const Value.absent(),
+          int? activo,
+          DateTime? creadoEn}) =>
+      PosMesa(
+        id: id ?? this.id,
+        numero: numero ?? this.numero,
+        nombre: nombre.present ? nombre.value : this.nombre,
+        zona: zona.present ? zona.value : this.zona,
+        activo: activo ?? this.activo,
+        creadoEn: creadoEn ?? this.creadoEn,
+      );
+  PosMesa copyWithCompanion(PosMesasCompanion data) {
+    return PosMesa(
+      id: data.id.present ? data.id.value : this.id,
+      numero: data.numero.present ? data.numero.value : this.numero,
+      nombre: data.nombre.present ? data.nombre.value : this.nombre,
+      zona: data.zona.present ? data.zona.value : this.zona,
+      activo: data.activo.present ? data.activo.value : this.activo,
+      creadoEn: data.creadoEn.present ? data.creadoEn.value : this.creadoEn,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PosMesa(')
+          ..write('id: $id, ')
+          ..write('numero: $numero, ')
+          ..write('nombre: $nombre, ')
+          ..write('zona: $zona, ')
+          ..write('activo: $activo, ')
+          ..write('creadoEn: $creadoEn')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, numero, nombre, zona, activo, creadoEn);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PosMesa &&
+          other.id == this.id &&
+          other.numero == this.numero &&
+          other.nombre == this.nombre &&
+          other.zona == this.zona &&
+          other.activo == this.activo &&
+          other.creadoEn == this.creadoEn);
+}
+
+class PosMesasCompanion extends UpdateCompanion<PosMesa> {
+  final Value<int> id;
+  final Value<String> numero;
+  final Value<String?> nombre;
+  final Value<String?> zona;
+  final Value<int> activo;
+  final Value<DateTime> creadoEn;
+  const PosMesasCompanion({
+    this.id = const Value.absent(),
+    this.numero = const Value.absent(),
+    this.nombre = const Value.absent(),
+    this.zona = const Value.absent(),
+    this.activo = const Value.absent(),
+    this.creadoEn = const Value.absent(),
+  });
+  PosMesasCompanion.insert({
+    this.id = const Value.absent(),
+    required String numero,
+    this.nombre = const Value.absent(),
+    this.zona = const Value.absent(),
+    this.activo = const Value.absent(),
+    required DateTime creadoEn,
+  })  : numero = Value(numero),
+        creadoEn = Value(creadoEn);
+  static Insertable<PosMesa> custom({
+    Expression<int>? id,
+    Expression<String>? numero,
+    Expression<String>? nombre,
+    Expression<String>? zona,
+    Expression<int>? activo,
+    Expression<DateTime>? creadoEn,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (numero != null) 'numero': numero,
+      if (nombre != null) 'nombre': nombre,
+      if (zona != null) 'zona': zona,
+      if (activo != null) 'activo': activo,
+      if (creadoEn != null) 'creado_en': creadoEn,
+    });
+  }
+
+  PosMesasCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? numero,
+      Value<String?>? nombre,
+      Value<String?>? zona,
+      Value<int>? activo,
+      Value<DateTime>? creadoEn}) {
+    return PosMesasCompanion(
+      id: id ?? this.id,
+      numero: numero ?? this.numero,
+      nombre: nombre ?? this.nombre,
+      zona: zona ?? this.zona,
+      activo: activo ?? this.activo,
+      creadoEn: creadoEn ?? this.creadoEn,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (numero.present) {
+      map['numero'] = Variable<String>(numero.value);
+    }
+    if (nombre.present) {
+      map['nombre'] = Variable<String>(nombre.value);
+    }
+    if (zona.present) {
+      map['zona'] = Variable<String>(zona.value);
+    }
+    if (activo.present) {
+      map['activo'] = Variable<int>(activo.value);
+    }
+    if (creadoEn.present) {
+      map['creado_en'] = Variable<DateTime>(creadoEn.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PosMesasCompanion(')
+          ..write('id: $id, ')
+          ..write('numero: $numero, ')
+          ..write('nombre: $nombre, ')
+          ..write('zona: $zona, ')
+          ..write('activo: $activo, ')
+          ..write('creadoEn: $creadoEn')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PosHabitacionesTable extends PosHabitaciones
+    with TableInfo<$PosHabitacionesTable, PosHabitacione> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PosHabitacionesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _numeroMeta = const VerificationMeta('numero');
+  @override
+  late final GeneratedColumn<String> numero = GeneratedColumn<String>(
+      'numero', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _pisoMeta = const VerificationMeta('piso');
+  @override
+  late final GeneratedColumn<String> piso = GeneratedColumn<String>(
+      'piso', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _tipoMeta = const VerificationMeta('tipo');
+  @override
+  late final GeneratedColumn<String> tipo = GeneratedColumn<String>(
+      'tipo', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _activoMeta = const VerificationMeta('activo');
+  @override
+  late final GeneratedColumn<int> activo = GeneratedColumn<int>(
+      'activo', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(1));
+  static const VerificationMeta _creadoEnMeta =
+      const VerificationMeta('creadoEn');
+  @override
+  late final GeneratedColumn<DateTime> creadoEn = GeneratedColumn<DateTime>(
+      'creado_en', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, numero, piso, tipo, activo, creadoEn];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pos_habitaciones';
+  @override
+  VerificationContext validateIntegrity(Insertable<PosHabitacione> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('numero')) {
+      context.handle(_numeroMeta,
+          numero.isAcceptableOrUnknown(data['numero']!, _numeroMeta));
+    } else if (isInserting) {
+      context.missing(_numeroMeta);
+    }
+    if (data.containsKey('piso')) {
+      context.handle(
+          _pisoMeta, piso.isAcceptableOrUnknown(data['piso']!, _pisoMeta));
+    }
+    if (data.containsKey('tipo')) {
+      context.handle(
+          _tipoMeta, tipo.isAcceptableOrUnknown(data['tipo']!, _tipoMeta));
+    }
+    if (data.containsKey('activo')) {
+      context.handle(_activoMeta,
+          activo.isAcceptableOrUnknown(data['activo']!, _activoMeta));
+    }
+    if (data.containsKey('creado_en')) {
+      context.handle(_creadoEnMeta,
+          creadoEn.isAcceptableOrUnknown(data['creado_en']!, _creadoEnMeta));
+    } else if (isInserting) {
+      context.missing(_creadoEnMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PosHabitacione map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PosHabitacione(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      numero: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}numero'])!,
+      piso: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}piso']),
+      tipo: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}tipo']),
+      activo: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}activo'])!,
+      creadoEn: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}creado_en'])!,
+    );
+  }
+
+  @override
+  $PosHabitacionesTable createAlias(String alias) {
+    return $PosHabitacionesTable(attachedDatabase, alias);
+  }
+}
+
+class PosHabitacione extends DataClass implements Insertable<PosHabitacione> {
+  final int id;
+  final String numero;
+  final String? piso;
+  final String? tipo;
+  final int activo;
+  final DateTime creadoEn;
+  const PosHabitacione(
+      {required this.id,
+      required this.numero,
+      this.piso,
+      this.tipo,
+      required this.activo,
+      required this.creadoEn});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['numero'] = Variable<String>(numero);
+    if (!nullToAbsent || piso != null) {
+      map['piso'] = Variable<String>(piso);
+    }
+    if (!nullToAbsent || tipo != null) {
+      map['tipo'] = Variable<String>(tipo);
+    }
+    map['activo'] = Variable<int>(activo);
+    map['creado_en'] = Variable<DateTime>(creadoEn);
+    return map;
+  }
+
+  PosHabitacionesCompanion toCompanion(bool nullToAbsent) {
+    return PosHabitacionesCompanion(
+      id: Value(id),
+      numero: Value(numero),
+      piso: piso == null && nullToAbsent ? const Value.absent() : Value(piso),
+      tipo: tipo == null && nullToAbsent ? const Value.absent() : Value(tipo),
+      activo: Value(activo),
+      creadoEn: Value(creadoEn),
+    );
+  }
+
+  factory PosHabitacione.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PosHabitacione(
+      id: serializer.fromJson<int>(json['id']),
+      numero: serializer.fromJson<String>(json['numero']),
+      piso: serializer.fromJson<String?>(json['piso']),
+      tipo: serializer.fromJson<String?>(json['tipo']),
+      activo: serializer.fromJson<int>(json['activo']),
+      creadoEn: serializer.fromJson<DateTime>(json['creadoEn']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'numero': serializer.toJson<String>(numero),
+      'piso': serializer.toJson<String?>(piso),
+      'tipo': serializer.toJson<String?>(tipo),
+      'activo': serializer.toJson<int>(activo),
+      'creadoEn': serializer.toJson<DateTime>(creadoEn),
+    };
+  }
+
+  PosHabitacione copyWith(
+          {int? id,
+          String? numero,
+          Value<String?> piso = const Value.absent(),
+          Value<String?> tipo = const Value.absent(),
+          int? activo,
+          DateTime? creadoEn}) =>
+      PosHabitacione(
+        id: id ?? this.id,
+        numero: numero ?? this.numero,
+        piso: piso.present ? piso.value : this.piso,
+        tipo: tipo.present ? tipo.value : this.tipo,
+        activo: activo ?? this.activo,
+        creadoEn: creadoEn ?? this.creadoEn,
+      );
+  PosHabitacione copyWithCompanion(PosHabitacionesCompanion data) {
+    return PosHabitacione(
+      id: data.id.present ? data.id.value : this.id,
+      numero: data.numero.present ? data.numero.value : this.numero,
+      piso: data.piso.present ? data.piso.value : this.piso,
+      tipo: data.tipo.present ? data.tipo.value : this.tipo,
+      activo: data.activo.present ? data.activo.value : this.activo,
+      creadoEn: data.creadoEn.present ? data.creadoEn.value : this.creadoEn,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PosHabitacione(')
+          ..write('id: $id, ')
+          ..write('numero: $numero, ')
+          ..write('piso: $piso, ')
+          ..write('tipo: $tipo, ')
+          ..write('activo: $activo, ')
+          ..write('creadoEn: $creadoEn')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, numero, piso, tipo, activo, creadoEn);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PosHabitacione &&
+          other.id == this.id &&
+          other.numero == this.numero &&
+          other.piso == this.piso &&
+          other.tipo == this.tipo &&
+          other.activo == this.activo &&
+          other.creadoEn == this.creadoEn);
+}
+
+class PosHabitacionesCompanion extends UpdateCompanion<PosHabitacione> {
+  final Value<int> id;
+  final Value<String> numero;
+  final Value<String?> piso;
+  final Value<String?> tipo;
+  final Value<int> activo;
+  final Value<DateTime> creadoEn;
+  const PosHabitacionesCompanion({
+    this.id = const Value.absent(),
+    this.numero = const Value.absent(),
+    this.piso = const Value.absent(),
+    this.tipo = const Value.absent(),
+    this.activo = const Value.absent(),
+    this.creadoEn = const Value.absent(),
+  });
+  PosHabitacionesCompanion.insert({
+    this.id = const Value.absent(),
+    required String numero,
+    this.piso = const Value.absent(),
+    this.tipo = const Value.absent(),
+    this.activo = const Value.absent(),
+    required DateTime creadoEn,
+  })  : numero = Value(numero),
+        creadoEn = Value(creadoEn);
+  static Insertable<PosHabitacione> custom({
+    Expression<int>? id,
+    Expression<String>? numero,
+    Expression<String>? piso,
+    Expression<String>? tipo,
+    Expression<int>? activo,
+    Expression<DateTime>? creadoEn,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (numero != null) 'numero': numero,
+      if (piso != null) 'piso': piso,
+      if (tipo != null) 'tipo': tipo,
+      if (activo != null) 'activo': activo,
+      if (creadoEn != null) 'creado_en': creadoEn,
+    });
+  }
+
+  PosHabitacionesCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? numero,
+      Value<String?>? piso,
+      Value<String?>? tipo,
+      Value<int>? activo,
+      Value<DateTime>? creadoEn}) {
+    return PosHabitacionesCompanion(
+      id: id ?? this.id,
+      numero: numero ?? this.numero,
+      piso: piso ?? this.piso,
+      tipo: tipo ?? this.tipo,
+      activo: activo ?? this.activo,
+      creadoEn: creadoEn ?? this.creadoEn,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (numero.present) {
+      map['numero'] = Variable<String>(numero.value);
+    }
+    if (piso.present) {
+      map['piso'] = Variable<String>(piso.value);
+    }
+    if (tipo.present) {
+      map['tipo'] = Variable<String>(tipo.value);
+    }
+    if (activo.present) {
+      map['activo'] = Variable<int>(activo.value);
+    }
+    if (creadoEn.present) {
+      map['creado_en'] = Variable<DateTime>(creadoEn.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PosHabitacionesCompanion(')
+          ..write('id: $id, ')
+          ..write('numero: $numero, ')
+          ..write('piso: $piso, ')
+          ..write('tipo: $tipo, ')
+          ..write('activo: $activo, ')
+          ..write('creadoEn: $creadoEn')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PosSesionesTable extends PosSesiones
+    with TableInfo<$PosSesionesTable, PosSesione> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PosSesionesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _usuarioIdMeta =
+      const VerificationMeta('usuarioId');
+  @override
+  late final GeneratedColumn<int> usuarioId = GeneratedColumn<int>(
+      'usuario_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _abiertaEnMeta =
+      const VerificationMeta('abiertaEn');
+  @override
+  late final GeneratedColumn<DateTime> abiertaEn = GeneratedColumn<DateTime>(
+      'abierta_en', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _cerradaEnMeta =
+      const VerificationMeta('cerradaEn');
+  @override
+  late final GeneratedColumn<DateTime> cerradaEn = GeneratedColumn<DateTime>(
+      'cerrada_en', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [id, usuarioId, abiertaEn, cerradaEn];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pos_sesiones';
+  @override
+  VerificationContext validateIntegrity(Insertable<PosSesione> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('usuario_id')) {
+      context.handle(_usuarioIdMeta,
+          usuarioId.isAcceptableOrUnknown(data['usuario_id']!, _usuarioIdMeta));
+    } else if (isInserting) {
+      context.missing(_usuarioIdMeta);
+    }
+    if (data.containsKey('abierta_en')) {
+      context.handle(_abiertaEnMeta,
+          abiertaEn.isAcceptableOrUnknown(data['abierta_en']!, _abiertaEnMeta));
+    } else if (isInserting) {
+      context.missing(_abiertaEnMeta);
+    }
+    if (data.containsKey('cerrada_en')) {
+      context.handle(_cerradaEnMeta,
+          cerradaEn.isAcceptableOrUnknown(data['cerrada_en']!, _cerradaEnMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PosSesione map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PosSesione(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      usuarioId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}usuario_id'])!,
+      abiertaEn: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}abierta_en'])!,
+      cerradaEn: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}cerrada_en']),
+    );
+  }
+
+  @override
+  $PosSesionesTable createAlias(String alias) {
+    return $PosSesionesTable(attachedDatabase, alias);
+  }
+}
+
+class PosSesione extends DataClass implements Insertable<PosSesione> {
+  final int id;
+  final int usuarioId;
+  final DateTime abiertaEn;
+  final DateTime? cerradaEn;
+  const PosSesione(
+      {required this.id,
+      required this.usuarioId,
+      required this.abiertaEn,
+      this.cerradaEn});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['usuario_id'] = Variable<int>(usuarioId);
+    map['abierta_en'] = Variable<DateTime>(abiertaEn);
+    if (!nullToAbsent || cerradaEn != null) {
+      map['cerrada_en'] = Variable<DateTime>(cerradaEn);
+    }
+    return map;
+  }
+
+  PosSesionesCompanion toCompanion(bool nullToAbsent) {
+    return PosSesionesCompanion(
+      id: Value(id),
+      usuarioId: Value(usuarioId),
+      abiertaEn: Value(abiertaEn),
+      cerradaEn: cerradaEn == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cerradaEn),
+    );
+  }
+
+  factory PosSesione.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PosSesione(
+      id: serializer.fromJson<int>(json['id']),
+      usuarioId: serializer.fromJson<int>(json['usuarioId']),
+      abiertaEn: serializer.fromJson<DateTime>(json['abiertaEn']),
+      cerradaEn: serializer.fromJson<DateTime?>(json['cerradaEn']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'usuarioId': serializer.toJson<int>(usuarioId),
+      'abiertaEn': serializer.toJson<DateTime>(abiertaEn),
+      'cerradaEn': serializer.toJson<DateTime?>(cerradaEn),
+    };
+  }
+
+  PosSesione copyWith(
+          {int? id,
+          int? usuarioId,
+          DateTime? abiertaEn,
+          Value<DateTime?> cerradaEn = const Value.absent()}) =>
+      PosSesione(
+        id: id ?? this.id,
+        usuarioId: usuarioId ?? this.usuarioId,
+        abiertaEn: abiertaEn ?? this.abiertaEn,
+        cerradaEn: cerradaEn.present ? cerradaEn.value : this.cerradaEn,
+      );
+  PosSesione copyWithCompanion(PosSesionesCompanion data) {
+    return PosSesione(
+      id: data.id.present ? data.id.value : this.id,
+      usuarioId: data.usuarioId.present ? data.usuarioId.value : this.usuarioId,
+      abiertaEn: data.abiertaEn.present ? data.abiertaEn.value : this.abiertaEn,
+      cerradaEn: data.cerradaEn.present ? data.cerradaEn.value : this.cerradaEn,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PosSesione(')
+          ..write('id: $id, ')
+          ..write('usuarioId: $usuarioId, ')
+          ..write('abiertaEn: $abiertaEn, ')
+          ..write('cerradaEn: $cerradaEn')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, usuarioId, abiertaEn, cerradaEn);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PosSesione &&
+          other.id == this.id &&
+          other.usuarioId == this.usuarioId &&
+          other.abiertaEn == this.abiertaEn &&
+          other.cerradaEn == this.cerradaEn);
+}
+
+class PosSesionesCompanion extends UpdateCompanion<PosSesione> {
+  final Value<int> id;
+  final Value<int> usuarioId;
+  final Value<DateTime> abiertaEn;
+  final Value<DateTime?> cerradaEn;
+  const PosSesionesCompanion({
+    this.id = const Value.absent(),
+    this.usuarioId = const Value.absent(),
+    this.abiertaEn = const Value.absent(),
+    this.cerradaEn = const Value.absent(),
+  });
+  PosSesionesCompanion.insert({
+    this.id = const Value.absent(),
+    required int usuarioId,
+    required DateTime abiertaEn,
+    this.cerradaEn = const Value.absent(),
+  })  : usuarioId = Value(usuarioId),
+        abiertaEn = Value(abiertaEn);
+  static Insertable<PosSesione> custom({
+    Expression<int>? id,
+    Expression<int>? usuarioId,
+    Expression<DateTime>? abiertaEn,
+    Expression<DateTime>? cerradaEn,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (usuarioId != null) 'usuario_id': usuarioId,
+      if (abiertaEn != null) 'abierta_en': abiertaEn,
+      if (cerradaEn != null) 'cerrada_en': cerradaEn,
+    });
+  }
+
+  PosSesionesCompanion copyWith(
+      {Value<int>? id,
+      Value<int>? usuarioId,
+      Value<DateTime>? abiertaEn,
+      Value<DateTime?>? cerradaEn}) {
+    return PosSesionesCompanion(
+      id: id ?? this.id,
+      usuarioId: usuarioId ?? this.usuarioId,
+      abiertaEn: abiertaEn ?? this.abiertaEn,
+      cerradaEn: cerradaEn ?? this.cerradaEn,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (usuarioId.present) {
+      map['usuario_id'] = Variable<int>(usuarioId.value);
+    }
+    if (abiertaEn.present) {
+      map['abierta_en'] = Variable<DateTime>(abiertaEn.value);
+    }
+    if (cerradaEn.present) {
+      map['cerrada_en'] = Variable<DateTime>(cerradaEn.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PosSesionesCompanion(')
+          ..write('id: $id, ')
+          ..write('usuarioId: $usuarioId, ')
+          ..write('abiertaEn: $abiertaEn, ')
+          ..write('cerradaEn: $cerradaEn')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PosComandasTable extends PosComandas
+    with TableInfo<$PosComandasTable, PosComanda> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PosComandasTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _sesionIdMeta =
+      const VerificationMeta('sesionId');
+  @override
+  late final GeneratedColumn<int> sesionId = GeneratedColumn<int>(
+      'sesion_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _mesaIdMeta = const VerificationMeta('mesaId');
+  @override
+  late final GeneratedColumn<int> mesaId = GeneratedColumn<int>(
+      'mesa_id', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _habitacionIdMeta =
+      const VerificationMeta('habitacionId');
+  @override
+  late final GeneratedColumn<int> habitacionId = GeneratedColumn<int>(
+      'habitacion_id', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _estadoMeta = const VerificationMeta('estado');
+  @override
+  late final GeneratedColumn<String> estado = GeneratedColumn<String>(
+      'estado', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('abierta'));
+  static const VerificationMeta _totalMeta = const VerificationMeta('total');
+  @override
+  late final GeneratedColumn<double> total = GeneratedColumn<double>(
+      'total', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _itemsJsonMeta =
+      const VerificationMeta('itemsJson');
+  @override
+  late final GeneratedColumn<String> itemsJson = GeneratedColumn<String>(
+      'items_json', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _syncUuidMeta =
+      const VerificationMeta('syncUuid');
+  @override
+  late final GeneratedColumn<String> syncUuid = GeneratedColumn<String>(
+      'sync_uuid', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        sesionId,
+        mesaId,
+        habitacionId,
+        estado,
+        total,
+        itemsJson,
+        syncUuid,
+        createdAt,
+        updatedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pos_comandas';
+  @override
+  VerificationContext validateIntegrity(Insertable<PosComanda> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('sesion_id')) {
+      context.handle(_sesionIdMeta,
+          sesionId.isAcceptableOrUnknown(data['sesion_id']!, _sesionIdMeta));
+    } else if (isInserting) {
+      context.missing(_sesionIdMeta);
+    }
+    if (data.containsKey('mesa_id')) {
+      context.handle(_mesaIdMeta,
+          mesaId.isAcceptableOrUnknown(data['mesa_id']!, _mesaIdMeta));
+    }
+    if (data.containsKey('habitacion_id')) {
+      context.handle(
+          _habitacionIdMeta,
+          habitacionId.isAcceptableOrUnknown(
+              data['habitacion_id']!, _habitacionIdMeta));
+    }
+    if (data.containsKey('estado')) {
+      context.handle(_estadoMeta,
+          estado.isAcceptableOrUnknown(data['estado']!, _estadoMeta));
+    }
+    if (data.containsKey('total')) {
+      context.handle(
+          _totalMeta, total.isAcceptableOrUnknown(data['total']!, _totalMeta));
+    }
+    if (data.containsKey('items_json')) {
+      context.handle(_itemsJsonMeta,
+          itemsJson.isAcceptableOrUnknown(data['items_json']!, _itemsJsonMeta));
+    }
+    if (data.containsKey('sync_uuid')) {
+      context.handle(_syncUuidMeta,
+          syncUuid.isAcceptableOrUnknown(data['sync_uuid']!, _syncUuidMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PosComanda map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PosComanda(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      sesionId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}sesion_id'])!,
+      mesaId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}mesa_id']),
+      habitacionId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}habitacion_id']),
+      estado: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}estado'])!,
+      total: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}total'])!,
+      itemsJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}items_json']),
+      syncUuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}sync_uuid']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at']),
+    );
+  }
+
+  @override
+  $PosComandasTable createAlias(String alias) {
+    return $PosComandasTable(attachedDatabase, alias);
+  }
+}
+
+class PosComanda extends DataClass implements Insertable<PosComanda> {
+  final int id;
+  final int sesionId;
+  final int? mesaId;
+  final int? habitacionId;
+  final String estado;
+  final double total;
+  final String? itemsJson;
+  final String? syncUuid;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+  const PosComanda(
+      {required this.id,
+      required this.sesionId,
+      this.mesaId,
+      this.habitacionId,
+      required this.estado,
+      required this.total,
+      this.itemsJson,
+      this.syncUuid,
+      required this.createdAt,
+      this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['sesion_id'] = Variable<int>(sesionId);
+    if (!nullToAbsent || mesaId != null) {
+      map['mesa_id'] = Variable<int>(mesaId);
+    }
+    if (!nullToAbsent || habitacionId != null) {
+      map['habitacion_id'] = Variable<int>(habitacionId);
+    }
+    map['estado'] = Variable<String>(estado);
+    map['total'] = Variable<double>(total);
+    if (!nullToAbsent || itemsJson != null) {
+      map['items_json'] = Variable<String>(itemsJson);
+    }
+    if (!nullToAbsent || syncUuid != null) {
+      map['sync_uuid'] = Variable<String>(syncUuid);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    return map;
+  }
+
+  PosComandasCompanion toCompanion(bool nullToAbsent) {
+    return PosComandasCompanion(
+      id: Value(id),
+      sesionId: Value(sesionId),
+      mesaId:
+          mesaId == null && nullToAbsent ? const Value.absent() : Value(mesaId),
+      habitacionId: habitacionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(habitacionId),
+      estado: Value(estado),
+      total: Value(total),
+      itemsJson: itemsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(itemsJson),
+      syncUuid: syncUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncUuid),
+      createdAt: Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+    );
+  }
+
+  factory PosComanda.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PosComanda(
+      id: serializer.fromJson<int>(json['id']),
+      sesionId: serializer.fromJson<int>(json['sesionId']),
+      mesaId: serializer.fromJson<int?>(json['mesaId']),
+      habitacionId: serializer.fromJson<int?>(json['habitacionId']),
+      estado: serializer.fromJson<String>(json['estado']),
+      total: serializer.fromJson<double>(json['total']),
+      itemsJson: serializer.fromJson<String?>(json['itemsJson']),
+      syncUuid: serializer.fromJson<String?>(json['syncUuid']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'sesionId': serializer.toJson<int>(sesionId),
+      'mesaId': serializer.toJson<int?>(mesaId),
+      'habitacionId': serializer.toJson<int?>(habitacionId),
+      'estado': serializer.toJson<String>(estado),
+      'total': serializer.toJson<double>(total),
+      'itemsJson': serializer.toJson<String?>(itemsJson),
+      'syncUuid': serializer.toJson<String?>(syncUuid),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+    };
+  }
+
+  PosComanda copyWith(
+          {int? id,
+          int? sesionId,
+          Value<int?> mesaId = const Value.absent(),
+          Value<int?> habitacionId = const Value.absent(),
+          String? estado,
+          double? total,
+          Value<String?> itemsJson = const Value.absent(),
+          Value<String?> syncUuid = const Value.absent(),
+          DateTime? createdAt,
+          Value<DateTime?> updatedAt = const Value.absent()}) =>
+      PosComanda(
+        id: id ?? this.id,
+        sesionId: sesionId ?? this.sesionId,
+        mesaId: mesaId.present ? mesaId.value : this.mesaId,
+        habitacionId:
+            habitacionId.present ? habitacionId.value : this.habitacionId,
+        estado: estado ?? this.estado,
+        total: total ?? this.total,
+        itemsJson: itemsJson.present ? itemsJson.value : this.itemsJson,
+        syncUuid: syncUuid.present ? syncUuid.value : this.syncUuid,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+      );
+  PosComanda copyWithCompanion(PosComandasCompanion data) {
+    return PosComanda(
+      id: data.id.present ? data.id.value : this.id,
+      sesionId: data.sesionId.present ? data.sesionId.value : this.sesionId,
+      mesaId: data.mesaId.present ? data.mesaId.value : this.mesaId,
+      habitacionId: data.habitacionId.present
+          ? data.habitacionId.value
+          : this.habitacionId,
+      estado: data.estado.present ? data.estado.value : this.estado,
+      total: data.total.present ? data.total.value : this.total,
+      itemsJson: data.itemsJson.present ? data.itemsJson.value : this.itemsJson,
+      syncUuid: data.syncUuid.present ? data.syncUuid.value : this.syncUuid,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PosComanda(')
+          ..write('id: $id, ')
+          ..write('sesionId: $sesionId, ')
+          ..write('mesaId: $mesaId, ')
+          ..write('habitacionId: $habitacionId, ')
+          ..write('estado: $estado, ')
+          ..write('total: $total, ')
+          ..write('itemsJson: $itemsJson, ')
+          ..write('syncUuid: $syncUuid, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, sesionId, mesaId, habitacionId, estado,
+      total, itemsJson, syncUuid, createdAt, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PosComanda &&
+          other.id == this.id &&
+          other.sesionId == this.sesionId &&
+          other.mesaId == this.mesaId &&
+          other.habitacionId == this.habitacionId &&
+          other.estado == this.estado &&
+          other.total == this.total &&
+          other.itemsJson == this.itemsJson &&
+          other.syncUuid == this.syncUuid &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class PosComandasCompanion extends UpdateCompanion<PosComanda> {
+  final Value<int> id;
+  final Value<int> sesionId;
+  final Value<int?> mesaId;
+  final Value<int?> habitacionId;
+  final Value<String> estado;
+  final Value<double> total;
+  final Value<String?> itemsJson;
+  final Value<String?> syncUuid;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> updatedAt;
+  const PosComandasCompanion({
+    this.id = const Value.absent(),
+    this.sesionId = const Value.absent(),
+    this.mesaId = const Value.absent(),
+    this.habitacionId = const Value.absent(),
+    this.estado = const Value.absent(),
+    this.total = const Value.absent(),
+    this.itemsJson = const Value.absent(),
+    this.syncUuid = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  PosComandasCompanion.insert({
+    this.id = const Value.absent(),
+    required int sesionId,
+    this.mesaId = const Value.absent(),
+    this.habitacionId = const Value.absent(),
+    this.estado = const Value.absent(),
+    this.total = const Value.absent(),
+    this.itemsJson = const Value.absent(),
+    this.syncUuid = const Value.absent(),
+    required DateTime createdAt,
+    this.updatedAt = const Value.absent(),
+  })  : sesionId = Value(sesionId),
+        createdAt = Value(createdAt);
+  static Insertable<PosComanda> custom({
+    Expression<int>? id,
+    Expression<int>? sesionId,
+    Expression<int>? mesaId,
+    Expression<int>? habitacionId,
+    Expression<String>? estado,
+    Expression<double>? total,
+    Expression<String>? itemsJson,
+    Expression<String>? syncUuid,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (sesionId != null) 'sesion_id': sesionId,
+      if (mesaId != null) 'mesa_id': mesaId,
+      if (habitacionId != null) 'habitacion_id': habitacionId,
+      if (estado != null) 'estado': estado,
+      if (total != null) 'total': total,
+      if (itemsJson != null) 'items_json': itemsJson,
+      if (syncUuid != null) 'sync_uuid': syncUuid,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  PosComandasCompanion copyWith(
+      {Value<int>? id,
+      Value<int>? sesionId,
+      Value<int?>? mesaId,
+      Value<int?>? habitacionId,
+      Value<String>? estado,
+      Value<double>? total,
+      Value<String?>? itemsJson,
+      Value<String?>? syncUuid,
+      Value<DateTime>? createdAt,
+      Value<DateTime?>? updatedAt}) {
+    return PosComandasCompanion(
+      id: id ?? this.id,
+      sesionId: sesionId ?? this.sesionId,
+      mesaId: mesaId ?? this.mesaId,
+      habitacionId: habitacionId ?? this.habitacionId,
+      estado: estado ?? this.estado,
+      total: total ?? this.total,
+      itemsJson: itemsJson ?? this.itemsJson,
+      syncUuid: syncUuid ?? this.syncUuid,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (sesionId.present) {
+      map['sesion_id'] = Variable<int>(sesionId.value);
+    }
+    if (mesaId.present) {
+      map['mesa_id'] = Variable<int>(mesaId.value);
+    }
+    if (habitacionId.present) {
+      map['habitacion_id'] = Variable<int>(habitacionId.value);
+    }
+    if (estado.present) {
+      map['estado'] = Variable<String>(estado.value);
+    }
+    if (total.present) {
+      map['total'] = Variable<double>(total.value);
+    }
+    if (itemsJson.present) {
+      map['items_json'] = Variable<String>(itemsJson.value);
+    }
+    if (syncUuid.present) {
+      map['sync_uuid'] = Variable<String>(syncUuid.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PosComandasCompanion(')
+          ..write('id: $id, ')
+          ..write('sesionId: $sesionId, ')
+          ..write('mesaId: $mesaId, ')
+          ..write('habitacionId: $habitacionId, ')
+          ..write('estado: $estado, ')
+          ..write('total: $total, ')
+          ..write('itemsJson: $itemsJson, ')
+          ..write('syncUuid: $syncUuid, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PosVentasTable extends PosVentas
+    with TableInfo<$PosVentasTable, PosVenta> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PosVentasTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _comandaIdMeta =
+      const VerificationMeta('comandaId');
+  @override
+  late final GeneratedColumn<int> comandaId = GeneratedColumn<int>(
+      'comanda_id', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _correlativoMeta =
+      const VerificationMeta('correlativo');
+  @override
+  late final GeneratedColumn<int> correlativo = GeneratedColumn<int>(
+      'correlativo', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _totalMeta = const VerificationMeta('total');
+  @override
+  late final GeneratedColumn<double> total = GeneratedColumn<double>(
+      'total', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _itemsJsonMeta =
+      const VerificationMeta('itemsJson');
+  @override
+  late final GeneratedColumn<String> itemsJson = GeneratedColumn<String>(
+      'items_json', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _mesaIdMeta = const VerificationMeta('mesaId');
+  @override
+  late final GeneratedColumn<int> mesaId = GeneratedColumn<int>(
+      'mesa_id', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _habitacionIdMeta =
+      const VerificationMeta('habitacionId');
+  @override
+  late final GeneratedColumn<int> habitacionId = GeneratedColumn<int>(
+      'habitacion_id', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _usuarioIdMeta =
+      const VerificationMeta('usuarioId');
+  @override
+  late final GeneratedColumn<int> usuarioId = GeneratedColumn<int>(
+      'usuario_id', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _sesionIdMeta =
+      const VerificationMeta('sesionId');
+  @override
+  late final GeneratedColumn<int> sesionId = GeneratedColumn<int>(
+      'sesion_id', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _estadoMeta = const VerificationMeta('estado');
+  @override
+  late final GeneratedColumn<String> estado = GeneratedColumn<String>(
+      'estado', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('vigente'));
+  static const VerificationMeta _ventaAnulaIdMeta =
+      const VerificationMeta('ventaAnulaId');
+  @override
+  late final GeneratedColumn<int> ventaAnulaId = GeneratedColumn<int>(
+      'venta_anula_id', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _motivoAnulacionMeta =
+      const VerificationMeta('motivoAnulacion');
+  @override
+  late final GeneratedColumn<String> motivoAnulacion = GeneratedColumn<String>(
+      'motivo_anulacion', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _anuladaPorMeta =
+      const VerificationMeta('anuladaPor');
+  @override
+  late final GeneratedColumn<String> anuladaPor = GeneratedColumn<String>(
+      'anulada_por', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _anuladaEnMeta =
+      const VerificationMeta('anuladaEn');
+  @override
+  late final GeneratedColumn<DateTime> anuladaEn = GeneratedColumn<DateTime>(
+      'anulada_en', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _tasaBsMeta = const VerificationMeta('tasaBs');
+  @override
+  late final GeneratedColumn<double> tasaBs = GeneratedColumn<double>(
+      'tasa_bs', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _syncUuidMeta =
+      const VerificationMeta('syncUuid');
+  @override
+  late final GeneratedColumn<String> syncUuid = GeneratedColumn<String>(
+      'sync_uuid', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _comandaSyncUuidMeta =
+      const VerificationMeta('comandaSyncUuid');
+  @override
+  late final GeneratedColumn<String> comandaSyncUuid = GeneratedColumn<String>(
+      'comanda_sync_uuid', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _ventaAnulaSyncUuidMeta =
+      const VerificationMeta('ventaAnulaSyncUuid');
+  @override
+  late final GeneratedColumn<String> ventaAnulaSyncUuid =
+      GeneratedColumn<String>('venta_anula_sync_uuid', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        comandaId,
+        correlativo,
+        total,
+        itemsJson,
+        mesaId,
+        habitacionId,
+        usuarioId,
+        sesionId,
+        estado,
+        ventaAnulaId,
+        motivoAnulacion,
+        anuladaPor,
+        anuladaEn,
+        tasaBs,
+        syncUuid,
+        comandaSyncUuid,
+        ventaAnulaSyncUuid,
+        createdAt,
+        updatedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pos_ventas';
+  @override
+  VerificationContext validateIntegrity(Insertable<PosVenta> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('comanda_id')) {
+      context.handle(_comandaIdMeta,
+          comandaId.isAcceptableOrUnknown(data['comanda_id']!, _comandaIdMeta));
+    }
+    if (data.containsKey('correlativo')) {
+      context.handle(
+          _correlativoMeta,
+          correlativo.isAcceptableOrUnknown(
+              data['correlativo']!, _correlativoMeta));
+    }
+    if (data.containsKey('total')) {
+      context.handle(
+          _totalMeta, total.isAcceptableOrUnknown(data['total']!, _totalMeta));
+    }
+    if (data.containsKey('items_json')) {
+      context.handle(_itemsJsonMeta,
+          itemsJson.isAcceptableOrUnknown(data['items_json']!, _itemsJsonMeta));
+    }
+    if (data.containsKey('mesa_id')) {
+      context.handle(_mesaIdMeta,
+          mesaId.isAcceptableOrUnknown(data['mesa_id']!, _mesaIdMeta));
+    }
+    if (data.containsKey('habitacion_id')) {
+      context.handle(
+          _habitacionIdMeta,
+          habitacionId.isAcceptableOrUnknown(
+              data['habitacion_id']!, _habitacionIdMeta));
+    }
+    if (data.containsKey('usuario_id')) {
+      context.handle(_usuarioIdMeta,
+          usuarioId.isAcceptableOrUnknown(data['usuario_id']!, _usuarioIdMeta));
+    }
+    if (data.containsKey('sesion_id')) {
+      context.handle(_sesionIdMeta,
+          sesionId.isAcceptableOrUnknown(data['sesion_id']!, _sesionIdMeta));
+    }
+    if (data.containsKey('estado')) {
+      context.handle(_estadoMeta,
+          estado.isAcceptableOrUnknown(data['estado']!, _estadoMeta));
+    }
+    if (data.containsKey('venta_anula_id')) {
+      context.handle(
+          _ventaAnulaIdMeta,
+          ventaAnulaId.isAcceptableOrUnknown(
+              data['venta_anula_id']!, _ventaAnulaIdMeta));
+    }
+    if (data.containsKey('motivo_anulacion')) {
+      context.handle(
+          _motivoAnulacionMeta,
+          motivoAnulacion.isAcceptableOrUnknown(
+              data['motivo_anulacion']!, _motivoAnulacionMeta));
+    }
+    if (data.containsKey('anulada_por')) {
+      context.handle(
+          _anuladaPorMeta,
+          anuladaPor.isAcceptableOrUnknown(
+              data['anulada_por']!, _anuladaPorMeta));
+    }
+    if (data.containsKey('anulada_en')) {
+      context.handle(_anuladaEnMeta,
+          anuladaEn.isAcceptableOrUnknown(data['anulada_en']!, _anuladaEnMeta));
+    }
+    if (data.containsKey('tasa_bs')) {
+      context.handle(_tasaBsMeta,
+          tasaBs.isAcceptableOrUnknown(data['tasa_bs']!, _tasaBsMeta));
+    }
+    if (data.containsKey('sync_uuid')) {
+      context.handle(_syncUuidMeta,
+          syncUuid.isAcceptableOrUnknown(data['sync_uuid']!, _syncUuidMeta));
+    }
+    if (data.containsKey('comanda_sync_uuid')) {
+      context.handle(
+          _comandaSyncUuidMeta,
+          comandaSyncUuid.isAcceptableOrUnknown(
+              data['comanda_sync_uuid']!, _comandaSyncUuidMeta));
+    }
+    if (data.containsKey('venta_anula_sync_uuid')) {
+      context.handle(
+          _ventaAnulaSyncUuidMeta,
+          ventaAnulaSyncUuid.isAcceptableOrUnknown(
+              data['venta_anula_sync_uuid']!, _ventaAnulaSyncUuidMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PosVenta map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PosVenta(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      comandaId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}comanda_id']),
+      correlativo: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}correlativo']),
+      total: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}total'])!,
+      itemsJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}items_json']),
+      mesaId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}mesa_id']),
+      habitacionId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}habitacion_id']),
+      usuarioId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}usuario_id']),
+      sesionId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}sesion_id']),
+      estado: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}estado'])!,
+      ventaAnulaId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}venta_anula_id']),
+      motivoAnulacion: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}motivo_anulacion']),
+      anuladaPor: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}anulada_por']),
+      anuladaEn: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}anulada_en']),
+      tasaBs: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}tasa_bs']),
+      syncUuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}sync_uuid']),
+      comandaSyncUuid: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}comanda_sync_uuid']),
+      ventaAnulaSyncUuid: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}venta_anula_sync_uuid']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at']),
+    );
+  }
+
+  @override
+  $PosVentasTable createAlias(String alias) {
+    return $PosVentasTable(attachedDatabase, alias);
+  }
+}
+
+class PosVenta extends DataClass implements Insertable<PosVenta> {
+  final int id;
+  final int? comandaId;
+  final int? correlativo;
+  final double total;
+  final String? itemsJson;
+  final int? mesaId;
+  final int? habitacionId;
+  final int? usuarioId;
+  final int? sesionId;
+  final String estado;
+  final int? ventaAnulaId;
+  final String? motivoAnulacion;
+  final String? anuladaPor;
+  final DateTime? anuladaEn;
+  final double? tasaBs;
+  final String? syncUuid;
+  final String? comandaSyncUuid;
+  final String? ventaAnulaSyncUuid;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+  const PosVenta(
+      {required this.id,
+      this.comandaId,
+      this.correlativo,
+      required this.total,
+      this.itemsJson,
+      this.mesaId,
+      this.habitacionId,
+      this.usuarioId,
+      this.sesionId,
+      required this.estado,
+      this.ventaAnulaId,
+      this.motivoAnulacion,
+      this.anuladaPor,
+      this.anuladaEn,
+      this.tasaBs,
+      this.syncUuid,
+      this.comandaSyncUuid,
+      this.ventaAnulaSyncUuid,
+      required this.createdAt,
+      this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    if (!nullToAbsent || comandaId != null) {
+      map['comanda_id'] = Variable<int>(comandaId);
+    }
+    if (!nullToAbsent || correlativo != null) {
+      map['correlativo'] = Variable<int>(correlativo);
+    }
+    map['total'] = Variable<double>(total);
+    if (!nullToAbsent || itemsJson != null) {
+      map['items_json'] = Variable<String>(itemsJson);
+    }
+    if (!nullToAbsent || mesaId != null) {
+      map['mesa_id'] = Variable<int>(mesaId);
+    }
+    if (!nullToAbsent || habitacionId != null) {
+      map['habitacion_id'] = Variable<int>(habitacionId);
+    }
+    if (!nullToAbsent || usuarioId != null) {
+      map['usuario_id'] = Variable<int>(usuarioId);
+    }
+    if (!nullToAbsent || sesionId != null) {
+      map['sesion_id'] = Variable<int>(sesionId);
+    }
+    map['estado'] = Variable<String>(estado);
+    if (!nullToAbsent || ventaAnulaId != null) {
+      map['venta_anula_id'] = Variable<int>(ventaAnulaId);
+    }
+    if (!nullToAbsent || motivoAnulacion != null) {
+      map['motivo_anulacion'] = Variable<String>(motivoAnulacion);
+    }
+    if (!nullToAbsent || anuladaPor != null) {
+      map['anulada_por'] = Variable<String>(anuladaPor);
+    }
+    if (!nullToAbsent || anuladaEn != null) {
+      map['anulada_en'] = Variable<DateTime>(anuladaEn);
+    }
+    if (!nullToAbsent || tasaBs != null) {
+      map['tasa_bs'] = Variable<double>(tasaBs);
+    }
+    if (!nullToAbsent || syncUuid != null) {
+      map['sync_uuid'] = Variable<String>(syncUuid);
+    }
+    if (!nullToAbsent || comandaSyncUuid != null) {
+      map['comanda_sync_uuid'] = Variable<String>(comandaSyncUuid);
+    }
+    if (!nullToAbsent || ventaAnulaSyncUuid != null) {
+      map['venta_anula_sync_uuid'] = Variable<String>(ventaAnulaSyncUuid);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    return map;
+  }
+
+  PosVentasCompanion toCompanion(bool nullToAbsent) {
+    return PosVentasCompanion(
+      id: Value(id),
+      comandaId: comandaId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(comandaId),
+      correlativo: correlativo == null && nullToAbsent
+          ? const Value.absent()
+          : Value(correlativo),
+      total: Value(total),
+      itemsJson: itemsJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(itemsJson),
+      mesaId:
+          mesaId == null && nullToAbsent ? const Value.absent() : Value(mesaId),
+      habitacionId: habitacionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(habitacionId),
+      usuarioId: usuarioId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(usuarioId),
+      sesionId: sesionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sesionId),
+      estado: Value(estado),
+      ventaAnulaId: ventaAnulaId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ventaAnulaId),
+      motivoAnulacion: motivoAnulacion == null && nullToAbsent
+          ? const Value.absent()
+          : Value(motivoAnulacion),
+      anuladaPor: anuladaPor == null && nullToAbsent
+          ? const Value.absent()
+          : Value(anuladaPor),
+      anuladaEn: anuladaEn == null && nullToAbsent
+          ? const Value.absent()
+          : Value(anuladaEn),
+      tasaBs:
+          tasaBs == null && nullToAbsent ? const Value.absent() : Value(tasaBs),
+      syncUuid: syncUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncUuid),
+      comandaSyncUuid: comandaSyncUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(comandaSyncUuid),
+      ventaAnulaSyncUuid: ventaAnulaSyncUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ventaAnulaSyncUuid),
+      createdAt: Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+    );
+  }
+
+  factory PosVenta.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PosVenta(
+      id: serializer.fromJson<int>(json['id']),
+      comandaId: serializer.fromJson<int?>(json['comandaId']),
+      correlativo: serializer.fromJson<int?>(json['correlativo']),
+      total: serializer.fromJson<double>(json['total']),
+      itemsJson: serializer.fromJson<String?>(json['itemsJson']),
+      mesaId: serializer.fromJson<int?>(json['mesaId']),
+      habitacionId: serializer.fromJson<int?>(json['habitacionId']),
+      usuarioId: serializer.fromJson<int?>(json['usuarioId']),
+      sesionId: serializer.fromJson<int?>(json['sesionId']),
+      estado: serializer.fromJson<String>(json['estado']),
+      ventaAnulaId: serializer.fromJson<int?>(json['ventaAnulaId']),
+      motivoAnulacion: serializer.fromJson<String?>(json['motivoAnulacion']),
+      anuladaPor: serializer.fromJson<String?>(json['anuladaPor']),
+      anuladaEn: serializer.fromJson<DateTime?>(json['anuladaEn']),
+      tasaBs: serializer.fromJson<double?>(json['tasaBs']),
+      syncUuid: serializer.fromJson<String?>(json['syncUuid']),
+      comandaSyncUuid: serializer.fromJson<String?>(json['comandaSyncUuid']),
+      ventaAnulaSyncUuid:
+          serializer.fromJson<String?>(json['ventaAnulaSyncUuid']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'comandaId': serializer.toJson<int?>(comandaId),
+      'correlativo': serializer.toJson<int?>(correlativo),
+      'total': serializer.toJson<double>(total),
+      'itemsJson': serializer.toJson<String?>(itemsJson),
+      'mesaId': serializer.toJson<int?>(mesaId),
+      'habitacionId': serializer.toJson<int?>(habitacionId),
+      'usuarioId': serializer.toJson<int?>(usuarioId),
+      'sesionId': serializer.toJson<int?>(sesionId),
+      'estado': serializer.toJson<String>(estado),
+      'ventaAnulaId': serializer.toJson<int?>(ventaAnulaId),
+      'motivoAnulacion': serializer.toJson<String?>(motivoAnulacion),
+      'anuladaPor': serializer.toJson<String?>(anuladaPor),
+      'anuladaEn': serializer.toJson<DateTime?>(anuladaEn),
+      'tasaBs': serializer.toJson<double?>(tasaBs),
+      'syncUuid': serializer.toJson<String?>(syncUuid),
+      'comandaSyncUuid': serializer.toJson<String?>(comandaSyncUuid),
+      'ventaAnulaSyncUuid': serializer.toJson<String?>(ventaAnulaSyncUuid),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+    };
+  }
+
+  PosVenta copyWith(
+          {int? id,
+          Value<int?> comandaId = const Value.absent(),
+          Value<int?> correlativo = const Value.absent(),
+          double? total,
+          Value<String?> itemsJson = const Value.absent(),
+          Value<int?> mesaId = const Value.absent(),
+          Value<int?> habitacionId = const Value.absent(),
+          Value<int?> usuarioId = const Value.absent(),
+          Value<int?> sesionId = const Value.absent(),
+          String? estado,
+          Value<int?> ventaAnulaId = const Value.absent(),
+          Value<String?> motivoAnulacion = const Value.absent(),
+          Value<String?> anuladaPor = const Value.absent(),
+          Value<DateTime?> anuladaEn = const Value.absent(),
+          Value<double?> tasaBs = const Value.absent(),
+          Value<String?> syncUuid = const Value.absent(),
+          Value<String?> comandaSyncUuid = const Value.absent(),
+          Value<String?> ventaAnulaSyncUuid = const Value.absent(),
+          DateTime? createdAt,
+          Value<DateTime?> updatedAt = const Value.absent()}) =>
+      PosVenta(
+        id: id ?? this.id,
+        comandaId: comandaId.present ? comandaId.value : this.comandaId,
+        correlativo: correlativo.present ? correlativo.value : this.correlativo,
+        total: total ?? this.total,
+        itemsJson: itemsJson.present ? itemsJson.value : this.itemsJson,
+        mesaId: mesaId.present ? mesaId.value : this.mesaId,
+        habitacionId:
+            habitacionId.present ? habitacionId.value : this.habitacionId,
+        usuarioId: usuarioId.present ? usuarioId.value : this.usuarioId,
+        sesionId: sesionId.present ? sesionId.value : this.sesionId,
+        estado: estado ?? this.estado,
+        ventaAnulaId:
+            ventaAnulaId.present ? ventaAnulaId.value : this.ventaAnulaId,
+        motivoAnulacion: motivoAnulacion.present
+            ? motivoAnulacion.value
+            : this.motivoAnulacion,
+        anuladaPor: anuladaPor.present ? anuladaPor.value : this.anuladaPor,
+        anuladaEn: anuladaEn.present ? anuladaEn.value : this.anuladaEn,
+        tasaBs: tasaBs.present ? tasaBs.value : this.tasaBs,
+        syncUuid: syncUuid.present ? syncUuid.value : this.syncUuid,
+        comandaSyncUuid: comandaSyncUuid.present
+            ? comandaSyncUuid.value
+            : this.comandaSyncUuid,
+        ventaAnulaSyncUuid: ventaAnulaSyncUuid.present
+            ? ventaAnulaSyncUuid.value
+            : this.ventaAnulaSyncUuid,
+        createdAt: createdAt ?? this.createdAt,
+        updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+      );
+  PosVenta copyWithCompanion(PosVentasCompanion data) {
+    return PosVenta(
+      id: data.id.present ? data.id.value : this.id,
+      comandaId: data.comandaId.present ? data.comandaId.value : this.comandaId,
+      correlativo:
+          data.correlativo.present ? data.correlativo.value : this.correlativo,
+      total: data.total.present ? data.total.value : this.total,
+      itemsJson: data.itemsJson.present ? data.itemsJson.value : this.itemsJson,
+      mesaId: data.mesaId.present ? data.mesaId.value : this.mesaId,
+      habitacionId: data.habitacionId.present
+          ? data.habitacionId.value
+          : this.habitacionId,
+      usuarioId: data.usuarioId.present ? data.usuarioId.value : this.usuarioId,
+      sesionId: data.sesionId.present ? data.sesionId.value : this.sesionId,
+      estado: data.estado.present ? data.estado.value : this.estado,
+      ventaAnulaId: data.ventaAnulaId.present
+          ? data.ventaAnulaId.value
+          : this.ventaAnulaId,
+      motivoAnulacion: data.motivoAnulacion.present
+          ? data.motivoAnulacion.value
+          : this.motivoAnulacion,
+      anuladaPor:
+          data.anuladaPor.present ? data.anuladaPor.value : this.anuladaPor,
+      anuladaEn: data.anuladaEn.present ? data.anuladaEn.value : this.anuladaEn,
+      tasaBs: data.tasaBs.present ? data.tasaBs.value : this.tasaBs,
+      syncUuid: data.syncUuid.present ? data.syncUuid.value : this.syncUuid,
+      comandaSyncUuid: data.comandaSyncUuid.present
+          ? data.comandaSyncUuid.value
+          : this.comandaSyncUuid,
+      ventaAnulaSyncUuid: data.ventaAnulaSyncUuid.present
+          ? data.ventaAnulaSyncUuid.value
+          : this.ventaAnulaSyncUuid,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PosVenta(')
+          ..write('id: $id, ')
+          ..write('comandaId: $comandaId, ')
+          ..write('correlativo: $correlativo, ')
+          ..write('total: $total, ')
+          ..write('itemsJson: $itemsJson, ')
+          ..write('mesaId: $mesaId, ')
+          ..write('habitacionId: $habitacionId, ')
+          ..write('usuarioId: $usuarioId, ')
+          ..write('sesionId: $sesionId, ')
+          ..write('estado: $estado, ')
+          ..write('ventaAnulaId: $ventaAnulaId, ')
+          ..write('motivoAnulacion: $motivoAnulacion, ')
+          ..write('anuladaPor: $anuladaPor, ')
+          ..write('anuladaEn: $anuladaEn, ')
+          ..write('tasaBs: $tasaBs, ')
+          ..write('syncUuid: $syncUuid, ')
+          ..write('comandaSyncUuid: $comandaSyncUuid, ')
+          ..write('ventaAnulaSyncUuid: $ventaAnulaSyncUuid, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      id,
+      comandaId,
+      correlativo,
+      total,
+      itemsJson,
+      mesaId,
+      habitacionId,
+      usuarioId,
+      sesionId,
+      estado,
+      ventaAnulaId,
+      motivoAnulacion,
+      anuladaPor,
+      anuladaEn,
+      tasaBs,
+      syncUuid,
+      comandaSyncUuid,
+      ventaAnulaSyncUuid,
+      createdAt,
+      updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PosVenta &&
+          other.id == this.id &&
+          other.comandaId == this.comandaId &&
+          other.correlativo == this.correlativo &&
+          other.total == this.total &&
+          other.itemsJson == this.itemsJson &&
+          other.mesaId == this.mesaId &&
+          other.habitacionId == this.habitacionId &&
+          other.usuarioId == this.usuarioId &&
+          other.sesionId == this.sesionId &&
+          other.estado == this.estado &&
+          other.ventaAnulaId == this.ventaAnulaId &&
+          other.motivoAnulacion == this.motivoAnulacion &&
+          other.anuladaPor == this.anuladaPor &&
+          other.anuladaEn == this.anuladaEn &&
+          other.tasaBs == this.tasaBs &&
+          other.syncUuid == this.syncUuid &&
+          other.comandaSyncUuid == this.comandaSyncUuid &&
+          other.ventaAnulaSyncUuid == this.ventaAnulaSyncUuid &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class PosVentasCompanion extends UpdateCompanion<PosVenta> {
+  final Value<int> id;
+  final Value<int?> comandaId;
+  final Value<int?> correlativo;
+  final Value<double> total;
+  final Value<String?> itemsJson;
+  final Value<int?> mesaId;
+  final Value<int?> habitacionId;
+  final Value<int?> usuarioId;
+  final Value<int?> sesionId;
+  final Value<String> estado;
+  final Value<int?> ventaAnulaId;
+  final Value<String?> motivoAnulacion;
+  final Value<String?> anuladaPor;
+  final Value<DateTime?> anuladaEn;
+  final Value<double?> tasaBs;
+  final Value<String?> syncUuid;
+  final Value<String?> comandaSyncUuid;
+  final Value<String?> ventaAnulaSyncUuid;
+  final Value<DateTime> createdAt;
+  final Value<DateTime?> updatedAt;
+  const PosVentasCompanion({
+    this.id = const Value.absent(),
+    this.comandaId = const Value.absent(),
+    this.correlativo = const Value.absent(),
+    this.total = const Value.absent(),
+    this.itemsJson = const Value.absent(),
+    this.mesaId = const Value.absent(),
+    this.habitacionId = const Value.absent(),
+    this.usuarioId = const Value.absent(),
+    this.sesionId = const Value.absent(),
+    this.estado = const Value.absent(),
+    this.ventaAnulaId = const Value.absent(),
+    this.motivoAnulacion = const Value.absent(),
+    this.anuladaPor = const Value.absent(),
+    this.anuladaEn = const Value.absent(),
+    this.tasaBs = const Value.absent(),
+    this.syncUuid = const Value.absent(),
+    this.comandaSyncUuid = const Value.absent(),
+    this.ventaAnulaSyncUuid = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  PosVentasCompanion.insert({
+    this.id = const Value.absent(),
+    this.comandaId = const Value.absent(),
+    this.correlativo = const Value.absent(),
+    this.total = const Value.absent(),
+    this.itemsJson = const Value.absent(),
+    this.mesaId = const Value.absent(),
+    this.habitacionId = const Value.absent(),
+    this.usuarioId = const Value.absent(),
+    this.sesionId = const Value.absent(),
+    this.estado = const Value.absent(),
+    this.ventaAnulaId = const Value.absent(),
+    this.motivoAnulacion = const Value.absent(),
+    this.anuladaPor = const Value.absent(),
+    this.anuladaEn = const Value.absent(),
+    this.tasaBs = const Value.absent(),
+    this.syncUuid = const Value.absent(),
+    this.comandaSyncUuid = const Value.absent(),
+    this.ventaAnulaSyncUuid = const Value.absent(),
+    required DateTime createdAt,
+    this.updatedAt = const Value.absent(),
+  }) : createdAt = Value(createdAt);
+  static Insertable<PosVenta> custom({
+    Expression<int>? id,
+    Expression<int>? comandaId,
+    Expression<int>? correlativo,
+    Expression<double>? total,
+    Expression<String>? itemsJson,
+    Expression<int>? mesaId,
+    Expression<int>? habitacionId,
+    Expression<int>? usuarioId,
+    Expression<int>? sesionId,
+    Expression<String>? estado,
+    Expression<int>? ventaAnulaId,
+    Expression<String>? motivoAnulacion,
+    Expression<String>? anuladaPor,
+    Expression<DateTime>? anuladaEn,
+    Expression<double>? tasaBs,
+    Expression<String>? syncUuid,
+    Expression<String>? comandaSyncUuid,
+    Expression<String>? ventaAnulaSyncUuid,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (comandaId != null) 'comanda_id': comandaId,
+      if (correlativo != null) 'correlativo': correlativo,
+      if (total != null) 'total': total,
+      if (itemsJson != null) 'items_json': itemsJson,
+      if (mesaId != null) 'mesa_id': mesaId,
+      if (habitacionId != null) 'habitacion_id': habitacionId,
+      if (usuarioId != null) 'usuario_id': usuarioId,
+      if (sesionId != null) 'sesion_id': sesionId,
+      if (estado != null) 'estado': estado,
+      if (ventaAnulaId != null) 'venta_anula_id': ventaAnulaId,
+      if (motivoAnulacion != null) 'motivo_anulacion': motivoAnulacion,
+      if (anuladaPor != null) 'anulada_por': anuladaPor,
+      if (anuladaEn != null) 'anulada_en': anuladaEn,
+      if (tasaBs != null) 'tasa_bs': tasaBs,
+      if (syncUuid != null) 'sync_uuid': syncUuid,
+      if (comandaSyncUuid != null) 'comanda_sync_uuid': comandaSyncUuid,
+      if (ventaAnulaSyncUuid != null)
+        'venta_anula_sync_uuid': ventaAnulaSyncUuid,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  PosVentasCompanion copyWith(
+      {Value<int>? id,
+      Value<int?>? comandaId,
+      Value<int?>? correlativo,
+      Value<double>? total,
+      Value<String?>? itemsJson,
+      Value<int?>? mesaId,
+      Value<int?>? habitacionId,
+      Value<int?>? usuarioId,
+      Value<int?>? sesionId,
+      Value<String>? estado,
+      Value<int?>? ventaAnulaId,
+      Value<String?>? motivoAnulacion,
+      Value<String?>? anuladaPor,
+      Value<DateTime?>? anuladaEn,
+      Value<double?>? tasaBs,
+      Value<String?>? syncUuid,
+      Value<String?>? comandaSyncUuid,
+      Value<String?>? ventaAnulaSyncUuid,
+      Value<DateTime>? createdAt,
+      Value<DateTime?>? updatedAt}) {
+    return PosVentasCompanion(
+      id: id ?? this.id,
+      comandaId: comandaId ?? this.comandaId,
+      correlativo: correlativo ?? this.correlativo,
+      total: total ?? this.total,
+      itemsJson: itemsJson ?? this.itemsJson,
+      mesaId: mesaId ?? this.mesaId,
+      habitacionId: habitacionId ?? this.habitacionId,
+      usuarioId: usuarioId ?? this.usuarioId,
+      sesionId: sesionId ?? this.sesionId,
+      estado: estado ?? this.estado,
+      ventaAnulaId: ventaAnulaId ?? this.ventaAnulaId,
+      motivoAnulacion: motivoAnulacion ?? this.motivoAnulacion,
+      anuladaPor: anuladaPor ?? this.anuladaPor,
+      anuladaEn: anuladaEn ?? this.anuladaEn,
+      tasaBs: tasaBs ?? this.tasaBs,
+      syncUuid: syncUuid ?? this.syncUuid,
+      comandaSyncUuid: comandaSyncUuid ?? this.comandaSyncUuid,
+      ventaAnulaSyncUuid: ventaAnulaSyncUuid ?? this.ventaAnulaSyncUuid,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (comandaId.present) {
+      map['comanda_id'] = Variable<int>(comandaId.value);
+    }
+    if (correlativo.present) {
+      map['correlativo'] = Variable<int>(correlativo.value);
+    }
+    if (total.present) {
+      map['total'] = Variable<double>(total.value);
+    }
+    if (itemsJson.present) {
+      map['items_json'] = Variable<String>(itemsJson.value);
+    }
+    if (mesaId.present) {
+      map['mesa_id'] = Variable<int>(mesaId.value);
+    }
+    if (habitacionId.present) {
+      map['habitacion_id'] = Variable<int>(habitacionId.value);
+    }
+    if (usuarioId.present) {
+      map['usuario_id'] = Variable<int>(usuarioId.value);
+    }
+    if (sesionId.present) {
+      map['sesion_id'] = Variable<int>(sesionId.value);
+    }
+    if (estado.present) {
+      map['estado'] = Variable<String>(estado.value);
+    }
+    if (ventaAnulaId.present) {
+      map['venta_anula_id'] = Variable<int>(ventaAnulaId.value);
+    }
+    if (motivoAnulacion.present) {
+      map['motivo_anulacion'] = Variable<String>(motivoAnulacion.value);
+    }
+    if (anuladaPor.present) {
+      map['anulada_por'] = Variable<String>(anuladaPor.value);
+    }
+    if (anuladaEn.present) {
+      map['anulada_en'] = Variable<DateTime>(anuladaEn.value);
+    }
+    if (tasaBs.present) {
+      map['tasa_bs'] = Variable<double>(tasaBs.value);
+    }
+    if (syncUuid.present) {
+      map['sync_uuid'] = Variable<String>(syncUuid.value);
+    }
+    if (comandaSyncUuid.present) {
+      map['comanda_sync_uuid'] = Variable<String>(comandaSyncUuid.value);
+    }
+    if (ventaAnulaSyncUuid.present) {
+      map['venta_anula_sync_uuid'] = Variable<String>(ventaAnulaSyncUuid.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PosVentasCompanion(')
+          ..write('id: $id, ')
+          ..write('comandaId: $comandaId, ')
+          ..write('correlativo: $correlativo, ')
+          ..write('total: $total, ')
+          ..write('itemsJson: $itemsJson, ')
+          ..write('mesaId: $mesaId, ')
+          ..write('habitacionId: $habitacionId, ')
+          ..write('usuarioId: $usuarioId, ')
+          ..write('sesionId: $sesionId, ')
+          ..write('estado: $estado, ')
+          ..write('ventaAnulaId: $ventaAnulaId, ')
+          ..write('motivoAnulacion: $motivoAnulacion, ')
+          ..write('anuladaPor: $anuladaPor, ')
+          ..write('anuladaEn: $anuladaEn, ')
+          ..write('tasaBs: $tasaBs, ')
+          ..write('syncUuid: $syncUuid, ')
+          ..write('comandaSyncUuid: $comandaSyncUuid, ')
+          ..write('ventaAnulaSyncUuid: $ventaAnulaSyncUuid, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PosSettingsTable extends PosSettings
+    with TableInfo<$PosSettingsTable, PosSetting> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PosSettingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _keyMeta = const VerificationMeta('key');
+  @override
+  late final GeneratedColumn<String> key = GeneratedColumn<String>(
+      'key', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _valueMeta = const VerificationMeta('value');
+  @override
+  late final GeneratedColumn<String> value = GeneratedColumn<String>(
+      'value', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [key, value];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pos_settings';
+  @override
+  VerificationContext validateIntegrity(Insertable<PosSetting> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('key')) {
+      context.handle(
+          _keyMeta, key.isAcceptableOrUnknown(data['key']!, _keyMeta));
+    } else if (isInserting) {
+      context.missing(_keyMeta);
+    }
+    if (data.containsKey('value')) {
+      context.handle(
+          _valueMeta, value.isAcceptableOrUnknown(data['value']!, _valueMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {key};
+  @override
+  PosSetting map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PosSetting(
+      key: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}key'])!,
+      value: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}value']),
+    );
+  }
+
+  @override
+  $PosSettingsTable createAlias(String alias) {
+    return $PosSettingsTable(attachedDatabase, alias);
+  }
+}
+
+class PosSetting extends DataClass implements Insertable<PosSetting> {
+  final String key;
+  final String? value;
+  const PosSetting({required this.key, this.value});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['key'] = Variable<String>(key);
+    if (!nullToAbsent || value != null) {
+      map['value'] = Variable<String>(value);
+    }
+    return map;
+  }
+
+  PosSettingsCompanion toCompanion(bool nullToAbsent) {
+    return PosSettingsCompanion(
+      key: Value(key),
+      value:
+          value == null && nullToAbsent ? const Value.absent() : Value(value),
+    );
+  }
+
+  factory PosSetting.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PosSetting(
+      key: serializer.fromJson<String>(json['key']),
+      value: serializer.fromJson<String?>(json['value']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'key': serializer.toJson<String>(key),
+      'value': serializer.toJson<String?>(value),
+    };
+  }
+
+  PosSetting copyWith(
+          {String? key, Value<String?> value = const Value.absent()}) =>
+      PosSetting(
+        key: key ?? this.key,
+        value: value.present ? value.value : this.value,
+      );
+  PosSetting copyWithCompanion(PosSettingsCompanion data) {
+    return PosSetting(
+      key: data.key.present ? data.key.value : this.key,
+      value: data.value.present ? data.value.value : this.value,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PosSetting(')
+          ..write('key: $key, ')
+          ..write('value: $value')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(key, value);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PosSetting &&
+          other.key == this.key &&
+          other.value == this.value);
+}
+
+class PosSettingsCompanion extends UpdateCompanion<PosSetting> {
+  final Value<String> key;
+  final Value<String?> value;
+  final Value<int> rowid;
+  const PosSettingsCompanion({
+    this.key = const Value.absent(),
+    this.value = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PosSettingsCompanion.insert({
+    required String key,
+    this.value = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : key = Value(key);
+  static Insertable<PosSetting> custom({
+    Expression<String>? key,
+    Expression<String>? value,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (key != null) 'key': key,
+      if (value != null) 'value': value,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PosSettingsCompanion copyWith(
+      {Value<String>? key, Value<String?>? value, Value<int>? rowid}) {
+    return PosSettingsCompanion(
+      key: key ?? this.key,
+      value: value ?? this.value,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (key.present) {
+      map['key'] = Variable<String>(key.value);
+    }
+    if (value.present) {
+      map['value'] = Variable<String>(value.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PosSettingsCompanion(')
+          ..write('key: $key, ')
+          ..write('value: $value, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PosCategoriasTable extends PosCategorias
+    with TableInfo<$PosCategoriasTable, PosCategoria> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PosCategoriasTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _nombreMeta = const VerificationMeta('nombre');
+  @override
+  late final GeneratedColumn<String> nombre = GeneratedColumn<String>(
+      'nombre', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _colorMeta = const VerificationMeta('color');
+  @override
+  late final GeneratedColumn<String> color = GeneratedColumn<String>(
+      'color', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('#FF6F00'));
+  static const VerificationMeta _iconoMeta = const VerificationMeta('icono');
+  @override
+  late final GeneratedColumn<String> icono = GeneratedColumn<String>(
+      'icono', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _activoMeta = const VerificationMeta('activo');
+  @override
+  late final GeneratedColumn<int> activo = GeneratedColumn<int>(
+      'activo', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(1));
+  static const VerificationMeta _syncUuidMeta =
+      const VerificationMeta('syncUuid');
+  @override
+  late final GeneratedColumn<String> syncUuid = GeneratedColumn<String>(
+      'sync_uuid', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, nombre, color, icono, activo, syncUuid, createdAt, updatedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pos_categorias';
+  @override
+  VerificationContext validateIntegrity(Insertable<PosCategoria> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('nombre')) {
+      context.handle(_nombreMeta,
+          nombre.isAcceptableOrUnknown(data['nombre']!, _nombreMeta));
+    } else if (isInserting) {
+      context.missing(_nombreMeta);
+    }
+    if (data.containsKey('color')) {
+      context.handle(
+          _colorMeta, color.isAcceptableOrUnknown(data['color']!, _colorMeta));
+    }
+    if (data.containsKey('icono')) {
+      context.handle(
+          _iconoMeta, icono.isAcceptableOrUnknown(data['icono']!, _iconoMeta));
+    }
+    if (data.containsKey('activo')) {
+      context.handle(_activoMeta,
+          activo.isAcceptableOrUnknown(data['activo']!, _activoMeta));
+    }
+    if (data.containsKey('sync_uuid')) {
+      context.handle(_syncUuidMeta,
+          syncUuid.isAcceptableOrUnknown(data['sync_uuid']!, _syncUuidMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PosCategoria map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PosCategoria(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      nombre: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}nombre'])!,
+      color: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}color'])!,
+      icono: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}icono']),
+      activo: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}activo'])!,
+      syncUuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}sync_uuid']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at']),
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at']),
+    );
+  }
+
+  @override
+  $PosCategoriasTable createAlias(String alias) {
+    return $PosCategoriasTable(attachedDatabase, alias);
+  }
+}
+
+class PosCategoria extends DataClass implements Insertable<PosCategoria> {
+  final int id;
+  final String nombre;
+  final String color;
+  final String? icono;
+  final int activo;
+  final String? syncUuid;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  const PosCategoria(
+      {required this.id,
+      required this.nombre,
+      required this.color,
+      this.icono,
+      required this.activo,
+      this.syncUuid,
+      this.createdAt,
+      this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['nombre'] = Variable<String>(nombre);
+    map['color'] = Variable<String>(color);
+    if (!nullToAbsent || icono != null) {
+      map['icono'] = Variable<String>(icono);
+    }
+    map['activo'] = Variable<int>(activo);
+    if (!nullToAbsent || syncUuid != null) {
+      map['sync_uuid'] = Variable<String>(syncUuid);
+    }
+    if (!nullToAbsent || createdAt != null) {
+      map['created_at'] = Variable<DateTime>(createdAt);
+    }
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    return map;
+  }
+
+  PosCategoriasCompanion toCompanion(bool nullToAbsent) {
+    return PosCategoriasCompanion(
+      id: Value(id),
+      nombre: Value(nombre),
+      color: Value(color),
+      icono:
+          icono == null && nullToAbsent ? const Value.absent() : Value(icono),
+      activo: Value(activo),
+      syncUuid: syncUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncUuid),
+      createdAt: createdAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+    );
+  }
+
+  factory PosCategoria.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PosCategoria(
+      id: serializer.fromJson<int>(json['id']),
+      nombre: serializer.fromJson<String>(json['nombre']),
+      color: serializer.fromJson<String>(json['color']),
+      icono: serializer.fromJson<String?>(json['icono']),
+      activo: serializer.fromJson<int>(json['activo']),
+      syncUuid: serializer.fromJson<String?>(json['syncUuid']),
+      createdAt: serializer.fromJson<DateTime?>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'nombre': serializer.toJson<String>(nombre),
+      'color': serializer.toJson<String>(color),
+      'icono': serializer.toJson<String?>(icono),
+      'activo': serializer.toJson<int>(activo),
+      'syncUuid': serializer.toJson<String?>(syncUuid),
+      'createdAt': serializer.toJson<DateTime?>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+    };
+  }
+
+  PosCategoria copyWith(
+          {int? id,
+          String? nombre,
+          String? color,
+          Value<String?> icono = const Value.absent(),
+          int? activo,
+          Value<String?> syncUuid = const Value.absent(),
+          Value<DateTime?> createdAt = const Value.absent(),
+          Value<DateTime?> updatedAt = const Value.absent()}) =>
+      PosCategoria(
+        id: id ?? this.id,
+        nombre: nombre ?? this.nombre,
+        color: color ?? this.color,
+        icono: icono.present ? icono.value : this.icono,
+        activo: activo ?? this.activo,
+        syncUuid: syncUuid.present ? syncUuid.value : this.syncUuid,
+        createdAt: createdAt.present ? createdAt.value : this.createdAt,
+        updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+      );
+  PosCategoria copyWithCompanion(PosCategoriasCompanion data) {
+    return PosCategoria(
+      id: data.id.present ? data.id.value : this.id,
+      nombre: data.nombre.present ? data.nombre.value : this.nombre,
+      color: data.color.present ? data.color.value : this.color,
+      icono: data.icono.present ? data.icono.value : this.icono,
+      activo: data.activo.present ? data.activo.value : this.activo,
+      syncUuid: data.syncUuid.present ? data.syncUuid.value : this.syncUuid,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PosCategoria(')
+          ..write('id: $id, ')
+          ..write('nombre: $nombre, ')
+          ..write('color: $color, ')
+          ..write('icono: $icono, ')
+          ..write('activo: $activo, ')
+          ..write('syncUuid: $syncUuid, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      id, nombre, color, icono, activo, syncUuid, createdAt, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PosCategoria &&
+          other.id == this.id &&
+          other.nombre == this.nombre &&
+          other.color == this.color &&
+          other.icono == this.icono &&
+          other.activo == this.activo &&
+          other.syncUuid == this.syncUuid &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class PosCategoriasCompanion extends UpdateCompanion<PosCategoria> {
+  final Value<int> id;
+  final Value<String> nombre;
+  final Value<String> color;
+  final Value<String?> icono;
+  final Value<int> activo;
+  final Value<String?> syncUuid;
+  final Value<DateTime?> createdAt;
+  final Value<DateTime?> updatedAt;
+  const PosCategoriasCompanion({
+    this.id = const Value.absent(),
+    this.nombre = const Value.absent(),
+    this.color = const Value.absent(),
+    this.icono = const Value.absent(),
+    this.activo = const Value.absent(),
+    this.syncUuid = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  PosCategoriasCompanion.insert({
+    this.id = const Value.absent(),
+    required String nombre,
+    this.color = const Value.absent(),
+    this.icono = const Value.absent(),
+    this.activo = const Value.absent(),
+    this.syncUuid = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  }) : nombre = Value(nombre);
+  static Insertable<PosCategoria> custom({
+    Expression<int>? id,
+    Expression<String>? nombre,
+    Expression<String>? color,
+    Expression<String>? icono,
+    Expression<int>? activo,
+    Expression<String>? syncUuid,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (nombre != null) 'nombre': nombre,
+      if (color != null) 'color': color,
+      if (icono != null) 'icono': icono,
+      if (activo != null) 'activo': activo,
+      if (syncUuid != null) 'sync_uuid': syncUuid,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  PosCategoriasCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? nombre,
+      Value<String>? color,
+      Value<String?>? icono,
+      Value<int>? activo,
+      Value<String?>? syncUuid,
+      Value<DateTime?>? createdAt,
+      Value<DateTime?>? updatedAt}) {
+    return PosCategoriasCompanion(
+      id: id ?? this.id,
+      nombre: nombre ?? this.nombre,
+      color: color ?? this.color,
+      icono: icono ?? this.icono,
+      activo: activo ?? this.activo,
+      syncUuid: syncUuid ?? this.syncUuid,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (nombre.present) {
+      map['nombre'] = Variable<String>(nombre.value);
+    }
+    if (color.present) {
+      map['color'] = Variable<String>(color.value);
+    }
+    if (icono.present) {
+      map['icono'] = Variable<String>(icono.value);
+    }
+    if (activo.present) {
+      map['activo'] = Variable<int>(activo.value);
+    }
+    if (syncUuid.present) {
+      map['sync_uuid'] = Variable<String>(syncUuid.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PosCategoriasCompanion(')
+          ..write('id: $id, ')
+          ..write('nombre: $nombre, ')
+          ..write('color: $color, ')
+          ..write('icono: $icono, ')
+          ..write('activo: $activo, ')
+          ..write('syncUuid: $syncUuid, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PlatosCategoriasTable extends PlatosCategorias
+    with TableInfo<$PlatosCategoriasTable, PlatosCategoria> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlatosCategoriasTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _nombreMeta = const VerificationMeta('nombre');
+  @override
+  late final GeneratedColumn<String> nombre = GeneratedColumn<String>(
+      'nombre', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _colorMeta = const VerificationMeta('color');
+  @override
+  late final GeneratedColumn<String> color = GeneratedColumn<String>(
+      'color', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('#FF6F00'));
+  static const VerificationMeta _activoMeta = const VerificationMeta('activo');
+  @override
+  late final GeneratedColumn<int> activo = GeneratedColumn<int>(
+      'activo', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(1));
+  static const VerificationMeta _categoriaPadreIdMeta =
+      const VerificationMeta('categoriaPadreId');
+  @override
+  late final GeneratedColumn<int> categoriaPadreId = GeneratedColumn<int>(
+      'categoria_padre_id', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _posCategoriaPadreIdMeta =
+      const VerificationMeta('posCategoriaPadreId');
+  @override
+  late final GeneratedColumn<int> posCategoriaPadreId = GeneratedColumn<int>(
+      'pos_categoria_padre_id', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        nombre,
+        color,
+        activo,
+        categoriaPadreId,
+        posCategoriaPadreId,
+        createdAt,
+        updatedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'platos_categorias';
+  @override
+  VerificationContext validateIntegrity(Insertable<PlatosCategoria> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('nombre')) {
+      context.handle(_nombreMeta,
+          nombre.isAcceptableOrUnknown(data['nombre']!, _nombreMeta));
+    } else if (isInserting) {
+      context.missing(_nombreMeta);
+    }
+    if (data.containsKey('color')) {
+      context.handle(
+          _colorMeta, color.isAcceptableOrUnknown(data['color']!, _colorMeta));
+    }
+    if (data.containsKey('activo')) {
+      context.handle(_activoMeta,
+          activo.isAcceptableOrUnknown(data['activo']!, _activoMeta));
+    }
+    if (data.containsKey('categoria_padre_id')) {
+      context.handle(
+          _categoriaPadreIdMeta,
+          categoriaPadreId.isAcceptableOrUnknown(
+              data['categoria_padre_id']!, _categoriaPadreIdMeta));
+    }
+    if (data.containsKey('pos_categoria_padre_id')) {
+      context.handle(
+          _posCategoriaPadreIdMeta,
+          posCategoriaPadreId.isAcceptableOrUnknown(
+              data['pos_categoria_padre_id']!, _posCategoriaPadreIdMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PlatosCategoria map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlatosCategoria(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      nombre: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}nombre'])!,
+      color: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}color'])!,
+      activo: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}activo'])!,
+      categoriaPadreId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}categoria_padre_id']),
+      posCategoriaPadreId: attachedDatabase.typeMapping.read(
+          DriftSqlType.int, data['${effectivePrefix}pos_categoria_padre_id']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at']),
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at']),
+    );
+  }
+
+  @override
+  $PlatosCategoriasTable createAlias(String alias) {
+    return $PlatosCategoriasTable(attachedDatabase, alias);
+  }
+}
+
+class PlatosCategoria extends DataClass implements Insertable<PlatosCategoria> {
+  final int id;
+  final String nombre;
+  final String color;
+  final int activo;
+  final int? categoriaPadreId;
+  final int? posCategoriaPadreId;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  const PlatosCategoria(
+      {required this.id,
+      required this.nombre,
+      required this.color,
+      required this.activo,
+      this.categoriaPadreId,
+      this.posCategoriaPadreId,
+      this.createdAt,
+      this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['nombre'] = Variable<String>(nombre);
+    map['color'] = Variable<String>(color);
+    map['activo'] = Variable<int>(activo);
+    if (!nullToAbsent || categoriaPadreId != null) {
+      map['categoria_padre_id'] = Variable<int>(categoriaPadreId);
+    }
+    if (!nullToAbsent || posCategoriaPadreId != null) {
+      map['pos_categoria_padre_id'] = Variable<int>(posCategoriaPadreId);
+    }
+    if (!nullToAbsent || createdAt != null) {
+      map['created_at'] = Variable<DateTime>(createdAt);
+    }
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    return map;
+  }
+
+  PlatosCategoriasCompanion toCompanion(bool nullToAbsent) {
+    return PlatosCategoriasCompanion(
+      id: Value(id),
+      nombre: Value(nombre),
+      color: Value(color),
+      activo: Value(activo),
+      categoriaPadreId: categoriaPadreId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(categoriaPadreId),
+      posCategoriaPadreId: posCategoriaPadreId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(posCategoriaPadreId),
+      createdAt: createdAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+    );
+  }
+
+  factory PlatosCategoria.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlatosCategoria(
+      id: serializer.fromJson<int>(json['id']),
+      nombre: serializer.fromJson<String>(json['nombre']),
+      color: serializer.fromJson<String>(json['color']),
+      activo: serializer.fromJson<int>(json['activo']),
+      categoriaPadreId: serializer.fromJson<int?>(json['categoriaPadreId']),
+      posCategoriaPadreId:
+          serializer.fromJson<int?>(json['posCategoriaPadreId']),
+      createdAt: serializer.fromJson<DateTime?>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'nombre': serializer.toJson<String>(nombre),
+      'color': serializer.toJson<String>(color),
+      'activo': serializer.toJson<int>(activo),
+      'categoriaPadreId': serializer.toJson<int?>(categoriaPadreId),
+      'posCategoriaPadreId': serializer.toJson<int?>(posCategoriaPadreId),
+      'createdAt': serializer.toJson<DateTime?>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+    };
+  }
+
+  PlatosCategoria copyWith(
+          {int? id,
+          String? nombre,
+          String? color,
+          int? activo,
+          Value<int?> categoriaPadreId = const Value.absent(),
+          Value<int?> posCategoriaPadreId = const Value.absent(),
+          Value<DateTime?> createdAt = const Value.absent(),
+          Value<DateTime?> updatedAt = const Value.absent()}) =>
+      PlatosCategoria(
+        id: id ?? this.id,
+        nombre: nombre ?? this.nombre,
+        color: color ?? this.color,
+        activo: activo ?? this.activo,
+        categoriaPadreId: categoriaPadreId.present
+            ? categoriaPadreId.value
+            : this.categoriaPadreId,
+        posCategoriaPadreId: posCategoriaPadreId.present
+            ? posCategoriaPadreId.value
+            : this.posCategoriaPadreId,
+        createdAt: createdAt.present ? createdAt.value : this.createdAt,
+        updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+      );
+  PlatosCategoria copyWithCompanion(PlatosCategoriasCompanion data) {
+    return PlatosCategoria(
+      id: data.id.present ? data.id.value : this.id,
+      nombre: data.nombre.present ? data.nombre.value : this.nombre,
+      color: data.color.present ? data.color.value : this.color,
+      activo: data.activo.present ? data.activo.value : this.activo,
+      categoriaPadreId: data.categoriaPadreId.present
+          ? data.categoriaPadreId.value
+          : this.categoriaPadreId,
+      posCategoriaPadreId: data.posCategoriaPadreId.present
+          ? data.posCategoriaPadreId.value
+          : this.posCategoriaPadreId,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlatosCategoria(')
+          ..write('id: $id, ')
+          ..write('nombre: $nombre, ')
+          ..write('color: $color, ')
+          ..write('activo: $activo, ')
+          ..write('categoriaPadreId: $categoriaPadreId, ')
+          ..write('posCategoriaPadreId: $posCategoriaPadreId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, nombre, color, activo, categoriaPadreId,
+      posCategoriaPadreId, createdAt, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlatosCategoria &&
+          other.id == this.id &&
+          other.nombre == this.nombre &&
+          other.color == this.color &&
+          other.activo == this.activo &&
+          other.categoriaPadreId == this.categoriaPadreId &&
+          other.posCategoriaPadreId == this.posCategoriaPadreId &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class PlatosCategoriasCompanion extends UpdateCompanion<PlatosCategoria> {
+  final Value<int> id;
+  final Value<String> nombre;
+  final Value<String> color;
+  final Value<int> activo;
+  final Value<int?> categoriaPadreId;
+  final Value<int?> posCategoriaPadreId;
+  final Value<DateTime?> createdAt;
+  final Value<DateTime?> updatedAt;
+  const PlatosCategoriasCompanion({
+    this.id = const Value.absent(),
+    this.nombre = const Value.absent(),
+    this.color = const Value.absent(),
+    this.activo = const Value.absent(),
+    this.categoriaPadreId = const Value.absent(),
+    this.posCategoriaPadreId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  PlatosCategoriasCompanion.insert({
+    this.id = const Value.absent(),
+    required String nombre,
+    this.color = const Value.absent(),
+    this.activo = const Value.absent(),
+    this.categoriaPadreId = const Value.absent(),
+    this.posCategoriaPadreId = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  }) : nombre = Value(nombre);
+  static Insertable<PlatosCategoria> custom({
+    Expression<int>? id,
+    Expression<String>? nombre,
+    Expression<String>? color,
+    Expression<int>? activo,
+    Expression<int>? categoriaPadreId,
+    Expression<int>? posCategoriaPadreId,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (nombre != null) 'nombre': nombre,
+      if (color != null) 'color': color,
+      if (activo != null) 'activo': activo,
+      if (categoriaPadreId != null) 'categoria_padre_id': categoriaPadreId,
+      if (posCategoriaPadreId != null)
+        'pos_categoria_padre_id': posCategoriaPadreId,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  PlatosCategoriasCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? nombre,
+      Value<String>? color,
+      Value<int>? activo,
+      Value<int?>? categoriaPadreId,
+      Value<int?>? posCategoriaPadreId,
+      Value<DateTime?>? createdAt,
+      Value<DateTime?>? updatedAt}) {
+    return PlatosCategoriasCompanion(
+      id: id ?? this.id,
+      nombre: nombre ?? this.nombre,
+      color: color ?? this.color,
+      activo: activo ?? this.activo,
+      categoriaPadreId: categoriaPadreId ?? this.categoriaPadreId,
+      posCategoriaPadreId: posCategoriaPadreId ?? this.posCategoriaPadreId,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (nombre.present) {
+      map['nombre'] = Variable<String>(nombre.value);
+    }
+    if (color.present) {
+      map['color'] = Variable<String>(color.value);
+    }
+    if (activo.present) {
+      map['activo'] = Variable<int>(activo.value);
+    }
+    if (categoriaPadreId.present) {
+      map['categoria_padre_id'] = Variable<int>(categoriaPadreId.value);
+    }
+    if (posCategoriaPadreId.present) {
+      map['pos_categoria_padre_id'] = Variable<int>(posCategoriaPadreId.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlatosCategoriasCompanion(')
+          ..write('id: $id, ')
+          ..write('nombre: $nombre, ')
+          ..write('color: $color, ')
+          ..write('activo: $activo, ')
+          ..write('categoriaPadreId: $categoriaPadreId, ')
+          ..write('posCategoriaPadreId: $posCategoriaPadreId, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PlatosTable extends Platos with TableInfo<$PlatosTable, Plato> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlatosTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _nombreMeta = const VerificationMeta('nombre');
+  @override
+  late final GeneratedColumn<String> nombre = GeneratedColumn<String>(
+      'nombre', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _categoriaIdMeta =
+      const VerificationMeta('categoriaId');
+  @override
+  late final GeneratedColumn<int> categoriaId = GeneratedColumn<int>(
+      'categoria_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _precioVentaMeta =
+      const VerificationMeta('precioVenta');
+  @override
+  late final GeneratedColumn<double> precioVenta = GeneratedColumn<double>(
+      'precio_venta', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _activoMeta = const VerificationMeta('activo');
+  @override
+  late final GeneratedColumn<int> activo = GeneratedColumn<int>(
+      'activo', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(1));
+  static const VerificationMeta _esContornoMeta =
+      const VerificationMeta('esContorno');
+  @override
+  late final GeneratedColumn<int> esContorno = GeneratedColumn<int>(
+      'es_contorno', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _llevaContornosMeta =
+      const VerificationMeta('llevaContornos');
+  @override
+  late final GeneratedColumn<int> llevaContornos = GeneratedColumn<int>(
+      'lleva_contornos', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        nombre,
+        categoriaId,
+        precioVenta,
+        activo,
+        esContorno,
+        llevaContornos,
+        createdAt,
+        updatedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'platos';
+  @override
+  VerificationContext validateIntegrity(Insertable<Plato> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('nombre')) {
+      context.handle(_nombreMeta,
+          nombre.isAcceptableOrUnknown(data['nombre']!, _nombreMeta));
+    } else if (isInserting) {
+      context.missing(_nombreMeta);
+    }
+    if (data.containsKey('categoria_id')) {
+      context.handle(
+          _categoriaIdMeta,
+          categoriaId.isAcceptableOrUnknown(
+              data['categoria_id']!, _categoriaIdMeta));
+    } else if (isInserting) {
+      context.missing(_categoriaIdMeta);
+    }
+    if (data.containsKey('precio_venta')) {
+      context.handle(
+          _precioVentaMeta,
+          precioVenta.isAcceptableOrUnknown(
+              data['precio_venta']!, _precioVentaMeta));
+    }
+    if (data.containsKey('activo')) {
+      context.handle(_activoMeta,
+          activo.isAcceptableOrUnknown(data['activo']!, _activoMeta));
+    }
+    if (data.containsKey('es_contorno')) {
+      context.handle(
+          _esContornoMeta,
+          esContorno.isAcceptableOrUnknown(
+              data['es_contorno']!, _esContornoMeta));
+    }
+    if (data.containsKey('lleva_contornos')) {
+      context.handle(
+          _llevaContornosMeta,
+          llevaContornos.isAcceptableOrUnknown(
+              data['lleva_contornos']!, _llevaContornosMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  Plato map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return Plato(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      nombre: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}nombre'])!,
+      categoriaId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}categoria_id'])!,
+      precioVenta: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}precio_venta'])!,
+      activo: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}activo'])!,
+      esContorno: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}es_contorno'])!,
+      llevaContornos: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}lleva_contornos'])!,
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at']),
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at']),
+    );
+  }
+
+  @override
+  $PlatosTable createAlias(String alias) {
+    return $PlatosTable(attachedDatabase, alias);
+  }
+}
+
+class Plato extends DataClass implements Insertable<Plato> {
+  final int id;
+  final String nombre;
+  final int categoriaId;
+  final double precioVenta;
+  final int activo;
+  final int esContorno;
+  final int llevaContornos;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+  const Plato(
+      {required this.id,
+      required this.nombre,
+      required this.categoriaId,
+      required this.precioVenta,
+      required this.activo,
+      required this.esContorno,
+      required this.llevaContornos,
+      this.createdAt,
+      this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['nombre'] = Variable<String>(nombre);
+    map['categoria_id'] = Variable<int>(categoriaId);
+    map['precio_venta'] = Variable<double>(precioVenta);
+    map['activo'] = Variable<int>(activo);
+    map['es_contorno'] = Variable<int>(esContorno);
+    map['lleva_contornos'] = Variable<int>(llevaContornos);
+    if (!nullToAbsent || createdAt != null) {
+      map['created_at'] = Variable<DateTime>(createdAt);
+    }
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
+    return map;
+  }
+
+  PlatosCompanion toCompanion(bool nullToAbsent) {
+    return PlatosCompanion(
+      id: Value(id),
+      nombre: Value(nombre),
+      categoriaId: Value(categoriaId),
+      precioVenta: Value(precioVenta),
+      activo: Value(activo),
+      esContorno: Value(esContorno),
+      llevaContornos: Value(llevaContornos),
+      createdAt: createdAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
+    );
+  }
+
+  factory Plato.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return Plato(
+      id: serializer.fromJson<int>(json['id']),
+      nombre: serializer.fromJson<String>(json['nombre']),
+      categoriaId: serializer.fromJson<int>(json['categoriaId']),
+      precioVenta: serializer.fromJson<double>(json['precioVenta']),
+      activo: serializer.fromJson<int>(json['activo']),
+      esContorno: serializer.fromJson<int>(json['esContorno']),
+      llevaContornos: serializer.fromJson<int>(json['llevaContornos']),
+      createdAt: serializer.fromJson<DateTime?>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'nombre': serializer.toJson<String>(nombre),
+      'categoriaId': serializer.toJson<int>(categoriaId),
+      'precioVenta': serializer.toJson<double>(precioVenta),
+      'activo': serializer.toJson<int>(activo),
+      'esContorno': serializer.toJson<int>(esContorno),
+      'llevaContornos': serializer.toJson<int>(llevaContornos),
+      'createdAt': serializer.toJson<DateTime?>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
+    };
+  }
+
+  Plato copyWith(
+          {int? id,
+          String? nombre,
+          int? categoriaId,
+          double? precioVenta,
+          int? activo,
+          int? esContorno,
+          int? llevaContornos,
+          Value<DateTime?> createdAt = const Value.absent(),
+          Value<DateTime?> updatedAt = const Value.absent()}) =>
+      Plato(
+        id: id ?? this.id,
+        nombre: nombre ?? this.nombre,
+        categoriaId: categoriaId ?? this.categoriaId,
+        precioVenta: precioVenta ?? this.precioVenta,
+        activo: activo ?? this.activo,
+        esContorno: esContorno ?? this.esContorno,
+        llevaContornos: llevaContornos ?? this.llevaContornos,
+        createdAt: createdAt.present ? createdAt.value : this.createdAt,
+        updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
+      );
+  Plato copyWithCompanion(PlatosCompanion data) {
+    return Plato(
+      id: data.id.present ? data.id.value : this.id,
+      nombre: data.nombre.present ? data.nombre.value : this.nombre,
+      categoriaId:
+          data.categoriaId.present ? data.categoriaId.value : this.categoriaId,
+      precioVenta:
+          data.precioVenta.present ? data.precioVenta.value : this.precioVenta,
+      activo: data.activo.present ? data.activo.value : this.activo,
+      esContorno:
+          data.esContorno.present ? data.esContorno.value : this.esContorno,
+      llevaContornos: data.llevaContornos.present
+          ? data.llevaContornos.value
+          : this.llevaContornos,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('Plato(')
+          ..write('id: $id, ')
+          ..write('nombre: $nombre, ')
+          ..write('categoriaId: $categoriaId, ')
+          ..write('precioVenta: $precioVenta, ')
+          ..write('activo: $activo, ')
+          ..write('esContorno: $esContorno, ')
+          ..write('llevaContornos: $llevaContornos, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, nombre, categoriaId, precioVenta, activo,
+      esContorno, llevaContornos, createdAt, updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is Plato &&
+          other.id == this.id &&
+          other.nombre == this.nombre &&
+          other.categoriaId == this.categoriaId &&
+          other.precioVenta == this.precioVenta &&
+          other.activo == this.activo &&
+          other.esContorno == this.esContorno &&
+          other.llevaContornos == this.llevaContornos &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
+}
+
+class PlatosCompanion extends UpdateCompanion<Plato> {
+  final Value<int> id;
+  final Value<String> nombre;
+  final Value<int> categoriaId;
+  final Value<double> precioVenta;
+  final Value<int> activo;
+  final Value<int> esContorno;
+  final Value<int> llevaContornos;
+  final Value<DateTime?> createdAt;
+  final Value<DateTime?> updatedAt;
+  const PlatosCompanion({
+    this.id = const Value.absent(),
+    this.nombre = const Value.absent(),
+    this.categoriaId = const Value.absent(),
+    this.precioVenta = const Value.absent(),
+    this.activo = const Value.absent(),
+    this.esContorno = const Value.absent(),
+    this.llevaContornos = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  });
+  PlatosCompanion.insert({
+    this.id = const Value.absent(),
+    required String nombre,
+    required int categoriaId,
+    this.precioVenta = const Value.absent(),
+    this.activo = const Value.absent(),
+    this.esContorno = const Value.absent(),
+    this.llevaContornos = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+  })  : nombre = Value(nombre),
+        categoriaId = Value(categoriaId);
+  static Insertable<Plato> custom({
+    Expression<int>? id,
+    Expression<String>? nombre,
+    Expression<int>? categoriaId,
+    Expression<double>? precioVenta,
+    Expression<int>? activo,
+    Expression<int>? esContorno,
+    Expression<int>? llevaContornos,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (nombre != null) 'nombre': nombre,
+      if (categoriaId != null) 'categoria_id': categoriaId,
+      if (precioVenta != null) 'precio_venta': precioVenta,
+      if (activo != null) 'activo': activo,
+      if (esContorno != null) 'es_contorno': esContorno,
+      if (llevaContornos != null) 'lleva_contornos': llevaContornos,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
+    });
+  }
+
+  PlatosCompanion copyWith(
+      {Value<int>? id,
+      Value<String>? nombre,
+      Value<int>? categoriaId,
+      Value<double>? precioVenta,
+      Value<int>? activo,
+      Value<int>? esContorno,
+      Value<int>? llevaContornos,
+      Value<DateTime?>? createdAt,
+      Value<DateTime?>? updatedAt}) {
+    return PlatosCompanion(
+      id: id ?? this.id,
+      nombre: nombre ?? this.nombre,
+      categoriaId: categoriaId ?? this.categoriaId,
+      precioVenta: precioVenta ?? this.precioVenta,
+      activo: activo ?? this.activo,
+      esContorno: esContorno ?? this.esContorno,
+      llevaContornos: llevaContornos ?? this.llevaContornos,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (nombre.present) {
+      map['nombre'] = Variable<String>(nombre.value);
+    }
+    if (categoriaId.present) {
+      map['categoria_id'] = Variable<int>(categoriaId.value);
+    }
+    if (precioVenta.present) {
+      map['precio_venta'] = Variable<double>(precioVenta.value);
+    }
+    if (activo.present) {
+      map['activo'] = Variable<int>(activo.value);
+    }
+    if (esContorno.present) {
+      map['es_contorno'] = Variable<int>(esContorno.value);
+    }
+    if (llevaContornos.present) {
+      map['lleva_contornos'] = Variable<int>(llevaContornos.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlatosCompanion(')
+          ..write('id: $id, ')
+          ..write('nombre: $nombre, ')
+          ..write('categoriaId: $categoriaId, ')
+          ..write('precioVenta: $precioVenta, ')
+          ..write('activo: $activo, ')
+          ..write('esContorno: $esContorno, ')
+          ..write('llevaContornos: $llevaContornos, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PlatoIngredientesTable extends PlatoIngredientes
+    with TableInfo<$PlatoIngredientesTable, PlatoIngrediente> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlatoIngredientesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _platoIdMeta =
+      const VerificationMeta('platoId');
+  @override
+  late final GeneratedColumn<int> platoId = GeneratedColumn<int>(
+      'plato_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _productoIdMeta =
+      const VerificationMeta('productoId');
+  @override
+  late final GeneratedColumn<int> productoId = GeneratedColumn<int>(
+      'producto_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _cantidadMeta =
+      const VerificationMeta('cantidad');
+  @override
+  late final GeneratedColumn<double> cantidad = GeneratedColumn<double>(
+      'cantidad', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _unidadMeta = const VerificationMeta('unidad');
+  @override
+  late final GeneratedColumn<String> unidad = GeneratedColumn<String>(
+      'unidad', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('unidad'));
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, platoId, productoId, cantidad, unidad];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'plato_ingredientes';
+  @override
+  VerificationContext validateIntegrity(Insertable<PlatoIngrediente> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('plato_id')) {
+      context.handle(_platoIdMeta,
+          platoId.isAcceptableOrUnknown(data['plato_id']!, _platoIdMeta));
+    } else if (isInserting) {
+      context.missing(_platoIdMeta);
+    }
+    if (data.containsKey('producto_id')) {
+      context.handle(
+          _productoIdMeta,
+          productoId.isAcceptableOrUnknown(
+              data['producto_id']!, _productoIdMeta));
+    } else if (isInserting) {
+      context.missing(_productoIdMeta);
+    }
+    if (data.containsKey('cantidad')) {
+      context.handle(_cantidadMeta,
+          cantidad.isAcceptableOrUnknown(data['cantidad']!, _cantidadMeta));
+    } else if (isInserting) {
+      context.missing(_cantidadMeta);
+    }
+    if (data.containsKey('unidad')) {
+      context.handle(_unidadMeta,
+          unidad.isAcceptableOrUnknown(data['unidad']!, _unidadMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PlatoIngrediente map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlatoIngrediente(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      platoId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}plato_id'])!,
+      productoId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}producto_id'])!,
+      cantidad: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}cantidad'])!,
+      unidad: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}unidad'])!,
+    );
+  }
+
+  @override
+  $PlatoIngredientesTable createAlias(String alias) {
+    return $PlatoIngredientesTable(attachedDatabase, alias);
+  }
+}
+
+class PlatoIngrediente extends DataClass
+    implements Insertable<PlatoIngrediente> {
+  final int id;
+  final int platoId;
+  final int productoId;
+  final double cantidad;
+  final String unidad;
+  const PlatoIngrediente(
+      {required this.id,
+      required this.platoId,
+      required this.productoId,
+      required this.cantidad,
+      required this.unidad});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['plato_id'] = Variable<int>(platoId);
+    map['producto_id'] = Variable<int>(productoId);
+    map['cantidad'] = Variable<double>(cantidad);
+    map['unidad'] = Variable<String>(unidad);
+    return map;
+  }
+
+  PlatoIngredientesCompanion toCompanion(bool nullToAbsent) {
+    return PlatoIngredientesCompanion(
+      id: Value(id),
+      platoId: Value(platoId),
+      productoId: Value(productoId),
+      cantidad: Value(cantidad),
+      unidad: Value(unidad),
+    );
+  }
+
+  factory PlatoIngrediente.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlatoIngrediente(
+      id: serializer.fromJson<int>(json['id']),
+      platoId: serializer.fromJson<int>(json['platoId']),
+      productoId: serializer.fromJson<int>(json['productoId']),
+      cantidad: serializer.fromJson<double>(json['cantidad']),
+      unidad: serializer.fromJson<String>(json['unidad']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'platoId': serializer.toJson<int>(platoId),
+      'productoId': serializer.toJson<int>(productoId),
+      'cantidad': serializer.toJson<double>(cantidad),
+      'unidad': serializer.toJson<String>(unidad),
+    };
+  }
+
+  PlatoIngrediente copyWith(
+          {int? id,
+          int? platoId,
+          int? productoId,
+          double? cantidad,
+          String? unidad}) =>
+      PlatoIngrediente(
+        id: id ?? this.id,
+        platoId: platoId ?? this.platoId,
+        productoId: productoId ?? this.productoId,
+        cantidad: cantidad ?? this.cantidad,
+        unidad: unidad ?? this.unidad,
+      );
+  PlatoIngrediente copyWithCompanion(PlatoIngredientesCompanion data) {
+    return PlatoIngrediente(
+      id: data.id.present ? data.id.value : this.id,
+      platoId: data.platoId.present ? data.platoId.value : this.platoId,
+      productoId:
+          data.productoId.present ? data.productoId.value : this.productoId,
+      cantidad: data.cantidad.present ? data.cantidad.value : this.cantidad,
+      unidad: data.unidad.present ? data.unidad.value : this.unidad,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlatoIngrediente(')
+          ..write('id: $id, ')
+          ..write('platoId: $platoId, ')
+          ..write('productoId: $productoId, ')
+          ..write('cantidad: $cantidad, ')
+          ..write('unidad: $unidad')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, platoId, productoId, cantidad, unidad);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlatoIngrediente &&
+          other.id == this.id &&
+          other.platoId == this.platoId &&
+          other.productoId == this.productoId &&
+          other.cantidad == this.cantidad &&
+          other.unidad == this.unidad);
+}
+
+class PlatoIngredientesCompanion extends UpdateCompanion<PlatoIngrediente> {
+  final Value<int> id;
+  final Value<int> platoId;
+  final Value<int> productoId;
+  final Value<double> cantidad;
+  final Value<String> unidad;
+  const PlatoIngredientesCompanion({
+    this.id = const Value.absent(),
+    this.platoId = const Value.absent(),
+    this.productoId = const Value.absent(),
+    this.cantidad = const Value.absent(),
+    this.unidad = const Value.absent(),
+  });
+  PlatoIngredientesCompanion.insert({
+    this.id = const Value.absent(),
+    required int platoId,
+    required int productoId,
+    required double cantidad,
+    this.unidad = const Value.absent(),
+  })  : platoId = Value(platoId),
+        productoId = Value(productoId),
+        cantidad = Value(cantidad);
+  static Insertable<PlatoIngrediente> custom({
+    Expression<int>? id,
+    Expression<int>? platoId,
+    Expression<int>? productoId,
+    Expression<double>? cantidad,
+    Expression<String>? unidad,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (platoId != null) 'plato_id': platoId,
+      if (productoId != null) 'producto_id': productoId,
+      if (cantidad != null) 'cantidad': cantidad,
+      if (unidad != null) 'unidad': unidad,
+    });
+  }
+
+  PlatoIngredientesCompanion copyWith(
+      {Value<int>? id,
+      Value<int>? platoId,
+      Value<int>? productoId,
+      Value<double>? cantidad,
+      Value<String>? unidad}) {
+    return PlatoIngredientesCompanion(
+      id: id ?? this.id,
+      platoId: platoId ?? this.platoId,
+      productoId: productoId ?? this.productoId,
+      cantidad: cantidad ?? this.cantidad,
+      unidad: unidad ?? this.unidad,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (platoId.present) {
+      map['plato_id'] = Variable<int>(platoId.value);
+    }
+    if (productoId.present) {
+      map['producto_id'] = Variable<int>(productoId.value);
+    }
+    if (cantidad.present) {
+      map['cantidad'] = Variable<double>(cantidad.value);
+    }
+    if (unidad.present) {
+      map['unidad'] = Variable<String>(unidad.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlatoIngredientesCompanion(')
+          ..write('id: $id, ')
+          ..write('platoId: $platoId, ')
+          ..write('productoId: $productoId, ')
+          ..write('cantidad: $cantidad, ')
+          ..write('unidad: $unidad')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PlatoContornosTable extends PlatoContornos
+    with TableInfo<$PlatoContornosTable, PlatoContorno> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlatoContornosTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+      'id', aliasedName, false,
+      hasAutoIncrement: true,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('PRIMARY KEY AUTOINCREMENT'));
+  static const VerificationMeta _platoIdMeta =
+      const VerificationMeta('platoId');
+  @override
+  late final GeneratedColumn<int> platoId = GeneratedColumn<int>(
+      'plato_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _contornoIdMeta =
+      const VerificationMeta('contornoId');
+  @override
+  late final GeneratedColumn<int> contornoId = GeneratedColumn<int>(
+      'contorno_id', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _maxSeleccionarMeta =
+      const VerificationMeta('maxSeleccionar');
+  @override
+  late final GeneratedColumn<int> maxSeleccionar = GeneratedColumn<int>(
+      'max_seleccionar', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(2));
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, platoId, contornoId, maxSeleccionar];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'plato_contornos';
+  @override
+  VerificationContext validateIntegrity(Insertable<PlatoContorno> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('plato_id')) {
+      context.handle(_platoIdMeta,
+          platoId.isAcceptableOrUnknown(data['plato_id']!, _platoIdMeta));
+    } else if (isInserting) {
+      context.missing(_platoIdMeta);
+    }
+    if (data.containsKey('contorno_id')) {
+      context.handle(
+          _contornoIdMeta,
+          contornoId.isAcceptableOrUnknown(
+              data['contorno_id']!, _contornoIdMeta));
+    } else if (isInserting) {
+      context.missing(_contornoIdMeta);
+    }
+    if (data.containsKey('max_seleccionar')) {
+      context.handle(
+          _maxSeleccionarMeta,
+          maxSeleccionar.isAcceptableOrUnknown(
+              data['max_seleccionar']!, _maxSeleccionarMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PlatoContorno map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlatoContorno(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}id'])!,
+      platoId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}plato_id'])!,
+      contornoId: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}contorno_id'])!,
+      maxSeleccionar: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}max_seleccionar'])!,
+    );
+  }
+
+  @override
+  $PlatoContornosTable createAlias(String alias) {
+    return $PlatoContornosTable(attachedDatabase, alias);
+  }
+}
+
+class PlatoContorno extends DataClass implements Insertable<PlatoContorno> {
+  final int id;
+  final int platoId;
+  final int contornoId;
+  final int maxSeleccionar;
+  const PlatoContorno(
+      {required this.id,
+      required this.platoId,
+      required this.contornoId,
+      required this.maxSeleccionar});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['plato_id'] = Variable<int>(platoId);
+    map['contorno_id'] = Variable<int>(contornoId);
+    map['max_seleccionar'] = Variable<int>(maxSeleccionar);
+    return map;
+  }
+
+  PlatoContornosCompanion toCompanion(bool nullToAbsent) {
+    return PlatoContornosCompanion(
+      id: Value(id),
+      platoId: Value(platoId),
+      contornoId: Value(contornoId),
+      maxSeleccionar: Value(maxSeleccionar),
+    );
+  }
+
+  factory PlatoContorno.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlatoContorno(
+      id: serializer.fromJson<int>(json['id']),
+      platoId: serializer.fromJson<int>(json['platoId']),
+      contornoId: serializer.fromJson<int>(json['contornoId']),
+      maxSeleccionar: serializer.fromJson<int>(json['maxSeleccionar']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'platoId': serializer.toJson<int>(platoId),
+      'contornoId': serializer.toJson<int>(contornoId),
+      'maxSeleccionar': serializer.toJson<int>(maxSeleccionar),
+    };
+  }
+
+  PlatoContorno copyWith(
+          {int? id, int? platoId, int? contornoId, int? maxSeleccionar}) =>
+      PlatoContorno(
+        id: id ?? this.id,
+        platoId: platoId ?? this.platoId,
+        contornoId: contornoId ?? this.contornoId,
+        maxSeleccionar: maxSeleccionar ?? this.maxSeleccionar,
+      );
+  PlatoContorno copyWithCompanion(PlatoContornosCompanion data) {
+    return PlatoContorno(
+      id: data.id.present ? data.id.value : this.id,
+      platoId: data.platoId.present ? data.platoId.value : this.platoId,
+      contornoId:
+          data.contornoId.present ? data.contornoId.value : this.contornoId,
+      maxSeleccionar: data.maxSeleccionar.present
+          ? data.maxSeleccionar.value
+          : this.maxSeleccionar,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlatoContorno(')
+          ..write('id: $id, ')
+          ..write('platoId: $platoId, ')
+          ..write('contornoId: $contornoId, ')
+          ..write('maxSeleccionar: $maxSeleccionar')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, platoId, contornoId, maxSeleccionar);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlatoContorno &&
+          other.id == this.id &&
+          other.platoId == this.platoId &&
+          other.contornoId == this.contornoId &&
+          other.maxSeleccionar == this.maxSeleccionar);
+}
+
+class PlatoContornosCompanion extends UpdateCompanion<PlatoContorno> {
+  final Value<int> id;
+  final Value<int> platoId;
+  final Value<int> contornoId;
+  final Value<int> maxSeleccionar;
+  const PlatoContornosCompanion({
+    this.id = const Value.absent(),
+    this.platoId = const Value.absent(),
+    this.contornoId = const Value.absent(),
+    this.maxSeleccionar = const Value.absent(),
+  });
+  PlatoContornosCompanion.insert({
+    this.id = const Value.absent(),
+    required int platoId,
+    required int contornoId,
+    this.maxSeleccionar = const Value.absent(),
+  })  : platoId = Value(platoId),
+        contornoId = Value(contornoId);
+  static Insertable<PlatoContorno> custom({
+    Expression<int>? id,
+    Expression<int>? platoId,
+    Expression<int>? contornoId,
+    Expression<int>? maxSeleccionar,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (platoId != null) 'plato_id': platoId,
+      if (contornoId != null) 'contorno_id': contornoId,
+      if (maxSeleccionar != null) 'max_seleccionar': maxSeleccionar,
+    });
+  }
+
+  PlatoContornosCompanion copyWith(
+      {Value<int>? id,
+      Value<int>? platoId,
+      Value<int>? contornoId,
+      Value<int>? maxSeleccionar}) {
+    return PlatoContornosCompanion(
+      id: id ?? this.id,
+      platoId: platoId ?? this.platoId,
+      contornoId: contornoId ?? this.contornoId,
+      maxSeleccionar: maxSeleccionar ?? this.maxSeleccionar,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (platoId.present) {
+      map['plato_id'] = Variable<int>(platoId.value);
+    }
+    if (contornoId.present) {
+      map['contorno_id'] = Variable<int>(contornoId.value);
+    }
+    if (maxSeleccionar.present) {
+      map['max_seleccionar'] = Variable<int>(maxSeleccionar.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlatoContornosCompanion(')
+          ..write('id: $id, ')
+          ..write('platoId: $platoId, ')
+          ..write('contornoId: $contornoId, ')
+          ..write('maxSeleccionar: $maxSeleccionar')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $PosSyncTombstonesTable extends PosSyncTombstones
+    with TableInfo<$PosSyncTombstonesTable, PosSyncTombstone> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PosSyncTombstonesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _uuidMeta = const VerificationMeta('uuid');
+  @override
+  late final GeneratedColumn<String> uuid = GeneratedColumn<String>(
+      'uuid', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _tablaMeta = const VerificationMeta('tabla');
+  @override
+  late final GeneratedColumn<String> tabla = GeneratedColumn<String>(
+      'tabla', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [uuid, tabla, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'pos_sync_tombstones';
+  @override
+  VerificationContext validateIntegrity(Insertable<PosSyncTombstone> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('uuid')) {
+      context.handle(
+          _uuidMeta, uuid.isAcceptableOrUnknown(data['uuid']!, _uuidMeta));
+    } else if (isInserting) {
+      context.missing(_uuidMeta);
+    }
+    if (data.containsKey('tabla')) {
+      context.handle(
+          _tablaMeta, tabla.isAcceptableOrUnknown(data['tabla']!, _tablaMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {uuid};
+  @override
+  PosSyncTombstone map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PosSyncTombstone(
+      uuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}uuid'])!,
+      tabla: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}tabla']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at']),
+    );
+  }
+
+  @override
+  $PosSyncTombstonesTable createAlias(String alias) {
+    return $PosSyncTombstonesTable(attachedDatabase, alias);
+  }
+}
+
+class PosSyncTombstone extends DataClass
+    implements Insertable<PosSyncTombstone> {
+  final String uuid;
+  final String? tabla;
+  final DateTime? createdAt;
+  const PosSyncTombstone({required this.uuid, this.tabla, this.createdAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['uuid'] = Variable<String>(uuid);
+    if (!nullToAbsent || tabla != null) {
+      map['tabla'] = Variable<String>(tabla);
+    }
+    if (!nullToAbsent || createdAt != null) {
+      map['created_at'] = Variable<DateTime>(createdAt);
+    }
+    return map;
+  }
+
+  PosSyncTombstonesCompanion toCompanion(bool nullToAbsent) {
+    return PosSyncTombstonesCompanion(
+      uuid: Value(uuid),
+      tabla:
+          tabla == null && nullToAbsent ? const Value.absent() : Value(tabla),
+      createdAt: createdAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdAt),
+    );
+  }
+
+  factory PosSyncTombstone.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PosSyncTombstone(
+      uuid: serializer.fromJson<String>(json['uuid']),
+      tabla: serializer.fromJson<String?>(json['tabla']),
+      createdAt: serializer.fromJson<DateTime?>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'uuid': serializer.toJson<String>(uuid),
+      'tabla': serializer.toJson<String?>(tabla),
+      'createdAt': serializer.toJson<DateTime?>(createdAt),
+    };
+  }
+
+  PosSyncTombstone copyWith(
+          {String? uuid,
+          Value<String?> tabla = const Value.absent(),
+          Value<DateTime?> createdAt = const Value.absent()}) =>
+      PosSyncTombstone(
+        uuid: uuid ?? this.uuid,
+        tabla: tabla.present ? tabla.value : this.tabla,
+        createdAt: createdAt.present ? createdAt.value : this.createdAt,
+      );
+  PosSyncTombstone copyWithCompanion(PosSyncTombstonesCompanion data) {
+    return PosSyncTombstone(
+      uuid: data.uuid.present ? data.uuid.value : this.uuid,
+      tabla: data.tabla.present ? data.tabla.value : this.tabla,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PosSyncTombstone(')
+          ..write('uuid: $uuid, ')
+          ..write('tabla: $tabla, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(uuid, tabla, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PosSyncTombstone &&
+          other.uuid == this.uuid &&
+          other.tabla == this.tabla &&
+          other.createdAt == this.createdAt);
+}
+
+class PosSyncTombstonesCompanion extends UpdateCompanion<PosSyncTombstone> {
+  final Value<String> uuid;
+  final Value<String?> tabla;
+  final Value<DateTime?> createdAt;
+  final Value<int> rowid;
+  const PosSyncTombstonesCompanion({
+    this.uuid = const Value.absent(),
+    this.tabla = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PosSyncTombstonesCompanion.insert({
+    required String uuid,
+    this.tabla = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : uuid = Value(uuid);
+  static Insertable<PosSyncTombstone> custom({
+    Expression<String>? uuid,
+    Expression<String>? tabla,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (uuid != null) 'uuid': uuid,
+      if (tabla != null) 'tabla': tabla,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PosSyncTombstonesCompanion copyWith(
+      {Value<String>? uuid,
+      Value<String?>? tabla,
+      Value<DateTime?>? createdAt,
+      Value<int>? rowid}) {
+    return PosSyncTombstonesCompanion(
+      uuid: uuid ?? this.uuid,
+      tabla: tabla ?? this.tabla,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (uuid.present) {
+      map['uuid'] = Variable<String>(uuid.value);
+    }
+    if (tabla.present) {
+      map['tabla'] = Variable<String>(tabla.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PosSyncTombstonesCompanion(')
+          ..write('uuid: $uuid, ')
+          ..write('tabla: $tabla, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -9753,6 +15169,24 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $DispositivoUsuarioTable dispositivoUsuario =
       $DispositivoUsuarioTable(this);
   late final $WhatsappQueueTable whatsappQueue = $WhatsappQueueTable(this);
+  late final $TemporalesTable temporales = $TemporalesTable(this);
+  late final $PosUsuariosTable posUsuarios = $PosUsuariosTable(this);
+  late final $PosMesasTable posMesas = $PosMesasTable(this);
+  late final $PosHabitacionesTable posHabitaciones =
+      $PosHabitacionesTable(this);
+  late final $PosSesionesTable posSesiones = $PosSesionesTable(this);
+  late final $PosComandasTable posComandas = $PosComandasTable(this);
+  late final $PosVentasTable posVentas = $PosVentasTable(this);
+  late final $PosSettingsTable posSettings = $PosSettingsTable(this);
+  late final $PosCategoriasTable posCategorias = $PosCategoriasTable(this);
+  late final $PlatosCategoriasTable platosCategorias =
+      $PlatosCategoriasTable(this);
+  late final $PlatosTable platos = $PlatosTable(this);
+  late final $PlatoIngredientesTable platoIngredientes =
+      $PlatoIngredientesTable(this);
+  late final $PlatoContornosTable platoContornos = $PlatoContornosTable(this);
+  late final $PosSyncTombstonesTable posSyncTombstones =
+      $PosSyncTombstonesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -9778,7 +15212,21 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         syncQueue,
         syncMetadata,
         dispositivoUsuario,
-        whatsappQueue
+        whatsappQueue,
+        temporales,
+        posUsuarios,
+        posMesas,
+        posHabitaciones,
+        posSesiones,
+        posComandas,
+        posVentas,
+        posSettings,
+        posCategorias,
+        platosCategorias,
+        platos,
+        platoIngredientes,
+        platoContornos,
+        posSyncTombstones
       ];
 }
 
@@ -14478,6 +19926,2760 @@ typedef $$WhatsappQueueTableProcessedTableManager = ProcessedTableManager<
     ),
     WhatsappQueueData,
     PrefetchHooks Function()>;
+typedef $$TemporalesTableCreateCompanionBuilder = TemporalesCompanion Function({
+  Value<int> id,
+  Value<String?> imagenB64,
+  Value<String?> tipoDocumento,
+  Value<String?> nroFactura,
+  Value<String?> proveedor,
+  Value<double?> monto,
+  Value<DateTime?> fecha,
+  required DateTime createdAt,
+});
+typedef $$TemporalesTableUpdateCompanionBuilder = TemporalesCompanion Function({
+  Value<int> id,
+  Value<String?> imagenB64,
+  Value<String?> tipoDocumento,
+  Value<String?> nroFactura,
+  Value<String?> proveedor,
+  Value<double?> monto,
+  Value<DateTime?> fecha,
+  Value<DateTime> createdAt,
+});
+
+class $$TemporalesTableFilterComposer
+    extends Composer<_$AppDatabase, $TemporalesTable> {
+  $$TemporalesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get imagenB64 => $composableBuilder(
+      column: $table.imagenB64, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get tipoDocumento => $composableBuilder(
+      column: $table.tipoDocumento, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get nroFactura => $composableBuilder(
+      column: $table.nroFactura, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get proveedor => $composableBuilder(
+      column: $table.proveedor, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get monto => $composableBuilder(
+      column: $table.monto, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get fecha => $composableBuilder(
+      column: $table.fecha, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$TemporalesTableOrderingComposer
+    extends Composer<_$AppDatabase, $TemporalesTable> {
+  $$TemporalesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get imagenB64 => $composableBuilder(
+      column: $table.imagenB64, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get tipoDocumento => $composableBuilder(
+      column: $table.tipoDocumento,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get nroFactura => $composableBuilder(
+      column: $table.nroFactura, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get proveedor => $composableBuilder(
+      column: $table.proveedor, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get monto => $composableBuilder(
+      column: $table.monto, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get fecha => $composableBuilder(
+      column: $table.fecha, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$TemporalesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TemporalesTable> {
+  $$TemporalesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get imagenB64 =>
+      $composableBuilder(column: $table.imagenB64, builder: (column) => column);
+
+  GeneratedColumn<String> get tipoDocumento => $composableBuilder(
+      column: $table.tipoDocumento, builder: (column) => column);
+
+  GeneratedColumn<String> get nroFactura => $composableBuilder(
+      column: $table.nroFactura, builder: (column) => column);
+
+  GeneratedColumn<String> get proveedor =>
+      $composableBuilder(column: $table.proveedor, builder: (column) => column);
+
+  GeneratedColumn<double> get monto =>
+      $composableBuilder(column: $table.monto, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get fecha =>
+      $composableBuilder(column: $table.fecha, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$TemporalesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $TemporalesTable,
+    Temporale,
+    $$TemporalesTableFilterComposer,
+    $$TemporalesTableOrderingComposer,
+    $$TemporalesTableAnnotationComposer,
+    $$TemporalesTableCreateCompanionBuilder,
+    $$TemporalesTableUpdateCompanionBuilder,
+    (Temporale, BaseReferences<_$AppDatabase, $TemporalesTable, Temporale>),
+    Temporale,
+    PrefetchHooks Function()> {
+  $$TemporalesTableTableManager(_$AppDatabase db, $TemporalesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TemporalesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TemporalesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TemporalesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String?> imagenB64 = const Value.absent(),
+            Value<String?> tipoDocumento = const Value.absent(),
+            Value<String?> nroFactura = const Value.absent(),
+            Value<String?> proveedor = const Value.absent(),
+            Value<double?> monto = const Value.absent(),
+            Value<DateTime?> fecha = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+          }) =>
+              TemporalesCompanion(
+            id: id,
+            imagenB64: imagenB64,
+            tipoDocumento: tipoDocumento,
+            nroFactura: nroFactura,
+            proveedor: proveedor,
+            monto: monto,
+            fecha: fecha,
+            createdAt: createdAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String?> imagenB64 = const Value.absent(),
+            Value<String?> tipoDocumento = const Value.absent(),
+            Value<String?> nroFactura = const Value.absent(),
+            Value<String?> proveedor = const Value.absent(),
+            Value<double?> monto = const Value.absent(),
+            Value<DateTime?> fecha = const Value.absent(),
+            required DateTime createdAt,
+          }) =>
+              TemporalesCompanion.insert(
+            id: id,
+            imagenB64: imagenB64,
+            tipoDocumento: tipoDocumento,
+            nroFactura: nroFactura,
+            proveedor: proveedor,
+            monto: monto,
+            fecha: fecha,
+            createdAt: createdAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$TemporalesTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $TemporalesTable,
+    Temporale,
+    $$TemporalesTableFilterComposer,
+    $$TemporalesTableOrderingComposer,
+    $$TemporalesTableAnnotationComposer,
+    $$TemporalesTableCreateCompanionBuilder,
+    $$TemporalesTableUpdateCompanionBuilder,
+    (Temporale, BaseReferences<_$AppDatabase, $TemporalesTable, Temporale>),
+    Temporale,
+    PrefetchHooks Function()>;
+typedef $$PosUsuariosTableCreateCompanionBuilder = PosUsuariosCompanion
+    Function({
+  Value<int> id,
+  required String nombre,
+  Value<String?> pinHash,
+  Value<int> esAdmin,
+  Value<int> activo,
+  required DateTime creadoEn,
+});
+typedef $$PosUsuariosTableUpdateCompanionBuilder = PosUsuariosCompanion
+    Function({
+  Value<int> id,
+  Value<String> nombre,
+  Value<String?> pinHash,
+  Value<int> esAdmin,
+  Value<int> activo,
+  Value<DateTime> creadoEn,
+});
+
+class $$PosUsuariosTableFilterComposer
+    extends Composer<_$AppDatabase, $PosUsuariosTable> {
+  $$PosUsuariosTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get nombre => $composableBuilder(
+      column: $table.nombre, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get pinHash => $composableBuilder(
+      column: $table.pinHash, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get esAdmin => $composableBuilder(
+      column: $table.esAdmin, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get activo => $composableBuilder(
+      column: $table.activo, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get creadoEn => $composableBuilder(
+      column: $table.creadoEn, builder: (column) => ColumnFilters(column));
+}
+
+class $$PosUsuariosTableOrderingComposer
+    extends Composer<_$AppDatabase, $PosUsuariosTable> {
+  $$PosUsuariosTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get nombre => $composableBuilder(
+      column: $table.nombre, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get pinHash => $composableBuilder(
+      column: $table.pinHash, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get esAdmin => $composableBuilder(
+      column: $table.esAdmin, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get activo => $composableBuilder(
+      column: $table.activo, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get creadoEn => $composableBuilder(
+      column: $table.creadoEn, builder: (column) => ColumnOrderings(column));
+}
+
+class $$PosUsuariosTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PosUsuariosTable> {
+  $$PosUsuariosTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get nombre =>
+      $composableBuilder(column: $table.nombre, builder: (column) => column);
+
+  GeneratedColumn<String> get pinHash =>
+      $composableBuilder(column: $table.pinHash, builder: (column) => column);
+
+  GeneratedColumn<int> get esAdmin =>
+      $composableBuilder(column: $table.esAdmin, builder: (column) => column);
+
+  GeneratedColumn<int> get activo =>
+      $composableBuilder(column: $table.activo, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get creadoEn =>
+      $composableBuilder(column: $table.creadoEn, builder: (column) => column);
+}
+
+class $$PosUsuariosTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PosUsuariosTable,
+    PosUsuario,
+    $$PosUsuariosTableFilterComposer,
+    $$PosUsuariosTableOrderingComposer,
+    $$PosUsuariosTableAnnotationComposer,
+    $$PosUsuariosTableCreateCompanionBuilder,
+    $$PosUsuariosTableUpdateCompanionBuilder,
+    (PosUsuario, BaseReferences<_$AppDatabase, $PosUsuariosTable, PosUsuario>),
+    PosUsuario,
+    PrefetchHooks Function()> {
+  $$PosUsuariosTableTableManager(_$AppDatabase db, $PosUsuariosTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PosUsuariosTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PosUsuariosTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PosUsuariosTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> nombre = const Value.absent(),
+            Value<String?> pinHash = const Value.absent(),
+            Value<int> esAdmin = const Value.absent(),
+            Value<int> activo = const Value.absent(),
+            Value<DateTime> creadoEn = const Value.absent(),
+          }) =>
+              PosUsuariosCompanion(
+            id: id,
+            nombre: nombre,
+            pinHash: pinHash,
+            esAdmin: esAdmin,
+            activo: activo,
+            creadoEn: creadoEn,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String nombre,
+            Value<String?> pinHash = const Value.absent(),
+            Value<int> esAdmin = const Value.absent(),
+            Value<int> activo = const Value.absent(),
+            required DateTime creadoEn,
+          }) =>
+              PosUsuariosCompanion.insert(
+            id: id,
+            nombre: nombre,
+            pinHash: pinHash,
+            esAdmin: esAdmin,
+            activo: activo,
+            creadoEn: creadoEn,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PosUsuariosTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PosUsuariosTable,
+    PosUsuario,
+    $$PosUsuariosTableFilterComposer,
+    $$PosUsuariosTableOrderingComposer,
+    $$PosUsuariosTableAnnotationComposer,
+    $$PosUsuariosTableCreateCompanionBuilder,
+    $$PosUsuariosTableUpdateCompanionBuilder,
+    (PosUsuario, BaseReferences<_$AppDatabase, $PosUsuariosTable, PosUsuario>),
+    PosUsuario,
+    PrefetchHooks Function()>;
+typedef $$PosMesasTableCreateCompanionBuilder = PosMesasCompanion Function({
+  Value<int> id,
+  required String numero,
+  Value<String?> nombre,
+  Value<String?> zona,
+  Value<int> activo,
+  required DateTime creadoEn,
+});
+typedef $$PosMesasTableUpdateCompanionBuilder = PosMesasCompanion Function({
+  Value<int> id,
+  Value<String> numero,
+  Value<String?> nombre,
+  Value<String?> zona,
+  Value<int> activo,
+  Value<DateTime> creadoEn,
+});
+
+class $$PosMesasTableFilterComposer
+    extends Composer<_$AppDatabase, $PosMesasTable> {
+  $$PosMesasTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get numero => $composableBuilder(
+      column: $table.numero, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get nombre => $composableBuilder(
+      column: $table.nombre, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get zona => $composableBuilder(
+      column: $table.zona, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get activo => $composableBuilder(
+      column: $table.activo, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get creadoEn => $composableBuilder(
+      column: $table.creadoEn, builder: (column) => ColumnFilters(column));
+}
+
+class $$PosMesasTableOrderingComposer
+    extends Composer<_$AppDatabase, $PosMesasTable> {
+  $$PosMesasTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get numero => $composableBuilder(
+      column: $table.numero, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get nombre => $composableBuilder(
+      column: $table.nombre, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get zona => $composableBuilder(
+      column: $table.zona, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get activo => $composableBuilder(
+      column: $table.activo, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get creadoEn => $composableBuilder(
+      column: $table.creadoEn, builder: (column) => ColumnOrderings(column));
+}
+
+class $$PosMesasTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PosMesasTable> {
+  $$PosMesasTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get numero =>
+      $composableBuilder(column: $table.numero, builder: (column) => column);
+
+  GeneratedColumn<String> get nombre =>
+      $composableBuilder(column: $table.nombre, builder: (column) => column);
+
+  GeneratedColumn<String> get zona =>
+      $composableBuilder(column: $table.zona, builder: (column) => column);
+
+  GeneratedColumn<int> get activo =>
+      $composableBuilder(column: $table.activo, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get creadoEn =>
+      $composableBuilder(column: $table.creadoEn, builder: (column) => column);
+}
+
+class $$PosMesasTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PosMesasTable,
+    PosMesa,
+    $$PosMesasTableFilterComposer,
+    $$PosMesasTableOrderingComposer,
+    $$PosMesasTableAnnotationComposer,
+    $$PosMesasTableCreateCompanionBuilder,
+    $$PosMesasTableUpdateCompanionBuilder,
+    (PosMesa, BaseReferences<_$AppDatabase, $PosMesasTable, PosMesa>),
+    PosMesa,
+    PrefetchHooks Function()> {
+  $$PosMesasTableTableManager(_$AppDatabase db, $PosMesasTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PosMesasTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PosMesasTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PosMesasTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> numero = const Value.absent(),
+            Value<String?> nombre = const Value.absent(),
+            Value<String?> zona = const Value.absent(),
+            Value<int> activo = const Value.absent(),
+            Value<DateTime> creadoEn = const Value.absent(),
+          }) =>
+              PosMesasCompanion(
+            id: id,
+            numero: numero,
+            nombre: nombre,
+            zona: zona,
+            activo: activo,
+            creadoEn: creadoEn,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String numero,
+            Value<String?> nombre = const Value.absent(),
+            Value<String?> zona = const Value.absent(),
+            Value<int> activo = const Value.absent(),
+            required DateTime creadoEn,
+          }) =>
+              PosMesasCompanion.insert(
+            id: id,
+            numero: numero,
+            nombre: nombre,
+            zona: zona,
+            activo: activo,
+            creadoEn: creadoEn,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PosMesasTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PosMesasTable,
+    PosMesa,
+    $$PosMesasTableFilterComposer,
+    $$PosMesasTableOrderingComposer,
+    $$PosMesasTableAnnotationComposer,
+    $$PosMesasTableCreateCompanionBuilder,
+    $$PosMesasTableUpdateCompanionBuilder,
+    (PosMesa, BaseReferences<_$AppDatabase, $PosMesasTable, PosMesa>),
+    PosMesa,
+    PrefetchHooks Function()>;
+typedef $$PosHabitacionesTableCreateCompanionBuilder = PosHabitacionesCompanion
+    Function({
+  Value<int> id,
+  required String numero,
+  Value<String?> piso,
+  Value<String?> tipo,
+  Value<int> activo,
+  required DateTime creadoEn,
+});
+typedef $$PosHabitacionesTableUpdateCompanionBuilder = PosHabitacionesCompanion
+    Function({
+  Value<int> id,
+  Value<String> numero,
+  Value<String?> piso,
+  Value<String?> tipo,
+  Value<int> activo,
+  Value<DateTime> creadoEn,
+});
+
+class $$PosHabitacionesTableFilterComposer
+    extends Composer<_$AppDatabase, $PosHabitacionesTable> {
+  $$PosHabitacionesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get numero => $composableBuilder(
+      column: $table.numero, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get piso => $composableBuilder(
+      column: $table.piso, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get tipo => $composableBuilder(
+      column: $table.tipo, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get activo => $composableBuilder(
+      column: $table.activo, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get creadoEn => $composableBuilder(
+      column: $table.creadoEn, builder: (column) => ColumnFilters(column));
+}
+
+class $$PosHabitacionesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PosHabitacionesTable> {
+  $$PosHabitacionesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get numero => $composableBuilder(
+      column: $table.numero, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get piso => $composableBuilder(
+      column: $table.piso, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get tipo => $composableBuilder(
+      column: $table.tipo, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get activo => $composableBuilder(
+      column: $table.activo, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get creadoEn => $composableBuilder(
+      column: $table.creadoEn, builder: (column) => ColumnOrderings(column));
+}
+
+class $$PosHabitacionesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PosHabitacionesTable> {
+  $$PosHabitacionesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get numero =>
+      $composableBuilder(column: $table.numero, builder: (column) => column);
+
+  GeneratedColumn<String> get piso =>
+      $composableBuilder(column: $table.piso, builder: (column) => column);
+
+  GeneratedColumn<String> get tipo =>
+      $composableBuilder(column: $table.tipo, builder: (column) => column);
+
+  GeneratedColumn<int> get activo =>
+      $composableBuilder(column: $table.activo, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get creadoEn =>
+      $composableBuilder(column: $table.creadoEn, builder: (column) => column);
+}
+
+class $$PosHabitacionesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PosHabitacionesTable,
+    PosHabitacione,
+    $$PosHabitacionesTableFilterComposer,
+    $$PosHabitacionesTableOrderingComposer,
+    $$PosHabitacionesTableAnnotationComposer,
+    $$PosHabitacionesTableCreateCompanionBuilder,
+    $$PosHabitacionesTableUpdateCompanionBuilder,
+    (
+      PosHabitacione,
+      BaseReferences<_$AppDatabase, $PosHabitacionesTable, PosHabitacione>
+    ),
+    PosHabitacione,
+    PrefetchHooks Function()> {
+  $$PosHabitacionesTableTableManager(
+      _$AppDatabase db, $PosHabitacionesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PosHabitacionesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PosHabitacionesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PosHabitacionesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> numero = const Value.absent(),
+            Value<String?> piso = const Value.absent(),
+            Value<String?> tipo = const Value.absent(),
+            Value<int> activo = const Value.absent(),
+            Value<DateTime> creadoEn = const Value.absent(),
+          }) =>
+              PosHabitacionesCompanion(
+            id: id,
+            numero: numero,
+            piso: piso,
+            tipo: tipo,
+            activo: activo,
+            creadoEn: creadoEn,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String numero,
+            Value<String?> piso = const Value.absent(),
+            Value<String?> tipo = const Value.absent(),
+            Value<int> activo = const Value.absent(),
+            required DateTime creadoEn,
+          }) =>
+              PosHabitacionesCompanion.insert(
+            id: id,
+            numero: numero,
+            piso: piso,
+            tipo: tipo,
+            activo: activo,
+            creadoEn: creadoEn,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PosHabitacionesTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PosHabitacionesTable,
+    PosHabitacione,
+    $$PosHabitacionesTableFilterComposer,
+    $$PosHabitacionesTableOrderingComposer,
+    $$PosHabitacionesTableAnnotationComposer,
+    $$PosHabitacionesTableCreateCompanionBuilder,
+    $$PosHabitacionesTableUpdateCompanionBuilder,
+    (
+      PosHabitacione,
+      BaseReferences<_$AppDatabase, $PosHabitacionesTable, PosHabitacione>
+    ),
+    PosHabitacione,
+    PrefetchHooks Function()>;
+typedef $$PosSesionesTableCreateCompanionBuilder = PosSesionesCompanion
+    Function({
+  Value<int> id,
+  required int usuarioId,
+  required DateTime abiertaEn,
+  Value<DateTime?> cerradaEn,
+});
+typedef $$PosSesionesTableUpdateCompanionBuilder = PosSesionesCompanion
+    Function({
+  Value<int> id,
+  Value<int> usuarioId,
+  Value<DateTime> abiertaEn,
+  Value<DateTime?> cerradaEn,
+});
+
+class $$PosSesionesTableFilterComposer
+    extends Composer<_$AppDatabase, $PosSesionesTable> {
+  $$PosSesionesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get usuarioId => $composableBuilder(
+      column: $table.usuarioId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get abiertaEn => $composableBuilder(
+      column: $table.abiertaEn, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get cerradaEn => $composableBuilder(
+      column: $table.cerradaEn, builder: (column) => ColumnFilters(column));
+}
+
+class $$PosSesionesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PosSesionesTable> {
+  $$PosSesionesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get usuarioId => $composableBuilder(
+      column: $table.usuarioId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get abiertaEn => $composableBuilder(
+      column: $table.abiertaEn, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get cerradaEn => $composableBuilder(
+      column: $table.cerradaEn, builder: (column) => ColumnOrderings(column));
+}
+
+class $$PosSesionesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PosSesionesTable> {
+  $$PosSesionesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get usuarioId =>
+      $composableBuilder(column: $table.usuarioId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get abiertaEn =>
+      $composableBuilder(column: $table.abiertaEn, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get cerradaEn =>
+      $composableBuilder(column: $table.cerradaEn, builder: (column) => column);
+}
+
+class $$PosSesionesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PosSesionesTable,
+    PosSesione,
+    $$PosSesionesTableFilterComposer,
+    $$PosSesionesTableOrderingComposer,
+    $$PosSesionesTableAnnotationComposer,
+    $$PosSesionesTableCreateCompanionBuilder,
+    $$PosSesionesTableUpdateCompanionBuilder,
+    (PosSesione, BaseReferences<_$AppDatabase, $PosSesionesTable, PosSesione>),
+    PosSesione,
+    PrefetchHooks Function()> {
+  $$PosSesionesTableTableManager(_$AppDatabase db, $PosSesionesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PosSesionesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PosSesionesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PosSesionesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<int> usuarioId = const Value.absent(),
+            Value<DateTime> abiertaEn = const Value.absent(),
+            Value<DateTime?> cerradaEn = const Value.absent(),
+          }) =>
+              PosSesionesCompanion(
+            id: id,
+            usuarioId: usuarioId,
+            abiertaEn: abiertaEn,
+            cerradaEn: cerradaEn,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required int usuarioId,
+            required DateTime abiertaEn,
+            Value<DateTime?> cerradaEn = const Value.absent(),
+          }) =>
+              PosSesionesCompanion.insert(
+            id: id,
+            usuarioId: usuarioId,
+            abiertaEn: abiertaEn,
+            cerradaEn: cerradaEn,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PosSesionesTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PosSesionesTable,
+    PosSesione,
+    $$PosSesionesTableFilterComposer,
+    $$PosSesionesTableOrderingComposer,
+    $$PosSesionesTableAnnotationComposer,
+    $$PosSesionesTableCreateCompanionBuilder,
+    $$PosSesionesTableUpdateCompanionBuilder,
+    (PosSesione, BaseReferences<_$AppDatabase, $PosSesionesTable, PosSesione>),
+    PosSesione,
+    PrefetchHooks Function()>;
+typedef $$PosComandasTableCreateCompanionBuilder = PosComandasCompanion
+    Function({
+  Value<int> id,
+  required int sesionId,
+  Value<int?> mesaId,
+  Value<int?> habitacionId,
+  Value<String> estado,
+  Value<double> total,
+  Value<String?> itemsJson,
+  Value<String?> syncUuid,
+  required DateTime createdAt,
+  Value<DateTime?> updatedAt,
+});
+typedef $$PosComandasTableUpdateCompanionBuilder = PosComandasCompanion
+    Function({
+  Value<int> id,
+  Value<int> sesionId,
+  Value<int?> mesaId,
+  Value<int?> habitacionId,
+  Value<String> estado,
+  Value<double> total,
+  Value<String?> itemsJson,
+  Value<String?> syncUuid,
+  Value<DateTime> createdAt,
+  Value<DateTime?> updatedAt,
+});
+
+class $$PosComandasTableFilterComposer
+    extends Composer<_$AppDatabase, $PosComandasTable> {
+  $$PosComandasTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get sesionId => $composableBuilder(
+      column: $table.sesionId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get mesaId => $composableBuilder(
+      column: $table.mesaId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get habitacionId => $composableBuilder(
+      column: $table.habitacionId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get estado => $composableBuilder(
+      column: $table.estado, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get total => $composableBuilder(
+      column: $table.total, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get itemsJson => $composableBuilder(
+      column: $table.itemsJson, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get syncUuid => $composableBuilder(
+      column: $table.syncUuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$PosComandasTableOrderingComposer
+    extends Composer<_$AppDatabase, $PosComandasTable> {
+  $$PosComandasTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get sesionId => $composableBuilder(
+      column: $table.sesionId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get mesaId => $composableBuilder(
+      column: $table.mesaId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get habitacionId => $composableBuilder(
+      column: $table.habitacionId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get estado => $composableBuilder(
+      column: $table.estado, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get total => $composableBuilder(
+      column: $table.total, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get itemsJson => $composableBuilder(
+      column: $table.itemsJson, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get syncUuid => $composableBuilder(
+      column: $table.syncUuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$PosComandasTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PosComandasTable> {
+  $$PosComandasTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get sesionId =>
+      $composableBuilder(column: $table.sesionId, builder: (column) => column);
+
+  GeneratedColumn<int> get mesaId =>
+      $composableBuilder(column: $table.mesaId, builder: (column) => column);
+
+  GeneratedColumn<int> get habitacionId => $composableBuilder(
+      column: $table.habitacionId, builder: (column) => column);
+
+  GeneratedColumn<String> get estado =>
+      $composableBuilder(column: $table.estado, builder: (column) => column);
+
+  GeneratedColumn<double> get total =>
+      $composableBuilder(column: $table.total, builder: (column) => column);
+
+  GeneratedColumn<String> get itemsJson =>
+      $composableBuilder(column: $table.itemsJson, builder: (column) => column);
+
+  GeneratedColumn<String> get syncUuid =>
+      $composableBuilder(column: $table.syncUuid, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$PosComandasTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PosComandasTable,
+    PosComanda,
+    $$PosComandasTableFilterComposer,
+    $$PosComandasTableOrderingComposer,
+    $$PosComandasTableAnnotationComposer,
+    $$PosComandasTableCreateCompanionBuilder,
+    $$PosComandasTableUpdateCompanionBuilder,
+    (PosComanda, BaseReferences<_$AppDatabase, $PosComandasTable, PosComanda>),
+    PosComanda,
+    PrefetchHooks Function()> {
+  $$PosComandasTableTableManager(_$AppDatabase db, $PosComandasTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PosComandasTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PosComandasTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PosComandasTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<int> sesionId = const Value.absent(),
+            Value<int?> mesaId = const Value.absent(),
+            Value<int?> habitacionId = const Value.absent(),
+            Value<String> estado = const Value.absent(),
+            Value<double> total = const Value.absent(),
+            Value<String?> itemsJson = const Value.absent(),
+            Value<String?> syncUuid = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime?> updatedAt = const Value.absent(),
+          }) =>
+              PosComandasCompanion(
+            id: id,
+            sesionId: sesionId,
+            mesaId: mesaId,
+            habitacionId: habitacionId,
+            estado: estado,
+            total: total,
+            itemsJson: itemsJson,
+            syncUuid: syncUuid,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required int sesionId,
+            Value<int?> mesaId = const Value.absent(),
+            Value<int?> habitacionId = const Value.absent(),
+            Value<String> estado = const Value.absent(),
+            Value<double> total = const Value.absent(),
+            Value<String?> itemsJson = const Value.absent(),
+            Value<String?> syncUuid = const Value.absent(),
+            required DateTime createdAt,
+            Value<DateTime?> updatedAt = const Value.absent(),
+          }) =>
+              PosComandasCompanion.insert(
+            id: id,
+            sesionId: sesionId,
+            mesaId: mesaId,
+            habitacionId: habitacionId,
+            estado: estado,
+            total: total,
+            itemsJson: itemsJson,
+            syncUuid: syncUuid,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PosComandasTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PosComandasTable,
+    PosComanda,
+    $$PosComandasTableFilterComposer,
+    $$PosComandasTableOrderingComposer,
+    $$PosComandasTableAnnotationComposer,
+    $$PosComandasTableCreateCompanionBuilder,
+    $$PosComandasTableUpdateCompanionBuilder,
+    (PosComanda, BaseReferences<_$AppDatabase, $PosComandasTable, PosComanda>),
+    PosComanda,
+    PrefetchHooks Function()>;
+typedef $$PosVentasTableCreateCompanionBuilder = PosVentasCompanion Function({
+  Value<int> id,
+  Value<int?> comandaId,
+  Value<int?> correlativo,
+  Value<double> total,
+  Value<String?> itemsJson,
+  Value<int?> mesaId,
+  Value<int?> habitacionId,
+  Value<int?> usuarioId,
+  Value<int?> sesionId,
+  Value<String> estado,
+  Value<int?> ventaAnulaId,
+  Value<String?> motivoAnulacion,
+  Value<String?> anuladaPor,
+  Value<DateTime?> anuladaEn,
+  Value<double?> tasaBs,
+  Value<String?> syncUuid,
+  Value<String?> comandaSyncUuid,
+  Value<String?> ventaAnulaSyncUuid,
+  required DateTime createdAt,
+  Value<DateTime?> updatedAt,
+});
+typedef $$PosVentasTableUpdateCompanionBuilder = PosVentasCompanion Function({
+  Value<int> id,
+  Value<int?> comandaId,
+  Value<int?> correlativo,
+  Value<double> total,
+  Value<String?> itemsJson,
+  Value<int?> mesaId,
+  Value<int?> habitacionId,
+  Value<int?> usuarioId,
+  Value<int?> sesionId,
+  Value<String> estado,
+  Value<int?> ventaAnulaId,
+  Value<String?> motivoAnulacion,
+  Value<String?> anuladaPor,
+  Value<DateTime?> anuladaEn,
+  Value<double?> tasaBs,
+  Value<String?> syncUuid,
+  Value<String?> comandaSyncUuid,
+  Value<String?> ventaAnulaSyncUuid,
+  Value<DateTime> createdAt,
+  Value<DateTime?> updatedAt,
+});
+
+class $$PosVentasTableFilterComposer
+    extends Composer<_$AppDatabase, $PosVentasTable> {
+  $$PosVentasTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get comandaId => $composableBuilder(
+      column: $table.comandaId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get correlativo => $composableBuilder(
+      column: $table.correlativo, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get total => $composableBuilder(
+      column: $table.total, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get itemsJson => $composableBuilder(
+      column: $table.itemsJson, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get mesaId => $composableBuilder(
+      column: $table.mesaId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get habitacionId => $composableBuilder(
+      column: $table.habitacionId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get usuarioId => $composableBuilder(
+      column: $table.usuarioId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get sesionId => $composableBuilder(
+      column: $table.sesionId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get estado => $composableBuilder(
+      column: $table.estado, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get ventaAnulaId => $composableBuilder(
+      column: $table.ventaAnulaId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get motivoAnulacion => $composableBuilder(
+      column: $table.motivoAnulacion,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get anuladaPor => $composableBuilder(
+      column: $table.anuladaPor, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get anuladaEn => $composableBuilder(
+      column: $table.anuladaEn, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get tasaBs => $composableBuilder(
+      column: $table.tasaBs, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get syncUuid => $composableBuilder(
+      column: $table.syncUuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get comandaSyncUuid => $composableBuilder(
+      column: $table.comandaSyncUuid,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get ventaAnulaSyncUuid => $composableBuilder(
+      column: $table.ventaAnulaSyncUuid,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$PosVentasTableOrderingComposer
+    extends Composer<_$AppDatabase, $PosVentasTable> {
+  $$PosVentasTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get comandaId => $composableBuilder(
+      column: $table.comandaId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get correlativo => $composableBuilder(
+      column: $table.correlativo, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get total => $composableBuilder(
+      column: $table.total, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get itemsJson => $composableBuilder(
+      column: $table.itemsJson, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get mesaId => $composableBuilder(
+      column: $table.mesaId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get habitacionId => $composableBuilder(
+      column: $table.habitacionId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get usuarioId => $composableBuilder(
+      column: $table.usuarioId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get sesionId => $composableBuilder(
+      column: $table.sesionId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get estado => $composableBuilder(
+      column: $table.estado, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get ventaAnulaId => $composableBuilder(
+      column: $table.ventaAnulaId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get motivoAnulacion => $composableBuilder(
+      column: $table.motivoAnulacion,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get anuladaPor => $composableBuilder(
+      column: $table.anuladaPor, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get anuladaEn => $composableBuilder(
+      column: $table.anuladaEn, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get tasaBs => $composableBuilder(
+      column: $table.tasaBs, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get syncUuid => $composableBuilder(
+      column: $table.syncUuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get comandaSyncUuid => $composableBuilder(
+      column: $table.comandaSyncUuid,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get ventaAnulaSyncUuid => $composableBuilder(
+      column: $table.ventaAnulaSyncUuid,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$PosVentasTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PosVentasTable> {
+  $$PosVentasTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get comandaId =>
+      $composableBuilder(column: $table.comandaId, builder: (column) => column);
+
+  GeneratedColumn<int> get correlativo => $composableBuilder(
+      column: $table.correlativo, builder: (column) => column);
+
+  GeneratedColumn<double> get total =>
+      $composableBuilder(column: $table.total, builder: (column) => column);
+
+  GeneratedColumn<String> get itemsJson =>
+      $composableBuilder(column: $table.itemsJson, builder: (column) => column);
+
+  GeneratedColumn<int> get mesaId =>
+      $composableBuilder(column: $table.mesaId, builder: (column) => column);
+
+  GeneratedColumn<int> get habitacionId => $composableBuilder(
+      column: $table.habitacionId, builder: (column) => column);
+
+  GeneratedColumn<int> get usuarioId =>
+      $composableBuilder(column: $table.usuarioId, builder: (column) => column);
+
+  GeneratedColumn<int> get sesionId =>
+      $composableBuilder(column: $table.sesionId, builder: (column) => column);
+
+  GeneratedColumn<String> get estado =>
+      $composableBuilder(column: $table.estado, builder: (column) => column);
+
+  GeneratedColumn<int> get ventaAnulaId => $composableBuilder(
+      column: $table.ventaAnulaId, builder: (column) => column);
+
+  GeneratedColumn<String> get motivoAnulacion => $composableBuilder(
+      column: $table.motivoAnulacion, builder: (column) => column);
+
+  GeneratedColumn<String> get anuladaPor => $composableBuilder(
+      column: $table.anuladaPor, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get anuladaEn =>
+      $composableBuilder(column: $table.anuladaEn, builder: (column) => column);
+
+  GeneratedColumn<double> get tasaBs =>
+      $composableBuilder(column: $table.tasaBs, builder: (column) => column);
+
+  GeneratedColumn<String> get syncUuid =>
+      $composableBuilder(column: $table.syncUuid, builder: (column) => column);
+
+  GeneratedColumn<String> get comandaSyncUuid => $composableBuilder(
+      column: $table.comandaSyncUuid, builder: (column) => column);
+
+  GeneratedColumn<String> get ventaAnulaSyncUuid => $composableBuilder(
+      column: $table.ventaAnulaSyncUuid, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$PosVentasTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PosVentasTable,
+    PosVenta,
+    $$PosVentasTableFilterComposer,
+    $$PosVentasTableOrderingComposer,
+    $$PosVentasTableAnnotationComposer,
+    $$PosVentasTableCreateCompanionBuilder,
+    $$PosVentasTableUpdateCompanionBuilder,
+    (PosVenta, BaseReferences<_$AppDatabase, $PosVentasTable, PosVenta>),
+    PosVenta,
+    PrefetchHooks Function()> {
+  $$PosVentasTableTableManager(_$AppDatabase db, $PosVentasTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PosVentasTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PosVentasTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PosVentasTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<int?> comandaId = const Value.absent(),
+            Value<int?> correlativo = const Value.absent(),
+            Value<double> total = const Value.absent(),
+            Value<String?> itemsJson = const Value.absent(),
+            Value<int?> mesaId = const Value.absent(),
+            Value<int?> habitacionId = const Value.absent(),
+            Value<int?> usuarioId = const Value.absent(),
+            Value<int?> sesionId = const Value.absent(),
+            Value<String> estado = const Value.absent(),
+            Value<int?> ventaAnulaId = const Value.absent(),
+            Value<String?> motivoAnulacion = const Value.absent(),
+            Value<String?> anuladaPor = const Value.absent(),
+            Value<DateTime?> anuladaEn = const Value.absent(),
+            Value<double?> tasaBs = const Value.absent(),
+            Value<String?> syncUuid = const Value.absent(),
+            Value<String?> comandaSyncUuid = const Value.absent(),
+            Value<String?> ventaAnulaSyncUuid = const Value.absent(),
+            Value<DateTime> createdAt = const Value.absent(),
+            Value<DateTime?> updatedAt = const Value.absent(),
+          }) =>
+              PosVentasCompanion(
+            id: id,
+            comandaId: comandaId,
+            correlativo: correlativo,
+            total: total,
+            itemsJson: itemsJson,
+            mesaId: mesaId,
+            habitacionId: habitacionId,
+            usuarioId: usuarioId,
+            sesionId: sesionId,
+            estado: estado,
+            ventaAnulaId: ventaAnulaId,
+            motivoAnulacion: motivoAnulacion,
+            anuladaPor: anuladaPor,
+            anuladaEn: anuladaEn,
+            tasaBs: tasaBs,
+            syncUuid: syncUuid,
+            comandaSyncUuid: comandaSyncUuid,
+            ventaAnulaSyncUuid: ventaAnulaSyncUuid,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<int?> comandaId = const Value.absent(),
+            Value<int?> correlativo = const Value.absent(),
+            Value<double> total = const Value.absent(),
+            Value<String?> itemsJson = const Value.absent(),
+            Value<int?> mesaId = const Value.absent(),
+            Value<int?> habitacionId = const Value.absent(),
+            Value<int?> usuarioId = const Value.absent(),
+            Value<int?> sesionId = const Value.absent(),
+            Value<String> estado = const Value.absent(),
+            Value<int?> ventaAnulaId = const Value.absent(),
+            Value<String?> motivoAnulacion = const Value.absent(),
+            Value<String?> anuladaPor = const Value.absent(),
+            Value<DateTime?> anuladaEn = const Value.absent(),
+            Value<double?> tasaBs = const Value.absent(),
+            Value<String?> syncUuid = const Value.absent(),
+            Value<String?> comandaSyncUuid = const Value.absent(),
+            Value<String?> ventaAnulaSyncUuid = const Value.absent(),
+            required DateTime createdAt,
+            Value<DateTime?> updatedAt = const Value.absent(),
+          }) =>
+              PosVentasCompanion.insert(
+            id: id,
+            comandaId: comandaId,
+            correlativo: correlativo,
+            total: total,
+            itemsJson: itemsJson,
+            mesaId: mesaId,
+            habitacionId: habitacionId,
+            usuarioId: usuarioId,
+            sesionId: sesionId,
+            estado: estado,
+            ventaAnulaId: ventaAnulaId,
+            motivoAnulacion: motivoAnulacion,
+            anuladaPor: anuladaPor,
+            anuladaEn: anuladaEn,
+            tasaBs: tasaBs,
+            syncUuid: syncUuid,
+            comandaSyncUuid: comandaSyncUuid,
+            ventaAnulaSyncUuid: ventaAnulaSyncUuid,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PosVentasTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PosVentasTable,
+    PosVenta,
+    $$PosVentasTableFilterComposer,
+    $$PosVentasTableOrderingComposer,
+    $$PosVentasTableAnnotationComposer,
+    $$PosVentasTableCreateCompanionBuilder,
+    $$PosVentasTableUpdateCompanionBuilder,
+    (PosVenta, BaseReferences<_$AppDatabase, $PosVentasTable, PosVenta>),
+    PosVenta,
+    PrefetchHooks Function()>;
+typedef $$PosSettingsTableCreateCompanionBuilder = PosSettingsCompanion
+    Function({
+  required String key,
+  Value<String?> value,
+  Value<int> rowid,
+});
+typedef $$PosSettingsTableUpdateCompanionBuilder = PosSettingsCompanion
+    Function({
+  Value<String> key,
+  Value<String?> value,
+  Value<int> rowid,
+});
+
+class $$PosSettingsTableFilterComposer
+    extends Composer<_$AppDatabase, $PosSettingsTable> {
+  $$PosSettingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get key => $composableBuilder(
+      column: $table.key, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get value => $composableBuilder(
+      column: $table.value, builder: (column) => ColumnFilters(column));
+}
+
+class $$PosSettingsTableOrderingComposer
+    extends Composer<_$AppDatabase, $PosSettingsTable> {
+  $$PosSettingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get key => $composableBuilder(
+      column: $table.key, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get value => $composableBuilder(
+      column: $table.value, builder: (column) => ColumnOrderings(column));
+}
+
+class $$PosSettingsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PosSettingsTable> {
+  $$PosSettingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get key =>
+      $composableBuilder(column: $table.key, builder: (column) => column);
+
+  GeneratedColumn<String> get value =>
+      $composableBuilder(column: $table.value, builder: (column) => column);
+}
+
+class $$PosSettingsTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PosSettingsTable,
+    PosSetting,
+    $$PosSettingsTableFilterComposer,
+    $$PosSettingsTableOrderingComposer,
+    $$PosSettingsTableAnnotationComposer,
+    $$PosSettingsTableCreateCompanionBuilder,
+    $$PosSettingsTableUpdateCompanionBuilder,
+    (PosSetting, BaseReferences<_$AppDatabase, $PosSettingsTable, PosSetting>),
+    PosSetting,
+    PrefetchHooks Function()> {
+  $$PosSettingsTableTableManager(_$AppDatabase db, $PosSettingsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PosSettingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PosSettingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PosSettingsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> key = const Value.absent(),
+            Value<String?> value = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              PosSettingsCompanion(
+            key: key,
+            value: value,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String key,
+            Value<String?> value = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              PosSettingsCompanion.insert(
+            key: key,
+            value: value,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PosSettingsTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PosSettingsTable,
+    PosSetting,
+    $$PosSettingsTableFilterComposer,
+    $$PosSettingsTableOrderingComposer,
+    $$PosSettingsTableAnnotationComposer,
+    $$PosSettingsTableCreateCompanionBuilder,
+    $$PosSettingsTableUpdateCompanionBuilder,
+    (PosSetting, BaseReferences<_$AppDatabase, $PosSettingsTable, PosSetting>),
+    PosSetting,
+    PrefetchHooks Function()>;
+typedef $$PosCategoriasTableCreateCompanionBuilder = PosCategoriasCompanion
+    Function({
+  Value<int> id,
+  required String nombre,
+  Value<String> color,
+  Value<String?> icono,
+  Value<int> activo,
+  Value<String?> syncUuid,
+  Value<DateTime?> createdAt,
+  Value<DateTime?> updatedAt,
+});
+typedef $$PosCategoriasTableUpdateCompanionBuilder = PosCategoriasCompanion
+    Function({
+  Value<int> id,
+  Value<String> nombre,
+  Value<String> color,
+  Value<String?> icono,
+  Value<int> activo,
+  Value<String?> syncUuid,
+  Value<DateTime?> createdAt,
+  Value<DateTime?> updatedAt,
+});
+
+class $$PosCategoriasTableFilterComposer
+    extends Composer<_$AppDatabase, $PosCategoriasTable> {
+  $$PosCategoriasTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get nombre => $composableBuilder(
+      column: $table.nombre, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get color => $composableBuilder(
+      column: $table.color, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get icono => $composableBuilder(
+      column: $table.icono, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get activo => $composableBuilder(
+      column: $table.activo, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get syncUuid => $composableBuilder(
+      column: $table.syncUuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$PosCategoriasTableOrderingComposer
+    extends Composer<_$AppDatabase, $PosCategoriasTable> {
+  $$PosCategoriasTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get nombre => $composableBuilder(
+      column: $table.nombre, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get color => $composableBuilder(
+      column: $table.color, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get icono => $composableBuilder(
+      column: $table.icono, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get activo => $composableBuilder(
+      column: $table.activo, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get syncUuid => $composableBuilder(
+      column: $table.syncUuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$PosCategoriasTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PosCategoriasTable> {
+  $$PosCategoriasTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get nombre =>
+      $composableBuilder(column: $table.nombre, builder: (column) => column);
+
+  GeneratedColumn<String> get color =>
+      $composableBuilder(column: $table.color, builder: (column) => column);
+
+  GeneratedColumn<String> get icono =>
+      $composableBuilder(column: $table.icono, builder: (column) => column);
+
+  GeneratedColumn<int> get activo =>
+      $composableBuilder(column: $table.activo, builder: (column) => column);
+
+  GeneratedColumn<String> get syncUuid =>
+      $composableBuilder(column: $table.syncUuid, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$PosCategoriasTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PosCategoriasTable,
+    PosCategoria,
+    $$PosCategoriasTableFilterComposer,
+    $$PosCategoriasTableOrderingComposer,
+    $$PosCategoriasTableAnnotationComposer,
+    $$PosCategoriasTableCreateCompanionBuilder,
+    $$PosCategoriasTableUpdateCompanionBuilder,
+    (
+      PosCategoria,
+      BaseReferences<_$AppDatabase, $PosCategoriasTable, PosCategoria>
+    ),
+    PosCategoria,
+    PrefetchHooks Function()> {
+  $$PosCategoriasTableTableManager(_$AppDatabase db, $PosCategoriasTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PosCategoriasTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PosCategoriasTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PosCategoriasTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> nombre = const Value.absent(),
+            Value<String> color = const Value.absent(),
+            Value<String?> icono = const Value.absent(),
+            Value<int> activo = const Value.absent(),
+            Value<String?> syncUuid = const Value.absent(),
+            Value<DateTime?> createdAt = const Value.absent(),
+            Value<DateTime?> updatedAt = const Value.absent(),
+          }) =>
+              PosCategoriasCompanion(
+            id: id,
+            nombre: nombre,
+            color: color,
+            icono: icono,
+            activo: activo,
+            syncUuid: syncUuid,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String nombre,
+            Value<String> color = const Value.absent(),
+            Value<String?> icono = const Value.absent(),
+            Value<int> activo = const Value.absent(),
+            Value<String?> syncUuid = const Value.absent(),
+            Value<DateTime?> createdAt = const Value.absent(),
+            Value<DateTime?> updatedAt = const Value.absent(),
+          }) =>
+              PosCategoriasCompanion.insert(
+            id: id,
+            nombre: nombre,
+            color: color,
+            icono: icono,
+            activo: activo,
+            syncUuid: syncUuid,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PosCategoriasTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PosCategoriasTable,
+    PosCategoria,
+    $$PosCategoriasTableFilterComposer,
+    $$PosCategoriasTableOrderingComposer,
+    $$PosCategoriasTableAnnotationComposer,
+    $$PosCategoriasTableCreateCompanionBuilder,
+    $$PosCategoriasTableUpdateCompanionBuilder,
+    (
+      PosCategoria,
+      BaseReferences<_$AppDatabase, $PosCategoriasTable, PosCategoria>
+    ),
+    PosCategoria,
+    PrefetchHooks Function()>;
+typedef $$PlatosCategoriasTableCreateCompanionBuilder
+    = PlatosCategoriasCompanion Function({
+  Value<int> id,
+  required String nombre,
+  Value<String> color,
+  Value<int> activo,
+  Value<int?> categoriaPadreId,
+  Value<int?> posCategoriaPadreId,
+  Value<DateTime?> createdAt,
+  Value<DateTime?> updatedAt,
+});
+typedef $$PlatosCategoriasTableUpdateCompanionBuilder
+    = PlatosCategoriasCompanion Function({
+  Value<int> id,
+  Value<String> nombre,
+  Value<String> color,
+  Value<int> activo,
+  Value<int?> categoriaPadreId,
+  Value<int?> posCategoriaPadreId,
+  Value<DateTime?> createdAt,
+  Value<DateTime?> updatedAt,
+});
+
+class $$PlatosCategoriasTableFilterComposer
+    extends Composer<_$AppDatabase, $PlatosCategoriasTable> {
+  $$PlatosCategoriasTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get nombre => $composableBuilder(
+      column: $table.nombre, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get color => $composableBuilder(
+      column: $table.color, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get activo => $composableBuilder(
+      column: $table.activo, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get categoriaPadreId => $composableBuilder(
+      column: $table.categoriaPadreId,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get posCategoriaPadreId => $composableBuilder(
+      column: $table.posCategoriaPadreId,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$PlatosCategoriasTableOrderingComposer
+    extends Composer<_$AppDatabase, $PlatosCategoriasTable> {
+  $$PlatosCategoriasTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get nombre => $composableBuilder(
+      column: $table.nombre, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get color => $composableBuilder(
+      column: $table.color, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get activo => $composableBuilder(
+      column: $table.activo, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get categoriaPadreId => $composableBuilder(
+      column: $table.categoriaPadreId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get posCategoriaPadreId => $composableBuilder(
+      column: $table.posCategoriaPadreId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$PlatosCategoriasTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PlatosCategoriasTable> {
+  $$PlatosCategoriasTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get nombre =>
+      $composableBuilder(column: $table.nombre, builder: (column) => column);
+
+  GeneratedColumn<String> get color =>
+      $composableBuilder(column: $table.color, builder: (column) => column);
+
+  GeneratedColumn<int> get activo =>
+      $composableBuilder(column: $table.activo, builder: (column) => column);
+
+  GeneratedColumn<int> get categoriaPadreId => $composableBuilder(
+      column: $table.categoriaPadreId, builder: (column) => column);
+
+  GeneratedColumn<int> get posCategoriaPadreId => $composableBuilder(
+      column: $table.posCategoriaPadreId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$PlatosCategoriasTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PlatosCategoriasTable,
+    PlatosCategoria,
+    $$PlatosCategoriasTableFilterComposer,
+    $$PlatosCategoriasTableOrderingComposer,
+    $$PlatosCategoriasTableAnnotationComposer,
+    $$PlatosCategoriasTableCreateCompanionBuilder,
+    $$PlatosCategoriasTableUpdateCompanionBuilder,
+    (
+      PlatosCategoria,
+      BaseReferences<_$AppDatabase, $PlatosCategoriasTable, PlatosCategoria>
+    ),
+    PlatosCategoria,
+    PrefetchHooks Function()> {
+  $$PlatosCategoriasTableTableManager(
+      _$AppDatabase db, $PlatosCategoriasTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlatosCategoriasTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PlatosCategoriasTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PlatosCategoriasTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> nombre = const Value.absent(),
+            Value<String> color = const Value.absent(),
+            Value<int> activo = const Value.absent(),
+            Value<int?> categoriaPadreId = const Value.absent(),
+            Value<int?> posCategoriaPadreId = const Value.absent(),
+            Value<DateTime?> createdAt = const Value.absent(),
+            Value<DateTime?> updatedAt = const Value.absent(),
+          }) =>
+              PlatosCategoriasCompanion(
+            id: id,
+            nombre: nombre,
+            color: color,
+            activo: activo,
+            categoriaPadreId: categoriaPadreId,
+            posCategoriaPadreId: posCategoriaPadreId,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String nombre,
+            Value<String> color = const Value.absent(),
+            Value<int> activo = const Value.absent(),
+            Value<int?> categoriaPadreId = const Value.absent(),
+            Value<int?> posCategoriaPadreId = const Value.absent(),
+            Value<DateTime?> createdAt = const Value.absent(),
+            Value<DateTime?> updatedAt = const Value.absent(),
+          }) =>
+              PlatosCategoriasCompanion.insert(
+            id: id,
+            nombre: nombre,
+            color: color,
+            activo: activo,
+            categoriaPadreId: categoriaPadreId,
+            posCategoriaPadreId: posCategoriaPadreId,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PlatosCategoriasTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PlatosCategoriasTable,
+    PlatosCategoria,
+    $$PlatosCategoriasTableFilterComposer,
+    $$PlatosCategoriasTableOrderingComposer,
+    $$PlatosCategoriasTableAnnotationComposer,
+    $$PlatosCategoriasTableCreateCompanionBuilder,
+    $$PlatosCategoriasTableUpdateCompanionBuilder,
+    (
+      PlatosCategoria,
+      BaseReferences<_$AppDatabase, $PlatosCategoriasTable, PlatosCategoria>
+    ),
+    PlatosCategoria,
+    PrefetchHooks Function()>;
+typedef $$PlatosTableCreateCompanionBuilder = PlatosCompanion Function({
+  Value<int> id,
+  required String nombre,
+  required int categoriaId,
+  Value<double> precioVenta,
+  Value<int> activo,
+  Value<int> esContorno,
+  Value<int> llevaContornos,
+  Value<DateTime?> createdAt,
+  Value<DateTime?> updatedAt,
+});
+typedef $$PlatosTableUpdateCompanionBuilder = PlatosCompanion Function({
+  Value<int> id,
+  Value<String> nombre,
+  Value<int> categoriaId,
+  Value<double> precioVenta,
+  Value<int> activo,
+  Value<int> esContorno,
+  Value<int> llevaContornos,
+  Value<DateTime?> createdAt,
+  Value<DateTime?> updatedAt,
+});
+
+class $$PlatosTableFilterComposer
+    extends Composer<_$AppDatabase, $PlatosTable> {
+  $$PlatosTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get nombre => $composableBuilder(
+      column: $table.nombre, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get categoriaId => $composableBuilder(
+      column: $table.categoriaId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get precioVenta => $composableBuilder(
+      column: $table.precioVenta, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get activo => $composableBuilder(
+      column: $table.activo, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get esContorno => $composableBuilder(
+      column: $table.esContorno, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get llevaContornos => $composableBuilder(
+      column: $table.llevaContornos,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$PlatosTableOrderingComposer
+    extends Composer<_$AppDatabase, $PlatosTable> {
+  $$PlatosTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get nombre => $composableBuilder(
+      column: $table.nombre, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get categoriaId => $composableBuilder(
+      column: $table.categoriaId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get precioVenta => $composableBuilder(
+      column: $table.precioVenta, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get activo => $composableBuilder(
+      column: $table.activo, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get esContorno => $composableBuilder(
+      column: $table.esContorno, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get llevaContornos => $composableBuilder(
+      column: $table.llevaContornos,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$PlatosTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PlatosTable> {
+  $$PlatosTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get nombre =>
+      $composableBuilder(column: $table.nombre, builder: (column) => column);
+
+  GeneratedColumn<int> get categoriaId => $composableBuilder(
+      column: $table.categoriaId, builder: (column) => column);
+
+  GeneratedColumn<double> get precioVenta => $composableBuilder(
+      column: $table.precioVenta, builder: (column) => column);
+
+  GeneratedColumn<int> get activo =>
+      $composableBuilder(column: $table.activo, builder: (column) => column);
+
+  GeneratedColumn<int> get esContorno => $composableBuilder(
+      column: $table.esContorno, builder: (column) => column);
+
+  GeneratedColumn<int> get llevaContornos => $composableBuilder(
+      column: $table.llevaContornos, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$PlatosTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PlatosTable,
+    Plato,
+    $$PlatosTableFilterComposer,
+    $$PlatosTableOrderingComposer,
+    $$PlatosTableAnnotationComposer,
+    $$PlatosTableCreateCompanionBuilder,
+    $$PlatosTableUpdateCompanionBuilder,
+    (Plato, BaseReferences<_$AppDatabase, $PlatosTable, Plato>),
+    Plato,
+    PrefetchHooks Function()> {
+  $$PlatosTableTableManager(_$AppDatabase db, $PlatosTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlatosTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PlatosTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PlatosTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<String> nombre = const Value.absent(),
+            Value<int> categoriaId = const Value.absent(),
+            Value<double> precioVenta = const Value.absent(),
+            Value<int> activo = const Value.absent(),
+            Value<int> esContorno = const Value.absent(),
+            Value<int> llevaContornos = const Value.absent(),
+            Value<DateTime?> createdAt = const Value.absent(),
+            Value<DateTime?> updatedAt = const Value.absent(),
+          }) =>
+              PlatosCompanion(
+            id: id,
+            nombre: nombre,
+            categoriaId: categoriaId,
+            precioVenta: precioVenta,
+            activo: activo,
+            esContorno: esContorno,
+            llevaContornos: llevaContornos,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required String nombre,
+            required int categoriaId,
+            Value<double> precioVenta = const Value.absent(),
+            Value<int> activo = const Value.absent(),
+            Value<int> esContorno = const Value.absent(),
+            Value<int> llevaContornos = const Value.absent(),
+            Value<DateTime?> createdAt = const Value.absent(),
+            Value<DateTime?> updatedAt = const Value.absent(),
+          }) =>
+              PlatosCompanion.insert(
+            id: id,
+            nombre: nombre,
+            categoriaId: categoriaId,
+            precioVenta: precioVenta,
+            activo: activo,
+            esContorno: esContorno,
+            llevaContornos: llevaContornos,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PlatosTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PlatosTable,
+    Plato,
+    $$PlatosTableFilterComposer,
+    $$PlatosTableOrderingComposer,
+    $$PlatosTableAnnotationComposer,
+    $$PlatosTableCreateCompanionBuilder,
+    $$PlatosTableUpdateCompanionBuilder,
+    (Plato, BaseReferences<_$AppDatabase, $PlatosTable, Plato>),
+    Plato,
+    PrefetchHooks Function()>;
+typedef $$PlatoIngredientesTableCreateCompanionBuilder
+    = PlatoIngredientesCompanion Function({
+  Value<int> id,
+  required int platoId,
+  required int productoId,
+  required double cantidad,
+  Value<String> unidad,
+});
+typedef $$PlatoIngredientesTableUpdateCompanionBuilder
+    = PlatoIngredientesCompanion Function({
+  Value<int> id,
+  Value<int> platoId,
+  Value<int> productoId,
+  Value<double> cantidad,
+  Value<String> unidad,
+});
+
+class $$PlatoIngredientesTableFilterComposer
+    extends Composer<_$AppDatabase, $PlatoIngredientesTable> {
+  $$PlatoIngredientesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get platoId => $composableBuilder(
+      column: $table.platoId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get productoId => $composableBuilder(
+      column: $table.productoId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get cantidad => $composableBuilder(
+      column: $table.cantidad, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get unidad => $composableBuilder(
+      column: $table.unidad, builder: (column) => ColumnFilters(column));
+}
+
+class $$PlatoIngredientesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PlatoIngredientesTable> {
+  $$PlatoIngredientesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get platoId => $composableBuilder(
+      column: $table.platoId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get productoId => $composableBuilder(
+      column: $table.productoId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get cantidad => $composableBuilder(
+      column: $table.cantidad, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get unidad => $composableBuilder(
+      column: $table.unidad, builder: (column) => ColumnOrderings(column));
+}
+
+class $$PlatoIngredientesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PlatoIngredientesTable> {
+  $$PlatoIngredientesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get platoId =>
+      $composableBuilder(column: $table.platoId, builder: (column) => column);
+
+  GeneratedColumn<int> get productoId => $composableBuilder(
+      column: $table.productoId, builder: (column) => column);
+
+  GeneratedColumn<double> get cantidad =>
+      $composableBuilder(column: $table.cantidad, builder: (column) => column);
+
+  GeneratedColumn<String> get unidad =>
+      $composableBuilder(column: $table.unidad, builder: (column) => column);
+}
+
+class $$PlatoIngredientesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PlatoIngredientesTable,
+    PlatoIngrediente,
+    $$PlatoIngredientesTableFilterComposer,
+    $$PlatoIngredientesTableOrderingComposer,
+    $$PlatoIngredientesTableAnnotationComposer,
+    $$PlatoIngredientesTableCreateCompanionBuilder,
+    $$PlatoIngredientesTableUpdateCompanionBuilder,
+    (
+      PlatoIngrediente,
+      BaseReferences<_$AppDatabase, $PlatoIngredientesTable, PlatoIngrediente>
+    ),
+    PlatoIngrediente,
+    PrefetchHooks Function()> {
+  $$PlatoIngredientesTableTableManager(
+      _$AppDatabase db, $PlatoIngredientesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlatoIngredientesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PlatoIngredientesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PlatoIngredientesTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<int> platoId = const Value.absent(),
+            Value<int> productoId = const Value.absent(),
+            Value<double> cantidad = const Value.absent(),
+            Value<String> unidad = const Value.absent(),
+          }) =>
+              PlatoIngredientesCompanion(
+            id: id,
+            platoId: platoId,
+            productoId: productoId,
+            cantidad: cantidad,
+            unidad: unidad,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required int platoId,
+            required int productoId,
+            required double cantidad,
+            Value<String> unidad = const Value.absent(),
+          }) =>
+              PlatoIngredientesCompanion.insert(
+            id: id,
+            platoId: platoId,
+            productoId: productoId,
+            cantidad: cantidad,
+            unidad: unidad,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PlatoIngredientesTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PlatoIngredientesTable,
+    PlatoIngrediente,
+    $$PlatoIngredientesTableFilterComposer,
+    $$PlatoIngredientesTableOrderingComposer,
+    $$PlatoIngredientesTableAnnotationComposer,
+    $$PlatoIngredientesTableCreateCompanionBuilder,
+    $$PlatoIngredientesTableUpdateCompanionBuilder,
+    (
+      PlatoIngrediente,
+      BaseReferences<_$AppDatabase, $PlatoIngredientesTable, PlatoIngrediente>
+    ),
+    PlatoIngrediente,
+    PrefetchHooks Function()>;
+typedef $$PlatoContornosTableCreateCompanionBuilder = PlatoContornosCompanion
+    Function({
+  Value<int> id,
+  required int platoId,
+  required int contornoId,
+  Value<int> maxSeleccionar,
+});
+typedef $$PlatoContornosTableUpdateCompanionBuilder = PlatoContornosCompanion
+    Function({
+  Value<int> id,
+  Value<int> platoId,
+  Value<int> contornoId,
+  Value<int> maxSeleccionar,
+});
+
+class $$PlatoContornosTableFilterComposer
+    extends Composer<_$AppDatabase, $PlatoContornosTable> {
+  $$PlatoContornosTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get platoId => $composableBuilder(
+      column: $table.platoId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get contornoId => $composableBuilder(
+      column: $table.contornoId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get maxSeleccionar => $composableBuilder(
+      column: $table.maxSeleccionar,
+      builder: (column) => ColumnFilters(column));
+}
+
+class $$PlatoContornosTableOrderingComposer
+    extends Composer<_$AppDatabase, $PlatoContornosTable> {
+  $$PlatoContornosTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get platoId => $composableBuilder(
+      column: $table.platoId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get contornoId => $composableBuilder(
+      column: $table.contornoId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get maxSeleccionar => $composableBuilder(
+      column: $table.maxSeleccionar,
+      builder: (column) => ColumnOrderings(column));
+}
+
+class $$PlatoContornosTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PlatoContornosTable> {
+  $$PlatoContornosTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get platoId =>
+      $composableBuilder(column: $table.platoId, builder: (column) => column);
+
+  GeneratedColumn<int> get contornoId => $composableBuilder(
+      column: $table.contornoId, builder: (column) => column);
+
+  GeneratedColumn<int> get maxSeleccionar => $composableBuilder(
+      column: $table.maxSeleccionar, builder: (column) => column);
+}
+
+class $$PlatoContornosTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PlatoContornosTable,
+    PlatoContorno,
+    $$PlatoContornosTableFilterComposer,
+    $$PlatoContornosTableOrderingComposer,
+    $$PlatoContornosTableAnnotationComposer,
+    $$PlatoContornosTableCreateCompanionBuilder,
+    $$PlatoContornosTableUpdateCompanionBuilder,
+    (
+      PlatoContorno,
+      BaseReferences<_$AppDatabase, $PlatoContornosTable, PlatoContorno>
+    ),
+    PlatoContorno,
+    PrefetchHooks Function()> {
+  $$PlatoContornosTableTableManager(
+      _$AppDatabase db, $PlatoContornosTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlatoContornosTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PlatoContornosTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PlatoContornosTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            Value<int> platoId = const Value.absent(),
+            Value<int> contornoId = const Value.absent(),
+            Value<int> maxSeleccionar = const Value.absent(),
+          }) =>
+              PlatoContornosCompanion(
+            id: id,
+            platoId: platoId,
+            contornoId: contornoId,
+            maxSeleccionar: maxSeleccionar,
+          ),
+          createCompanionCallback: ({
+            Value<int> id = const Value.absent(),
+            required int platoId,
+            required int contornoId,
+            Value<int> maxSeleccionar = const Value.absent(),
+          }) =>
+              PlatoContornosCompanion.insert(
+            id: id,
+            platoId: platoId,
+            contornoId: contornoId,
+            maxSeleccionar: maxSeleccionar,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PlatoContornosTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PlatoContornosTable,
+    PlatoContorno,
+    $$PlatoContornosTableFilterComposer,
+    $$PlatoContornosTableOrderingComposer,
+    $$PlatoContornosTableAnnotationComposer,
+    $$PlatoContornosTableCreateCompanionBuilder,
+    $$PlatoContornosTableUpdateCompanionBuilder,
+    (
+      PlatoContorno,
+      BaseReferences<_$AppDatabase, $PlatoContornosTable, PlatoContorno>
+    ),
+    PlatoContorno,
+    PrefetchHooks Function()>;
+typedef $$PosSyncTombstonesTableCreateCompanionBuilder
+    = PosSyncTombstonesCompanion Function({
+  required String uuid,
+  Value<String?> tabla,
+  Value<DateTime?> createdAt,
+  Value<int> rowid,
+});
+typedef $$PosSyncTombstonesTableUpdateCompanionBuilder
+    = PosSyncTombstonesCompanion Function({
+  Value<String> uuid,
+  Value<String?> tabla,
+  Value<DateTime?> createdAt,
+  Value<int> rowid,
+});
+
+class $$PosSyncTombstonesTableFilterComposer
+    extends Composer<_$AppDatabase, $PosSyncTombstonesTable> {
+  $$PosSyncTombstonesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get tabla => $composableBuilder(
+      column: $table.tabla, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$PosSyncTombstonesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PosSyncTombstonesTable> {
+  $$PosSyncTombstonesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get uuid => $composableBuilder(
+      column: $table.uuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get tabla => $composableBuilder(
+      column: $table.tabla, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$PosSyncTombstonesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PosSyncTombstonesTable> {
+  $$PosSyncTombstonesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get uuid =>
+      $composableBuilder(column: $table.uuid, builder: (column) => column);
+
+  GeneratedColumn<String> get tabla =>
+      $composableBuilder(column: $table.tabla, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$PosSyncTombstonesTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $PosSyncTombstonesTable,
+    PosSyncTombstone,
+    $$PosSyncTombstonesTableFilterComposer,
+    $$PosSyncTombstonesTableOrderingComposer,
+    $$PosSyncTombstonesTableAnnotationComposer,
+    $$PosSyncTombstonesTableCreateCompanionBuilder,
+    $$PosSyncTombstonesTableUpdateCompanionBuilder,
+    (
+      PosSyncTombstone,
+      BaseReferences<_$AppDatabase, $PosSyncTombstonesTable, PosSyncTombstone>
+    ),
+    PosSyncTombstone,
+    PrefetchHooks Function()> {
+  $$PosSyncTombstonesTableTableManager(
+      _$AppDatabase db, $PosSyncTombstonesTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PosSyncTombstonesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PosSyncTombstonesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PosSyncTombstonesTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> uuid = const Value.absent(),
+            Value<String?> tabla = const Value.absent(),
+            Value<DateTime?> createdAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              PosSyncTombstonesCompanion(
+            uuid: uuid,
+            tabla: tabla,
+            createdAt: createdAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String uuid,
+            Value<String?> tabla = const Value.absent(),
+            Value<DateTime?> createdAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              PosSyncTombstonesCompanion.insert(
+            uuid: uuid,
+            tabla: tabla,
+            createdAt: createdAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$PosSyncTombstonesTableProcessedTableManager = ProcessedTableManager<
+    _$AppDatabase,
+    $PosSyncTombstonesTable,
+    PosSyncTombstone,
+    $$PosSyncTombstonesTableFilterComposer,
+    $$PosSyncTombstonesTableOrderingComposer,
+    $$PosSyncTombstonesTableAnnotationComposer,
+    $$PosSyncTombstonesTableCreateCompanionBuilder,
+    $$PosSyncTombstonesTableUpdateCompanionBuilder,
+    (
+      PosSyncTombstone,
+      BaseReferences<_$AppDatabase, $PosSyncTombstonesTable, PosSyncTombstone>
+    ),
+    PosSyncTombstone,
+    PrefetchHooks Function()>;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -14524,4 +22726,32 @@ class $AppDatabaseManager {
       $$DispositivoUsuarioTableTableManager(_db, _db.dispositivoUsuario);
   $$WhatsappQueueTableTableManager get whatsappQueue =>
       $$WhatsappQueueTableTableManager(_db, _db.whatsappQueue);
+  $$TemporalesTableTableManager get temporales =>
+      $$TemporalesTableTableManager(_db, _db.temporales);
+  $$PosUsuariosTableTableManager get posUsuarios =>
+      $$PosUsuariosTableTableManager(_db, _db.posUsuarios);
+  $$PosMesasTableTableManager get posMesas =>
+      $$PosMesasTableTableManager(_db, _db.posMesas);
+  $$PosHabitacionesTableTableManager get posHabitaciones =>
+      $$PosHabitacionesTableTableManager(_db, _db.posHabitaciones);
+  $$PosSesionesTableTableManager get posSesiones =>
+      $$PosSesionesTableTableManager(_db, _db.posSesiones);
+  $$PosComandasTableTableManager get posComandas =>
+      $$PosComandasTableTableManager(_db, _db.posComandas);
+  $$PosVentasTableTableManager get posVentas =>
+      $$PosVentasTableTableManager(_db, _db.posVentas);
+  $$PosSettingsTableTableManager get posSettings =>
+      $$PosSettingsTableTableManager(_db, _db.posSettings);
+  $$PosCategoriasTableTableManager get posCategorias =>
+      $$PosCategoriasTableTableManager(_db, _db.posCategorias);
+  $$PlatosCategoriasTableTableManager get platosCategorias =>
+      $$PlatosCategoriasTableTableManager(_db, _db.platosCategorias);
+  $$PlatosTableTableManager get platos =>
+      $$PlatosTableTableManager(_db, _db.platos);
+  $$PlatoIngredientesTableTableManager get platoIngredientes =>
+      $$PlatoIngredientesTableTableManager(_db, _db.platoIngredientes);
+  $$PlatoContornosTableTableManager get platoContornos =>
+      $$PlatoContornosTableTableManager(_db, _db.platoContornos);
+  $$PosSyncTombstonesTableTableManager get posSyncTombstones =>
+      $$PosSyncTombstonesTableTableManager(_db, _db.posSyncTombstones);
 }

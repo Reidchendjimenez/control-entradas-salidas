@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Diálogo de calculadora simple (operaciones + - * /, decimales).
@@ -108,35 +109,39 @@ class _CalculadoraDialogState extends ConsumerState<_CalculadoraDialog> {
 
     return AlertDialog(
       title: const Text('Calculadora'),
-      content: SizedBox(
-        width: 320,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Display
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isDark ? scheme.surfaceContainerHighest : scheme.surfaceContainer,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: scheme.outlineVariant),
-              ),
-              child: Text(
-                _display,
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  fontSize: 36,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'monospace',
-                  color: scheme.onSurface,
+      content: Focus(
+        autofocus: true,
+        onKeyEvent: _onKeyEvent,
+        child: SizedBox(
+          width: 320,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Display
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark ? scheme.surfaceContainerHighest : scheme.surfaceContainer,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: scheme.outlineVariant),
+                ),
+                child: Text(
+                  _display,
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontSize: 36,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: 'monospace',
+                    color: scheme.onSurface,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            // Teclado
-            _buildKeypad(scheme),
-          ],
+              const SizedBox(height: 16),
+              // Teclado
+              _buildKeypad(scheme),
+            ],
+          ),
         ),
       ),
       actions: [
@@ -153,6 +158,52 @@ class _CalculadoraDialogState extends ConsumerState<_CalculadoraDialog> {
         ),
       ],
     );
+  }
+
+  /// Soporte de teclado físico: dígitos, operadores, Enter (=), Backspace,
+  /// Esc (cancelar). Se usa el mismo patrón Focus(onKeyEvent) del diálogo
+  /// de movimientos.
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final lk = event.logicalKey;
+
+    if (lk == LogicalKeyboardKey.enter ||
+        lk == LogicalKeyboardKey.numpadEnter) {
+      _onEquals();
+      return KeyEventResult.handled;
+    }
+    if (lk == LogicalKeyboardKey.backspace) {
+      _onBackspace();
+      return KeyEventResult.handled;
+    }
+    if (lk == LogicalKeyboardKey.escape) {
+      Navigator.pop(context);
+      return KeyEventResult.handled;
+    }
+    if (lk == LogicalKeyboardKey.numpadAdd) return _tecla('+');
+    if (lk == LogicalKeyboardKey.numpadSubtract) return _tecla('-');
+    if (lk == LogicalKeyboardKey.numpadMultiply) return _tecla('×');
+    if (lk == LogicalKeyboardKey.numpadDivide) return _tecla('÷');
+    if (lk == LogicalKeyboardKey.numpadDecimal) return _tecla('.');
+
+    final ch = event.character;
+    if (ch == null || ch.isEmpty) return KeyEventResult.ignored;
+    final c = ch[0];
+    if ('0123456789.'.contains(c)) return _tecla(c);
+    if (c == '+' || c == '-') return _tecla(c);
+    if (c == '*') return _tecla('×');
+    if (c == '/') return _tecla('÷');
+    if (c == '%') return _tecla('%');
+    if (c == '=') {
+      _onEquals();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _tecla(String k) {
+    _handleKey(k);
+    return KeyEventResult.handled;
   }
 
   Widget _buildKeypad(ColorScheme scheme) {

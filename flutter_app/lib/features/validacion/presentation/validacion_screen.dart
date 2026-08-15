@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/auth/session_controller.dart';
+import '../data/temporales_repository.dart';
 import '../data/validacion_providers.dart';
 import '../data/validacion_repository.dart';
+import 'dialogs/precargar_imagen_dialog.dart';
+import 'dialogs/temporales_dialog.dart';
 import 'dialogs/validacion_dialog.dart';
 import 'widgets/entrada_pendiente_card.dart';
 import 'widgets/validacion_empty_state.dart';
@@ -35,13 +38,34 @@ class _ValidacionScreenState extends ConsumerState<ValidacionScreen> {
   Future<void> _onValidar() async {
     final session = ref.read(sessionProvider);
     final usuario = session is Authenticated ? session.nombre : 'Sistema';
+    final temporalesRepo = ref.read(temporalesRepoProvider);
 
-    final resultado = await showValidacionDialog(
+    // Si hay temporales pre-cargados, el usuario elige uno (o pega una nueva
+    // imagen directamente).
+    ResultadoValidacion? resultado;
+    TemporalData? temporalUsado;
+    final temporales = await temporalesRepo.getTemporales();
+    if (temporales.isNotEmpty) {
+      if (!mounted) return;
+      final sel = await showTemporalesDialog(context, temporales);
+      if (sel == null || !mounted) return;
+      temporalUsado = sel.temporal;
+    }
+    if (!mounted) return;
+
+    resultado = await showValidacionDialog(
       context,
       selectedEntradas: _selected,
       usuario: usuario,
+      temporal: temporalUsado,
     );
     if (resultado == null || !mounted) return;
+
+    // El temporal usado se consume.
+    if (temporalUsado?.id != null) {
+      await temporalesRepo.eliminar(temporalUsado!.id!);
+    }
+    if (!mounted) return;
 
     setState(() => _selected.clear());
     ScaffoldMessenger.of(context).showSnackBar(
@@ -162,6 +186,24 @@ class _ValidacionScreenState extends ConsumerState<ValidacionScreen> {
                 label: Text(
                     _selected.isEmpty ? 'Validar' : 'Validar ${_selected.length}'),
                 onPressed: _selected.isEmpty ? null : _onValidar,
+              ),
+              const SizedBox(width: 4),
+              Consumer(
+                builder: (context, ref, _) {
+                  final count =
+                      ref.watch(temporalesProvider).valueOrNull?.length ?? 0;
+                  return IconButton(
+                    icon: count > 0
+                        ? Badge(
+                            label: Text('$count'),
+                            child: const Icon(Icons.photo_library_outlined),
+                          )
+                        : const Icon(Icons.photo_library_outlined),
+                    tooltip: 'Precargar imagen temporal',
+                    onPressed: () =>
+                        showPrecargarImagenDialog(context),
+                  );
+                },
               ),
               if (_selected.isNotEmpty) ...[
                 const SizedBox(width: 8),

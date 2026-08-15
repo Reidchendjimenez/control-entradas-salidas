@@ -10,7 +10,7 @@
 ## 0. Inventario de lo que existe hoy (auditoría)
 
 ### Backend / datos
-- **BD local:** SQLite (`./control_entradas_salidas.db`, vía `SQLALCHEMY` con `SQLITE_PATH`) en los clientes.
+- **BD local:** SQLite (`lycoris_local.db`, vía `SQLALCHEMY` con `SQLITE_PATH`) en los clientes.
 - **BD remota:** PostgreSQL en **Supabase** (pooler `aws-1-us-east-2.pooler.supabase.com:6543`, usuario `postgres.<ref>`), cableada en `.env`.
   - Vars: `DB_TYPE`, `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `SECRET_KEY`, `DEBUG`.
 - **ORM:** SQLAlchemy 2.x, modelos en `usr/models/` (14 modelos + POS local).
@@ -21,7 +21,7 @@
 `categorias`, `productos`, `proveedores`, `existencias`, `movimientos`, `facturas`, `factura_pagos`, `requisiciones`, `requisicion_detalles`, `stock_checkpoint`, `periodos`, `recetas`, `receta_componentes`, `producciones`, `produccion_detalles`.
 
 ### Tablas POS locales (local_replica.py)
-`pos_usuarios`, `pos_mesas`, `pos_habitaciones`, `pos_sesiones`, `pos_comandas`, `pos_settings`, `pos_ventas`, `pos_categorias`, `pos_sync_tombstones` (+ envío a Supabase vía `pos_sync.py`).
+`pos_usuarios`, `pos_mesas`, `pos_habitaciones`, `pos_sesiones`, `pos_comandas`, `pos_settings`, `pos_ventas`, `pos_categorias`, `pos_sync_tombstones`, `platos_categorias`, `platos`, `plato_ingredientes`, `plato_contornos` (+ envío a Supabase vía `pos_sync.py`; las 10 tablas sincronizadas son `platos_categorias`, `platos`, `plato_ingredientes`, `plato_contornos`, `pos_mesas`, `pos_habitaciones`, `pos_usuarios`, `pos_settings`, `pos_comandas`, `pos_ventas`).
 
 ### Módulos de negocio (carpeta `usr/`)
 | Módulo | Archivos | Funcionalidad |
@@ -36,7 +36,7 @@
 | Historial facturas | `views/historial_facturas_view.py` | Facturas y estados de pago |
 | Configuración | `views/configuracion/*` | Categorías, periodos, productos, proveedores, sistema |
 | WhatsApp | `views/whatsapp_bandeja_view.py`, `whatsapp_notifier.py` | Cola de mensajes, envío vía bot `WHATSAPP_BOT_URL` + `WHATSAPP_BOT_TOKEN` |
-| OCR | `ocr_extractor.py` | OCRSpace + EasyOCR + preprocesado, parser de factura |
+| OCR | `ocr_extractor.py` | OCRSpace + EasyOCR + **Gemini** (fallback, `GEMINI_API_KEY`) + preprocesado, parser de factura |
 | Updater | `updater.py` | Check `UPDATE_URL`, version.json, descarga zip |
 | POS | `main_pos.py`, `usr/pos/*` | Login con PIN, mesas, habitaciones, comandas, ventas, tasas, impresión térmica |
 
@@ -51,17 +51,19 @@
 ## 1. Arquitectura objetivo (Flutter)
 
 ```
-control-entradas-salidas-flutter/
+flutter_app/
 ├── lib/
 │   ├── main.dart                 # entrada, MaterialApp, tema
 │   ├── core/
-│   │   ├── theme/                # colores (portar usr/theme.py)
-│   │   ├── network/              # SupabaseClient, HTTP wrapper, conectividad
-│   │   ├── db/                   # drift (SQLite local), migraciones
-│   │   ├── sync/                 # motor de sincronización bidireccional
-│   │   ├── auth/                 # login, PIN, sesión
-│   │   ├── update/               # updater (UPDATE_URL, zip, version.json)
-│   │   └── pdf_excel/            # exportación
+│   │   ├── theme/                # colores (portar usr/theme.py) ✅
+│   │   ├── network/              # SupabaseClient, HTTP wrapper, conectividad ✅
+│   │   ├── db/                   # drift (SQLite local), migraciones ✅
+│   │   ├── sync/                 # motor de sincronización bidireccional ✅
+│   │   ├── auth/                 # login, PIN, sesión ✅
+│   │   ├── config/               # app_config.dart (URL/key Supabase) ✅
+│   │   ├── logging/              # log_bridge.dart ✅
+│   │   ├── state/                # theme_controller.dart ✅
+│   │   └── update/               # updater (UPDATE_URL, zip, version.json) ⏳ pendiente
 │   ├── features/
 │   │   ├── inventario/
 │   │   ├── stock/
@@ -227,11 +229,12 @@ En Flutter:
 3. Carpeta `supabase/`: SQL de esquema (producto de los `__tablename__` y del DDL de sync). ✅ `supabase/schema.sql` generado e idempotente.
 4. `core/theme` portado de `usr/theme.py`; `MaterialApp` + `go_router` + Riverpod bootstrap. ✅ `lib/core/theme/app_colors.dart`, `app_theme.dart`, `app_shell.dart`, `main.dart`.
    - ✅ Drift inicial: `lib/core/db/schema/app_database.dart` (categorias/productos/movimientos).
-   - Pendiente: ejecutar `flutter create .` + `flutter pub get` en un entorno con SDK (el esqueleto se creó a mano aquí).
+   - ⏳ Pendiente: ejecutar `flutter create .` + `flutter pub get` en un entorno con SDK (el esqueleto se creó a mano aquí; aún no existe `.dart_tool/`). Las 5 carpetas de plataforma (android/ios/windows/linux/web) ya existen.
+   - 🧹 Limpieza: borrar `lib/core/db/schema/app_database.dart.bak` (schemaVersion 1, residual). El feature `calculadora/` existe (`presentation/calculadora_dialog.dart` + `calculadora_button.dart`) y no está documentado en este plan (widget reutilizable, sin estado propio).
 
 **Fase 1 — Capa de datos + Supabase (sin UI)** *(✅ HECHO — `flutter_app/lib/core`)*
 5. Definir modelos drift (esquema local) y clientes Supabase.
-   - ✅ `lib/core/db/schema/app_database.dart` — 19 tablas drift (15 sincronizadas + movimientos_archivo, compras_lista, sync_queue, sync_metadata).
+   - ✅ `lib/core/db/schema/app_database.dart` — 21 tablas drift: 15 sincronizadas + `movimientos_archivo`, `compras_lista`, `sync_queue`, `sync_metadata`, `dispositivo_usuario` (sesión) y `whatsapp_queue` (schemaVersion 2; definidas en `lib/core/db/schema/tables.dart`).
    - ✅ `lib/core/config/app_config.dart` — URL Supabase derivada del ref, anon key vía `--dart-define=SUPABASE_ANON_KEY`.
    - ✅ `lib/core/network/supabase_client.dart` — inicialización `supabase_flutter` (REST) con `publishableKey`.
    - ✅ `lib/core/db/database_provider.dart` — provider singleton de drift.
@@ -284,9 +287,20 @@ En Flutter:
     - ✅ `lib/features/whatsapp/*` (2026-08-14): tabla `whatsapp_queue` en drift (schemaVersion 2, local, sin sync) + repositorio con envío HTTP al bot (`/send`, `/send-image`, `/config`), cola con reintentos (pending/sending/sent/failed, max 10), `probarBot`, `formatValidationMessage`, stats; bandeja con cards (reintentar/eliminar por mensaje, reintentar todos, pull-to-refresh, timer 15s). Ruta `/bandeja` conectada. Bot: `https://lycorys-control.shares.zrok.io` (token `x-auth-token`).
     - ✅ Envío automático desde Validación (2026-08-14): tras validar, arma el mensaje "Entrada Validada" con productos (kg si pesable), proveedor, factura y usuario, y lo envía fire-and-forget (texto o imagen pegada) con fallback a la cola.
 
-**Fase 6 — POS** *(⏳ PENDIENTE — `lib/pos/` vacío)*
-18. POS: login PIN, mesas, habitaciones, comandas, ventas, config, tasas.
-19. Impresión térmica multipantalla (USB/serie/Bluetooth).
+**Fase 6 — POS** *(⏳ EN CURSO — se migra por sub-fases; cada sub-fase con su checklist)*
+- [x] **6.0 — Capa de datos POS** (drift + repositorios + motor sync por `sync_uuid` + ruta `/pos`)
+- [ ] **6.1 — Login PIN** (usuarios, seed admin, alta)
+- [ ] **6.2 — Home POS + Mesas + Habitaciones** (selector + apertura de comanda)
+- [ ] **6.3 — Comanda** (categorías → subcategorías → platos/productos, contornos, items, total)
+- [ ] **6.4 — Ventas / caja** (cierre → `pos_ventas` + movimientos, anulación)
+- [ ] **6.5 — Config POS + tasa BCV**
+- [ ] **6.6 — Impresión térmica** (web: vista previa del ticket; Android/Windows: `esc_pos_printer`/serial)
+
+**Fase 6.0 — Capa de datos POS** *(✅ COMPLETADA — build pendiente de despliegue)*
+- [x] Tablas drift `pos_*`/`platos_*` (réplica de `local_replica.py`) + migración v5 (las 12 tablas POS son solo locales en cuánto a ids; la sincronización es por `sync_uuid`).
+- [x] `pos_repository.dart` + providers (CRUD usuarios/mesas/habitaciones/comandas/ventas/settings/platos/categorías/ingredientes/contornos/tasas).
+- [x] Motor sync POS (port `pos_sync.py`): descarga de 11 tablas + poda de huérfanos + subida por `sync_uuid`/id + tombstones + timer 30 s (las categorías/productos para la venta y movimientos de venta los gestiona el sync principal).
+- [x] Ruta `/pos` en `app_shell.dart` + `flutter analyze` + build web. *(build web pendiente de autorización del usuario)*
 
 **Fase 7 — Updater + pulido**
 20. Updater (version.json, zip, aplicar, reiniciar). *(⏳ PENDIENTE — no existe `lib/core/update/`)*

@@ -21,6 +21,11 @@ class WebServer(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=WEB_DIR, **kwargs)
 
+    def end_headers(self):
+        # Evita que el navegador cachee el bundle (SW del dev loop stale).
+        self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+
     def do_POST(self):
         if self.path != "/log":
             self.send_response(404)

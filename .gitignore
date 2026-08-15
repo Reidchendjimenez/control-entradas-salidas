@@ -19,3 +19,6 @@ graphify-out/cache/
 *.db-shm
 *.db-wal
 *.sqlite
+
+# Virtual environment
+.venv/

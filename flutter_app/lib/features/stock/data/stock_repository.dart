@@ -184,10 +184,12 @@ class StockRepository {
     String? motivo,
     String usuario = 'sistema',
   }) async {
-    final e = await (_db.select(_db.existencias)
+    final rows = await (_db.select(_db.existencias)
           ..where((t) =>
-              t.productoId.equals(productoId) & t.almacen.equals(almacen)))
-        .getSingleOrNull();
+              t.productoId.equals(productoId) & t.almacen.equals(almacen))
+          ..orderBy([(t) => OrderingTerm.desc(t.id)]))
+        .get();
+    final e = rows.isEmpty ? null : rows.first;
     final actual = e?.cantidad ?? 0;
 
     if ((nuevaCantidad - actual).abs() < 1e-9) {
@@ -216,14 +218,18 @@ class StockRepository {
           ),
         );
 
-    await _db.into(_db.existencias).insertOnConflictUpdate(
-      ExistenciasCompanion.insert(
-        productoId: Value(productoId),
-        almacen: almacen,
-        cantidad: Value(nuevaCantidad),
-        unidad: Value(producto?.unidadMedida ?? 'unidad'),
-      ),
-    );
+    await (_db.delete(_db.existencias)
+          ..where((t) =>
+              t.productoId.equals(productoId) & t.almacen.equals(almacen)))
+        .go();
+    await _db.into(_db.existencias).insert(
+          ExistenciasCompanion.insert(
+            productoId: Value(productoId),
+            almacen: almacen,
+            cantidad: Value(nuevaCantidad),
+            unidad: Value(producto?.unidadMedida ?? 'unidad'),
+          ),
+        );
 
     return true;
   }

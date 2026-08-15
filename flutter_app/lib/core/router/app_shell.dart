@@ -14,6 +14,8 @@ import '../../features/stock/presentation/stock_screen.dart';
 import '../../features/validacion/presentation/validacion_screen.dart';
 import '../../features/configuracion/presentation/configuracion_screen.dart';
 import '../../features/whatsapp/presentation/bandeja_screen.dart';
+import '../../features/pos/presentation/pos_screen.dart';
+import '../../features/pos/data/pos_providers.dart';
 import '../sync/sync_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
@@ -38,6 +40,8 @@ class AppShell extends ConsumerWidget {
         'Gestión de traslados', '/requisiciones'),
     _NavDest(Icons.history_outlined, 'Historial',
         'Facturas y registro de entradas', '/historial'),
+    _NavDest(Icons.point_of_sale_outlined, 'POS',
+        'Mesas, comandas y ventas', '/pos'),
     _NavDest(Icons.settings_outlined, 'Ajustes',
         'Categorías y catálogo de productos', '/ajustes'),
     _NavDest(Icons.mail_outlined, 'Bandeja',
@@ -101,6 +105,12 @@ class _ShellAutenticadoState extends ConsumerState<_ShellAutenticado> {
     if (engine != null) {
       engine.fullSync();
       engine.startBackgroundSync();
+    }
+    // Sync del módulo POS (outbox por sync_uuid + descarga de tablas pos_*).
+    final pos = ref.read(posSyncEngineProvider);
+    if (pos != null) {
+      pos.fullSync();
+      pos.startBackgroundSync(intervalSeconds: 30);
     }
   }
 
@@ -197,6 +207,7 @@ class _ShellAutenticadoState extends ConsumerState<_ShellAutenticado> {
       ),
     );
     final ok = await engine.fullSync();
+    await ref.read(posSyncEngineProvider)?.fullSync();
     messenger.showSnackBar(
       SnackBar(
         content:
@@ -489,6 +500,9 @@ class _DestinoPage extends StatelessWidget {
     }
     if (destino.ruta == '/historial') {
       return const HistorialScreen();
+    }
+    if (destino.ruta == '/pos') {
+      return const PosScreen();
     }
     if (destino.ruta == '/ajustes') {
       return const ConfiguracionScreen();

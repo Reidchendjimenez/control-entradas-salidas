@@ -13,6 +13,7 @@ class ProductoCard extends ConsumerWidget {
     required this.onMovimiento,
     required this.onToggleLista,
     required this.onCorregir,
+    this.seleccionado = false,
   });
 
   final Producto producto;
@@ -20,6 +21,7 @@ class ProductoCard extends ConsumerWidget {
   final void Function(Producto) onMovimiento;
   final void Function(Producto) onToggleLista;
   final void Function(Producto) onCorregir;
+  final bool seleccionado;
 
   Color _parseColor(String hex) {
     final v = int.tryParse(hex.replaceFirst('#', '0xFF'));
@@ -31,6 +33,15 @@ class ProductoCard extends ConsumerWidget {
     final colors = Theme.of(context).colorScheme;
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
+      color: seleccionado
+          ? colors.primaryContainer
+          : null,
+      shape: seleccionado
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: colors.primary, width: 2),
+            )
+          : null,
       child: InkWell(
         onTap: () => onMovimiento(producto),
         borderRadius: BorderRadius.circular(12),

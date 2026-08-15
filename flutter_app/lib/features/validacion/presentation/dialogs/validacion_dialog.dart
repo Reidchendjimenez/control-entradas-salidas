@@ -5,8 +5,9 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 
+import '../../data/ocr_service.dart';
+import '../../data/temporales_repository.dart';
 import '../../data/validacion_providers.dart';
 import '../../data/validacion_repository.dart';
 import '../../../whatsapp/data/whatsapp_providers.dart';
@@ -18,16 +19,20 @@ const _prefijos = {'Factura': 'F-', 'Nota de Entrega': 'NE-', 'Entrada': 'EV-'};
 /// Diálogo de validación de entradas (porta `ValidacionDialog` de dialog.py +
 /// `ValidacionFields` de fields.py; sin el asistente OCR de IA).
 /// Devuelve un [ResultadoValidacion] si se validó, o `null` si se canceló.
+/// Si se pasa [temporal], el diálogo arranca con esa imagen pre-cargada y sus
+/// datos extraídos por OCR.
 Future<ResultadoValidacion?> showValidacionDialog(
   BuildContext context, {
   required Set<int> selectedEntradas,
   required String usuario,
+  TemporalData? temporal,
 }) {
   return showDialog<ResultadoValidacion>(
     context: context,
     builder: (ctx) => _ValidacionDialog(
       selectedEntradas: selectedEntradas,
       usuario: usuario,
+      temporal: temporal,
     ),
   );
 }
@@ -36,10 +41,12 @@ class _ValidacionDialog extends ConsumerStatefulWidget {
   const _ValidacionDialog({
     required this.selectedEntradas,
     required this.usuario,
+    this.temporal,
   });
 
   final Set<int> selectedEntradas;
   final String usuario;
+  final TemporalData? temporal;
 
   @override
   ConsumerState<_ValidacionDialog> createState() => _ValidacionDialogState();
@@ -64,9 +71,55 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
   void initState() {
     super.initState();
     _fecha = DateTime.now();
+    // El campo ya entra con el prefijo del tipo por defecto ('Factura' → F-).
+    _facturaCtrl.text = _conPrefijo('');
     if (kIsWeb) {
       _initWebPasteListener();
     }
+    _aplicarTemporal();
+  }
+
+  /// Si el diálogo se abrió con un temporal, precarga la imagen y los datos
+  /// extraídos por OCR. El proveedor extraído que no exista en la lista se
+  /// muestra como "nuevo proveedor" con el nombre pre-llenado.
+  Future<void> _aplicarTemporal() async {
+    final t = widget.temporal;
+    if (t == null) return;
+    _imagenPegada = t.imagen;
+    if (t.tipoDocumento != null && _prefijos.containsKey(t.tipoDocumento)) {
+      _tipoDocumento = t.tipoDocumento!;
+    }
+    final nro = (t.nroFactura ?? '').trim();
+    _facturaCtrl.text = nro.isEmpty ? _conPrefijo('') : _conPrefijo(nro);
+    if (t.monto != null) {
+      _montoCtrl.text = t.monto!.toStringAsFixed(2);
+    }
+    if (t.fecha != null) {
+      _fecha = t.fecha!;
+    }
+    final prov = (t.proveedor ?? '').trim();
+    if (prov.isEmpty) {
+      return;
+    }
+    if (prov == 'Varios') {
+      _proveedor = 'Varios';
+      return;
+    }
+    try {
+      final proveedores = await ref.read(proveedoresProvider.future);
+      if (!mounted) return;
+      if (proveedores.any((p) => p.nombre == prov)) {
+        _proveedor = prov;
+      } else {
+        _proveedor = '__nuevo__';
+        _nuevoProveedorCtrl.text = prov;
+      }
+    } catch (_) {
+      if (!mounted) return;
+      _proveedor = '__nuevo__';
+      _nuevoProveedorCtrl.text = prov;
+    }
+    if (mounted) setState(() {});
   }
 
   void _initWebPasteListener() {
@@ -119,15 +172,19 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
   }
 
   void _aplicarPrefijo() {
-    var raw = _facturaCtrl.text.trim();
-    for (final prefix in ['NE-', 'EV-', 'F-']) {
-      if (raw.toUpperCase().startsWith(prefix)) {
-        raw = raw.substring(prefix.length);
-        break;
-      }
-    }
-    _facturaCtrl.text = '${_prefijos[_tipoDocumento] ?? 'F-'}$raw';
+    _facturaCtrl.text = _conPrefijo(_facturaCtrl.text.trim());
     setState(() {});
+  }
+
+  /// Devuelve el número de factura con el prefijo del tipo de documento si no
+  /// lo tiene (NE-, EV-, F-). Se aplica al cambiar el tipo y al validar, NO en
+  /// cada tecla: reasignar `controller.text` en `onChanged` resetea el cursor
+  /// y rompe la escritura en el campo.
+  String _conPrefijo(String raw) {
+    for (final prefix in ['NE-', 'EV-', 'F-']) {
+      if (raw.toUpperCase().startsWith(prefix)) return raw;
+    }
+    return '${_prefijos[_tipoDocumento] ?? 'F-'}$raw';
   }
 
   void _onMontoChanged(String value) {
@@ -152,7 +209,7 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
           : (_proveedor ?? 'Varios');
       final rif = esNuevo ? _nuevoRifCtrl.text.trim() : '';
 
-      final factura = _facturaCtrl.text.trim();
+      final factura = _conPrefijo(_facturaCtrl.text.trim());
       final monto = double.tryParse(_montoCtrl.text.trim()) ?? 0;
       final pagos = _pagosKey.currentState?.pagos ?? [];
 
@@ -163,12 +220,7 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
           .where((e) => widget.selectedEntradas.contains(e.id))
           .toList();
       final nombres = <String>[];
-      DateTime? fechaMin;
       for (final e in seleccionadas) {
-        if (e.fecha != null &&
-            (fechaMin == null || e.fecha!.isBefore(fechaMin))) {
-          fechaMin = e.fecha;
-        }
         if (e.esPesable && e.pesoTotal > 0) {
           nombres.add('${e.nombre}: ${e.pesoTotal.toStringAsFixed(2)} kg');
         } else {
@@ -198,7 +250,9 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
         factura: factura,
         monto: monto,
         usuario: resultado.usuario,
-        fechaEntrada: fechaMin,
+        // Fecha de la factura (la que se guarda como `fecha_factura`), no la de
+        // registro de los movimientos: el mensaje debe reflejar la factura.
+        fechaEntrada: _fecha,
       );
       final waRepo = ref.read(whatsappRepoProvider);
       if (_imagenPegada != null) {
@@ -317,7 +371,6 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
               border: OutlineInputBorder(),
               isDense: true,
             ),
-            onChanged: (_) => _aplicarPrefijo(),
           ),
           const SizedBox(height: 10),
           Consumer(
@@ -518,28 +571,8 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
       _imagenPegada = bytes;
     });
     try {
-      final base64Image = 'data:image/png;base64,${base64Encode(bytes)}';
-      final response = await http.post(
-        Uri.parse('https://api.ocr.space/parse/image'),
-        headers: {'apikey': 'K86411242588957'},
-        body: {
-          'base64Image': base64Image,
-          'language': 'spa',
-          'isOverlayRequired': 'false',
-          'detectOrientation': 'true',
-          'scale': 'true',
-          'OCREngine': '2',
-        },
-      );
-      if (response.statusCode != 200 || response.body.isEmpty) return;
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      if (data['IsErroredOnProcessing'] == true) return;
-      final results = data['ParsedResults'] as List?;
-      if (results == null || results.isEmpty) return;
-      final fullText = results.map((r) => r['ParsedText'] as String? ?? '').join('\n');
-      if (fullText.trim().isEmpty) return;
-
-      final parsed = parseFacturaText(fullText.trim());
+      final parsed = await OcrService.extractFactura(bytes);
+      if (parsed == null) return;
       if (mounted) {
         setState(() {
           if (parsed['tipo_documento'] != null && _prefijos.containsKey(parsed['tipo_documento'])) {
@@ -596,8 +629,8 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
       _imagenPegada = bytes;
     });
     try {
-      final raw = await _extractOcrSpace(file);
-      if (raw == null || raw.isEmpty) {
+      final parsed = await OcrService.extractFactura(bytes);
+      if (parsed == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('No se pudo extraer texto de la imagen (OCR).')),
@@ -606,7 +639,6 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
         return;
       }
 
-      final parsed = parseFacturaText(raw);
       if (mounted) {
         setState(() {
           if (parsed['tipo_documento'] != null && _prefijos.containsKey(parsed['tipo_documento'])) {
@@ -644,115 +676,5 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
     } finally {
       if (mounted) setState(() => _validando = false);
     }
-  }
-
-  Future<String?> _extractOcrSpace(XFile file) async {
-    try {
-      final bytes = await file.readAsBytes();
-      final base64Image = 'data:image/png;base64,${base64Encode(bytes)}';
-
-      final response = await http.post(
-        Uri.parse('https://api.ocr.space/parse/image'),
-        headers: {'apikey': 'K86411242588957'},
-        body: {
-          'base64Image': base64Image,
-          'language': 'spa',
-          'isOverlayRequired': 'false',
-          'detectOrientation': 'true',
-          'scale': 'true',
-          'OCREngine': '2',
-        },
-      );
-      if (response.statusCode != 200 || response.body.isEmpty) return null;
-      final data = jsonDecode(response.body) as Map<String, dynamic>;
-      if (data['IsErroredOnProcessing'] == true) return null;
-      final results = data['ParsedResults'] as List?;
-      if (results == null || results.isEmpty) return null;
-      final fullText = results.map((r) => r['ParsedText'] as String? ?? '').join('\n');
-      return fullText.trim().isNotEmpty ? fullText.trim() : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Map<String, String> parseFacturaText(String text) {
-    String proveedor = '';
-    String rif = '';
-    String nroFactura = '';
-    String fechaStr = '';
-    String tipoDoc = 'Factura';
-
-    final lines = text.split('\n');
-    String provSection = text;
-    for (final line in lines) {
-      if (RegExp(r'\b(Proveedor|Emitido por|Vendido por|Nombre o Razón Social)\b', caseSensitive: false).hasMatch(line)) {
-        provSection = line.replaceAll(RegExp(r'^[^:]*:\s*'), '');
-        break;
-      }
-    }
-
-    final provRegExpCA = RegExp(r'([A-Z][A-Z0-9\s,]*C\.?\s*A\.?)', caseSensitive: false);
-    final provMatch = provRegExpCA.firstMatch(provSection) ?? provRegExpCA.firstMatch(text);
-    if (provMatch != null) {
-      final candidate = provMatch.group(1)?.trim() ?? '';
-      if (!candidate.toUpperCase().contains('LA POSADA DE DANIEL')) {
-        proveedor = candidate;
-      }
-    }
-
-    final rifRegex = RegExp(r'(?:R\.?I\.?F\.?[-/ ]*C\.?I\.?[-/ ]*|C\.?I\.?[-/ ]*R\.?I\.?[-/ ]*|R\.?I\.?F\.?|C\.?I\.?|Cod\s*Prov\.?)\s*[:.]?\s*([JGV E])[\s-]*(\d{8,12})', caseSensitive: false);
-    final rifMatch = rifRegex.firstMatch(text);
-    if (rifMatch != null) {
-      rif = '${rifMatch.group(1)}${rifMatch.group(2)}'.toUpperCase();
-    } else {
-      final allRifs = RegExp(r'\b([JGV E])[\s-]*(\d{8,12})\b', caseSensitive: false).allMatches(text);
-      for (final m in allRifs) {
-        final cand = '${m.group(1)}${m.group(2)}'.toUpperCase();
-        if (cand != 'J316636151') {
-          rif = cand;
-          break;
-        }
-      }
-    }
-
-    final nroRegex = RegExp(r'(?:FACTURA|NOTA\s*DE\s*ENTREGA|ENTRADA\s*DE\s*INVENTARIO|ENTRADA|DOC|NRO|NUM)\s*#?\s*[:.]?\s*(\d{4,10})', caseSensitive: false);
-    final nroMatch = nroRegex.firstMatch(text);
-    if (nroMatch != null) {
-      nroFactura = nroMatch.group(1) ?? '';
-      final matchText = nroMatch.group(0)?.toUpperCase() ?? '';
-      if (matchText.contains('NOTA')) {
-        tipoDoc = 'Nota de Entrega';
-      } else if (matchText.contains('ENTRADA')) {
-        tipoDoc = 'Entrada';
-      } else if (matchText.contains('FACTURA')) {
-        tipoDoc = 'Factura';
-      }
-    } else {
-      for (final line in lines) {
-        final l = line.trim();
-        if (RegExp(r'^\d{6,10}$').hasMatch(l)) {
-          nroFactura = l;
-          break;
-        }
-      }
-    }
-
-    final fechaRegex = RegExp(r'Fecha\s*:\s*(\d{1,2})\s*[/.\-]\s*(\d{1,2})\s*[/.\-]\s*(\d{2,4})', caseSensitive: false);
-    final fechaMatch = fechaRegex.firstMatch(text);
-    if (fechaMatch != null) {
-      final dia = int.tryParse(fechaMatch.group(1) ?? '1') ?? 1;
-      final mes = int.tryParse(fechaMatch.group(2) ?? '1') ?? 1;
-      var anio = fechaMatch.group(3) ?? '2024';
-      if (anio.length == 2) anio = '20$anio';
-      fechaStr = '${dia.toString().padLeft(2, '0')}/${mes.toString().padLeft(2, '0')}/$anio';
-    }
-
-    return {
-      'proveedor': proveedor,
-      'rif': rif,
-      'nro_factura': nroFactura,
-      'fecha': fechaStr,
-      'tipo_documento': tipoDoc,
-    };
   }
 }

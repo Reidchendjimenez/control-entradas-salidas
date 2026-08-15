@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/sync/sync_service.dart';
 import '../../data/configuracion_repository.dart';
 import '../../data/configuracion_providers.dart' show categoriasConfigProvider, almacenesConfigProvider;
 
@@ -289,6 +290,9 @@ class _ProductoDialogState extends ConsumerState<_ProductoDialog> {
       } else {
         await widget.repo.createProducto(data);
       }
+      // Sube de inmediato (como los movimientos) para que el producto quede
+      // disponible en el server y no se rompa la FK de futuros movimientos.
+      await ref.read(syncEngineProvider)?.pushPending();
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {

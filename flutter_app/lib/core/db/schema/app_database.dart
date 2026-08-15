@@ -38,6 +38,20 @@ part 'app_database.g.dart';
   SyncMetadata,
   DispositivoUsuario,
   WhatsappQueue,
+  Temporales,
+  PosUsuarios,
+  PosMesas,
+  PosHabitaciones,
+  PosSesiones,
+  PosComandas,
+  PosVentas,
+  PosSettings,
+  PosCategorias,
+  PlatosCategorias,
+  Platos,
+  PlatoIngredientes,
+  PlatoContornos,
+  PosSyncTombstones,
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
@@ -62,14 +76,39 @@ class AppDatabase extends _$AppDatabase {
 
   /// Réplica de `LocalReplica.init_queue()` en sync_queue.py.
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onCreate: (m) => m.createAll(),
         onUpgrade: (m, from, to) async {
-          // v1 → v2: agrega whatsapp_queue (cola local de WhatsApp).
-          await m.createAll();
+          if (from < 2) {
+            // v1 → v2: agrega whatsapp_queue (cola local de WhatsApp).
+            await m.createAll();
+          }
+          if (from < 3) {
+            // v2 → v3: repara `existencias` duplicadas. Cada upsert anterior
+            // insertaba una fila nueva (no había UNIQUE en producto_id+almacen),
+            // así que puede haber varias por (producto, almacén). Se conserva la
+            // de mayor id (último estado) y se borran las demás.
+            await m.database.customStatement('''
+              DELETE FROM existencias
+              WHERE id NOT IN (
+                SELECT MAX(id) FROM existencias
+                GROUP BY producto_id, almacen
+              )
+            ''');
+          }
+          if (from < 4) {
+            // v3 → v4: agrega `temporales` (imágenes pre-cargadas de
+            // Validación, solo local).
+            await m.createTable(temporales);
+          }
+          if (from < 5) {
+            // v4 → v5: agrega las tablas del módulo POS (pos_* y platos_*).
+            // Sincronización por sync_uuid (ver pos_sync_engine.dart).
+            await m.createAll();
+          }
         },
       );
 }

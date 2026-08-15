@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../../../core/db/schema/app_database.dart';
+import '../../../core/sync/sync_service.dart';
 
 /// Repositorio de configuración — porta `usr/views/configuracion/*`,
 /// `usr/database/local_replica.py` (Periodos, LocalReplica), `usr/database/archive.py`.
@@ -20,16 +21,35 @@ class ConfiguracionRepository {
     return q.get();
   }
 
-  Future<int> createCategoria(CategoriasCompanion data) {
-    return _db.into(_db.categorias).insert(data);
+  Future<int> createCategoria(CategoriasCompanion data) async {
+    final id = await _db.into(_db.categorias).insert(data);
+    final c = await (_db.select(_db.categorias)..where((t) => t.id.equals(id))).getSingleOrNull();
+    if (c != null) {
+      await addPending(_db, tableName: 'categorias', operation: 'insert', data: categoriaToSyncMap(c));
+    }
+    return id;
   }
 
-  Future<int> updateCategoria(int id, CategoriasCompanion data) {
-    return (_db.update(_db.categorias)..where((t) => t.id.equals(id))).write(data);
+  Future<int> updateCategoria(int id, CategoriasCompanion data) async {
+    final res = await (_db.update(_db.categorias)..where((t) => t.id.equals(id))).write(data);
+    final c = await (_db.select(_db.categorias)..where((t) => t.id.equals(id))).getSingleOrNull();
+    if (c != null) {
+      await addPending(_db, tableName: 'categorias', operation: 'update', data: categoriaToSyncMap(c));
+    }
+    return res;
   }
 
-  Future<int> deleteCategoria(int id) {
-    return (_db.delete(_db.categorias)..where((t) => t.id.equals(id))).go();
+  /// Soft-delete en el server (activo=0): borrar la categoría en remoto rompería
+  /// la FK `productos.categoria_id`.
+  Future<int> deleteCategoria(int id) async {
+    final res = await (_db.delete(_db.categorias)..where((t) => t.id.equals(id))).go();
+    await addPending(
+      _db,
+      tableName: 'categorias',
+      operation: 'update',
+      data: {'id': id, 'activo': false, 'updated_at': DateTime.now().toUtc().toIso8601String()},
+    );
+    return res;
   }
 
   // ---------------------------------------------------------------------------
@@ -72,16 +92,36 @@ class ConfiguracionRepository {
     return siguiente.toString().padLeft(longitud, '0');
   }
 
-  Future<int> createProducto(ProductosCompanion data) {
-    return _db.into(_db.productos).insert(data);
+  Future<int> createProducto(ProductosCompanion data) async {
+    final id = await _db.into(_db.productos).insert(data);
+    await _encolarProducto(id, 'insert');
+    return id;
   }
 
-  Future<int> updateProducto(int id, ProductosCompanion data) {
-    return (_db.update(_db.productos)..where((t) => t.id.equals(id))).write(data);
+  Future<int> updateProducto(int id, ProductosCompanion data) async {
+    final res = await (_db.update(_db.productos)..where((t) => t.id.equals(id))).write(data);
+    await _encolarProducto(id, 'update');
+    return res;
   }
 
-  Future<int> deleteProducto(int id) {
-    return (_db.delete(_db.productos)..where((t) => t.id.equals(id))).go();
+  /// Encola la creación/edición del producto con la fila completa y su id local
+  /// (el server acepta id explícito y así no se rompe la FK de movimientos).
+  Future<void> _encolarProducto(int id, String op) async {
+    final p = await (_db.select(_db.productos)..where((t) => t.id.equals(id))).getSingleOrNull();
+    if (p == null) return;
+    await addPending(_db, tableName: 'productos', operation: op, data: productoToSyncMap(p));
+  }
+
+  /// Borra local y desactiva en el server (`activo=0`): borrarlo en remoto
+  /// rompería la FK de movimientos/existencias que lo referencian.
+  Future<int> deleteProducto(int id) async {
+    final p = await (_db.select(_db.productos)..where((t) => t.id.equals(id))).getSingleOrNull();
+    final res = await (_db.delete(_db.productos)..where((t) => t.id.equals(id))).go();
+    if (p != null) {
+      final data = productoToSyncMap(p)..['activo'] = false;
+      await addPending(_db, tableName: 'productos', operation: 'update', data: data);
+    }
+    return res;
   }
 
   // ---------------------------------------------------------------------------
@@ -94,16 +134,28 @@ class ConfiguracionRepository {
     return q.get();
   }
 
-  Future<int> createProveedor(ProveedoresCompanion data) {
-    return _db.into(_db.proveedores).insert(data);
+  Future<int> createProveedor(ProveedoresCompanion data) async {
+    final id = await _db.into(_db.proveedores).insert(data);
+    final p = await (_db.select(_db.proveedores)..where((t) => t.id.equals(id))).getSingleOrNull();
+    if (p != null) {
+      await addPending(_db, tableName: 'proveedores', operation: 'insert', data: proveedorToSyncMap(p));
+    }
+    return id;
   }
 
-  Future<int> updateProveedor(int id, ProveedoresCompanion data) {
-    return (_db.update(_db.proveedores)..where((t) => t.id.equals(id))).write(data);
+  Future<int> updateProveedor(int id, ProveedoresCompanion data) async {
+    final res = await (_db.update(_db.proveedores)..where((t) => t.id.equals(id))).write(data);
+    final p = await (_db.select(_db.proveedores)..where((t) => t.id.equals(id))).getSingleOrNull();
+    if (p != null) {
+      await addPending(_db, tableName: 'proveedores', operation: 'update', data: proveedorToSyncMap(p));
+    }
+    return res;
   }
 
-  Future<int> deleteProveedor(int id) {
-    return (_db.delete(_db.proveedores)..where((t) => t.id.equals(id))).go();
+  Future<int> deleteProveedor(int id) async {
+    final res = await (_db.delete(_db.proveedores)..where((t) => t.id.equals(id))).go();
+    await addPending(_db, tableName: 'proveedores', operation: 'delete', data: {'id': id});
+    return res;
   }
 
   // ---------------------------------------------------------------------------

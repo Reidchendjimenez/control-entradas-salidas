@@ -320,3 +320,196 @@ class WhatsappQueue extends Table {
   @override
   Set<Column> get primaryKey => {id};
 }
+
+/// Imágenes temporales de la vista de Validación (solo local, NO se
+/// sincronizan con Supabase). El usuario pre-carga una imagen, se extraen sus
+/// datos por OCR, y al validar elige cuál usar (o pega una nueva). Se borran
+/// al ser usadas o manualmente.
+class Temporales extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get imagenB64 => text().named('imagen_b64').nullable()();
+  TextColumn get tipoDocumento => text().named('tipo_documento').nullable()();
+  TextColumn get nroFactura => text().named('nro_factura').nullable()();
+  TextColumn get proveedor => text().nullable()();
+  RealColumn get monto => real().nullable()();
+  DateTimeColumn get fecha => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime().named('created_at')();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+// ============================================================================
+// MÓDULO POS — réplica de `usr/database/local_replica.py`. Estas tablas son
+// locales; se sincronizan con Supabase por `sync_uuid` (no por id local), ver
+// `usr/database/pos_sync.py` y el port en `lib/core/sync/pos_sync_engine.dart`.
+// ============================================================================
+
+class PosUsuarios extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get nombre => text()();
+  TextColumn get pinHash => text().named('pin_hash').nullable()();
+  IntColumn get esAdmin => integer().named('es_admin').withDefault(const Constant(0))();
+  IntColumn get activo => integer().withDefault(const Constant(1))();
+  DateTimeColumn get creadoEn => dateTime().named('creado_en')();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class PosMesas extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get numero => text()();
+  TextColumn get nombre => text().nullable()();
+  TextColumn get zona => text().nullable()();
+  IntColumn get activo => integer().withDefault(const Constant(1))();
+  DateTimeColumn get creadoEn => dateTime().named('creado_en')();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class PosHabitaciones extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get numero => text()();
+  TextColumn get piso => text().nullable()();
+  TextColumn get tipo => text().nullable()();
+  IntColumn get activo => integer().withDefault(const Constant(1))();
+  DateTimeColumn get creadoEn => dateTime().named('creado_en')();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class PosSesiones extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get usuarioId => integer().named('usuario_id')();
+  DateTimeColumn get abiertaEn => dateTime().named('abierta_en')();
+  DateTimeColumn get cerradaEn => dateTime().named('cerrada_en').nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class PosComandas extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get sesionId => integer().named('sesion_id')();
+  IntColumn get mesaId => integer().named('mesa_id').nullable()();
+  IntColumn get habitacionId => integer().named('habitacion_id').nullable()();
+  TextColumn get estado => text().withDefault(const Constant('abierta'))();
+  RealColumn get total => real().withDefault(const Constant(0))();
+  TextColumn get itemsJson => text().named('items_json').nullable()();
+  TextColumn get syncUuid => text().named('sync_uuid').nullable()();
+  DateTimeColumn get createdAt => dateTime().named('created_at')();
+  DateTimeColumn get updatedAt => dateTime().named('updated_at').nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class PosVentas extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get comandaId => integer().named('comanda_id').nullable()();
+  IntColumn get correlativo => integer().nullable()();
+  RealColumn get total => real().withDefault(const Constant(0))();
+  TextColumn get itemsJson => text().named('items_json').nullable()();
+  IntColumn get mesaId => integer().named('mesa_id').nullable()();
+  IntColumn get habitacionId => integer().named('habitacion_id').nullable()();
+  IntColumn get usuarioId => integer().named('usuario_id').nullable()();
+  IntColumn get sesionId => integer().named('sesion_id').nullable()();
+  TextColumn get estado => text().withDefault(const Constant('vigente'))();
+  IntColumn get ventaAnulaId => integer().named('venta_anula_id').nullable()();
+  TextColumn get motivoAnulacion => text().named('motivo_anulacion').nullable()();
+  TextColumn get anuladaPor => text().named('anulada_por').nullable()();
+  DateTimeColumn get anuladaEn => dateTime().named('anulada_en').nullable()();
+  RealColumn get tasaBs => real().named('tasa_bs').nullable()();
+  TextColumn get syncUuid => text().named('sync_uuid').nullable()();
+  TextColumn get comandaSyncUuid => text().named('comanda_sync_uuid').nullable()();
+  TextColumn get ventaAnulaSyncUuid => text().named('venta_anula_sync_uuid').nullable()();
+  DateTimeColumn get createdAt => dateTime().named('created_at')();
+  DateTimeColumn get updatedAt => dateTime().named('updated_at').nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class PosSettings extends Table {
+  TextColumn get key => text()();
+  TextColumn get value => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {key};
+}
+
+class PosCategorias extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get nombre => text()();
+  TextColumn get color => text().withDefault(const Constant('#FF6F00'))();
+  TextColumn get icono => text().nullable()();
+  IntColumn get activo => integer().withDefault(const Constant(1))();
+  TextColumn get syncUuid => text().named('sync_uuid').nullable()();
+  DateTimeColumn get createdAt => dateTime().named('created_at').nullable()();
+  DateTimeColumn get updatedAt => dateTime().named('updated_at').nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class PlatosCategorias extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get nombre => text()();
+  TextColumn get color => text().withDefault(const Constant('#FF6F00'))();
+  IntColumn get activo => integer().withDefault(const Constant(1))();
+  IntColumn get categoriaPadreId => integer().named('categoria_padre_id').nullable()();
+  IntColumn get posCategoriaPadreId => integer().named('pos_categoria_padre_id').nullable()();
+  DateTimeColumn get createdAt => dateTime().named('created_at').nullable()();
+  DateTimeColumn get updatedAt => dateTime().named('updated_at').nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class Platos extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get nombre => text()();
+  IntColumn get categoriaId => integer().named('categoria_id')();
+  RealColumn get precioVenta => real().named('precio_venta').withDefault(const Constant(0))();
+  IntColumn get activo => integer().withDefault(const Constant(1))();
+  IntColumn get esContorno => integer().named('es_contorno').withDefault(const Constant(0))();
+  IntColumn get llevaContornos => integer().named('lleva_contornos').withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime().named('created_at').nullable()();
+  DateTimeColumn get updatedAt => dateTime().named('updated_at').nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class PlatoIngredientes extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get platoId => integer().named('plato_id')();
+  IntColumn get productoId => integer().named('producto_id')();
+  RealColumn get cantidad => real()();
+  TextColumn get unidad => text().withDefault(const Constant('unidad'))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class PlatoContornos extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get platoId => integer().named('plato_id')();
+  IntColumn get contornoId => integer().named('contorno_id')();
+  IntColumn get maxSeleccionar => integer().named('max_seleccionar').withDefault(const Constant(2))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class PosSyncTombstones extends Table {
+  TextColumn get uuid => text()();
+  TextColumn get tabla => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().named('created_at').nullable()();
+
+  @override
+  Set<Column> get primaryKey => {uuid};
+}

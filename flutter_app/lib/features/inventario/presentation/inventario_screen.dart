@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/schema/app_database.dart';
@@ -26,6 +27,17 @@ class _InventarioScreenState extends ConsumerState<InventarioScreen> {
   String _search = '';
   bool _vistaListaCompra = false;
 
+  final _searchCtrl = TextEditingController();
+  final _searchFocus = FocusNode();
+  final _productosKey = GlobalKey<ProductosPanelState>();
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final repo = ref.watch(inventarioRepoProvider);
@@ -41,17 +53,55 @@ class _InventarioScreenState extends ConsumerState<InventarioScreen> {
                 : CategoriasGrid(
                     repo: repo,
                     searchTerm: _search,
-                    onSelect: (c) => setState(() => _categoria = c),
+                    onSelect: (c) => setState(() {
+                      _categoria = c;
+                      _search = '';
+                      _searchCtrl.clear();
+                    }),
                   );
 
     return Scaffold(
-      body: Column(
-        children: [
-          _buildHeader(repo, colors),
-          Expanded(child: cuerpo),
-        ],
+      body: Focus(
+        autofocus: true,
+        onKeyEvent: _onScreenKey,
+        child: Column(
+          children: [
+            _buildHeader(repo, colors),
+            Expanded(child: cuerpo),
+          ],
+        ),
       ),
     );
+  }
+
+  /// F1 enfoca el buscador; flechas/Enter navegan los productos dentro de una categoría.
+  KeyEventResult _onScreenKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final lk = event.logicalKey;
+
+    if (_categoria != null && !_vistaListaCompra) {
+      if (lk == LogicalKeyboardKey.f1) {
+        _searchFocus.requestFocus();
+        return KeyEventResult.handled;
+      }
+      final panel = _productosKey.currentState;
+      if (panel != null) {
+        if (lk == LogicalKeyboardKey.arrowDown) {
+          panel.navegarSeleccion(1);
+          return KeyEventResult.handled;
+        }
+        if (lk == LogicalKeyboardKey.arrowUp) {
+          panel.navegarSeleccion(-1);
+          return KeyEventResult.handled;
+        }
+        if (lk == LogicalKeyboardKey.enter ||
+            lk == LogicalKeyboardKey.numpadEnter) {
+          panel.abrirSeleccion();
+          return KeyEventResult.handled;
+        }
+      }
+    }
+    return KeyEventResult.ignored;
   }
 
   Widget _buildProductosDeCategoria(InventarioRepository repo, ColorScheme colors) {
@@ -69,6 +119,7 @@ class _InventarioScreenState extends ConsumerState<InventarioScreen> {
                 onPressed: () => setState(() {
                   _categoria = null;
                   _search = '';
+                  _searchCtrl.clear();
                 }),
               ),
               CircleAvatar(
@@ -92,6 +143,7 @@ class _InventarioScreenState extends ConsumerState<InventarioScreen> {
         ),
         Expanded(
           child: ProductosPanel(
+            key: _productosKey,
             repo: repo,
             categoriaId: categoria.id,
             searchTerm: _search,
@@ -113,6 +165,8 @@ class _InventarioScreenState extends ConsumerState<InventarioScreen> {
           if (!_vistaListaCompra) ...[
             Expanded(
               child: TextField(
+                controller: _searchCtrl,
+                focusNode: _searchFocus,
                 decoration: InputDecoration(
                   hintText: _categoria != null ? 'Buscar en ${_categoria!.nombre}...' : 'Buscar categoría...',
                   prefixIcon: const Icon(Icons.search, size: 20),

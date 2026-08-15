@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 
 import '../../../core/db/schema/app_database.dart';
+import '../../../core/sync/sync_engine.dart';
 import '../../../core/sync/sync_service.dart';
 
 /// Entrada pendiente de validación: movimiento tipo `entrada` sin factura,
@@ -17,6 +18,8 @@ class EntradaPendiente {
     required this.pesoTotal,
     required this.almacen,
     required this.fecha,
+    required this.cantidadAnterior,
+    required this.cantidadNueva,
   });
 
   final int id;
@@ -28,6 +31,8 @@ class EntradaPendiente {
   final double pesoTotal;
   final String almacen;
   final DateTime? fecha;
+  final double cantidadAnterior;
+  final double cantidadNueva;
 
   String get cantidadTexto {
     if (esPesable && pesoTotal > 0) return '${pesoTotal.toStringAsFixed(3)} kg';
@@ -112,6 +117,8 @@ class ValidacionRepository {
       pesoTotal: m.pesoTotal,
       almacen: m.almacen ?? 'principal',
       fecha: m.fechaMovimiento,
+      cantidadAnterior: m.cantidadAnterior,
+      cantidadNueva: m.cantidadNueva,
     );
   }
 
@@ -325,6 +332,10 @@ class ValidacionRepository {
 
   /// Elimina una entrada pendiente y encola el borrado en el outbox con los
   /// campos coincidentes (porta `_eliminar_entrada` de validacion_view.py).
+  ///
+  /// La fecha se normaliza a UTC al segundo (igual que la subida) y se agregan
+  /// `cantidad_anterior/nueva` para que el match en el server sea preciso y no
+  /// borre de más si hay entradas duplicadas.
   Future<void> eliminarEntrada(EntradaPendiente entrada) async {
     await (_db.delete(_db.movimientos)..where((t) => t.id.equals(entrada.id))).go();
     await addPending(
@@ -335,8 +346,10 @@ class ValidacionRepository {
         'producto_id': entrada.productoId,
         'tipo': 'entrada',
         'cantidad': entrada.cantidad,
-        'fecha_movimiento': entrada.fecha?.toIso8601String(),
+        'fecha_movimiento': toSecondUtcIsoString(entrada.fecha),
         'almacen': entrada.almacen,
+        'cantidad_anterior': entrada.cantidadAnterior,
+        'cantidad_nueva': entrada.cantidadNueva,
       },
     );
   }

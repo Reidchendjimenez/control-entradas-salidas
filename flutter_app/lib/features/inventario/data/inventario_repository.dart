@@ -44,7 +44,7 @@ class InventarioRepository {
       _db,
       tableName: 'categorias',
       operation: 'insert',
-      data: {'nombre': nombre},
+      data: {'id': id, 'nombre': nombre},
     );
     return id;
   }
@@ -55,6 +55,7 @@ class InventarioRepository {
 
   Future<List<Producto>> getAllProductos({String searchTerm = ''}) {
     final q = _db.select(_db.productos)
+      ..where((t) => t.activo.equals(1))
       ..orderBy([(t) => OrderingTerm.asc(t.nombre)]);
     if (searchTerm.isNotEmpty) {
       q.where((t) => t.nombre.lower().contains(searchTerm.toLowerCase()));
@@ -64,6 +65,7 @@ class InventarioRepository {
 
   Stream<List<Producto>> watchProductos({String searchTerm = ''}) {
     final q = _db.select(_db.productos)
+      ..where((t) => t.activo.equals(1))
       ..orderBy([(t) => OrderingTerm.asc(t.nombre)]);
     if (searchTerm.isNotEmpty) {
       q.where((t) => t.nombre.lower().contains(searchTerm.toLowerCase()));
@@ -96,7 +98,7 @@ class InventarioRepository {
     String almacenPredeterminado = 'principal',
     bool esPesable = false,
   }) async {
-    await _db.into(_db.productos).insert(
+    final id = await _db.into(_db.productos).insert(
           ProductosCompanion.insert(
             nombre: nombre,
             codigo: Value(codigo),
@@ -113,12 +115,15 @@ class InventarioRepository {
           ),
           mode: InsertMode.replace,
         );
-    await addPending(
-      _db,
-      tableName: 'productos',
-      operation: 'insert',
-      data: {'nombre': nombre},
-    );
+    final p = await (_db.select(_db.productos)..where((t) => t.id.equals(id))).getSingleOrNull();
+    if (p != null) {
+      await addPending(
+        _db,
+        tableName: 'productos',
+        operation: 'insert',
+        data: productoToSyncMap(p),
+      );
+    }
   }
 
   // ---------------------------------------------------------------------
@@ -141,9 +146,11 @@ class InventarioRepository {
     final almacenSel =
         (almacen ?? '').trim().isNotEmpty ? almacen!.trim() : 'principal';
 
-    final existActual = await (_db.select(_db.existencias)
-          ..where((t) => t.productoId.equals(productoId) & t.almacen.equals(almacenSel)))
-        .getSingleOrNull();
+    final existRows = await (_db.select(_db.existencias)
+          ..where((t) => t.productoId.equals(productoId) & t.almacen.equals(almacenSel))
+          ..orderBy([(t) => OrderingTerm.desc(t.id)]))
+        .get();
+    final existActual = existRows.isEmpty ? null : existRows.first;
     final cantAnterior = existActual?.cantidad ?? 0;
 
     // Si es pesable y hay peso, se mueve por peso (kg); si no, por cantidad.
@@ -192,8 +199,13 @@ class InventarioRepository {
     required String almacen,
     required double cantidad,
     String unidad = 'unidad',
-  }) {
-    return _db.into(_db.existencias).insertOnConflictUpdate(
+  }) async {
+    // Deduplica: queda exactamente 1 fila por (producto_id, almacen).
+    await (_db.delete(_db.existencias)
+          ..where((t) =>
+              t.productoId.equals(productoId) & t.almacen.equals(almacen)))
+        .go();
+    await _db.into(_db.existencias).insert(
           ExistenciasCompanion.insert(
             productoId: Value(productoId),
             almacen: almacen,
@@ -259,8 +271,8 @@ class InventarioRepository {
   Future<void> toggleComprasLista(int productoId) async {
     final exists = await (_db.select(_db.comprasLista)
           ..where((t) => t.productoId.equals(productoId)))
-        .getSingleOrNull();
-    if (exists != null) {
+        .get();
+    if (exists.isNotEmpty) {
       await (_db.delete(_db.comprasLista)..where((t) => t.productoId.equals(productoId))).go();
     } else {
       await _db.into(_db.comprasLista).insert(

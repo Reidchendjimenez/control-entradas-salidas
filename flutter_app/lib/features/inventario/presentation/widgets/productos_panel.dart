@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:control_entradas_salidas/core/db/schema/app_database.dart';
 import 'package:control_entradas_salidas/features/inventario/data/inventario_repository.dart';
 import 'package:control_entradas_salidas/features/inventario/data/inventario_providers.dart';
-import 'package:control_entradas_salidas/features/calculadora/presentation/calculadora_dialog.dart';
-import 'package:control_entradas_salidas/features/calculadora/presentation/calculadora_button.dart';
+import '../dialogs/movimiento_dialog.dart';
 import 'producto_card.dart';
 
 /// Panel derecho: productos filtrados por categoría o búsqueda.
@@ -25,10 +22,96 @@ class ProductosPanel extends ConsumerStatefulWidget {
   final String searchTerm;
 
   @override
-  ConsumerState<ProductosPanel> createState() => _ProductosPanelState();
+  ProductosPanelState createState() => ProductosPanelState();
 }
 
-class _ProductosPanelState extends ConsumerState<ProductosPanel> {
+class ProductosPanelState extends ConsumerState<ProductosPanel> {
+  int _selectedIndex = 0;
+  List<Producto>? _prods;
+  final _listaFocus = FocusNode();
+  final _scrollCtrl = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollCtrl.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_prods == null || _prods!.isEmpty) return;
+    final index = (_scrollCtrl.offset / 80).round();
+    if (index >= 0 &&
+        index < _prods!.length &&
+        index != _selectedIndex) {
+      setState(() => _selectedIndex = index);
+    }
+  }
+
+  @override
+  void didUpdateWidget(ProductosPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.searchTerm != widget.searchTerm ||
+        oldWidget.categoriaId != widget.categoriaId) {
+      _selectedIndex = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _listaFocus.dispose();
+    _scrollCtrl.dispose();
+    super.dispose();
+  }
+
+  /// Navega la selección y lleva el foco a la lista (para Enter).
+  void navegarSeleccion(int delta) {
+    _navegar(delta);
+    _listaFocus.requestFocus();
+  }
+
+  /// Abre el modal de movimiento del producto seleccionado.
+  void abrirSeleccion() {
+    final prods = _prods;
+    if (prods == null || prods.isEmpty) return;
+    final i = _selectedIndex.clamp(0, prods.length - 1);
+    _showMovimientoDialog(prods[i]);
+  }
+
+  void _navegar(int delta) {
+    final prods = _prods;
+    if (prods == null || prods.isEmpty) return;
+    final nuevo = (_selectedIndex + delta).clamp(0, prods.length - 1);
+    if (nuevo == _selectedIndex) return;
+    setState(() => _selectedIndex = nuevo);
+    if (_scrollCtrl.hasClients) {
+      _scrollCtrl.animateTo(
+        (nuevo * 80 - _scrollCtrl.position.viewportDimension / 2)
+            .clamp(0.0, _scrollCtrl.position.maxScrollExtent),
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  KeyEventResult _onListKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final lk = event.logicalKey;
+    if (lk == LogicalKeyboardKey.arrowDown) {
+      _navegar(1);
+      return KeyEventResult.handled;
+    }
+    if (lk == LogicalKeyboardKey.arrowUp) {
+      _navegar(-1);
+      return KeyEventResult.handled;
+    }
+    if (lk == LogicalKeyboardKey.enter ||
+        lk == LogicalKeyboardKey.numpadEnter) {
+      abrirSeleccion();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
     final future = widget.categoriaId != null
@@ -51,18 +134,29 @@ class _ProductosPanelState extends ConsumerState<ProductosPanel> {
                     .where((p) => p.nombre.toLowerCase().contains(q))
                     .toList();
               }
+              _prods = prods;
               if (prods.isEmpty) {
                 return const Center(child: Text('Sin productos'));
               }
-              return ListView.builder(
-                padding: const EdgeInsets.all(12),
-                itemCount: prods.length,
-                itemBuilder: (context, i) => ProductoCard(
-                  producto: prods[i],
-                  repo: widget.repo,
-                  onMovimiento: _showMovimientoDialog,
-                  onToggleLista: _toggleListaCompra,
-                  onCorregir: _showCorreccionDialog,
+              if (_selectedIndex >= prods.length) {
+                _selectedIndex = prods.length - 1;
+              }
+              return Focus(
+                focusNode: _listaFocus,
+                autofocus: true,
+                onKeyEvent: _onListKey,
+                child: ListView.builder(
+                  controller: _scrollCtrl,
+                  padding: const EdgeInsets.all(12),
+                  itemCount: prods.length,
+                  itemBuilder: (context, i) => ProductoCard(
+                    producto: prods[i],
+                    repo: widget.repo,
+                    seleccionado: i == _selectedIndex,
+                    onMovimiento: _showMovimientoDialog,
+                    onToggleLista: _toggleListaCompra,
+                    onCorregir: _showCorreccionDialog,
+                  ),
                 ),
               );
             },
@@ -73,114 +167,7 @@ class _ProductosPanelState extends ConsumerState<ProductosPanel> {
   }
 
   Future<void> _showMovimientoDialog(Producto p) async {
-    final repo = ref.read(inventarioRepoProvider);
-    final existencias = await repo.getExistenciasByProducto(p.id);
-    final almacenes = existencias.map((e) => e.almacen).toSet().toList();
-    if (!almacenes.contains('principal')) almacenes.add('principal');
-
-    String tipo = 'entrada';
-    String? almacen = p.almacenPredeterminado;
-    if (!almacenes.contains(almacen)) almacen = almacenes.first;
-
-    final cantCtrl = TextEditingController(text: '1');
-    final undCtrl = TextEditingController();
-    final kgUndCtrl = TextEditingController();
-    final pesoTotalCtrl = TextEditingController();
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSt) => AlertDialog(
-          title: Text(p.nombre),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'entrada', label: Text('Entrada'), icon: Icon(Icons.input)),
-                    ButtonSegment(value: 'salida', label: Text('Salida'), icon: Icon(Icons.output)),
-                    ButtonSegment(value: 'ajuste', label: Text('Ajuste'), icon: Icon(Icons.tune)),
-                  ],
-                  selected: {tipo},
-                  onSelectionChanged: (s) => setSt(() => tipo = s.first),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(labelText: 'Almacén'),
-                  value: almacen,
-                  items: [
-                    for (final a in almacenes) DropdownMenuItem(value: a, child: Text(a.capitalize())),
-                  ],
-                  onChanged: (v) => setSt(() => almacen = v),
-                ),
-                const SizedBox(height: 12),
-                _StockInfoPanel(existencias: existencias),
-                const SizedBox(height: 12),
-                if (p.esPesable != 1)
-                  TextField(
-                    controller: cantCtrl,
-                    decoration: InputDecoration(
-                      labelText: 'Cantidad',
-                      suffixIcon: CalculadoraSuffixIcon(targetController: cantCtrl),
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  )
-                else ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: undCtrl,
-                          decoration: InputDecoration(
-                            labelText: 'Und.',
-                            suffixIcon: CalculadoraSuffixIcon(targetController: undCtrl),
-                          ),
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: kgUndCtrl,
-                          decoration: InputDecoration(
-                            labelText: 'Kg/und.',
-                            suffixIcon: CalculadoraSuffixIcon(targetController: kgUndCtrl),
-                          ),
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: pesoTotalCtrl,
-                    decoration: InputDecoration(
-                      labelText: 'Peso Total (kg)',
-                      suffixText: 'kg',
-                      suffixIcon: CalculadoraSuffixIcon(targetController: pesoTotalCtrl),
-                    ),
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-            FilledButton(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Movimiento registrado')),
-                );
-              },
-              child: const Text('Registrar'),
-            ),
-          ],
-        ),
-      ),
-    );
+    await showMovimientoDialog(context, ref, p);
   }
 
   Future<void> _toggleListaCompra(Producto p) async {
@@ -193,61 +180,4 @@ class _ProductosPanelState extends ConsumerState<ProductosPanel> {
       SnackBar(content: Text('Corregir ${p.nombre} - pendiente')),
     );
   }
-}
-
-/// Panel de stock por almacén dentro del diálogo de movimiento.
-class _StockInfoPanel extends StatelessWidget {
-  const _StockInfoPanel({required this.existencias});
-
-  final List<Existencia> existencias;
-
-  @override
-  Widget build(BuildContext context) {
-    if (existencias.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Text('Sin stock registrado', style: TextStyle(fontSize: 12)),
-      );
-    }
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '���� Stock por almacén:',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Wrap(
-            spacing: 12,
-            runSpacing: 4,
-            children: [
-              for (final e in existencias)
-                Text(
-                  '${e.almacen.capitalize()}: ${e.cantidad.toStringAsFixed(e.cantidad % 1 == 0 ? 0 : 2)} ${e.unidad}',
-                  style: const TextStyle(fontSize: 11),
-                ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-extension _StringCapitalize on String {
-  String capitalize() => isEmpty ? this : '${this[0].toUpperCase()}${substring(1)}';
 }
