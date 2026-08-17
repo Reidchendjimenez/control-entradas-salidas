@@ -100,7 +100,7 @@ class ProductoStockCard extends ConsumerWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '📦 $catNombre  •  🆔 ${producto.codigo ?? '---'}',
+                '$catNombre  •  ID ${producto.codigo ?? '---'}',
                 style: TextStyle(
                     fontSize: 11, color: scheme.onSurfaceVariant),
               ),

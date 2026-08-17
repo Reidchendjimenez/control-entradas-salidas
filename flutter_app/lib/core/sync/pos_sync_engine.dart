@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../db/schema/app_database.dart';
+import 'sync_engine.dart';
 
 /// Tablas del módulo POS gestionadas por `PosSyncEngine` (port de `_POS_TABLES`
 /// en `usr/database/pos_sync.py`). Las tablas `pos_*`/`platos_*` NO las procesa
@@ -19,6 +20,7 @@ const Set<String> posTableNames = {
   'pos_habitaciones',
   'pos_usuarios',
   'pos_settings',
+  'pos_sesiones',
   'pos_comandas',
   'pos_ventas',
 };
@@ -27,20 +29,30 @@ typedef _PosTableDesc = ({
   String serverTable,
   bool poda,
   String? dedupeKey,
+  String? incrementalColumn,
 });
 
 const List<_PosTableDesc> _posTables = [
-  (serverTable: 'platos_categorias', poda: true, dedupeKey: 'nombre'),
-  (serverTable: 'platos', poda: true, dedupeKey: null),
-  (serverTable: 'plato_ingredientes', poda: false, dedupeKey: null),
-  (serverTable: 'plato_contornos', poda: false, dedupeKey: null),
-  (serverTable: 'pos_categorias', poda: true, dedupeKey: 'nombre'),
-  (serverTable: 'pos_mesas', poda: true, dedupeKey: null),
-  (serverTable: 'pos_habitaciones', poda: true, dedupeKey: null),
-  (serverTable: 'pos_usuarios', poda: true, dedupeKey: null),
-  (serverTable: 'pos_settings', poda: false, dedupeKey: null),
-  (serverTable: 'pos_comandas', poda: false, dedupeKey: null),
-  (serverTable: 'pos_ventas', poda: false, dedupeKey: null),
+  // Catálogos con `updated_at`: descarga incremental (misma mejora que el
+  // sync general, sync_engine.dart:594). Se podan con una consulta ligera de
+  // ids cuando el ciclo es incremental.
+  (serverTable: 'platos_categorias', poda: true, dedupeKey: 'nombre', incrementalColumn: 'updated_at'),
+  (serverTable: 'platos', poda: true, dedupeKey: null, incrementalColumn: 'updated_at'),
+  // Tablas chicas sin `updated_at` (hijas de plato): descarga completa.
+  (serverTable: 'plato_ingredientes', poda: false, dedupeKey: null, incrementalColumn: null),
+  (serverTable: 'plato_contornos', poda: false, dedupeKey: null, incrementalColumn: null),
+  (serverTable: 'pos_categorias', poda: true, dedupeKey: 'nombre', incrementalColumn: 'updated_at'),
+  (serverTable: 'pos_mesas', poda: true, dedupeKey: null, incrementalColumn: 'updated_at'),
+  (serverTable: 'pos_habitaciones', poda: true, dedupeKey: null, incrementalColumn: 'updated_at'),
+  (serverTable: 'pos_usuarios', poda: true, dedupeKey: null, incrementalColumn: 'updated_at'),
+  (serverTable: 'pos_settings', poda: false, dedupeKey: null, incrementalColumn: null),
+  // Turnos/reportes de cierre: incremental por `updated_at` (evita re-bajar
+  // el historial de turnos cada ciclo).
+  (serverTable: 'pos_sesiones', poda: false, dedupeKey: null, incrementalColumn: 'updated_at'),
+  // Crecimiento en el tiempo: incremental por `updated_at` (evita re-bajar
+  // todo el historial de comandas/ventas cada ciclo).
+  (serverTable: 'pos_comandas', poda: false, dedupeKey: null, incrementalColumn: 'updated_at'),
+  (serverTable: 'pos_ventas', poda: false, dedupeKey: null, incrementalColumn: 'updated_at'),
 ];
 
 /// Motor de sincronización del módulo POS — puerto de `POSSyncManager` en
@@ -50,11 +62,15 @@ const List<_PosTableDesc> _posTables = [
 /// - La subida de comandas/ventas se empareja por `sync_uuid` (los ids locales
 ///   no valen en otros dispositivos).
 /// - Se excluyen de la cola general (`pos_*`), igual que en sync.py:668.
-/// - Las categorías/productos para la venta y los movimientos los gestiona el
-///   sync general (la app siempre lo ejecuta); aquí solo bajan las 11 tablas
-///   `pos_*`/`platos_*` con poda de huérfanos (pos_sync.py `_download_all`).
-/// - Los movimientos de venta/devolución también los sube el sync general
-///   (ya inserta `venta_sync_uuid`), así que no se duplican aquí.
+/// - Descarga las 11 tablas `pos_*`/`platos_*` con poda de huérfanos
+///   (pos_sync.py `_download_all`) y además el subconjunto de catálogo que el
+///   POS necesita para vender (categorías `visible_en_pos` + productos para la
+///   venta, pos_sync.py:137-163).
+/// - En el POS standalone (sin el módulo de inventario) sube también los
+///   movimientos de stock de cada venta a través de un `SyncEngine` interno
+///   (`pushPending`, solo subida: outbox no-pos + movimientos `sincronizado=0`).
+///   En la app combinada este motor hace lo mismo sin duplicar trabajo: la
+///   cola no-pos y los movimientos solo los procesa esta subida.
 class PosSyncEngine {
   PosSyncEngine({required AppDatabase db, required this.client}) : _db = db;
 
@@ -64,6 +80,12 @@ class PosSyncEngine {
   bool _running = false;
   Timer? _timer;
   void Function(String message)? onProgress;
+  void Function()? onSyncComplete;
+
+  /// Motor general interno, usado solo para subir movimientos/cola no-pos
+  /// (`pushPending`, sin descarga).
+  late final SyncEngine _general = SyncEngine(db: _db, client: client)
+    ..onProgress = _log;
 
   void _log(String msg) => onProgress?.call(msg);
 
@@ -77,6 +99,10 @@ class PosSyncEngine {
     try {
       await _processOutbox();
       await _downloadAllFromServer();
+      await _general.pushPending();
+      await _setLastPosSync();
+      _log('Sincronización POS finalizada');
+      onSyncComplete?.call();
       return true;
     } catch (e) {
       _log('Error en sync POS: $e');
@@ -93,6 +119,8 @@ class PosSyncEngine {
       try {
         await _processOutbox();
         await _downloadAllFromServer();
+        await _general.pushPending();
+        await _setLastPosSync();
       } catch (e) {
         _log('Error en sync loop POS: $e');
       }
@@ -109,6 +137,8 @@ class PosSyncEngine {
   // ---------------------------------------------------------------------
 
   Future<void> _downloadAllFromServer() async {
+    // Subconjunto de catálogo de inventario que el POS necesita para vender.
+    await _descargarCatalogoVenta();
     for (final t in _posTables) {
       try {
         await _descargarTabla(t);
@@ -129,6 +159,94 @@ class PosSyncEngine {
     }
   }
 
+  /// Subconjunto de catálogo que el POS muestra al vender (espejo de
+  /// pos_sync.py:137-163): categorías de inventario con `visible_en_pos` y
+  /// productos `tipo='Productos para la venta'`, ambos activos. Sin poda:
+  /// el módulo de inventario gobierna el resto del catálogo.
+  Future<void> _descargarCatalogoVenta() async {
+    try {
+      final cats = await _bajarPaginado(
+        client.from('categorias')
+            .select()
+            .eq('activo', true)
+            .eq('visible_en_pos', true),
+      );
+      for (final r in cats) {
+        await _db.into(_db.categorias).insertOnConflictUpdate(
+          CategoriasCompanion.insert(
+            id: Value((r['id'] as num).toInt()),
+            nombre: r['nombre'] as String,
+            descripcion: Value(r['descripcion'] as String?),
+            imagen: Value(r['imagen'] as String?),
+            color: Value(r['color'] as String? ?? '#2196F3'),
+            activo: Value(_toBoolInt(r['activo'], def: 1)),
+            visibleEnPos: Value(_toBoolInt(r['visible_en_pos'], def: 1)),
+            createdAt: Value(_toDt(r['created_at'])),
+            updatedAt: Value(_toDt(r['updated_at'])),
+          ),
+        );
+      }
+      _log('${cats.length} categorías (visibles en POS) descargadas');
+    } catch (e) {
+      _log('Error descargando categorías: $e');
+    }
+
+    try {
+      final prods = await _bajarPaginado(
+        client.from('productos')
+            .select()
+            .eq('activo', true)
+            .eq('tipo', 'Productos para la venta'),
+      );
+      for (final r in prods) {
+        await _db.into(_db.productos).insertOnConflictUpdate(
+          ProductosCompanion.insert(
+            id: Value((r['id'] as num).toInt()),
+            nombre: r['nombre'] as String,
+            codigo: Value(r['codigo'] as String?),
+            descripcion: Value(r['descripcion'] as String?),
+            categoriaId: Value(_toInt(r['categoria_id'])),
+            esPesable: Value(_toBoolInt(r['es_pesable'])),
+            requiereFotoPeso: Value(_toBoolInt(r['requiere_foto_peso'])),
+            pesoUnitario: Value(_toDouble(r['peso_unitario'])),
+            precioVenta: Value(_toDouble(r['precio_venta']) ?? 0),
+            unidadMedida: Value(r['unidad_medida'] as String? ?? 'unidad'),
+            stockActual: Value(_toDouble(r['stock_actual']) ?? 0),
+            stockMinimo: Value(_toDouble(r['stock_minimo']) ?? 0),
+            activo: Value(_toBoolInt(r['activo'], def: 1)),
+            tipo: Value(r['tipo'] as String? ?? 'ninguno'),
+            almacenPredeterminado:
+                Value(r['almacen_predeterminado'] as String? ?? 'principal'),
+            createdAt: Value(_toDt(r['created_at'])),
+            updatedAt: Value(_toDt(r['updated_at'])),
+          ),
+        );
+      }
+      _log('${prods.length} productos (para la venta) descargados');
+    } catch (e) {
+      _log('Error descargando productos: $e');
+    }
+  }
+
+  /// Descarga paginada (Supabase REST: máx. 1000 filas/petición) de una
+  /// consulta ordenada por id.
+  Future<List<Map<String, dynamic>>> _bajarPaginado(
+    PostgrestTransformBuilder<List<Map<String, dynamic>>> query,
+  ) async {
+    final q = query.order('id', ascending: true);
+    final rows = <Map<String, dynamic>>[];
+    const pageSize = 1000;
+    var offset = 0;
+    while (true) {
+      final data = await q.range(offset, offset + pageSize - 1);
+      final page = (data as List).cast<Map<String, dynamic>>();
+      if (page.isEmpty) break;
+      rows.addAll(page);
+      offset += pageSize;
+    }
+    return rows;
+  }
+
   Future<void> _descargarTabla(_PosTableDesc t) async {
     final table = t.serverTable;
 
@@ -137,14 +255,30 @@ class PosSyncEngine {
       return;
     }
 
-    // Descarga completa (tablas pequeñas). Las ventas/comandas se upsertan por
-    // sync_uuid (los ids locales no coinciden entre dispositivos).
-    final remoteIds = <int>[];
+    // Misma mejora que el sync general (sync_engine.dart:594): cuando la
+    // tabla ya tiene datos y `last_sync` existe, solo bajar las filas que
+    // cambiaron desde entonces (`gte` sobre `updated_at`). Con full-download
+    // en cada ciclo se re-baja todo el historial y se excede la cuota de
+    // egress de Supabase.
+    final lastPosSync = await _getLastPosSync();
+    final localEmpty = await _isTableEmpty(table);
+    final inc = t.incrementalColumn;
+
     final filtro = client.from(table).select();
-    PostgrestTransformBuilder<List<Map<String, dynamic>>> q =
-        filtro.order('id', ascending: true);
+    PostgrestTransformBuilder<List<Map<String, dynamic>>> q = filtro;
+    var esCompleta = true;
+    if (!localEmpty && lastPosSync != null && inc != null) {
+      q = filtro.gte(inc, lastPosSync.toIso8601String());
+      esCompleta = false;
+    }
+    q = q.order('id', ascending: true);
+
+    // Supabase REST limita a 1000 filas por petición: paginar con `range`
+    // para no perder datos históricos (p.ej. comandas/ventas viejas).
+    final remoteIds = <int>[];
     const pageSize = 1000;
     var offset = 0;
+    var total = 0;
     while (true) {
       final data = await q.range(offset, offset + pageSize - 1);
       final rows = (data as List).cast<Map<String, dynamic>>();
@@ -154,21 +288,97 @@ class PosSyncEngine {
         if (id != null) remoteIds.add(id);
         await _upsertFilaLocal(table, r);
       }
+      total += rows.length;
       offset += pageSize;
     }
-    _log('$table descargado');
+    if (total > 0) _log('$total $table descargados');
 
     // Podar huérfanos (delete_orphaned_records): solo si el server devolvió
-    // filas; conserva lo pendiente de subir en la cola.
-    if (t.poda && remoteIds.isNotEmpty) {
-      await _podarHuerfanos(table, remoteIds, t.dedupeKey);
+    // filas; conserva lo pendiente de subir en la cola. En ciclos
+    // incrementales `remoteIds` no es el set completo, así que se obtiene la
+    // lista de ids remotos (consulta ligera, sin filas) para podar sin
+    // eliminar filas vivas.
+    if (t.poda) {
+      final idsParaPoda = esCompleta ? remoteIds : await _fetchRemoteIds(table);
+      if (idsParaPoda.isNotEmpty) {
+        await _podarHuerfanos(table, idsParaPoda, t.dedupeKey);
+      }
     }
+  }
+
+  /// Lista de ids remotos de una tabla (consulta ligera `select(id)` paginada).
+  /// Se usa para podar en ciclos incrementales, donde el set de filas bajadas
+  /// no es el completo.
+  Future<List<int>> _fetchRemoteIds(String table) async {
+    try {
+      final ids = <int>[];
+      final q = client.from(table).select('id').order('id', ascending: true);
+      const pageSize = 1000;
+      var offset = 0;
+      while (true) {
+        final data = await q.range(offset, offset + pageSize - 1);
+        final rows = (data as List).cast<Map<String, dynamic>>();
+        if (rows.isEmpty) break;
+        for (final r in rows) {
+          final id = _toInt(r['id']);
+          if (id != null) ids.add(id);
+        }
+        offset += pageSize;
+      }
+      return ids;
+    } catch (e) {
+      _log('Error listando ids de $table: $e');
+      return [];
+    }
+  }
+
+  /// True si la tabla local no tiene filas (fuerza descarga completa la
+  /// primera vez aunque exista `last_sync`).
+  Future<bool> _isTableEmpty(String table) async {
+    try {
+      final q = await _db.customSelect(
+        'SELECT EXISTS(SELECT 1 FROM $table) AS vacia',
+      ).getSingle();
+      return q.read<int>('vacia') == 0;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<DateTime?> _getLastPosSync() async {
+    try {
+      final row = await (_db.select(_db.syncMetadata)
+            ..where((t) => t.key.equals('pos_full_sync')))
+          .getSingleOrNull();
+      if (row == null || row.value == null) return null;
+      final t = DateTime.tryParse(row.value!);
+      // Margen de 10s hacia atrás: el `gte` es lexicográfico y la escritura de
+      // `_setLastPosSync` cae en el mismo segundo (misma lógica que el sync
+      // general); el upsert es idempotente.
+      if (t != null) return t.subtract(const Duration(seconds: 10));
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _setLastPosSync() async {
+    await _db.into(_db.syncMetadata).insertOnConflictUpdate(
+      SyncMetadataCompanion.insert(
+        key: 'pos_full_sync',
+        value: Value(DateTime.now().toUtc().toIso8601String()),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   /// Upsert local por id (tablas platos_*/pos_* de escritura directa).
   Future<void> _upsertFilaLocal(String table, Map<String, dynamic> r) async {
     final id = _toInt(r['id']);
     switch (table) {
+      case 'pos_sesiones':
+        await _upsertSesionLocal(r);
+        return;
       case 'platos_categorias':
         await _db.into(_db.platosCategorias).insertOnConflictUpdate(
               PlatosCategoriasCompanion.insert(
@@ -237,6 +447,7 @@ class PosSyncEngine {
                 zona: Value(r['zona'] as String?),
                 activo: Value(_toBoolInt(r['activo'], def: 1)),
                 creadoEn: _toDt(r['creado_en']) ?? DateTime.now(),
+                updatedAt: Value(_toDt(r['updated_at'])),
               ),
             );
       case 'pos_habitaciones':
@@ -248,6 +459,7 @@ class PosSyncEngine {
                 tipo: Value(r['tipo'] as String?),
                 activo: Value(_toBoolInt(r['activo'], def: 1)),
                 creadoEn: _toDt(r['creado_en']) ?? DateTime.now(),
+                updatedAt: Value(_toDt(r['updated_at'])),
               ),
             );
       case 'pos_usuarios':
@@ -259,6 +471,7 @@ class PosSyncEngine {
                 esAdmin: Value(_toBoolInt(r['es_admin'])),
                 activo: Value(_toBoolInt(r['activo'], def: 1)),
                 creadoEn: _toDt(r['creado_en']) ?? DateTime.now(),
+                updatedAt: Value(_toDt(r['updated_at'])),
               ),
             );
       case 'pos_comandas':
@@ -357,6 +570,50 @@ class PosSyncEngine {
                 ),
               );
         }
+    }
+  }
+
+  /// Upsert local de un turno por sync_uuid (last-writer-wins por updated_at,
+  /// respetando tombstones).
+  Future<void> _upsertSesionLocal(Map<String, dynamic> r) async {
+    final su = (r['sync_uuid'] as String?)?.trim() ?? '';
+    if (su.isEmpty) return;
+    if (await _esTombstone(su, 'pos_sesiones')) return;
+    final existing = await (_db.select(_db.posSesiones)
+          ..where((t) => t.syncUuid.equals(su)))
+        .getSingleOrNull();
+    final upd = r['updated_at'] as String?;
+    final localUpd = existing?.updatedAt?.toUtc().toIso8601String();
+    if (existing != null &&
+        upd != null &&
+        localUpd != null &&
+        upd.compareTo(localUpd) < 0) {
+      return;
+    }
+    if (existing != null) {
+      await (_db.update(_db.posSesiones)..where((t) => t.id.equals(existing.id)))
+          .write(PosSesionesCompanion(
+            usuarioId: Value(_toInt(r['usuario_id']) ?? 0),
+            abiertaEn: Value(_toDt(r['abierta_en']) ?? DateTime.now()),
+            cerradaEn: Value(_toDt(r['cerrada_en'])),
+            cajaInicial: Value(_toDouble(r['caja_inicial']) ?? 0),
+            cajaFinal: Value(_toDouble(r['caja_final'])),
+            updatedAt: Value(_toDt(r['updated_at'])),
+          ));
+    } else {
+      await _db.into(_db.posSesiones).insert(
+            PosSesionesCompanion.insert(
+              usuarioId: _toInt(r['usuario_id']) ?? 0,
+              abiertaEn: _toDt(r['abierta_en']) ?? DateTime.now(),
+              cerradaEn: Value(_toDt(r['cerrada_en'])),
+              cajaInicial: Value(_toDouble(r['caja_inicial']) ?? 0),
+              cajaFinal: Value(_toDouble(r['caja_final'])),
+              syncUuid: Value(su),
+              createdAt:
+                  Value(_toDt(r['created_at']) ?? _toDt(r['abierta_en'])),
+              updatedAt: Value(_toDt(r['updated_at'])),
+            ),
+          );
     }
   }
 
@@ -488,6 +745,9 @@ class PosSyncEngine {
 
   Future<void> _uploadItem(String table, Map<String, dynamic> data, String op) async {
     switch (table) {
+      case 'pos_sesiones':
+        await _subirPorSyncUuid('pos_sesiones', data, op, ['usuario_id',
+            'abierta_en', 'cerrada_en', 'caja_inicial', 'caja_final']);
       case 'pos_comandas':
         await _subirPorSyncUuid('pos_comandas', data, op, ['sesion_id', 'mesa_id',
             'habitacion_id', 'estado', 'total', 'items_json']);

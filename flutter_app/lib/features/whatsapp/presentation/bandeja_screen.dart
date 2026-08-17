@@ -61,8 +61,8 @@ class _BandejaScreenState extends ConsumerState<BandejaScreen> {
     messenger.showSnackBar(
       SnackBar(
         content: Text(ok
-            ? '✅ Mensaje de prueba enviado'
-            : '⚠️ No se pudo enviar. Revisa que el bot esté conectado.'),
+            ? 'Mensaje de prueba enviado'
+            : 'No se pudo enviar. Revisa que el bot esté conectado.'),
       ),
     );
     _refrescar();
@@ -128,8 +128,8 @@ class _BandejaScreenState extends ConsumerState<BandejaScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
                     child: Text(
-                      'Total: $total  |  ⏳ Pendientes: $pendientes  |  '
-                      '✅ Enviados: $enviados  |  ❌ Fallidos: $fallidos',
+                      'Total: $total  |  Pendientes: $pendientes  |  '
+                      'Enviados: $enviados  |  Fallidos: $fallidos',
                       style: TextStyle(
                           fontSize: 12, color: scheme.onSurfaceVariant),
                     ),

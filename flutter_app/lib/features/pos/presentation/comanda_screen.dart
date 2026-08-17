@@ -2,13 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/schema/app_database.dart';
+import '../../../core/sync/global_sync_bar.dart';
 import '../data/pos_comanda_models.dart';
 import '../data/pos_providers.dart';
 import '../data/pos_repository.dart';
 import '../data/pos_session.dart';
+import '../data/tasa_bcv_service.dart';
+import '../data/ticket_escpos.dart';
+import '../data/ticket_settings.dart';
 import 'dialogs/cobro_dialog.dart';
 import 'dialogs/contornos_dialog.dart';
+import 'dialogs/ticket_preview_dialog.dart';
 import 'widgets/catalogo_card.dart';
+import 'widgets/pop_in.dart';
 import 'widgets/pos_top_bar.dart';
 
 /// Editor de comanda (Fase 6.3 — port de `ComandaPedidoView`): catálogo
@@ -51,15 +57,25 @@ class _CatalogoEntry {
   final VoidCallback onTap;
 }
 
+class _Snapshot {
+  const _Snapshot(this.seccion, this.titulo, this.tituloColor, this.catalogo);
+  final _Seccion seccion;
+  final String titulo;
+  final String tituloColor;
+  final List<_CatalogoEntry> catalogo;
+}
+
 class _ComandaScreenState extends ConsumerState<ComandaScreen> {
   final _items = <ComandaItem>[];
+  final _listKey = GlobalKey<AnimatedListState>();
   int? _comandaId;
   double _tasa = 0;
   String _tasaFecha = '';
   bool _iniciando = true;
+  bool _consultandoTasa = false;
 
   _Seccion _seccion = _Seccion.categorias;
-  final _historial = <_Seccion>[];
+  final _historial = <_Snapshot>[];
   String _titulo = 'CATEGORÍAS';
   String _tituloColor = '#9E9E9E';
   List<_CatalogoEntry> _catalogo = [];
@@ -91,6 +107,42 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
     await _cargarComandaExistente();
     await _cargarCategorias();
     if (mounted) setState(() => _iniciando = false);
+  }
+
+  /// Consulta la tasa BCV en línea y actualiza el total en Bs (y la guardada).
+  Future<void> _refrescarTasa() async {
+    if (_consultandoTasa) return;
+    setState(() => _consultandoTasa = true);
+    final service = TasaBcvService();
+    try {
+      final nueva = await service.obtenerTasaBcv();
+      final anterior = _tasa;
+      final repo = ref.read(posRepoProvider);
+      await repo.setTasaCambio(nueva, sync: true);
+      final fecha = await repo.getTasaCambioFecha();
+      final cambiada = anterior > 0 && (anterior - nueva).abs() > 0.0001;
+      if (!mounted) return;
+      setState(() {
+        _tasa = nueva;
+        _tasaFecha = fecha;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(cambiada
+              ? 'Tasa actualizada: ${formatearTasa(nueva)} Bs/\$ (${service.ultimaFuente})'
+              : 'Tasa sin cambios: ${formatearTasa(nueva)} Bs/\$ (${service.ultimaFuente})'),
+          backgroundColor:
+              cambiada ? const Color(0xFF4CAF50) : const Color(0xFFFF9800),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No se pudo consultar la tasa: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _consultandoTasa = false);
+    }
   }
 
   // =========================================================================
@@ -212,10 +264,17 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
       }
       await repo.cerrarComanda(comandaId);
       _comandaId = null;
+      final ticketItems = [for (final i in _items) _aTicketItem(i)];
       _items.clear();
       ref.invalidate(mesasOcupadasProvider);
       ref.invalidate(habitacionesOcupadasProvider);
       ref.invalidate(ventasProvider);
+      await _mostrarTicket(
+        items: ticketItems,
+        comandaId: comandaId,
+        correlativo: correlativo,
+        correccionDe: anulada?.correlativo,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(
@@ -235,11 +294,77 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
   }
 
   // =========================================================================
+  // Ticket de comanda (Fase 6.6)
+  // =========================================================================
+
+  static TicketItem _aTicketItem(ComandaItem item) {
+    return (
+      cantidad: item.cantidad,
+      nombre: item.nombre,
+      precio: item.precio,
+      contornos: [for (final c in item.contornos) c.nombre],
+    );
+  }
+
+  /// Port de `_mesa_ticket_label` (comanda_view.py:959).
+  String get _mesaTicketLabel {
+    final m = widget.mesa;
+    if (m == null) return '';
+    final numero = m.numero.toString();
+    final nombre = m.nombre;
+    if (nombre != null && nombre.isNotEmpty && nombre != numero) {
+      return numero.isNotEmpty ? '$numero - $nombre' : nombre;
+    }
+    return numero;
+  }
+
+  /// Port de `_habitacion_ticket_label` (comanda_view.py:968).
+  String get _habitacionTicketLabel {
+    final h = widget.habitacion;
+    if (h == null) return '';
+    var etiqueta = h.numero.toString();
+    if (h.tipo != null && h.tipo!.isNotEmpty) {
+      etiqueta = '${h.tipo!} $etiqueta'.trim();
+    }
+    if (h.piso != null && h.piso!.isNotEmpty) {
+      etiqueta = '$etiqueta - Piso ${h.piso}';
+    }
+    return etiqueta;
+  }
+
+  /// Muestra la vista previa del ticket cobrado (la venta ya está registrada;
+  /// en web se imprime con el diálogo del navegador).
+  Future<void> _mostrarTicket({
+    required List<TicketItem> items,
+    required int comandaId,
+    required int correlativo,
+    int? correccionDe,
+  }) async {
+    final header = await cargarMembrete(ref.read(posRepoProvider));
+    final lineas = construirTicketPreview(
+      items: items,
+      total: _total,
+      comandaId: comandaId,
+      correlativo: correlativo,
+      correccionDe: correccionDe,
+      tasa: _tasa > 0 ? _tasa : null,
+      cajero: widget.sesion.usuario.nombre,
+      mesa: _mesaTicketLabel,
+      habitacion: _habitacionTicketLabel,
+      header: header,
+    );
+    if (!mounted) return;
+    await showTicketPreview(context, lineas: lineas);
+  }
+
+  // =========================================================================
   // Catálogo: navegación
   // =========================================================================
 
   void _ir(_Seccion s) {
-    _historial.add(_seccion);
+    _historial.add(
+      _Snapshot(_seccion, _titulo, _tituloColor, List.of(_catalogo)),
+    );
     setState(() => _seccion = s);
   }
 
@@ -248,7 +373,13 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
       _cargarCategorias();
       return;
     }
-    setState(() => _seccion = _historial.removeLast());
+    final prev = _historial.removeLast();
+    setState(() {
+      _seccion = prev.seccion;
+      _titulo = prev.titulo;
+      _tituloColor = prev.tituloColor;
+      _catalogo = prev.catalogo;
+    });
   }
 
   Future<void> _cargarCategorias() async {
@@ -492,6 +623,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
         cantidad: 1,
       ));
     });
+    _listKey.currentState?.insertItem(_items.length - 1);
   }
 
   void _agregarItemConContornos(int id, String nombre, double precio, List<Plato> contornos) {
@@ -511,6 +643,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
         contornos: [for (final c in contornos) (id: c.id, nombre: c.nombre)],
       ));
     });
+    _listKey.currentState?.insertItem(_items.length - 1);
   }
 
   Plato _platoStub(int id, String nombre) => Plato(
@@ -530,7 +663,16 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
 
   void _eliminarItem(int idx) {
     if (idx < 0 || idx >= _items.length) return;
+    final item = _items[idx];
     setState(() => _items.removeAt(idx));
+    _listKey.currentState?.removeItem(
+      idx,
+      (ctx, anim) => SizeTransition(
+        sizeFactor: anim,
+        child: FadeTransition(opacity: anim, child: _itemTile(item, idx)),
+      ),
+      duration: const Duration(milliseconds: 250),
+    );
   }
 
   double get _total => _items.fold(0, (s, i) => s + i.subtotal);
@@ -552,6 +694,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
             onBack: widget.onBack,
             onLogout: widget.onLogout,
           ),
+          const GlobalSyncBar(),
           const Divider(height: 1),
           Expanded(
             child: _iniciando
@@ -560,7 +703,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       SizedBox(
-                        width: 300,
+                        width: 380,
                         child: _panelComanda(),
                       ),
                       const VerticalDivider(width: 1),
@@ -575,14 +718,40 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
   }
 
   Widget _panelComanda() {
+    final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(12, 8, 12, 8),
-          child: Text(
-            'COMANDA',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+          child: Row(
+            children: [
+              const Text(
+                'COMANDA',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4CAF50).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: Text(
+                    '${_items.length}',
+                    key: ValueKey(_items.length),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF4CAF50),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         Expanded(
@@ -593,11 +762,17 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
                     style: TextStyle(fontStyle: FontStyle.italic),
                   ),
                 )
-              : ListView.separated(
+              : AnimatedList.separated(
+                  key: _listKey,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
-                  itemCount: _items.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 4),
-                  itemBuilder: (context, i) => _itemRow(i),
+                  initialItemCount: _items.length,
+                  separatorBuilder: (_, __, ___) => const SizedBox(height: 4),
+                  removedSeparatorBuilder: (_, __, ___) =>
+                      const SizedBox(height: 4),
+                  itemBuilder: (context, i, anim) => SizeTransition(
+                    sizeFactor: anim,
+                    child: FadeTransition(opacity: anim, child: _itemTile(_items[i], i)),
+                  ),
                 ),
         ),
         const Divider(height: 1),
@@ -623,8 +798,20 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
               ),
               Row(
                 children: [
-                  const Icon(Icons.sync, size: 16, color: Color(0xFFF57C00)),
-                  const SizedBox(width: 6),
+                  IconButton(
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'Consultar tasa BCV',
+                    onPressed: _consultandoTasa ? null : _refrescarTasa,
+                    icon: _consultandoTasa
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.refresh,
+                            size: 16, color: Color(0xFFF57C00)),
+                  ),
+                  const SizedBox(width: 2),
                   Expanded(
                     child: Text(
                       _tasa > 0
@@ -662,8 +849,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
     );
   }
 
-  Widget _itemRow(int i) {
-    final item = _items[i];
+  Widget _itemTile(ComandaItem item, int i) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -685,10 +871,20 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
                   style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                 ),
                 for (final c in item.contornos)
-                  Text(
-                    '+ ${c.nombre}',
-                    style: const TextStyle(
-                        fontSize: 10, color: Color(0xFFF57C00)),
+                  Row(
+                    children: [
+                      const Icon(Icons.add, size: 10, color: Color(0xFFF57C00)),
+                      const SizedBox(width: 2),
+                      Expanded(
+                        child: Text(
+                          c.nombre,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 10, color: Color(0xFFF57C00)),
+                        ),
+                      ),
+                    ],
                   ),
               ],
             ),
@@ -699,9 +895,15 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
             icon: const Icon(Icons.remove_circle_outline,
                 size: 18, color: Color(0xFFF57C00)),
           ),
-          Text('${item.cantidad}',
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 150),
+            child: Text(
+              '${item.cantidad}',
+              key: ValueKey(item.cantidad),
               style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.bold)),
+                  fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ),
           IconButton(
             visualDensity: VisualDensity.compact,
             onPressed: () => _cambiarCantidad(i, 1),
@@ -728,11 +930,16 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
   Widget _panelCatalogo() {
     final scheme = Theme.of(context).colorScheme;
     final showBack = _seccion != _Seccion.categorias;
+    final acento = _colorHex(_tituloColor);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        Container(
+          padding: const EdgeInsets.fromLTRB(4, 6, 12, 6),
+          decoration: BoxDecoration(
+            color: acento.withValues(alpha: 0.08),
+            border: Border(bottom: BorderSide(color: acento.withValues(alpha: 0.25))),
+          ),
           child: Row(
             children: [
               if (showBack)
@@ -741,13 +948,22 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
                   onPressed: _volver,
                   icon: const Icon(Icons.arrow_back),
                 ),
+              Container(
+                width: 4,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: acento,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   _titulo,
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
-                    color: _colorHex(_tituloColor),
+                    color: acento,
                   ),
                 ),
               ),
@@ -774,13 +990,17 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
                   children: [
-                    for (final e in _catalogo)
-                      CatalogoCard(
-                        nombre: e.nombre,
-                        color: e.color,
-                        subtitulo: e.subtitulo,
-                        badge: e.badge,
-                        onTap: e.onTap,
+                    for (var i = 0; i < _catalogo.length; i++)
+                      PopIn(
+                        delay:
+                            Duration(milliseconds: (i > 11 ? 11 : i) * 25),
+                        child: CatalogoCard(
+                          nombre: _catalogo[i].nombre,
+                          color: _catalogo[i].color,
+                          subtitulo: _catalogo[i].subtitulo,
+                          badge: _catalogo[i].badge,
+                          onTap: _catalogo[i].onTap,
+                        ),
                       ),
                   ],
                 ),

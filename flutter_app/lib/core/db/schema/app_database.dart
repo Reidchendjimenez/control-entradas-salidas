@@ -76,7 +76,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// Réplica de `LocalReplica.init_queue()` en sync_queue.py.
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -108,6 +108,22 @@ class AppDatabase extends _$AppDatabase {
             // v4 → v5: agrega las tablas del módulo POS (pos_* y platos_*).
             // Sincronización por sync_uuid (ver pos_sync_engine.dart).
             await m.createAll();
+          }
+          if (from < 6) {
+            // v5 → v6: turnos con caja (flujo de cajas/turnos): columnas de
+            // monto inicial/final, sync_uuid y fechas en `pos_sesiones`.
+            await m.addColumn(posSesiones, posSesiones.cajaInicial);
+            await m.addColumn(posSesiones, posSesiones.cajaFinal);
+            await m.addColumn(posSesiones, posSesiones.syncUuid);
+            await m.addColumn(posSesiones, posSesiones.createdAt);
+            await m.addColumn(posSesiones, posSesiones.updatedAt);
+          }
+          if (from < 7) {
+            // v6 → v7: `updated_at` en catálogos POS chicos (mesas,
+            // habitaciones, usuarios) para descarga incremental por cambios.
+            await m.addColumn(posMesas, posMesas.updatedAt);
+            await m.addColumn(posHabitaciones, posHabitaciones.updatedAt);
+            await m.addColumn(posUsuarios, posUsuarios.updatedAt);
           }
         },
       );

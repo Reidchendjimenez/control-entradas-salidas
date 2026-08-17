@@ -264,32 +264,52 @@ CREATE TABLE IF NOT EXISTS pos_categorias (
 );
 CREATE INDEX IF NOT EXISTS idx_pos_categorias_sync_uuid ON pos_categorias (sync_uuid);
 
+CREATE OR REPLACE FUNCTION set_pos_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TABLE IF NOT EXISTS pos_mesas (
-    id        SERIAL PRIMARY KEY,
-    numero    TEXT NOT NULL,
-    nombre    TEXT,
-    zona      TEXT,
-    activo    INTEGER DEFAULT 1,
-    creado_en TEXT NOT NULL
+    id         SERIAL PRIMARY KEY,
+    numero     TEXT NOT NULL,
+    nombre     TEXT,
+    zona       TEXT,
+    activo     INTEGER DEFAULT 1,
+    creado_en  TEXT NOT NULL,
+    updated_at TIMESTAMPTZ
 );
+CREATE TRIGGER trg_pos_mesas_updated_at
+    BEFORE INSERT OR UPDATE ON pos_mesas
+    FOR EACH ROW EXECUTE FUNCTION set_pos_updated_at();
 
 CREATE TABLE IF NOT EXISTS pos_habitaciones (
-    id        SERIAL PRIMARY KEY,
-    numero    TEXT NOT NULL,
-    piso      TEXT,
-    tipo      TEXT,
-    activo    INTEGER DEFAULT 1,
-    creado_en TEXT NOT NULL
+    id         SERIAL PRIMARY KEY,
+    numero     TEXT NOT NULL,
+    piso       TEXT,
+    tipo       TEXT,
+    activo     INTEGER DEFAULT 1,
+    creado_en  TEXT NOT NULL,
+    updated_at TIMESTAMPTZ
 );
+CREATE TRIGGER trg_pos_habitaciones_updated_at
+    BEFORE INSERT OR UPDATE ON pos_habitaciones
+    FOR EACH ROW EXECUTE FUNCTION set_pos_updated_at();
 
 CREATE TABLE IF NOT EXISTS pos_usuarios (
-    id        SERIAL PRIMARY KEY,
-    nombre    TEXT NOT NULL,
-    pin_hash  TEXT,
-    es_admin  INTEGER DEFAULT 0,
-    activo    INTEGER DEFAULT 1,
-    creado_en TEXT NOT NULL
+    id         SERIAL PRIMARY KEY,
+    nombre     TEXT NOT NULL,
+    pin_hash   TEXT,
+    es_admin   INTEGER DEFAULT 0,
+    activo     INTEGER DEFAULT 1,
+    creado_en  TEXT NOT NULL,
+    updated_at TIMESTAMPTZ
 );
+CREATE TRIGGER trg_pos_usuarios_updated_at
+    BEFORE INSERT OR UPDATE ON pos_usuarios
+    FOR EACH ROW EXECUTE FUNCTION set_pos_updated_at();
 
 CREATE TABLE IF NOT EXISTS pos_settings (
     key   TEXT PRIMARY KEY,

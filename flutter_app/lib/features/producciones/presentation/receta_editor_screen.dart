@@ -314,7 +314,7 @@ class _RecetaEditorScreenState extends ConsumerState<RecetaEditorScreen> {
   Widget _sectionBasicos(ColorScheme scheme) {
     return _section(
       scheme,
-      title: '📋 Datos básicos',
+      title: 'Datos básicos',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -365,7 +365,7 @@ class _RecetaEditorScreenState extends ConsumerState<RecetaEditorScreen> {
       ColorScheme scheme, AsyncValue<List<Producto>> productosAsync) {
     return _section(
       scheme,
-      title: '🎯 Producto',
+      title: 'Producto',
       child: productosAsync.when(
         loading: () => const LinearProgressIndicator(),
         error: (e, _) => Text('Error cargando productos: $e'),
@@ -524,7 +524,7 @@ class _RecetaEditorScreenState extends ConsumerState<RecetaEditorScreen> {
       ColorScheme scheme, AsyncValue<List<Producto>> productosAsync) {
     return _section(
       scheme,
-      title: _esSimple ? '🎯 Producto final' : '🧩 Ingredientes',
+      title: _esSimple ? 'Producto final' : 'Ingredientes',
       subtitle: _esSimple
           ? 'Productos resultantes (lo que se obtiene)'
           : 'Ingredientes (lo que se consume)',
@@ -689,7 +689,7 @@ class _RecetaEditorScreenState extends ConsumerState<RecetaEditorScreen> {
         children: [
           Expanded(
             child: Text(
-              '📊 ${_componentes.length} componentes · cantidad editable al descargar',
+              '${_componentes.length} componentes · cantidad editable al descargar',
               style: TextStyle(fontSize: 13, color: scheme.onSurfaceVariant),
             ),
           ),

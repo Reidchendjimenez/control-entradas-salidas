@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../core/db/schema/app_database.dart';
 import '../../../core/sync/sync_service.dart';
+import 'pos_comanda_models.dart';
 
 /// Repositorio de comandas y ventas del POS — porta la sección VENTAS/COMANDAS
 /// de `LocalReplica` (cerrar_comanda, registrar_venta, anular_venta, etc.).
@@ -108,6 +109,51 @@ class PosVentasRepository {
       (_db.select(_db.posComandas)..where((t) => t.estado.equals('abierta')))
           .get();
 
+  /// Comandas abiertas para retomar desde el home: con etiqueta de
+  /// mesa/habitación, total y cantidad de items (más recientes primero).
+  Future<List<ComandaActiva>> getComandasActivas() async {
+    final comandas = await (_db.select(_db.posComandas)
+          ..where((t) => t.estado.equals('abierta'))
+          ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)]))
+        .get();
+
+    final result = <ComandaActiva>[];
+    for (final c in comandas) {
+      String etiqueta;
+      if (c.mesaId != null) {
+        final m = await (_db.select(_db.posMesas)
+              ..where((t) => t.id.equals(c.mesaId!)))
+            .getSingleOrNull();
+        etiqueta = m != null
+            ? (m.nombre?.isNotEmpty == true ? m.nombre! : 'Mesa ${m.numero}')
+            : 'Mesa ${c.mesaId}';
+      } else if (c.habitacionId != null) {
+        final h = await (_db.select(_db.posHabitaciones)
+              ..where((t) => t.id.equals(c.habitacionId!)))
+            .getSingleOrNull();
+        etiqueta =
+            h != null ? 'Hab ${h.numero}' : 'Habitación ${c.habitacionId}';
+      } else {
+        etiqueta = 'Comanda #${c.id}';
+      }
+      var items = 0;
+      if (c.itemsJson != null) {
+        try {
+          items = (jsonDecode(c.itemsJson!) as List).length;
+        } catch (_) {}
+      }
+      result.add((
+        comandaId: c.id,
+        etiqueta: etiqueta,
+        total: c.total,
+        items: items,
+        mesaId: c.mesaId,
+        habitacionId: c.habitacionId,
+      ));
+    }
+    return result;
+  }
+
   /// Ocupadas: set de mesa_id con comanda abierta.
   Future<Set<int>> getMesasOcupadas() async {
     final rows = await (_db.select(_db.posComandas)
@@ -123,6 +169,23 @@ class PosVentasRepository {
         .get();
     return {for (final c in rows) c.habitacionId!};
   }
+
+  /// Stream reactivo de mesas con comanda abierta (emite ante cualquier cambio
+  /// en `pos_comandas`, incluida la primera suscripción).
+  Stream<Set<int>> watchMesasOcupadas() =>
+      (_db.select(_db.posComandas)
+            ..where(
+                (t) => t.estado.equals('abierta') & t.mesaId.isNotNull()))
+          .watch()
+          .map((rows) => {for (final c in rows) c.mesaId!});
+
+  /// Stream reactivo de habitaciones con comanda abierta.
+  Stream<Set<int>> watchHabitacionesOcupadas() =>
+      (_db.select(_db.posComandas)
+            ..where(
+                (t) => t.estado.equals('abierta') & t.habitacionId.isNotNull()))
+          .watch()
+          .map((rows) => {for (final c in rows) c.habitacionId!});
 
   Future<void> cambiarEstadoComanda(int comandaId, String estado) async {
     final ahora = DateTime.now();
@@ -388,16 +451,53 @@ class PosVentasRepository {
     }
   }
 
-  Future<List<PosVenta>> getVentas({int limit = 200}) {
+  /// Ventas más recientes primero, con paginación por id (réplica de
+  /// `get_ventas(limit, before_id)`).
+  Future<List<PosVenta>> getVentas({int limit = 200, int? beforeId}) {
     final q = _db.select(_db.posVentas)
       ..orderBy([(t) => OrderingTerm.desc(t.id)])
       ..limit(limit);
+    if (beforeId != null) {
+      q.where((t) => t.id.isSmallerThanValue(beforeId));
+    }
     return q.get();
   }
+
+  /// Resumen de ventas vigentes del día local (cantidad + total), para el
+  /// header del home del POS.
+  Future<({int cantidad, double total})> getVentasHoy() async {
+    final hoy = DateTime.now();
+    final inicio = DateTime(hoy.year, hoy.month, hoy.day);
+    final rows = await (_db.select(_db.posVentas)
+          ..where((t) => t.estado.equals('vigente') &
+              t.createdAt.isBiggerOrEqualValue(inicio)))
+        .get();
+    var total = 0.0;
+    for (final v in rows) {
+      total += v.total;
+    }
+    return (cantidad: rows.length, total: total);
+  }
+
+  /// Stream reactivo del resumen del día (emite ante cambios en `pos_ventas`).
+  Stream<({int cantidad, double total})> watchVentasHoy() =>
+      _db.select(_db.posVentas).watch().asyncMap((_) => getVentasHoy());
+
+  /// Stream reactivo de las comandas activas (emite ante cambios en
+  /// `pos_comandas`, incluida la primera suscripción).
+  Stream<List<ComandaActiva>> watchComandasActivas() =>
+      _db.select(_db.posComandas).watch().asyncMap((_) => getComandasActivas());
 
   Future<PosVenta?> getVenta(int id) =>
       (_db.select(_db.posVentas)..where((t) => t.id.equals(id)))
           .getSingleOrNull();
+
+  /// Ventas de un turno (más recientes primero).
+  Future<List<PosVenta>> getVentasPorSesion(int sesionId) =>
+      (_db.select(_db.posVentas)
+            ..where((t) => t.sesionId.equals(sesionId))
+            ..orderBy([(t) => OrderingTerm.desc(t.id)]))
+          .get();
 
   /// Mapa {id: correlativo} de las ventas indicadas.
   Future<Map<int, int>> getVentasCorrelativos(List<int> ids) async {

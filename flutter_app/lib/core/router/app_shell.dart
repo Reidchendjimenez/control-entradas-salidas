@@ -14,9 +14,10 @@ import '../../features/stock/presentation/stock_screen.dart';
 import '../../features/validacion/presentation/validacion_screen.dart';
 import '../../features/configuracion/presentation/configuracion_screen.dart';
 import '../../features/whatsapp/presentation/bandeja_screen.dart';
-import '../../features/pos/presentation/pos_screen.dart';
-import '../../features/pos/data/pos_providers.dart';
+import '../sync/global_sync_bar.dart';
 import '../sync/sync_service.dart';
+import '../sync/sync_status.dart';
+import '../updater/auto_update_checker.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 /// Shell principal — replica `usr/app_controller.py`:
@@ -40,8 +41,6 @@ class AppShell extends ConsumerWidget {
         'Gestión de traslados', '/requisiciones'),
     _NavDest(Icons.history_outlined, 'Historial',
         'Facturas y registro de entradas', '/historial'),
-    _NavDest(Icons.point_of_sale_outlined, 'POS',
-        'Mesas, comandas y ventas', '/pos'),
     _NavDest(Icons.settings_outlined, 'Ajustes',
         'Categorías y catálogo de productos', '/ajustes'),
     _NavDest(Icons.mail_outlined, 'Bandeja',
@@ -101,16 +100,13 @@ class _ShellAutenticadoState extends ConsumerState<_ShellAutenticado> {
   void initState() {
     super.initState();
     // Arranca el sync: fullSync inmediato + background cada 20s.
+    // La barra global muestra el progreso de esta primera sincronización.
+    final notifier = ref.read(syncStatusProvider.notifier);
     final engine = ref.read(syncEngineProvider);
     if (engine != null) {
+      notifier.iniciar(SyncOrigen.general);
       engine.fullSync();
       engine.startBackgroundSync();
-    }
-    // Sync del módulo POS (outbox por sync_uuid + descarga de tablas pos_*).
-    final pos = ref.read(posSyncEngineProvider);
-    if (pos != null) {
-      pos.fullSync();
-      pos.startBackgroundSync(intervalSeconds: 30);
     }
   }
 
@@ -128,6 +124,7 @@ class _ShellAutenticadoState extends ConsumerState<_ShellAutenticado> {
       body: SafeArea(
         child: Column(
           children: [
+            const AutoUpdateChecker(),
             _AppHeader(
               destinos: widget.destinos,
               index: _index,
@@ -141,6 +138,7 @@ class _ShellAutenticadoState extends ConsumerState<_ShellAutenticado> {
               onLogout: () => ref.read(sessionProvider.notifier).cerrarSesion(),
               onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
             ),
+            const GlobalSyncBar(),
             Expanded(
               child: Row(
                 children: [
@@ -206,8 +204,10 @@ class _ShellAutenticadoState extends ConsumerState<_ShellAutenticado> {
         duration: Duration(seconds: 2),
       ),
     );
+    final notifier = ref.read(syncStatusProvider.notifier);
+    notifier.iniciar(SyncOrigen.general);
     final ok = await engine.fullSync();
-    await ref.read(posSyncEngineProvider)?.fullSync();
+    notifier.terminar(SyncOrigen.general, ok: ok);
     messenger.showSnackBar(
       SnackBar(
         content:
@@ -500,9 +500,6 @@ class _DestinoPage extends StatelessWidget {
     }
     if (destino.ruta == '/historial') {
       return const HistorialScreen();
-    }
-    if (destino.ruta == '/pos') {
-      return const PosScreen();
     }
     if (destino.ruta == '/ajustes') {
       return const ConfiguracionScreen();

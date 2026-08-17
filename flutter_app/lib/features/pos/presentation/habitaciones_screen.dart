@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/schema/app_database.dart';
+import '../../../core/sync/global_sync_bar.dart';
 import '../data/pos_providers.dart';
 import '../data/pos_session.dart';
 import 'widgets/habitacion_card.dart';
+import 'widgets/pop_in.dart';
 import 'widgets/pos_top_bar.dart';
 
 /// Grid de habitaciones con estado Ocupada/Disponible (port de
@@ -37,6 +39,7 @@ class HabitacionesScreen extends ConsumerWidget {
             onBack: onBack,
             onLogout: onLogout,
           ),
+          const GlobalSyncBar(),
           Expanded(
             child: habs.when(
               loading: () =>
@@ -52,11 +55,14 @@ class HabitacionesScreen extends ConsumerWidget {
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
                   children: [
-                    for (final h in lista)
-                      HabitacionCard(
-                        habitacion: h,
-                        ocupada: ocup.contains(h.id),
-                        onTap: () => onOpenHabitacion(h),
+                    for (var i = 0; i < lista.length; i++)
+                      PopIn(
+                        delay: Duration(milliseconds: (i > 8 ? 8 : i) * 40),
+                        child: HabitacionCard(
+                          habitacion: lista[i],
+                          ocupada: ocup.contains(lista[i].id),
+                          onTap: () => onOpenHabitacion(lista[i]),
+                        ),
                       ),
                   ],
                 );

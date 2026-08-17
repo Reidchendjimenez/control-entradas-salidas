@@ -1,13 +1,10 @@
-# Compiled Python files
-*.pyc
-__pycache__/
-
 # Logs
 *.log
 server.log
 
 # graphify cache (regenerable)
 graphify-out/cache/
+graphify-out/2026-*/
 
 # Environment files
 .env
@@ -20,5 +17,6 @@ graphify-out/cache/
 *.db-wal
 *.sqlite
 
-# Virtual environment
-.venv/
+# Builds de Flutter
+flutter_app/build/
+flutter_app/.dart_tool/

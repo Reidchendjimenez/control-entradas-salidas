@@ -48,19 +48,58 @@ class PosRepository {
   }
 
   // ---------------------------------------------------------------------
-  // Sesiones
+  // Sesiones / turnos / caja
   // ---------------------------------------------------------------------
 
-  Future<int> abrirSesion(int usuarioId) => _db.into(_db.posSesiones).insert(
-        PosSesionesCompanion.insert(
-          usuarioId: usuarioId,
-          abiertaEn: DateTime.now(),
-        ),
-      );
+  /// Abre un turno con caja en 0 (réplica de `abrir_turno`): crea la sesión,
+  /// le asigna `sync_uuid` y la encola para subir a Supabase.
+  Future<int> abrirSesion(int usuarioId) async {
+    final now = DateTime.now();
+    final syncUuid = _uuid.v4();
+    final id = await _db.into(_db.posSesiones).insert(
+          PosSesionesCompanion.insert(
+            usuarioId: usuarioId,
+            abiertaEn: now,
+            cajaInicial: const Value(0),
+            syncUuid: Value(syncUuid),
+            createdAt: Value(now),
+            updatedAt: Value(now),
+          ),
+        );
+    await _encolarSesion(id, syncUuid);
+    return id;
+  }
 
+  /// Cierra el turno: calcula la caja final automáticamente
+  /// (`caja_inicial + ventas vigentes del turno`) y marca `cerrada_en`.
+  /// Port de `cerrar_turno` (login.py).
   Future<void> cerrarSesion(int sesionId) async {
+    final s = await (_db.select(_db.posSesiones)
+          ..where((t) => t.id.equals(sesionId)))
+        .getSingleOrNull();
+    if (s == null) return;
+    final now = DateTime.now();
+    final caja = await _totalVigenteDeSesion(sesionId);
     await (_db.update(_db.posSesiones)..where((t) => t.id.equals(sesionId)))
-        .write(PosSesionesCompanion(cerradaEn: Value(DateTime.now())));
+        .write(PosSesionesCompanion(
+          cerradaEn: Value(now),
+          cajaFinal: Value(s.cajaInicial + caja),
+          updatedAt: Value(now),
+        ));
+    await _encolarSesion(sesionId, s.syncUuid);
+  }
+
+  /// Suma de las ventas vigentes de un turno.
+  Future<double> _totalVigenteDeSesion(int sesionId) async {
+    final q = await _db.customSelect(
+      'SELECT COALESCE(SUM(total), 0) AS total FROM pos_ventas '
+      'WHERE sesion_id = ? AND estado = ?',
+      variables: [
+        Variable<int>(sesionId),
+        const Variable<String>('vigente'),
+      ],
+    ).getSingle();
+    return q.read<double>('total');
   }
 
   /// Última sesión abierta (sin `cerrada_en`), con nombre de usuario.
@@ -76,6 +115,66 @@ class PosRepository {
           ..where((t) => t.id.equals(s.usuarioId)))
         .getSingleOrNull();
     return (sesion: s, usuarioNombre: u?.nombre);
+  }
+
+  /// Turnos (sesiones) con resumen de cierre, más recientes primero, paginados
+  /// por id. `ventas`/`totalVentas` consideran solo ventas vigentes.
+  Future<List<({PosSesione sesion, String? usuarioNombre, int ventas, double totalVentas})>>
+      getSesiones({int limit = 50, int? beforeId}) async {
+    var q = _db.select(_db.posSesiones)
+      ..orderBy([(t) => OrderingTerm.desc(t.id)])
+      ..limit(limit);
+    if (beforeId != null) q.where((t) => t.id.isSmallerThanValue(beforeId));
+    final sesiones = await q.get();
+
+    final resumen = await _db.customSelect(
+      'SELECT sesion_id, COUNT(*) AS ventas, COALESCE(SUM(total), 0) AS total_ventas '
+      'FROM pos_ventas WHERE estado = ? GROUP BY sesion_id',
+      variables: [const Variable<String>('vigente')],
+    ).get();
+    final resumenMap = <int, ({int ventas, double total})>{};
+    for (final r in resumen) {
+      resumenMap[r.read<int>('sesion_id')] = (
+        ventas: r.read<int>('ventas'),
+        total: r.read<double>('total_ventas'),
+      );
+    }
+
+    final result = <({PosSesione sesion, String? usuarioNombre, int ventas, double totalVentas})>[];
+    for (final s in sesiones) {
+      final r = resumenMap[s.id] ?? (ventas: 0, total: 0.0);
+      final u = await (_db.select(_db.posUsuarios)
+            ..where((t) => t.id.equals(s.usuarioId)))
+          .getSingleOrNull();
+      result.add((
+        sesion: s,
+        usuarioNombre: u?.nombre,
+        ventas: r.ventas,
+        totalVentas: r.total,
+      ));
+    }
+    return result;
+  }
+
+  Future<void> _encolarSesion(int sesionId, String? syncUuid) async {
+    final s = await (_db.select(_db.posSesiones)
+          ..where((t) => t.id.equals(sesionId)))
+        .getSingleOrNull();
+    if (s == null) return;
+    await addPending(_db,
+        tableName: 'pos_sesiones',
+        operation: 'upsert',
+        data: {
+          'sync_uuid': syncUuid ?? s.syncUuid,
+          'usuario_id': s.usuarioId,
+          'abierta_en': s.abiertaEn.toIso8601String(),
+          'cerrada_en': s.cerradaEn?.toIso8601String(),
+          'caja_inicial': s.cajaInicial,
+          'caja_final': s.cajaFinal,
+          'created_at': s.createdAt?.toIso8601String() ?? s.abiertaEn.toIso8601String(),
+          'updated_at':
+              s.updatedAt?.toIso8601String() ?? DateTime.now().toIso8601String(),
+        });
   }
 
   // ---------------------------------------------------------------------
@@ -186,6 +285,10 @@ class PosRepository {
     return q.get();
   }
 
+  Future<PosMesa?> getMesaById(int mesaId) =>
+      (_db.select(_db.posMesas)..where((t) => t.id.equals(mesaId)))
+          .getSingleOrNull();
+
   Future<int> crearMesa(String numero, {String? nombre, String? zona}) async {
     final id = await _db.into(_db.posMesas).insert(
           PosMesasCompanion.insert(
@@ -251,6 +354,10 @@ class PosRepository {
     if (soloActivos) q.where((t) => t.activo.equals(1));
     return q.get();
   }
+
+  Future<PosHabitacione?> getHabitacionById(int habId) =>
+      (_db.select(_db.posHabitaciones)..where((t) => t.id.equals(habId)))
+          .getSingleOrNull();
 
   Future<int> crearHabitacion(String numero,
       {String? piso, String? tipo}) async {
@@ -528,6 +635,10 @@ class PosRepository {
     final v = await getSetting('tasa_cambio');
     return double.tryParse(v ?? '') ?? 0;
   }
+
+  /// Stream reactivo de la tasa de cambio (emite ante cambios en pos_settings).
+  Stream<double> watchTasaCambio() =>
+      _db.select(_db.posSettings).watch().asyncMap((_) => getTasaCambio());
 
   Future<String> getTasaCambioFecha() async =>
       await getSetting('tasa_cambio_actualizada_en') ?? '';

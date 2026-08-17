@@ -352,6 +352,7 @@ class PosUsuarios extends Table {
   IntColumn get esAdmin => integer().named('es_admin').withDefault(const Constant(0))();
   IntColumn get activo => integer().withDefault(const Constant(1))();
   DateTimeColumn get creadoEn => dateTime().named('creado_en')();
+  DateTimeColumn get updatedAt => dateTime().named('updated_at').nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -364,6 +365,7 @@ class PosMesas extends Table {
   TextColumn get zona => text().nullable()();
   IntColumn get activo => integer().withDefault(const Constant(1))();
   DateTimeColumn get creadoEn => dateTime().named('creado_en')();
+  DateTimeColumn get updatedAt => dateTime().named('updated_at').nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -376,6 +378,7 @@ class PosHabitaciones extends Table {
   TextColumn get tipo => text().nullable()();
   IntColumn get activo => integer().withDefault(const Constant(1))();
   DateTimeColumn get creadoEn => dateTime().named('creado_en')();
+  DateTimeColumn get updatedAt => dateTime().named('updated_at').nullable()();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -386,6 +389,11 @@ class PosSesiones extends Table {
   IntColumn get usuarioId => integer().named('usuario_id')();
   DateTimeColumn get abiertaEn => dateTime().named('abierta_en')();
   DateTimeColumn get cerradaEn => dateTime().named('cerrada_en').nullable()();
+  RealColumn get cajaInicial => real().named('caja_inicial').withDefault(const Constant(0))();
+  RealColumn get cajaFinal => real().named('caja_final').nullable()();
+  TextColumn get syncUuid => text().named('sync_uuid').nullable()();
+  DateTimeColumn get createdAt => dateTime().named('created_at').nullable()();
+  DateTimeColumn get updatedAt => dateTime().named('updated_at').nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

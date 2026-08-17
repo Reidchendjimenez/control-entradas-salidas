@@ -4,7 +4,13 @@ project(control_entradas_salidas LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "control_entradas_salidas")
+# Permite distinguir el binario por app en CI (POS vs inventario) vía la
+# variable de entorno LYCORIS_BINARY_NAME; por defecto usa el clásico.
+if(NOT DEFINED ENV{LYCORIS_BINARY_NAME} OR "$ENV{LYCORIS_BINARY_NAME}" STREQUAL "")
+  set(BINARY_NAME "control_entradas_salidas")
+else()
+  set(BINARY_NAME "$ENV{LYCORIS_BINARY_NAME}")
+endif()
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.

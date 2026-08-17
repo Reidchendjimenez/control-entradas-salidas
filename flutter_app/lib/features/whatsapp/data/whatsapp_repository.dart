@@ -260,7 +260,7 @@ class WhatsappRepository {
   /// Mensaje de prueba del bot (igual que `_on_test_bot` en Flet).
   Future<bool> probarBot(String usuario) async {
     final ts = _fmtFechaHora(DateTime.now());
-    final msg = '🤖 *Bot activo*\n👤 $usuario\n🕐 $ts';
+    final msg = '*Bot activo*\nUsuario: $usuario\nHora: $ts';
     return enviarMensaje(msg);
   }
 }
@@ -284,14 +284,14 @@ String formatValidationMessage({
       ? _fmtFechaHora(fechaEntrada)
       : _fmtFechaHora(DateTime.now());
   final productosBlock = productos.contains('\n')
-      ? '📦 *Cargo productos:*\n'
+      ? '*Cargo productos:*\n'
           '${productos.split('\n').map((l) => '• $l').join('\n')}'
-      : '📦 *Cargo productos:* $productos';
-  return '✅ *Entrada Validada* ✅\n\n'
+      : '*Cargo productos:* $productos';
+  return '*ENTRADA VALIDADA*\n\n'
       '$productosBlock\n'
-      '🏢 *Proveedor:* $proveedor\n'
-      '📃 *Factura:* $factura\n'
-      '🕐 *Fecha:* $fechaStr\n'
-      '👤 *Usuario:* $usuario\n\n'
-      '_🤖-Lycoris_bot_';
+      '*Proveedor:* $proveedor\n'
+      '*Factura:* $factura\n'
+      '*Fecha:* $fechaStr\n'
+      '*Usuario:* $usuario\n\n'
+      '_Lycoris bot_';
 }

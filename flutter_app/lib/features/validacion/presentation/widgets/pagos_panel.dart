@@ -253,11 +253,11 @@ class PagosPanelState extends State<PagosPanel> {
 
   Widget _pagoRow(ColorScheme scheme, int index) {
     final p = _pagos[index];
-    final icona = switch (p.tipo) {
-      'transferencia' => '🏦',
-      'efectivo' => '💵',
-      'divisas' => '💱',
-      _ => '💳',
+    final icono = switch (p.tipo) {
+      'transferencia' => Icons.account_balance,
+      'efectivo' => Icons.payments_outlined,
+      'divisas' => Icons.currency_exchange,
+      _ => Icons.credit_card,
     };
     final refTxt = p.ref.isEmpty ? '' : ' (Ref: ${p.ref})';
     return Container(
@@ -269,9 +269,11 @@ class PagosPanelState extends State<PagosPanel> {
       ),
       child: Row(
         children: [
+          Icon(icono, size: 18, color: scheme.onSurfaceVariant),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
-              '$icona ${p.tipo} ${p.monto.round()} VES$refTxt',
+              '${p.tipo} ${p.monto.round()} VES$refTxt',
               style: const TextStyle(fontSize: 13),
             ),
           ),

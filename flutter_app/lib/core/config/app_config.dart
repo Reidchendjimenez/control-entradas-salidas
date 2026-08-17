@@ -31,6 +31,27 @@ class AppConfig {
     return 'https://raw.githubusercontent.com/reidchend/control-entradas-salidas/main/version.json';
   }
 
+  /// Repo GitHub de las releases de la app (`releases/latest`).
+  static String get updateRepo {
+    const fromEnv = String.fromEnvironment('UPDATE_REPO');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    return 'reidchend/control-entradas-salidas';
+  }
+
+  /// Identificador de la app en el updater: `pos` o `inventario`.
+  /// El POS se distribuye solo en Windows; el inventario en Windows y Android.
+  static String get appId {
+    const fromEnv = String.fromEnvironment('APP_ID');
+    return fromEnv.isNotEmpty ? fromEnv : 'inventario';
+  }
+
+  /// Etiqueta legible de la app (título del diálogo de actualización).
+  static String get appLabel {
+    const fromEnv = String.fromEnvironment('APP_LABEL');
+    if (fromEnv.isNotEmpty) return fromEnv;
+    return appId == 'pos' ? 'Lycoris POS' : 'Control de Entradas y Salidas';
+  }
+
   /// Puerto web para desarrollo (FLET_WEB_PORT legacy = 8502).
   static String get webPort => const String.fromEnvironment('WEB_PORT',
       defaultValue: '8502');

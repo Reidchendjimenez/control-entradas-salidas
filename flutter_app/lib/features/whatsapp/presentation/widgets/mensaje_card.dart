@@ -24,13 +24,13 @@ class MensajeCard extends StatelessWidget {
   String _estadoTexto() {
     switch (msg.estado) {
       case 'sent':
-        return '✅ Enviado';
+        return 'Enviado';
       case 'failed':
-        return '❌ Fallido (${msg.intentos}/${msg.maxIntentos})';
+        return 'Fallido (${msg.intentos}/${msg.maxIntentos})';
       case 'sending':
-        return '⏳ Enviando...';
+        return 'Enviando...';
       default:
-        return '⏳ Pendiente (${msg.intentos}/${msg.maxIntentos})';
+        return 'Pendiente (${msg.intentos}/${msg.maxIntentos})';
     }
   }
 

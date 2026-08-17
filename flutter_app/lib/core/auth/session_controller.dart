@@ -13,21 +13,9 @@ final sessionProvider =
 /// Controlador de sesión (autenticación PIN + nombre).
 /// Porta la lógica de `LoginView` y `LocalReplica.get_usuario_dispositivo()`.
 class SessionController extends StateNotifier<SessionState> {
-  SessionController(this._db) : super(const SessionState.unauthenticated()) {
-    _cargar();
-  }
+  SessionController(this._db) : super(const SessionState.unauthenticated());
 
   final AppDatabase _db;
-
-  Future<void> _cargar() async {
-    final u = await _db.select(_db.dispositivoUsuario).getSingleOrNull();
-    if (u != null && u.pinHash != null) {
-      state = SessionState.authenticated(
-        nombre: u.nombre,
-        pinHash: u.pinHash!,
-      );
-    }
-  }
 
   /// Registra el operador inicial (equivalente a modo="registro").
   Future<bool> registrarOperador({

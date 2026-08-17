@@ -10199,9 +10199,15 @@ class $PosUsuariosTable extends PosUsuarios
   late final GeneratedColumn<DateTime> creadoEn = GeneratedColumn<DateTime>(
       'creado_en', aliasedName, false,
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns =>
-      [id, nombre, pinHash, esAdmin, activo, creadoEn];
+      [id, nombre, pinHash, esAdmin, activo, creadoEn, updatedAt];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -10239,6 +10245,10 @@ class $PosUsuariosTable extends PosUsuarios
     } else if (isInserting) {
       context.missing(_creadoEnMeta);
     }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
     return context;
   }
 
@@ -10260,6 +10270,8 @@ class $PosUsuariosTable extends PosUsuarios
           .read(DriftSqlType.int, data['${effectivePrefix}activo'])!,
       creadoEn: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}creado_en'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at']),
     );
   }
 
@@ -10276,13 +10288,15 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
   final int esAdmin;
   final int activo;
   final DateTime creadoEn;
+  final DateTime? updatedAt;
   const PosUsuario(
       {required this.id,
       required this.nombre,
       this.pinHash,
       required this.esAdmin,
       required this.activo,
-      required this.creadoEn});
+      required this.creadoEn,
+      this.updatedAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -10294,6 +10308,9 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
     map['es_admin'] = Variable<int>(esAdmin);
     map['activo'] = Variable<int>(activo);
     map['creado_en'] = Variable<DateTime>(creadoEn);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
     return map;
   }
 
@@ -10307,6 +10324,9 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
       esAdmin: Value(esAdmin),
       activo: Value(activo),
       creadoEn: Value(creadoEn),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
     );
   }
 
@@ -10320,6 +10340,7 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
       esAdmin: serializer.fromJson<int>(json['esAdmin']),
       activo: serializer.fromJson<int>(json['activo']),
       creadoEn: serializer.fromJson<DateTime>(json['creadoEn']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
   }
   @override
@@ -10332,6 +10353,7 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
       'esAdmin': serializer.toJson<int>(esAdmin),
       'activo': serializer.toJson<int>(activo),
       'creadoEn': serializer.toJson<DateTime>(creadoEn),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
   }
 
@@ -10341,7 +10363,8 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
           Value<String?> pinHash = const Value.absent(),
           int? esAdmin,
           int? activo,
-          DateTime? creadoEn}) =>
+          DateTime? creadoEn,
+          Value<DateTime?> updatedAt = const Value.absent()}) =>
       PosUsuario(
         id: id ?? this.id,
         nombre: nombre ?? this.nombre,
@@ -10349,6 +10372,7 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
         esAdmin: esAdmin ?? this.esAdmin,
         activo: activo ?? this.activo,
         creadoEn: creadoEn ?? this.creadoEn,
+        updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
       );
   PosUsuario copyWithCompanion(PosUsuariosCompanion data) {
     return PosUsuario(
@@ -10358,6 +10382,7 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
       esAdmin: data.esAdmin.present ? data.esAdmin.value : this.esAdmin,
       activo: data.activo.present ? data.activo.value : this.activo,
       creadoEn: data.creadoEn.present ? data.creadoEn.value : this.creadoEn,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -10369,14 +10394,15 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
           ..write('pinHash: $pinHash, ')
           ..write('esAdmin: $esAdmin, ')
           ..write('activo: $activo, ')
-          ..write('creadoEn: $creadoEn')
+          ..write('creadoEn: $creadoEn, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, nombre, pinHash, esAdmin, activo, creadoEn);
+      Object.hash(id, nombre, pinHash, esAdmin, activo, creadoEn, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -10386,7 +10412,8 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
           other.pinHash == this.pinHash &&
           other.esAdmin == this.esAdmin &&
           other.activo == this.activo &&
-          other.creadoEn == this.creadoEn);
+          other.creadoEn == this.creadoEn &&
+          other.updatedAt == this.updatedAt);
 }
 
 class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
@@ -10396,6 +10423,7 @@ class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
   final Value<int> esAdmin;
   final Value<int> activo;
   final Value<DateTime> creadoEn;
+  final Value<DateTime?> updatedAt;
   const PosUsuariosCompanion({
     this.id = const Value.absent(),
     this.nombre = const Value.absent(),
@@ -10403,6 +10431,7 @@ class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
     this.esAdmin = const Value.absent(),
     this.activo = const Value.absent(),
     this.creadoEn = const Value.absent(),
+    this.updatedAt = const Value.absent(),
   });
   PosUsuariosCompanion.insert({
     this.id = const Value.absent(),
@@ -10411,6 +10440,7 @@ class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
     this.esAdmin = const Value.absent(),
     this.activo = const Value.absent(),
     required DateTime creadoEn,
+    this.updatedAt = const Value.absent(),
   })  : nombre = Value(nombre),
         creadoEn = Value(creadoEn);
   static Insertable<PosUsuario> custom({
@@ -10420,6 +10450,7 @@ class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
     Expression<int>? esAdmin,
     Expression<int>? activo,
     Expression<DateTime>? creadoEn,
+    Expression<DateTime>? updatedAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -10428,6 +10459,7 @@ class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
       if (esAdmin != null) 'es_admin': esAdmin,
       if (activo != null) 'activo': activo,
       if (creadoEn != null) 'creado_en': creadoEn,
+      if (updatedAt != null) 'updated_at': updatedAt,
     });
   }
 
@@ -10437,7 +10469,8 @@ class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
       Value<String?>? pinHash,
       Value<int>? esAdmin,
       Value<int>? activo,
-      Value<DateTime>? creadoEn}) {
+      Value<DateTime>? creadoEn,
+      Value<DateTime?>? updatedAt}) {
     return PosUsuariosCompanion(
       id: id ?? this.id,
       nombre: nombre ?? this.nombre,
@@ -10445,6 +10478,7 @@ class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
       esAdmin: esAdmin ?? this.esAdmin,
       activo: activo ?? this.activo,
       creadoEn: creadoEn ?? this.creadoEn,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -10469,6 +10503,9 @@ class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
     if (creadoEn.present) {
       map['creado_en'] = Variable<DateTime>(creadoEn.value);
     }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
     return map;
   }
 
@@ -10480,7 +10517,8 @@ class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
           ..write('pinHash: $pinHash, ')
           ..write('esAdmin: $esAdmin, ')
           ..write('activo: $activo, ')
-          ..write('creadoEn: $creadoEn')
+          ..write('creadoEn: $creadoEn, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
@@ -10528,9 +10566,15 @@ class $PosMesasTable extends PosMesas with TableInfo<$PosMesasTable, PosMesa> {
   late final GeneratedColumn<DateTime> creadoEn = GeneratedColumn<DateTime>(
       'creado_en', aliasedName, false,
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns =>
-      [id, numero, nombre, zona, activo, creadoEn];
+      [id, numero, nombre, zona, activo, creadoEn, updatedAt];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -10568,6 +10612,10 @@ class $PosMesasTable extends PosMesas with TableInfo<$PosMesasTable, PosMesa> {
     } else if (isInserting) {
       context.missing(_creadoEnMeta);
     }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
     return context;
   }
 
@@ -10589,6 +10637,8 @@ class $PosMesasTable extends PosMesas with TableInfo<$PosMesasTable, PosMesa> {
           .read(DriftSqlType.int, data['${effectivePrefix}activo'])!,
       creadoEn: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}creado_en'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at']),
     );
   }
 
@@ -10605,13 +10655,15 @@ class PosMesa extends DataClass implements Insertable<PosMesa> {
   final String? zona;
   final int activo;
   final DateTime creadoEn;
+  final DateTime? updatedAt;
   const PosMesa(
       {required this.id,
       required this.numero,
       this.nombre,
       this.zona,
       required this.activo,
-      required this.creadoEn});
+      required this.creadoEn,
+      this.updatedAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -10625,6 +10677,9 @@ class PosMesa extends DataClass implements Insertable<PosMesa> {
     }
     map['activo'] = Variable<int>(activo);
     map['creado_en'] = Variable<DateTime>(creadoEn);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
     return map;
   }
 
@@ -10637,6 +10692,9 @@ class PosMesa extends DataClass implements Insertable<PosMesa> {
       zona: zona == null && nullToAbsent ? const Value.absent() : Value(zona),
       activo: Value(activo),
       creadoEn: Value(creadoEn),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
     );
   }
 
@@ -10650,6 +10708,7 @@ class PosMesa extends DataClass implements Insertable<PosMesa> {
       zona: serializer.fromJson<String?>(json['zona']),
       activo: serializer.fromJson<int>(json['activo']),
       creadoEn: serializer.fromJson<DateTime>(json['creadoEn']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
   }
   @override
@@ -10662,6 +10721,7 @@ class PosMesa extends DataClass implements Insertable<PosMesa> {
       'zona': serializer.toJson<String?>(zona),
       'activo': serializer.toJson<int>(activo),
       'creadoEn': serializer.toJson<DateTime>(creadoEn),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
   }
 
@@ -10671,7 +10731,8 @@ class PosMesa extends DataClass implements Insertable<PosMesa> {
           Value<String?> nombre = const Value.absent(),
           Value<String?> zona = const Value.absent(),
           int? activo,
-          DateTime? creadoEn}) =>
+          DateTime? creadoEn,
+          Value<DateTime?> updatedAt = const Value.absent()}) =>
       PosMesa(
         id: id ?? this.id,
         numero: numero ?? this.numero,
@@ -10679,6 +10740,7 @@ class PosMesa extends DataClass implements Insertable<PosMesa> {
         zona: zona.present ? zona.value : this.zona,
         activo: activo ?? this.activo,
         creadoEn: creadoEn ?? this.creadoEn,
+        updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
       );
   PosMesa copyWithCompanion(PosMesasCompanion data) {
     return PosMesa(
@@ -10688,6 +10750,7 @@ class PosMesa extends DataClass implements Insertable<PosMesa> {
       zona: data.zona.present ? data.zona.value : this.zona,
       activo: data.activo.present ? data.activo.value : this.activo,
       creadoEn: data.creadoEn.present ? data.creadoEn.value : this.creadoEn,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -10699,13 +10762,15 @@ class PosMesa extends DataClass implements Insertable<PosMesa> {
           ..write('nombre: $nombre, ')
           ..write('zona: $zona, ')
           ..write('activo: $activo, ')
-          ..write('creadoEn: $creadoEn')
+          ..write('creadoEn: $creadoEn, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, numero, nombre, zona, activo, creadoEn);
+  int get hashCode =>
+      Object.hash(id, numero, nombre, zona, activo, creadoEn, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -10715,7 +10780,8 @@ class PosMesa extends DataClass implements Insertable<PosMesa> {
           other.nombre == this.nombre &&
           other.zona == this.zona &&
           other.activo == this.activo &&
-          other.creadoEn == this.creadoEn);
+          other.creadoEn == this.creadoEn &&
+          other.updatedAt == this.updatedAt);
 }
 
 class PosMesasCompanion extends UpdateCompanion<PosMesa> {
@@ -10725,6 +10791,7 @@ class PosMesasCompanion extends UpdateCompanion<PosMesa> {
   final Value<String?> zona;
   final Value<int> activo;
   final Value<DateTime> creadoEn;
+  final Value<DateTime?> updatedAt;
   const PosMesasCompanion({
     this.id = const Value.absent(),
     this.numero = const Value.absent(),
@@ -10732,6 +10799,7 @@ class PosMesasCompanion extends UpdateCompanion<PosMesa> {
     this.zona = const Value.absent(),
     this.activo = const Value.absent(),
     this.creadoEn = const Value.absent(),
+    this.updatedAt = const Value.absent(),
   });
   PosMesasCompanion.insert({
     this.id = const Value.absent(),
@@ -10740,6 +10808,7 @@ class PosMesasCompanion extends UpdateCompanion<PosMesa> {
     this.zona = const Value.absent(),
     this.activo = const Value.absent(),
     required DateTime creadoEn,
+    this.updatedAt = const Value.absent(),
   })  : numero = Value(numero),
         creadoEn = Value(creadoEn);
   static Insertable<PosMesa> custom({
@@ -10749,6 +10818,7 @@ class PosMesasCompanion extends UpdateCompanion<PosMesa> {
     Expression<String>? zona,
     Expression<int>? activo,
     Expression<DateTime>? creadoEn,
+    Expression<DateTime>? updatedAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -10757,6 +10827,7 @@ class PosMesasCompanion extends UpdateCompanion<PosMesa> {
       if (zona != null) 'zona': zona,
       if (activo != null) 'activo': activo,
       if (creadoEn != null) 'creado_en': creadoEn,
+      if (updatedAt != null) 'updated_at': updatedAt,
     });
   }
 
@@ -10766,7 +10837,8 @@ class PosMesasCompanion extends UpdateCompanion<PosMesa> {
       Value<String?>? nombre,
       Value<String?>? zona,
       Value<int>? activo,
-      Value<DateTime>? creadoEn}) {
+      Value<DateTime>? creadoEn,
+      Value<DateTime?>? updatedAt}) {
     return PosMesasCompanion(
       id: id ?? this.id,
       numero: numero ?? this.numero,
@@ -10774,6 +10846,7 @@ class PosMesasCompanion extends UpdateCompanion<PosMesa> {
       zona: zona ?? this.zona,
       activo: activo ?? this.activo,
       creadoEn: creadoEn ?? this.creadoEn,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -10798,6 +10871,9 @@ class PosMesasCompanion extends UpdateCompanion<PosMesa> {
     if (creadoEn.present) {
       map['creado_en'] = Variable<DateTime>(creadoEn.value);
     }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
     return map;
   }
 
@@ -10809,7 +10885,8 @@ class PosMesasCompanion extends UpdateCompanion<PosMesa> {
           ..write('nombre: $nombre, ')
           ..write('zona: $zona, ')
           ..write('activo: $activo, ')
-          ..write('creadoEn: $creadoEn')
+          ..write('creadoEn: $creadoEn, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
@@ -10858,9 +10935,15 @@ class $PosHabitacionesTable extends PosHabitaciones
   late final GeneratedColumn<DateTime> creadoEn = GeneratedColumn<DateTime>(
       'creado_en', aliasedName, false,
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns =>
-      [id, numero, piso, tipo, activo, creadoEn];
+      [id, numero, piso, tipo, activo, creadoEn, updatedAt];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -10898,6 +10981,10 @@ class $PosHabitacionesTable extends PosHabitaciones
     } else if (isInserting) {
       context.missing(_creadoEnMeta);
     }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
     return context;
   }
 
@@ -10919,6 +11006,8 @@ class $PosHabitacionesTable extends PosHabitaciones
           .read(DriftSqlType.int, data['${effectivePrefix}activo'])!,
       creadoEn: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}creado_en'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at']),
     );
   }
 
@@ -10935,13 +11024,15 @@ class PosHabitacione extends DataClass implements Insertable<PosHabitacione> {
   final String? tipo;
   final int activo;
   final DateTime creadoEn;
+  final DateTime? updatedAt;
   const PosHabitacione(
       {required this.id,
       required this.numero,
       this.piso,
       this.tipo,
       required this.activo,
-      required this.creadoEn});
+      required this.creadoEn,
+      this.updatedAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -10955,6 +11046,9 @@ class PosHabitacione extends DataClass implements Insertable<PosHabitacione> {
     }
     map['activo'] = Variable<int>(activo);
     map['creado_en'] = Variable<DateTime>(creadoEn);
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
+    }
     return map;
   }
 
@@ -10966,6 +11060,9 @@ class PosHabitacione extends DataClass implements Insertable<PosHabitacione> {
       tipo: tipo == null && nullToAbsent ? const Value.absent() : Value(tipo),
       activo: Value(activo),
       creadoEn: Value(creadoEn),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
     );
   }
 
@@ -10979,6 +11076,7 @@ class PosHabitacione extends DataClass implements Insertable<PosHabitacione> {
       tipo: serializer.fromJson<String?>(json['tipo']),
       activo: serializer.fromJson<int>(json['activo']),
       creadoEn: serializer.fromJson<DateTime>(json['creadoEn']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
   }
   @override
@@ -10991,6 +11089,7 @@ class PosHabitacione extends DataClass implements Insertable<PosHabitacione> {
       'tipo': serializer.toJson<String?>(tipo),
       'activo': serializer.toJson<int>(activo),
       'creadoEn': serializer.toJson<DateTime>(creadoEn),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
   }
 
@@ -11000,7 +11099,8 @@ class PosHabitacione extends DataClass implements Insertable<PosHabitacione> {
           Value<String?> piso = const Value.absent(),
           Value<String?> tipo = const Value.absent(),
           int? activo,
-          DateTime? creadoEn}) =>
+          DateTime? creadoEn,
+          Value<DateTime?> updatedAt = const Value.absent()}) =>
       PosHabitacione(
         id: id ?? this.id,
         numero: numero ?? this.numero,
@@ -11008,6 +11108,7 @@ class PosHabitacione extends DataClass implements Insertable<PosHabitacione> {
         tipo: tipo.present ? tipo.value : this.tipo,
         activo: activo ?? this.activo,
         creadoEn: creadoEn ?? this.creadoEn,
+        updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
       );
   PosHabitacione copyWithCompanion(PosHabitacionesCompanion data) {
     return PosHabitacione(
@@ -11017,6 +11118,7 @@ class PosHabitacione extends DataClass implements Insertable<PosHabitacione> {
       tipo: data.tipo.present ? data.tipo.value : this.tipo,
       activo: data.activo.present ? data.activo.value : this.activo,
       creadoEn: data.creadoEn.present ? data.creadoEn.value : this.creadoEn,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -11028,13 +11130,15 @@ class PosHabitacione extends DataClass implements Insertable<PosHabitacione> {
           ..write('piso: $piso, ')
           ..write('tipo: $tipo, ')
           ..write('activo: $activo, ')
-          ..write('creadoEn: $creadoEn')
+          ..write('creadoEn: $creadoEn, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, numero, piso, tipo, activo, creadoEn);
+  int get hashCode =>
+      Object.hash(id, numero, piso, tipo, activo, creadoEn, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -11044,7 +11148,8 @@ class PosHabitacione extends DataClass implements Insertable<PosHabitacione> {
           other.piso == this.piso &&
           other.tipo == this.tipo &&
           other.activo == this.activo &&
-          other.creadoEn == this.creadoEn);
+          other.creadoEn == this.creadoEn &&
+          other.updatedAt == this.updatedAt);
 }
 
 class PosHabitacionesCompanion extends UpdateCompanion<PosHabitacione> {
@@ -11054,6 +11159,7 @@ class PosHabitacionesCompanion extends UpdateCompanion<PosHabitacione> {
   final Value<String?> tipo;
   final Value<int> activo;
   final Value<DateTime> creadoEn;
+  final Value<DateTime?> updatedAt;
   const PosHabitacionesCompanion({
     this.id = const Value.absent(),
     this.numero = const Value.absent(),
@@ -11061,6 +11167,7 @@ class PosHabitacionesCompanion extends UpdateCompanion<PosHabitacione> {
     this.tipo = const Value.absent(),
     this.activo = const Value.absent(),
     this.creadoEn = const Value.absent(),
+    this.updatedAt = const Value.absent(),
   });
   PosHabitacionesCompanion.insert({
     this.id = const Value.absent(),
@@ -11069,6 +11176,7 @@ class PosHabitacionesCompanion extends UpdateCompanion<PosHabitacione> {
     this.tipo = const Value.absent(),
     this.activo = const Value.absent(),
     required DateTime creadoEn,
+    this.updatedAt = const Value.absent(),
   })  : numero = Value(numero),
         creadoEn = Value(creadoEn);
   static Insertable<PosHabitacione> custom({
@@ -11078,6 +11186,7 @@ class PosHabitacionesCompanion extends UpdateCompanion<PosHabitacione> {
     Expression<String>? tipo,
     Expression<int>? activo,
     Expression<DateTime>? creadoEn,
+    Expression<DateTime>? updatedAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
@@ -11086,6 +11195,7 @@ class PosHabitacionesCompanion extends UpdateCompanion<PosHabitacione> {
       if (tipo != null) 'tipo': tipo,
       if (activo != null) 'activo': activo,
       if (creadoEn != null) 'creado_en': creadoEn,
+      if (updatedAt != null) 'updated_at': updatedAt,
     });
   }
 
@@ -11095,7 +11205,8 @@ class PosHabitacionesCompanion extends UpdateCompanion<PosHabitacione> {
       Value<String?>? piso,
       Value<String?>? tipo,
       Value<int>? activo,
-      Value<DateTime>? creadoEn}) {
+      Value<DateTime>? creadoEn,
+      Value<DateTime?>? updatedAt}) {
     return PosHabitacionesCompanion(
       id: id ?? this.id,
       numero: numero ?? this.numero,
@@ -11103,6 +11214,7 @@ class PosHabitacionesCompanion extends UpdateCompanion<PosHabitacione> {
       tipo: tipo ?? this.tipo,
       activo: activo ?? this.activo,
       creadoEn: creadoEn ?? this.creadoEn,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -11127,6 +11239,9 @@ class PosHabitacionesCompanion extends UpdateCompanion<PosHabitacione> {
     if (creadoEn.present) {
       map['creado_en'] = Variable<DateTime>(creadoEn.value);
     }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
     return map;
   }
 
@@ -11138,7 +11253,8 @@ class PosHabitacionesCompanion extends UpdateCompanion<PosHabitacione> {
           ..write('piso: $piso, ')
           ..write('tipo: $tipo, ')
           ..write('activo: $activo, ')
-          ..write('creadoEn: $creadoEn')
+          ..write('creadoEn: $creadoEn, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
@@ -11177,8 +11293,50 @@ class $PosSesionesTable extends PosSesiones
   late final GeneratedColumn<DateTime> cerradaEn = GeneratedColumn<DateTime>(
       'cerrada_en', aliasedName, true,
       type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _cajaInicialMeta =
+      const VerificationMeta('cajaInicial');
   @override
-  List<GeneratedColumn> get $columns => [id, usuarioId, abiertaEn, cerradaEn];
+  late final GeneratedColumn<double> cajaInicial = GeneratedColumn<double>(
+      'caja_inicial', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _cajaFinalMeta =
+      const VerificationMeta('cajaFinal');
+  @override
+  late final GeneratedColumn<double> cajaFinal = GeneratedColumn<double>(
+      'caja_final', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _syncUuidMeta =
+      const VerificationMeta('syncUuid');
+  @override
+  late final GeneratedColumn<String> syncUuid = GeneratedColumn<String>(
+      'sync_uuid', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _createdAtMeta =
+      const VerificationMeta('createdAt');
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+      'created_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        usuarioId,
+        abiertaEn,
+        cerradaEn,
+        cajaInicial,
+        cajaFinal,
+        syncUuid,
+        createdAt,
+        updatedAt
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -11208,6 +11366,28 @@ class $PosSesionesTable extends PosSesiones
       context.handle(_cerradaEnMeta,
           cerradaEn.isAcceptableOrUnknown(data['cerrada_en']!, _cerradaEnMeta));
     }
+    if (data.containsKey('caja_inicial')) {
+      context.handle(
+          _cajaInicialMeta,
+          cajaInicial.isAcceptableOrUnknown(
+              data['caja_inicial']!, _cajaInicialMeta));
+    }
+    if (data.containsKey('caja_final')) {
+      context.handle(_cajaFinalMeta,
+          cajaFinal.isAcceptableOrUnknown(data['caja_final']!, _cajaFinalMeta));
+    }
+    if (data.containsKey('sync_uuid')) {
+      context.handle(_syncUuidMeta,
+          syncUuid.isAcceptableOrUnknown(data['sync_uuid']!, _syncUuidMeta));
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(_createdAtMeta,
+          createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    }
     return context;
   }
 
@@ -11225,6 +11405,16 @@ class $PosSesionesTable extends PosSesiones
           .read(DriftSqlType.dateTime, data['${effectivePrefix}abierta_en'])!,
       cerradaEn: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}cerrada_en']),
+      cajaInicial: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}caja_inicial'])!,
+      cajaFinal: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}caja_final']),
+      syncUuid: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}sync_uuid']),
+      createdAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}created_at']),
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at']),
     );
   }
 
@@ -11239,11 +11429,21 @@ class PosSesione extends DataClass implements Insertable<PosSesione> {
   final int usuarioId;
   final DateTime abiertaEn;
   final DateTime? cerradaEn;
+  final double cajaInicial;
+  final double? cajaFinal;
+  final String? syncUuid;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
   const PosSesione(
       {required this.id,
       required this.usuarioId,
       required this.abiertaEn,
-      this.cerradaEn});
+      this.cerradaEn,
+      required this.cajaInicial,
+      this.cajaFinal,
+      this.syncUuid,
+      this.createdAt,
+      this.updatedAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -11252,6 +11452,19 @@ class PosSesione extends DataClass implements Insertable<PosSesione> {
     map['abierta_en'] = Variable<DateTime>(abiertaEn);
     if (!nullToAbsent || cerradaEn != null) {
       map['cerrada_en'] = Variable<DateTime>(cerradaEn);
+    }
+    map['caja_inicial'] = Variable<double>(cajaInicial);
+    if (!nullToAbsent || cajaFinal != null) {
+      map['caja_final'] = Variable<double>(cajaFinal);
+    }
+    if (!nullToAbsent || syncUuid != null) {
+      map['sync_uuid'] = Variable<String>(syncUuid);
+    }
+    if (!nullToAbsent || createdAt != null) {
+      map['created_at'] = Variable<DateTime>(createdAt);
+    }
+    if (!nullToAbsent || updatedAt != null) {
+      map['updated_at'] = Variable<DateTime>(updatedAt);
     }
     return map;
   }
@@ -11264,6 +11477,19 @@ class PosSesione extends DataClass implements Insertable<PosSesione> {
       cerradaEn: cerradaEn == null && nullToAbsent
           ? const Value.absent()
           : Value(cerradaEn),
+      cajaInicial: Value(cajaInicial),
+      cajaFinal: cajaFinal == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cajaFinal),
+      syncUuid: syncUuid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(syncUuid),
+      createdAt: createdAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdAt),
+      updatedAt: updatedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(updatedAt),
     );
   }
 
@@ -11275,6 +11501,11 @@ class PosSesione extends DataClass implements Insertable<PosSesione> {
       usuarioId: serializer.fromJson<int>(json['usuarioId']),
       abiertaEn: serializer.fromJson<DateTime>(json['abiertaEn']),
       cerradaEn: serializer.fromJson<DateTime?>(json['cerradaEn']),
+      cajaInicial: serializer.fromJson<double>(json['cajaInicial']),
+      cajaFinal: serializer.fromJson<double?>(json['cajaFinal']),
+      syncUuid: serializer.fromJson<String?>(json['syncUuid']),
+      createdAt: serializer.fromJson<DateTime?>(json['createdAt']),
+      updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
     );
   }
   @override
@@ -11285,6 +11516,11 @@ class PosSesione extends DataClass implements Insertable<PosSesione> {
       'usuarioId': serializer.toJson<int>(usuarioId),
       'abiertaEn': serializer.toJson<DateTime>(abiertaEn),
       'cerradaEn': serializer.toJson<DateTime?>(cerradaEn),
+      'cajaInicial': serializer.toJson<double>(cajaInicial),
+      'cajaFinal': serializer.toJson<double?>(cajaFinal),
+      'syncUuid': serializer.toJson<String?>(syncUuid),
+      'createdAt': serializer.toJson<DateTime?>(createdAt),
+      'updatedAt': serializer.toJson<DateTime?>(updatedAt),
     };
   }
 
@@ -11292,12 +11528,22 @@ class PosSesione extends DataClass implements Insertable<PosSesione> {
           {int? id,
           int? usuarioId,
           DateTime? abiertaEn,
-          Value<DateTime?> cerradaEn = const Value.absent()}) =>
+          Value<DateTime?> cerradaEn = const Value.absent(),
+          double? cajaInicial,
+          Value<double?> cajaFinal = const Value.absent(),
+          Value<String?> syncUuid = const Value.absent(),
+          Value<DateTime?> createdAt = const Value.absent(),
+          Value<DateTime?> updatedAt = const Value.absent()}) =>
       PosSesione(
         id: id ?? this.id,
         usuarioId: usuarioId ?? this.usuarioId,
         abiertaEn: abiertaEn ?? this.abiertaEn,
         cerradaEn: cerradaEn.present ? cerradaEn.value : this.cerradaEn,
+        cajaInicial: cajaInicial ?? this.cajaInicial,
+        cajaFinal: cajaFinal.present ? cajaFinal.value : this.cajaFinal,
+        syncUuid: syncUuid.present ? syncUuid.value : this.syncUuid,
+        createdAt: createdAt.present ? createdAt.value : this.createdAt,
+        updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
       );
   PosSesione copyWithCompanion(PosSesionesCompanion data) {
     return PosSesione(
@@ -11305,6 +11551,12 @@ class PosSesione extends DataClass implements Insertable<PosSesione> {
       usuarioId: data.usuarioId.present ? data.usuarioId.value : this.usuarioId,
       abiertaEn: data.abiertaEn.present ? data.abiertaEn.value : this.abiertaEn,
       cerradaEn: data.cerradaEn.present ? data.cerradaEn.value : this.cerradaEn,
+      cajaInicial:
+          data.cajaInicial.present ? data.cajaInicial.value : this.cajaInicial,
+      cajaFinal: data.cajaFinal.present ? data.cajaFinal.value : this.cajaFinal,
+      syncUuid: data.syncUuid.present ? data.syncUuid.value : this.syncUuid,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
 
@@ -11314,13 +11566,19 @@ class PosSesione extends DataClass implements Insertable<PosSesione> {
           ..write('id: $id, ')
           ..write('usuarioId: $usuarioId, ')
           ..write('abiertaEn: $abiertaEn, ')
-          ..write('cerradaEn: $cerradaEn')
+          ..write('cerradaEn: $cerradaEn, ')
+          ..write('cajaInicial: $cajaInicial, ')
+          ..write('cajaFinal: $cajaFinal, ')
+          ..write('syncUuid: $syncUuid, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, usuarioId, abiertaEn, cerradaEn);
+  int get hashCode => Object.hash(id, usuarioId, abiertaEn, cerradaEn,
+      cajaInicial, cajaFinal, syncUuid, createdAt, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -11328,7 +11586,12 @@ class PosSesione extends DataClass implements Insertable<PosSesione> {
           other.id == this.id &&
           other.usuarioId == this.usuarioId &&
           other.abiertaEn == this.abiertaEn &&
-          other.cerradaEn == this.cerradaEn);
+          other.cerradaEn == this.cerradaEn &&
+          other.cajaInicial == this.cajaInicial &&
+          other.cajaFinal == this.cajaFinal &&
+          other.syncUuid == this.syncUuid &&
+          other.createdAt == this.createdAt &&
+          other.updatedAt == this.updatedAt);
 }
 
 class PosSesionesCompanion extends UpdateCompanion<PosSesione> {
@@ -11336,17 +11599,32 @@ class PosSesionesCompanion extends UpdateCompanion<PosSesione> {
   final Value<int> usuarioId;
   final Value<DateTime> abiertaEn;
   final Value<DateTime?> cerradaEn;
+  final Value<double> cajaInicial;
+  final Value<double?> cajaFinal;
+  final Value<String?> syncUuid;
+  final Value<DateTime?> createdAt;
+  final Value<DateTime?> updatedAt;
   const PosSesionesCompanion({
     this.id = const Value.absent(),
     this.usuarioId = const Value.absent(),
     this.abiertaEn = const Value.absent(),
     this.cerradaEn = const Value.absent(),
+    this.cajaInicial = const Value.absent(),
+    this.cajaFinal = const Value.absent(),
+    this.syncUuid = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
   });
   PosSesionesCompanion.insert({
     this.id = const Value.absent(),
     required int usuarioId,
     required DateTime abiertaEn,
     this.cerradaEn = const Value.absent(),
+    this.cajaInicial = const Value.absent(),
+    this.cajaFinal = const Value.absent(),
+    this.syncUuid = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.updatedAt = const Value.absent(),
   })  : usuarioId = Value(usuarioId),
         abiertaEn = Value(abiertaEn);
   static Insertable<PosSesione> custom({
@@ -11354,12 +11632,22 @@ class PosSesionesCompanion extends UpdateCompanion<PosSesione> {
     Expression<int>? usuarioId,
     Expression<DateTime>? abiertaEn,
     Expression<DateTime>? cerradaEn,
+    Expression<double>? cajaInicial,
+    Expression<double>? cajaFinal,
+    Expression<String>? syncUuid,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? updatedAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (usuarioId != null) 'usuario_id': usuarioId,
       if (abiertaEn != null) 'abierta_en': abiertaEn,
       if (cerradaEn != null) 'cerrada_en': cerradaEn,
+      if (cajaInicial != null) 'caja_inicial': cajaInicial,
+      if (cajaFinal != null) 'caja_final': cajaFinal,
+      if (syncUuid != null) 'sync_uuid': syncUuid,
+      if (createdAt != null) 'created_at': createdAt,
+      if (updatedAt != null) 'updated_at': updatedAt,
     });
   }
 
@@ -11367,12 +11655,22 @@ class PosSesionesCompanion extends UpdateCompanion<PosSesione> {
       {Value<int>? id,
       Value<int>? usuarioId,
       Value<DateTime>? abiertaEn,
-      Value<DateTime?>? cerradaEn}) {
+      Value<DateTime?>? cerradaEn,
+      Value<double>? cajaInicial,
+      Value<double?>? cajaFinal,
+      Value<String?>? syncUuid,
+      Value<DateTime?>? createdAt,
+      Value<DateTime?>? updatedAt}) {
     return PosSesionesCompanion(
       id: id ?? this.id,
       usuarioId: usuarioId ?? this.usuarioId,
       abiertaEn: abiertaEn ?? this.abiertaEn,
       cerradaEn: cerradaEn ?? this.cerradaEn,
+      cajaInicial: cajaInicial ?? this.cajaInicial,
+      cajaFinal: cajaFinal ?? this.cajaFinal,
+      syncUuid: syncUuid ?? this.syncUuid,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
@@ -11391,6 +11689,21 @@ class PosSesionesCompanion extends UpdateCompanion<PosSesione> {
     if (cerradaEn.present) {
       map['cerrada_en'] = Variable<DateTime>(cerradaEn.value);
     }
+    if (cajaInicial.present) {
+      map['caja_inicial'] = Variable<double>(cajaInicial.value);
+    }
+    if (cajaFinal.present) {
+      map['caja_final'] = Variable<double>(cajaFinal.value);
+    }
+    if (syncUuid.present) {
+      map['sync_uuid'] = Variable<String>(syncUuid.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
     return map;
   }
 
@@ -11400,7 +11713,12 @@ class PosSesionesCompanion extends UpdateCompanion<PosSesione> {
           ..write('id: $id, ')
           ..write('usuarioId: $usuarioId, ')
           ..write('abiertaEn: $abiertaEn, ')
-          ..write('cerradaEn: $cerradaEn')
+          ..write('cerradaEn: $cerradaEn, ')
+          ..write('cajaInicial: $cajaInicial, ')
+          ..write('cajaFinal: $cajaFinal, ')
+          ..write('syncUuid: $syncUuid, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
@@ -20139,6 +20457,7 @@ typedef $$PosUsuariosTableCreateCompanionBuilder = PosUsuariosCompanion
   Value<int> esAdmin,
   Value<int> activo,
   required DateTime creadoEn,
+  Value<DateTime?> updatedAt,
 });
 typedef $$PosUsuariosTableUpdateCompanionBuilder = PosUsuariosCompanion
     Function({
@@ -20148,6 +20467,7 @@ typedef $$PosUsuariosTableUpdateCompanionBuilder = PosUsuariosCompanion
   Value<int> esAdmin,
   Value<int> activo,
   Value<DateTime> creadoEn,
+  Value<DateTime?> updatedAt,
 });
 
 class $$PosUsuariosTableFilterComposer
@@ -20176,6 +20496,9 @@ class $$PosUsuariosTableFilterComposer
 
   ColumnFilters<DateTime> get creadoEn => $composableBuilder(
       column: $table.creadoEn, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
 }
 
 class $$PosUsuariosTableOrderingComposer
@@ -20204,6 +20527,9 @@ class $$PosUsuariosTableOrderingComposer
 
   ColumnOrderings<DateTime> get creadoEn => $composableBuilder(
       column: $table.creadoEn, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
 }
 
 class $$PosUsuariosTableAnnotationComposer
@@ -20232,6 +20558,9 @@ class $$PosUsuariosTableAnnotationComposer
 
   GeneratedColumn<DateTime> get creadoEn =>
       $composableBuilder(column: $table.creadoEn, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 }
 
 class $$PosUsuariosTableTableManager extends RootTableManager<
@@ -20263,6 +20592,7 @@ class $$PosUsuariosTableTableManager extends RootTableManager<
             Value<int> esAdmin = const Value.absent(),
             Value<int> activo = const Value.absent(),
             Value<DateTime> creadoEn = const Value.absent(),
+            Value<DateTime?> updatedAt = const Value.absent(),
           }) =>
               PosUsuariosCompanion(
             id: id,
@@ -20271,6 +20601,7 @@ class $$PosUsuariosTableTableManager extends RootTableManager<
             esAdmin: esAdmin,
             activo: activo,
             creadoEn: creadoEn,
+            updatedAt: updatedAt,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -20279,6 +20610,7 @@ class $$PosUsuariosTableTableManager extends RootTableManager<
             Value<int> esAdmin = const Value.absent(),
             Value<int> activo = const Value.absent(),
             required DateTime creadoEn,
+            Value<DateTime?> updatedAt = const Value.absent(),
           }) =>
               PosUsuariosCompanion.insert(
             id: id,
@@ -20287,6 +20619,7 @@ class $$PosUsuariosTableTableManager extends RootTableManager<
             esAdmin: esAdmin,
             activo: activo,
             creadoEn: creadoEn,
+            updatedAt: updatedAt,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -20314,6 +20647,7 @@ typedef $$PosMesasTableCreateCompanionBuilder = PosMesasCompanion Function({
   Value<String?> zona,
   Value<int> activo,
   required DateTime creadoEn,
+  Value<DateTime?> updatedAt,
 });
 typedef $$PosMesasTableUpdateCompanionBuilder = PosMesasCompanion Function({
   Value<int> id,
@@ -20322,6 +20656,7 @@ typedef $$PosMesasTableUpdateCompanionBuilder = PosMesasCompanion Function({
   Value<String?> zona,
   Value<int> activo,
   Value<DateTime> creadoEn,
+  Value<DateTime?> updatedAt,
 });
 
 class $$PosMesasTableFilterComposer
@@ -20350,6 +20685,9 @@ class $$PosMesasTableFilterComposer
 
   ColumnFilters<DateTime> get creadoEn => $composableBuilder(
       column: $table.creadoEn, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
 }
 
 class $$PosMesasTableOrderingComposer
@@ -20378,6 +20716,9 @@ class $$PosMesasTableOrderingComposer
 
   ColumnOrderings<DateTime> get creadoEn => $composableBuilder(
       column: $table.creadoEn, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
 }
 
 class $$PosMesasTableAnnotationComposer
@@ -20406,6 +20747,9 @@ class $$PosMesasTableAnnotationComposer
 
   GeneratedColumn<DateTime> get creadoEn =>
       $composableBuilder(column: $table.creadoEn, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 }
 
 class $$PosMesasTableTableManager extends RootTableManager<
@@ -20437,6 +20781,7 @@ class $$PosMesasTableTableManager extends RootTableManager<
             Value<String?> zona = const Value.absent(),
             Value<int> activo = const Value.absent(),
             Value<DateTime> creadoEn = const Value.absent(),
+            Value<DateTime?> updatedAt = const Value.absent(),
           }) =>
               PosMesasCompanion(
             id: id,
@@ -20445,6 +20790,7 @@ class $$PosMesasTableTableManager extends RootTableManager<
             zona: zona,
             activo: activo,
             creadoEn: creadoEn,
+            updatedAt: updatedAt,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -20453,6 +20799,7 @@ class $$PosMesasTableTableManager extends RootTableManager<
             Value<String?> zona = const Value.absent(),
             Value<int> activo = const Value.absent(),
             required DateTime creadoEn,
+            Value<DateTime?> updatedAt = const Value.absent(),
           }) =>
               PosMesasCompanion.insert(
             id: id,
@@ -20461,6 +20808,7 @@ class $$PosMesasTableTableManager extends RootTableManager<
             zona: zona,
             activo: activo,
             creadoEn: creadoEn,
+            updatedAt: updatedAt,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -20489,6 +20837,7 @@ typedef $$PosHabitacionesTableCreateCompanionBuilder = PosHabitacionesCompanion
   Value<String?> tipo,
   Value<int> activo,
   required DateTime creadoEn,
+  Value<DateTime?> updatedAt,
 });
 typedef $$PosHabitacionesTableUpdateCompanionBuilder = PosHabitacionesCompanion
     Function({
@@ -20498,6 +20847,7 @@ typedef $$PosHabitacionesTableUpdateCompanionBuilder = PosHabitacionesCompanion
   Value<String?> tipo,
   Value<int> activo,
   Value<DateTime> creadoEn,
+  Value<DateTime?> updatedAt,
 });
 
 class $$PosHabitacionesTableFilterComposer
@@ -20526,6 +20876,9 @@ class $$PosHabitacionesTableFilterComposer
 
   ColumnFilters<DateTime> get creadoEn => $composableBuilder(
       column: $table.creadoEn, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
 }
 
 class $$PosHabitacionesTableOrderingComposer
@@ -20554,6 +20907,9 @@ class $$PosHabitacionesTableOrderingComposer
 
   ColumnOrderings<DateTime> get creadoEn => $composableBuilder(
       column: $table.creadoEn, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
 }
 
 class $$PosHabitacionesTableAnnotationComposer
@@ -20582,6 +20938,9 @@ class $$PosHabitacionesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get creadoEn =>
       $composableBuilder(column: $table.creadoEn, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 }
 
 class $$PosHabitacionesTableTableManager extends RootTableManager<
@@ -20617,6 +20976,7 @@ class $$PosHabitacionesTableTableManager extends RootTableManager<
             Value<String?> tipo = const Value.absent(),
             Value<int> activo = const Value.absent(),
             Value<DateTime> creadoEn = const Value.absent(),
+            Value<DateTime?> updatedAt = const Value.absent(),
           }) =>
               PosHabitacionesCompanion(
             id: id,
@@ -20625,6 +20985,7 @@ class $$PosHabitacionesTableTableManager extends RootTableManager<
             tipo: tipo,
             activo: activo,
             creadoEn: creadoEn,
+            updatedAt: updatedAt,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
@@ -20633,6 +20994,7 @@ class $$PosHabitacionesTableTableManager extends RootTableManager<
             Value<String?> tipo = const Value.absent(),
             Value<int> activo = const Value.absent(),
             required DateTime creadoEn,
+            Value<DateTime?> updatedAt = const Value.absent(),
           }) =>
               PosHabitacionesCompanion.insert(
             id: id,
@@ -20641,6 +21003,7 @@ class $$PosHabitacionesTableTableManager extends RootTableManager<
             tipo: tipo,
             activo: activo,
             creadoEn: creadoEn,
+            updatedAt: updatedAt,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
@@ -20670,6 +21033,11 @@ typedef $$PosSesionesTableCreateCompanionBuilder = PosSesionesCompanion
   required int usuarioId,
   required DateTime abiertaEn,
   Value<DateTime?> cerradaEn,
+  Value<double> cajaInicial,
+  Value<double?> cajaFinal,
+  Value<String?> syncUuid,
+  Value<DateTime?> createdAt,
+  Value<DateTime?> updatedAt,
 });
 typedef $$PosSesionesTableUpdateCompanionBuilder = PosSesionesCompanion
     Function({
@@ -20677,6 +21045,11 @@ typedef $$PosSesionesTableUpdateCompanionBuilder = PosSesionesCompanion
   Value<int> usuarioId,
   Value<DateTime> abiertaEn,
   Value<DateTime?> cerradaEn,
+  Value<double> cajaInicial,
+  Value<double?> cajaFinal,
+  Value<String?> syncUuid,
+  Value<DateTime?> createdAt,
+  Value<DateTime?> updatedAt,
 });
 
 class $$PosSesionesTableFilterComposer
@@ -20699,6 +21072,21 @@ class $$PosSesionesTableFilterComposer
 
   ColumnFilters<DateTime> get cerradaEn => $composableBuilder(
       column: $table.cerradaEn, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get cajaInicial => $composableBuilder(
+      column: $table.cajaInicial, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get cajaFinal => $composableBuilder(
+      column: $table.cajaFinal, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get syncUuid => $composableBuilder(
+      column: $table.syncUuid, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
 }
 
 class $$PosSesionesTableOrderingComposer
@@ -20721,6 +21109,21 @@ class $$PosSesionesTableOrderingComposer
 
   ColumnOrderings<DateTime> get cerradaEn => $composableBuilder(
       column: $table.cerradaEn, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get cajaInicial => $composableBuilder(
+      column: $table.cajaInicial, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get cajaFinal => $composableBuilder(
+      column: $table.cajaFinal, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get syncUuid => $composableBuilder(
+      column: $table.syncUuid, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+      column: $table.createdAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
 }
 
 class $$PosSesionesTableAnnotationComposer
@@ -20743,6 +21146,21 @@ class $$PosSesionesTableAnnotationComposer
 
   GeneratedColumn<DateTime> get cerradaEn =>
       $composableBuilder(column: $table.cerradaEn, builder: (column) => column);
+
+  GeneratedColumn<double> get cajaInicial => $composableBuilder(
+      column: $table.cajaInicial, builder: (column) => column);
+
+  GeneratedColumn<double> get cajaFinal =>
+      $composableBuilder(column: $table.cajaFinal, builder: (column) => column);
+
+  GeneratedColumn<String> get syncUuid =>
+      $composableBuilder(column: $table.syncUuid, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
 }
 
 class $$PosSesionesTableTableManager extends RootTableManager<
@@ -20772,24 +21190,44 @@ class $$PosSesionesTableTableManager extends RootTableManager<
             Value<int> usuarioId = const Value.absent(),
             Value<DateTime> abiertaEn = const Value.absent(),
             Value<DateTime?> cerradaEn = const Value.absent(),
+            Value<double> cajaInicial = const Value.absent(),
+            Value<double?> cajaFinal = const Value.absent(),
+            Value<String?> syncUuid = const Value.absent(),
+            Value<DateTime?> createdAt = const Value.absent(),
+            Value<DateTime?> updatedAt = const Value.absent(),
           }) =>
               PosSesionesCompanion(
             id: id,
             usuarioId: usuarioId,
             abiertaEn: abiertaEn,
             cerradaEn: cerradaEn,
+            cajaInicial: cajaInicial,
+            cajaFinal: cajaFinal,
+            syncUuid: syncUuid,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
           ),
           createCompanionCallback: ({
             Value<int> id = const Value.absent(),
             required int usuarioId,
             required DateTime abiertaEn,
             Value<DateTime?> cerradaEn = const Value.absent(),
+            Value<double> cajaInicial = const Value.absent(),
+            Value<double?> cajaFinal = const Value.absent(),
+            Value<String?> syncUuid = const Value.absent(),
+            Value<DateTime?> createdAt = const Value.absent(),
+            Value<DateTime?> updatedAt = const Value.absent(),
           }) =>
               PosSesionesCompanion.insert(
             id: id,
             usuarioId: usuarioId,
             abiertaEn: abiertaEn,
             cerradaEn: cerradaEn,
+            cajaInicial: cajaInicial,
+            cajaFinal: cajaFinal,
+            syncUuid: syncUuid,
+            createdAt: createdAt,
+            updatedAt: updatedAt,
           ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))

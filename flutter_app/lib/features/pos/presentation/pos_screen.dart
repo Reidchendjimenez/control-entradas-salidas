@@ -5,18 +5,20 @@ import '../../../core/db/schema/app_database.dart';
 import '../data/pos_providers.dart';
 import '../data/pos_session.dart';
 import 'comanda_screen.dart';
+import 'config_screen.dart';
 import 'dialogs/nuevo_cajero_dialog.dart';
 import 'dialogs/pin_dialog.dart';
 import 'habitaciones_screen.dart';
 import 'mesas_screen.dart';
 import 'pos_home_screen.dart';
-import 'widgets/pos_top_bar.dart';
+import 'ventas_screen.dart';
 import 'widgets/usuario_card.dart';
 
 /// Pantalla del módulo POS.
 /// - Sin sesión: login PIN (Fase 6.1) — lista de cajeros, seed admin, alta.
 /// - Con sesión: router de etapas (Fase 6.2): selector → mesas/habitaciones →
-///   apertura de comanda. Ventas (6.4) y Config (6.5) son stubs por ahora.
+///   apertura de comanda. Ventas (6.4) con historial y anulación; Config (6.5)
+///   con cajeros/mesas/habitaciones/platos/categorías/tasa BCV.
 class PosScreen extends ConsumerWidget {
   const PosScreen({super.key});
 
@@ -75,6 +77,64 @@ class _PosRouterState extends ConsumerState<_PosRouter> {
     ref.read(posSessionProvider.notifier).cerrarSesion();
   }
 
+  /// Retoma una comanda activa desde el home (resuelve mesa/habitación por id
+  /// y abre la etapa de comanda directamente).
+  Future<void> _abrirComandaActiva(int? mesaId, int? habitacionId) async {
+    final repo = ref.read(posRepoProvider);
+    if (mesaId != null) {
+      final m = await repo.getMesaById(mesaId);
+      if (m == null) return;
+      if (!mounted) return;
+      setState(() {
+        _mesa = m;
+        _habitacion = null;
+        _stage = _PosStage.comanda;
+      });
+    } else if (habitacionId != null) {
+      final h = await repo.getHabitacionById(habitacionId);
+      if (h == null) return;
+      if (!mounted) return;
+      setState(() {
+        _habitacion = h;
+        _mesa = null;
+        _stage = _PosStage.comanda;
+      });
+    }
+  }
+
+  /// Después de anular una venta: abre la comanda de la mesa/habitación
+  /// devuelta para corregirla y volver a cobrar (port de `VentasView._ir_a_comanda`).
+  Future<void> _corregirVenta(int? mesaId, int? habitacionId) async {
+    final repo = ref.read(posRepoProvider);
+    if (mesaId != null) {
+      final m = await repo.getMesaById(mesaId);
+      if (m == null) {
+        _go(_PosStage.ventas);
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        _mesa = m;
+        _habitacion = null;
+        _stage = _PosStage.comanda;
+      });
+    } else if (habitacionId != null) {
+      final h = await repo.getHabitacionById(habitacionId);
+      if (h == null) {
+        _go(_PosStage.ventas);
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        _habitacion = h;
+        _mesa = null;
+        _stage = _PosStage.comanda;
+      });
+    } else {
+      _go(_PosStage.ventas);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = widget.sesion;
@@ -98,23 +158,18 @@ class _PosRouterState extends ConsumerState<_PosRouter> {
           sesion: s,
           mesa: _mesa,
           habitacion: _habitacion,
-          onBack: () => _go(_mesa != null ? _PosStage.mesas : _PosStage.habitaciones),
-          onLogout: _cerrarSesion,
-        );
-      case _PosStage.ventas:
-        return _StubScreen(
-          icon: Icons.receipt_long,
-          titulo: 'Ventas',
-          mensaje: 'Historial y devoluciones llegan en la Fase 6.4.',
-          sesion: s,
           onBack: () => _go(_PosStage.home),
           onLogout: _cerrarSesion,
         );
+      case _PosStage.ventas:
+        return VentasScreen(
+          sesion: s,
+          onBack: () => _go(_PosStage.home),
+          onLogout: _cerrarSesion,
+          onCorregirVenta: _corregirVenta,
+        );
       case _PosStage.config:
-        return _StubScreen(
-          icon: Icons.settings,
-          titulo: 'Configuración POS',
-          mensaje: 'Config POS y tasa BCV llegan en la Fase 6.5.',
+        return ConfigScreen(
           sesion: s,
           onBack: () => _go(_PosStage.home),
           onLogout: _cerrarSesion,
@@ -127,59 +182,9 @@ class _PosRouterState extends ConsumerState<_PosRouter> {
           onVentas: () => _go(_PosStage.ventas),
           onConfig: () => _go(_PosStage.config),
           onLogout: _cerrarSesion,
+          onAbrirComanda: _abrirComandaActiva,
         );
     }
-  }
-}
-
-/// Stub para sub-fases pendientes (6.4 / 6.5).
-class _StubScreen extends StatelessWidget {
-  const _StubScreen({
-    required this.icon,
-    required this.titulo,
-    required this.mensaje,
-    required this.sesion,
-    required this.onBack,
-    required this.onLogout,
-  });
-
-  final IconData icon;
-  final String titulo;
-  final String mensaje;
-  final PosSesionActiva sesion;
-  final VoidCallback onBack;
-  final VoidCallback onLogout;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          PosTopBar(
-            usuario: sesion.usuario,
-            titulo: titulo,
-            onBack: onBack,
-            onLogout: onLogout,
-          ),
-          Expanded(
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(icon, size: 64, color: Colors.grey),
-                  const SizedBox(height: 12),
-                  const Text('Módulo pendiente'),
-                  const SizedBox(height: 4),
-                  Text(mensaje,
-                      style: const TextStyle(color: Colors.grey),
-                      textAlign: TextAlign.center),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -231,8 +236,13 @@ class _LoginViewState extends ConsumerState<_LoginView> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('POS'),
-        leading: const Icon(Icons.point_of_sale),
+        title: const Text('Lycoris POS'),
+        leading: Image.asset(
+          'assets/icono_azul.png',
+          width: 30,
+          height: 30,
+          fit: BoxFit.cover,
+        ),
       ),
       body: Center(
         child: ConstrainedBox(

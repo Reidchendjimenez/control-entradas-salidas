@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../../core/db/schema/app_database.dart';
 
 /// Barra superior del POS (port de `MesasView._build_top_bar` / comandas.py):
-/// flecha de volver + título a la izquierda; avatar, rol y cerrar sesión a la
-/// derecha. El botón de config (solo admin) lo agrega la vista que lo necesite.
+/// logo + título a la izquierda; avatar, rol y cerrar sesión a la derecha. El
+/// botón de config (solo admin) lo agrega la vista que lo necesite.
 class PosTopBar extends StatelessWidget {
   const PosTopBar({
     super.key,
@@ -44,6 +44,16 @@ class PosTopBar extends StatelessWidget {
               icon: const Icon(Icons.arrow_back),
             ),
           const SizedBox(width: 4),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: Image.asset(
+              'assets/icono_azul.png',
+              width: 26,
+              height: 26,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(width: 8),
           Text(
             titulo,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),

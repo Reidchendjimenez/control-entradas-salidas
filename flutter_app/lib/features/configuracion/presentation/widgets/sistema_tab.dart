@@ -5,6 +5,7 @@ import 'dart:html' as html;
 
 import '../../../../core/state/theme_controller.dart';
 import '../../../../core/sync/sync_service.dart';
+import '../../../../core/updater/update_settings_card.dart';
 import '../../data/configuracion_providers.dart'
     show
         configuracionRepoProvider,
@@ -40,6 +41,7 @@ class _SistemaTabState extends ConsumerState<SistemaTab> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        const UpdateSettingsCard(),
         _sectionCard(
           scheme,
           title: 'Mantenimiento del Sistema',

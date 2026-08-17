@@ -1,5 +1,16 @@
 import 'dart:convert';
 
+/// Comanda abierta enriquecida para el home del POS (etiqueta de
+/// mesa/habitación, total e items, con los ids para retomarla).
+typedef ComandaActiva = ({
+  int comandaId,
+  String etiqueta,
+  double total,
+  int items,
+  int? mesaId,
+  int? habitacionId,
+});
+
 /// Modelo de item de comanda (port del formato de `ComandaPedidoView._build_items_data`).
 ///
 /// Se serializa a JSON para `pos_comandas.items_json` con el mismo formato de

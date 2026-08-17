@@ -7,6 +7,7 @@ import '../db/database_provider.dart';
 import '../db/schema/app_database.dart';
 import '../network/supabase_client.dart';
 import 'sync_engine.dart';
+import 'sync_status.dart';
 
 /// Provider del motor de sincronización (null si supabase no está configurado).
 final syncEngineProvider = Provider<SyncEngine?>((ref) {
@@ -14,8 +15,11 @@ final syncEngineProvider = Provider<SyncEngine?>((ref) {
   if (client == null) return null;
   final db = ref.watch(appDatabaseProvider);
   final engine = SyncEngine(db: db, client: client);
-  // Visibilizar el progreso del sync en los logs (vía LogBridge).
-  engine.onProgress = (msg) => print('[sync] $msg');
+  // Progreso: logs (vía LogBridge) + barra global de sync.
+  engine.onProgress = (msg) {
+    print('[sync] $msg');
+    ref.read(syncStatusProvider.notifier).progreso(SyncOrigen.general, msg);
+  };
   return engine;
 });
 

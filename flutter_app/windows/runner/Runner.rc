@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.lycoris" "\0"
-            VALUE "FileDescription", "control_entradas_salidas" "\0"
+            VALUE "FileDescription", "Lycoris" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "control_entradas_salidas" "\0"
+            VALUE "InternalName", "Lycoris" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.lycoris. All rights reserved." "\0"
-            VALUE "OriginalFilename", "control_entradas_salidas.exe" "\0"
-            VALUE "ProductName", "control_entradas_salidas" "\0"
+            VALUE "OriginalFilename", "Lycoris.exe" "\0"
+            VALUE "ProductName", "Lycoris" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

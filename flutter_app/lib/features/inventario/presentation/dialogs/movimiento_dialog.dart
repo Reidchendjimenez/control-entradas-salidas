@@ -469,7 +469,7 @@ class _LoteSelectorState extends State<_LoteSelector> {
               items: [
                 const DropdownMenuItem<int?>(
                   value: 0,
-                  child: Text('➕ Nueva producción (crear lote)'),
+                  child: Text('Nueva producción (crear lote)'),
                 ),
                 if (tieneLotes)
                   for (final l in lotes)

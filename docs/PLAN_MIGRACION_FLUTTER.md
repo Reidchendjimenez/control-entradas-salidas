@@ -291,14 +291,25 @@ En Flutter:
 - [x] **6.0 — Capa de datos POS** (drift + repositorios + motor sync por `sync_uuid` + ruta `/pos`)
 - [x] **6.1 — Login PIN** (usuarios, seed admin, alta)
 - [x] **6.2 — Home POS + Mesas + Habitaciones** (selector + apertura de comanda)
-- [x] **6.3 — Comanda** (categorías → subcategorías → platos/productos, contornos, items, total)- [ ] **6.4 — Ventas / caja** (cierre → `pos_ventas` + movimientos, anulación)
-- [ ] **6.5 — Config POS + tasa BCV**
-- [ ] **6.6 — Impresión térmica** (web: vista previa del ticket; Android/Windows: `esc_pos_printer`/serial)
+- [x] **6.3 — Comanda** (categorías → subcategorías → platos/productos, contornos, items, total)
+- [x] **6.4 — Ventas / caja** (cierre → `pos_ventas` + movimientos, anulación)
+- [x] **6.5 — Config POS + tasa BCV**
+- [x] **6.6 — Impresión térmica** (web: vista previa del ticket; Android/Windows: `esc_pos_printer`/serial)
+
+**Fase 6.6 — Impresión térmica** *(✅ COMPLETADA — 2026-08-15)*
+- [x] `data/ticket_escpos.dart`: builder ESC/POS puro (port de `_escpos_ticket` de `printer.py`): membrete con tamaño small/normal/large (large = doble altura), correlativo + corrección, cajero/mesa/hab, ítems con contornos en 32 columnas, TOTAL USD + TOTAL Bs con tasa, corte. Reutiliza `formatearBs`/`formatearTasa` de `pos_comanda_models.dart`.
+- [x] `data/ticket_settings.dart`: settings `pos_settings` del ticket (`comanda_header_nombre/rif/direccion/telefono`, `comanda_header_size`, `comanda_correlativo`, `printer_device`) con sync a Supabase.
+- [x] `presentation/dialogs/ticket_preview_dialog.dart`: vista previa monospace 32 col + impresión web por diálogo del navegador (inyecta nodo oculto + CSS `@media print` → `window.print()`).
+- [x] `presentation/widgets/config_impresora_tab.dart` (port de `_build_printer_tab`): membrete + tamaño, correlativo inicial, dispositivo (path, solo nativo) y "Probar impresión". Añadido como 7ª pestaña en `config_screen.dart`.
+- [x] Integración en `comanda_screen._confirmarCobro`: tras registrar la venta se muestra la vista previa del ticket (la venta **sí** queda registrada sin imprimir, a diferencia de Flet que exigía impresora).
+- [x] `test/ticket_escpos_test.dart` (5 tests): bytes ESC/POS, doble altura, corrección, truncado/alineación, preview 32 col y `formatearBs`.
+- [x] `flutter analyze`: 0 errores · suite POS: 29 tests en verde.
 
 **Fase 6.0 — Capa de datos POS** *(✅ COMPLETADA — build pendiente de despliegue)*
 - [x] Tablas drift `pos_*`/`platos_*` (réplica de `local_replica.py`) + migración v5 (las 12 tablas POS son solo locales en cuánto a ids; la sincronización es por `sync_uuid`).
 - [x] `pos_repository.dart` + providers (CRUD usuarios/mesas/habitaciones/comandas/ventas/settings/platos/categorías/ingredientes/contornos/tasas).
 - [x] Motor sync POS (port `pos_sync.py`): descarga de 11 tablas + poda de huérfanos + subida por `sync_uuid`/id + tombstones + timer 30 s (las categorías/productos para la venta y movimientos de venta los gestiona el sync principal).
+- [x] Descarga incremental en el POS (2026-08-15): misma mejora que el sync general (`sync_engine.dart:594`) — `gte(updated_at, last_sync_pos)` en tablas con `updated_at` (`platos_categorias`, `platos`, `pos_categorias`, `pos_comandas`, `pos_ventas`) para no re-bajar el historial completo cada ciclo; poda de huérfanos con consulta ligera de ids (`select(id)`) en ciclos incrementales; tablas chicas sin `updated_at` (ingredientes, contornos, mesas, hab, usuarios) se bajan completas. Clave `pos_full_sync` en `sync_metadata` (10 s de margen).
 - [x] Ruta `/pos` en `app_shell.dart` + `flutter analyze` + build web. *(build web pendiente de autorización del usuario)*
 
 **Fase 6.1 — Login PIN** *(✅ COMPLETADA — 2026-08-15)*
@@ -324,10 +335,162 @@ En Flutter:
 - [x] `widgets/catalogo_card.dart` (entrada de catálogo con badge) + `dialogs/contornos_dialog.dart` (selector multiselect).
 - [x] `test/pos_catalogo_test.dart` (7 tests: modelo JSON, categorías POS, productos venta, subcategorías, platos/contornos, tasa) + `flutter analyze` 0 errores + build web OK.
 
+**Fase 6.4 — Ventas / caja** *(✅ COMPLETADA — 2026-08-15)*
+- [x] Cobro en `comanda_screen.dart` (`_cobrar` → `_confirmarCobro`): `guardarComanda` + `getVentaAnuladaPorComanda` (corrección) + `siguienteCorrelativo` + `registrarVenta` (por `sync_uuid`) + `resolverMovimientosVenta` + `aplicarMovimientosVenta` (movimientos tipo 'venta' + descuento de existencias) + `cerrarComanda` + rollback con `eliminarVentaYMovimientos`.
+- [x] `pos_ventas_repository.dart`: paginación `getVentas(limit, beforeId)`, `getVenta`, `getVentasCorrelativos`, `getVentaAnuladaPorComanda`, `getUltimaVentaVigente`, `reabrirComanda`, `getMovimientosVenta` (descargos).
+- [x] `ventas_screen.dart` (port `VentasView`): historial paginado (40 en lote), tarjetas con correlativo/badge VIGENTE·ANULADA/CORRECCIÓN, lugar (mesa/hab con número real), total USD+Bs, detalle (ítems + descargos + anulación) y botón "Anular última venta".
+- [x] Anulación (`_AnularVentaDialog`): `revertirMovimientosVenta` (devolución) + `anularVenta` + `reabrirComanda` + navegación a la comanda para corregir/recobrar (`_corregirVenta` en `pos_screen.dart`).
+- [x] `pos_repository.dart`: `getMesaById`, `getHabitacionById`.
+- [x] `test/pos_ventas_test.dart` (5 tests: correlativo, movimientos, anulación+stock, paginación, última vigente) + `flutter analyze` 0 errores.
+
+**Fase 6.5 — Config POS + tasa BCV** *(✅ COMPLETADA — 2026-08-15)*
+- [x] `config_screen.dart` (port `ConfigPOSView`): 6 pestañas (Cajeros, Mesas, Habitaciones, Platos, Categorías, Tasa BCV) reemplaza el stub en `_PosRouter`; se eliminó `_StubScreen`.
+- [x] Pestaña Cajeros: listado con badges Admin/Con PIN/Sin PIN y alta (`nuevo_cajero_dialog.dart`).
+- [x] Pestaña Mesas y Habitaciones: CRUD completo con `mesa_config_dialog.dart` / `habitacion_config_dialog.dart`.
+- [x] Pestaña Platos: toggle platos/contornos, CRUD con `plato_config_dialog.dart` (nombre, categoría, precio, es_contorno, lleva_contornos, ingredientes dinámicos tipo insumo).
+- [x] Pestaña Categorías: CRUD de `pos_categorias` (`pos_categoria_dialog.dart`) + sub-categorías `platos_categorias` con padre INV_/POS_ (`subcategoria_dialog.dart`) y toggle de activo.
+- [x] Pestaña Tasa BCV: `tasa_bcv_service.dart` (port `tasa_cambio.py`: scrape sitio oficial + fallback bcv.today) + `setTasaCambio(sync: true)` + fijar manualmente.
+- [x] `test/pos_tasa_bcv_test.dart` (3 tests con `MockClient`: parseo `#dolar`, fallback bcv.today, error doble) + `flutter analyze` 0 errores.
+
 **Fase 7 — Updater + pulido**
-20. Updater (version.json, zip, aplicar, reiniciar). *(⏳ PENDIENTE — no existe `lib/core/update/`)*
-21. Estados de sync en UI, responsive, off-line-first, logs/errores. *(parcial: indicador offline en Historial; falta barra de progreso global del sync)*
+20. Updater (version.json, zip, aplicar, reiniciar). *(⏳ PENDIENTE — no aplica a web; evaluar solo desktop/Android)*
+21. Estados de sync en UI, responsive, off-line-first, logs/errores. *(parcial: indicador offline en Historial + barra global de sync; falta indicador de cola pendiente)*
 22. Test E2E en dispositivo Android real contra la BD de producción (modo lectura) antes del corte.
+
+**Fase 7.21 — Barra global de progreso del sync** *(✅ COMPLETADA — 2026-08-15)*
+- [x] `core/sync/sync_status.dart`: `SyncStatus` + `SyncStatusNotifier`/`syncStatusProvider` (port de `usr/pos/sync_indicator.py`): heurística de mensajes start/done/error, sesiones por origen (general/pos), auto-ocultado (ok 4 s, error 6 s), solo renderiza syncs manuales/iniciales (el background no pestañea la barra).
+- [x] `core/sync/global_sync_bar.dart`: barra bajo el header del shell (spinner activo / ✓ ok / ✗ error con colores de Flet).
+- [x] Cableado: `sync_engine.dart` y `pos_sync_engine.dart` → `syncStatusProvider` (se mantiene el log). `PosSyncEngine` ahora emite `Sincronización POS finalizada` + `onSyncComplete`.
+- [x] `app_shell.dart`: barra global en el Column del shell; activa sesiones en el arranque y en el botón "Sincronizar" (con respaldo `terminar`).
+- [x] `test/sync_status_test.dart` (8 tests): visibilidad, ignorar orígenes inactivos, progreso, done/error, respaldo terminar.
+- [x] `flutter analyze`: 0 errores · suite total: 37 tests en verde.
+
+---
+
+**Fase 7.22 — Separación en 2 apps web (inventario y POS)** *(✅ COMPLETADA — 2026-08-15)*
+- [x] `app_shell.dart`: se quita el destino POS de la app de inventario (destinos, arranque del motor POS, `_dispararSync` y caso `/pos`).
+- [x] `lib/main_pos.dart`: nuevo punto de entrada POS (bootstrap idéntico a `main.dart`: runZonedGuarded + LogBridge + initializeSupabase + ProviderScope). Build: `flutter build web --release -t lib/main_pos.dart`.
+- [x] `pos_app.dart`: shell del POS standalone (MaterialApp oscuro + GlobalSyncBar + PosScreen), arranca `PosSyncEngine` (fullSync + background 30 s).
+- [x] `pos_sync_engine.dart`: ahora descarga el subconjunto de catálogo que el POS necesita (categorías `visible_en_pos` + productos para la venta, espejo de pos_sync.py:137-163) y sube los movimientos de stock de cada venta a través de un `SyncEngine` interno (`pushPending`, sin descarga). Sin poda de catálogo (lo gobierna el módulo de inventario).
+- [x] `flutter analyze`: 0 errores · suite total: 39 tests en verde.
+
+---
+
+**Fase 7.23 — Mejora de vistas del POS (Home)** *(✅ COMPLETADA — 2026-08-15)*
+- [x] `pos_home_screen.dart`: selector de entrada con contadores en vivo (mesas/habitaciones ocupadas, ventas del día) y fondo con gradiente.
+- [x] `widgets/pos_home_header.dart` (nuevo): saludo por franja horaria + fecha en español + pill de resumen "Ventas de hoy" (cantidad · total Bs), responsive.
+- [x] `widgets/entry_card.dart`: rediseño con gradiente por color, glow del icono, badge de estado, valor destacado, animación de escala al presionar y ripple.
+- [x] `data/pos_ventas_repository.dart`: `getVentasHoy()` (resumen vigentes del día local, query SQL).
+- [x] `data/pos_providers.dart`: `ventasHoyProvider`.
+- [x] `flutter analyze`: 0 errores · suite total: 39 tests en verde.
+
+---
+
+**Fase 7.24 — Home del POS: comandas activas + animaciones** *(✅ COMPLETADA — 2026-08-15)*
+- [x] `pos_ventas_repository.dart`: `getComandasActivas()` (comandas abiertas con etiqueta mesa/habitación, total, items, ids; por `updated_at` desc).
+- [x] `pos_comanda_models.dart`: typedef `ComandaActiva`.
+- [x] `pos_providers.dart`: `comandasActivasProvider`.
+- [x] `widgets/comandas_activas_panel.dart` (nuevo): panel "Comandas activas (N)" con tiles por tipo (mesa/habitación), items, total y acción "Abrir" que retoma la comanda.
+- [x] `widgets/fade_in_up.dart` (nuevo): animación de entrada fade + slide con delay (stagger).
+- [x] `pos_screen.dart`: callback `_abrirComandaActiva` (resuelve mesa/habitación y abre la etapa de comanda).
+- [x] `pos_home_screen.dart`: orquesta panel + animaciones escalonadas (header → comandas activas → tarjetas).
+- [x] `flutter analyze`: 0 errores · suite total: 39 tests en verde.
+
+---
+
+**Fase 7.25 — Reactividad de datos del POS (drift watch)** *(✅ COMPLETADA — 2026-08-15)*
+- [x] Bug: el home no reflejaba cambios (p.ej. ocupar una mesa) porque usaba `FutureProvider` que solo se resuelve una vez.
+- [x] `pos_ventas_repository.dart`: `watchMesasOcupadas`, `watchHabitacionesOcupadas`, `watchVentasHoy`, `watchComandasActivas` (streams drift, emiten ante cambios en `pos_comandas`/`pos_ventas`).
+- [x] `pos_providers.dart`: `mesasOcupadasProvider`, `habitacionesOcupadasProvider`, `comandasActivasProvider`, `ventasHoyProvider` → `StreamProvider` reactivos.
+- [x] Panel de comandas activas con altura acotada (240px) y scroll interno para no empujar las tarjetas.
+- [x] `flutter analyze`: 0 errores · suite total: 39 tests en verde.
+
+---
+
+**Fase 7.26 — Home POS: tasa BCV, moneda $ y barra de sync bajo el header** *(✅ COMPLETADA — 2026-08-15)*
+- [x] El cuadro verde "Ventas de hoy" del header se reemplaza por la **tasa de cambio** (pill azul con `Bs` y 4 decimales, reactiva vía `pos_settings`).
+- [x] Moneda correcta en `$`: lista de comandas activas y tarjeta de Ventas muestran el total en dólares (`\$${x.toStringAsFixed(2)}`), igual que el resto del POS.
+- [x] `pos_repository.dart`: `watchTasaCambio()`; `pos_providers.dart`: `tasaCambioProvider`.
+- [x] `GlobalSyncBar` movida **debajo del encabezado** en cada pantalla del POS (home, mesas, habitaciones, comanda, ventas, config) y quitada del wrapper `PosApp`.
+- [x] `flutter analyze`: 0 errores · suite total: 39 tests en verde.
+
+---
+
+**Fase 7.27 — Cards de mesas/habitaciones + animaciones de vista** *(✅ COMPLETADA — 2026-08-15)*
+- [x] `widgets/estado_card.dart` (nuevo): tarjeta de estado genérica con gradiente por color, círculo con glow, badge de estado, sombra y escala al presionar.
+- [x] `mesa_card.dart` / `habitacion_card.dart`: reescritos como wrappers delgados de `EstadoCard` (colores Libre/Disponible/Ocupada).
+- [x] `mesas_screen.dart` / `habitaciones_screen.dart`: animación de entrada escalonada por card (`FadeInUp` con delay por índice, acotado).
+- [x] `flutter analyze`: 0 errores · suite total: 39 tests en verde.
+
+---
+
+**Fase 7.28 — Vista de comanda mejorada** *(✅ COMPLETADA — 2026-08-15)*
+- [x] Panel comanda: encabezado con contador de items (pill animado), filas con contornos con icono `+`, cantidad con `AnimatedSwitcher`.
+- [x] Lista de items con `AnimatedList.separated`: entrada animada al agregar y salida con `SizeTransition` al eliminar.
+- [x] Catálogo: header con barra de acento y fondo tenue del color de sección; cards con `FadeInUp` escalonado al cambiar de sección.
+- [x] `CatalogoCard`: gradiente, borde de color, glow en el círculo de iniciales y escala al presionar.
+- [x] `flutter analyze`: 0 errores · suite total: 39 tests en verde.
+
+---
+
+**Fase 7.29 — Refinamientos POS** *(✅ COMPLETADA — 2026-08-16)*
+- [x] Fix: al guardar/eliminar/cancelar una comanda, `onBack` vuelve al **home** (antes a mesas/habitaciones) — `pos_screen.dart`.
+- [x] Botón de refrescar tasa BCV manualmente en la comanda (consulta en línea, guarda, snackbar verde/naranja según cambió).
+- [x] Panel de comanda ampliado de 300 → 380 px.
+- [x] Animación de entrada cambiada a **PopIn** (fade + escala 0.85→1 con `Curves.easeOutBack`) en home, mesas, habitaciones y catálogo de comanda; `fade_in_up.dart` eliminado.
+- [x] `flutter analyze`: 0 errores · suite total: 39 tests en verde.
+
+---
+
+**Fase 7.30 — Login obligatorio al reiniciar** *(✅ COMPLETADA — 2026-08-16)*
+- [x] **POS** (`pos_session.dart`): ya no se restaura la sesión al arrancar; se **cierra la sesión de caja huérfana** (`cerrarSesionesActivas` en el repo) y se muestra el login.
+- [x] **Inventario** (`session_controller.dart`): se eliminó `_cargar()`; el estado inicial siempre es `unauthenticated` → login.
+- [x] `flutter analyze`: 0 errores · suite total: 39 tests en verde.
+
+---
+
+**Fase 7.31 — Fix conexión tasa BCV (CORS)** *(✅ COMPLETADA — 2026-08-16)*
+- [x] `tasa_bcv_service.dart`: el sitio oficial no envía `Access-Control-Allow-Origin` (CORS bloquea en Flutter web). Se invirtió el orden: **bcv.today** primaria (CORS abierto, misma tasa BCV) y sitio oficial como respaldo.
+- [x] Tests actualizados al nuevo orden (`test/pos_tasa_bcv_test.dart`): 3/3 en verde · suite total: 39 tests en verde.
+
+---
+
+**Fase 7.32 — Tasa BCV del sitio oficial vía proxy local** *(✅ COMPLETADA — 2026-08-16)*
+- [x] `tool/server.py`: nuevo endpoint **`GET /proxy-bcv`** que descarga el HTML oficial (www.bcv.org.ve) sin CORS y lo sirve con `Access-Control-Allow-Origin: *`.
+- [x] `tasa_bcv_service.dart`: orden de fuentes **proxy local → sitio oficial directo → bcv.today** (el sitio oficial es el más actualizado, útil en fin de semana).
+- [x] Tests actualizados a las 3 fuentes (4/4 en verde) · suite total: 40 tests en verde.
+
+---
+
+**Fase 7.33 — Flujo de turnos y cajas** *(✅ COMPLETADA — 2026-08-16)*
+- [x] `pos_sesiones` ampliada: `caja_inicial`, `caja_final`, `sync_uuid`, `created_at`, `updated_at` (schema v6 + migración `addColumn`).
+- [x] `pos_repository`: `abrirSesion` (caja en 0 + encola sync), `cerrarSesion` (cierra turno con **caja final automática** = inicial + ventas vigentes), `getSesiones` (resumen por turno), `getVentasPorSesion`.
+- [x] `pos_sync_engine`: `pos_sesiones` en tablas de sync (upsert por `sync_uuid`, subida de turnos/reportes a Supabase, incremental por `updated_at`).
+- [x] `pos_session`: login **retoma el turno abierto** (caja conservada) o abre turno nuevo; logout cierra turno+caja; al arrancar se pide login pero **ya no se cierran turnos huérfanos** (reemplaza el comportamiento de 7.30).
+- [x] `ventas_screen`: lista de **turnos** (cajero, apertura/cierre, #ventas, total, caja final) → detalle del turno con su cierre y las ventas (anulación intacta).
+- [x] `flutter analyze`: 0 errores · suite total: 40 tests en verde.
+- [x] **Supabase**: columnas `caja_inicial`, `caja_final`, `sync_uuid`, `created_at`, `updated_at` agregadas a `pos_sesiones`.
+- [x] Desplegado en 8502 (rebuild de `build/pos` + reinicio de `tool/server.py`). Incluye 7.29 (retorno home, botón tasa, panel 380 px, PopIn), 7.32 (proxy BCV) y turnos. Verificado: POS 200, `/proxy-bcv` → `772,5441`.
+
+---
+
+**Fase 7.34 — Descarga incremental de catálogos chicos** *(✅ COMPLETADA — 2026-08-16)*
+- [x] `updated_at` en `pos_mesas`, `pos_habitaciones`, `pos_usuarios` (drift schema v7 + migración `addColumn`).
+- [x] Trigger `set_pos_updated_at()` en Supabase (BEFORE INSERT OR UPDATE) — mantiene `updated_at` solo, sin tocar el backend. Backfill de filas existentes.
+- [x] `pos_sync_engine`: mesas/habitaciones/usuarios pasan a descarga **incremental** por `updated_at` (ya no se re-bajan completas cada ciclo). Tablas grandes (ventas/comandas/sesiones/catálogos) ya eran incrementales.
+- [x] `schema.sql` actualizado (función + triggers + columnas) en `supabase/` y `flutter_app/supabase/`.
+- [x] Desplegado en 8502. `flutter analyze` 0 errores · suite 40 tests verdes.
+
+---
+
+**Fase 7.35 — Actualización remota (Windows/Android) vía GitHub Releases** *(✅ COMPLETADA — 2026-08-16)*
+- [x] **Fuente**: GitHub Releases API (`releases/latest`, repo `reidchend/control-entradas-salidas`, override con `--dart-define=UPDATE_REPO`). Versión del tag (normaliza `v`), comparación semver. Assets esperados: `app-windows.zip`, `app-android.apk`.
+- [x] **Instalación Windows**: descarga zip → extrae (`tar -xf`) → `updater.bat` (taskkill, xcopy, relanza) → `exit(0)`. Port de `usr/updater.py`.
+- [x] **Instalación Android**: `PackageInstaller` nativo vía MethodChannel `lycoris/updater` (`MainActivity.kt` + `PackageInstallerReceiver.kt`), permiso `REQUEST_INSTALL_PACKAGES` + flujo "Instalar apps desconocidas".
+- [x] **UI compartida**: `UpdateSettingsCard` (pestaña "Actualización" en Config del POS; tarjeta en Sistema del inventario) + `UpdateDialog` con descarga y progreso + `AutoUpdateChecker` al arrancar (silencioso, nativo).
+- [x] **Web-safe**: capa de plataforma con import condicional (`updater_platform_io.dart` nativo / stub web) para que `dart:io` no rompa los builds web. Dependencia nueva: `package_info_plus`.
+- [x] `flutter analyze` 0 errores · suite 40 tests verdes · builds web de inventario y POS compilan con el updater importado.
+- [ ] **Pendiente CI**: workflow que construya `app-windows.zip` y `app-android.apk` y publique una GitHub Release con esos assets (los builds nativos no se pueden producir localmente sin SDK).
 
 ---
 

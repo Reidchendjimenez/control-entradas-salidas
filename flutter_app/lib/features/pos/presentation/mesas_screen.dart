@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/schema/app_database.dart';
+import '../../../core/sync/global_sync_bar.dart';
 import '../data/pos_providers.dart';
 import '../data/pos_session.dart';
 import 'widgets/mesa_card.dart';
+import 'widgets/pop_in.dart';
 import 'widgets/pos_top_bar.dart';
 
 /// Grid de mesas con estado Ocupada/Libre (port de `MesasView`).
@@ -36,6 +38,7 @@ class MesasScreen extends ConsumerWidget {
             onBack: onBack,
             onLogout: onLogout,
           ),
+          const GlobalSyncBar(),
           Expanded(
             child: mesas.when(
               loading: () =>
@@ -51,11 +54,14 @@ class MesasScreen extends ConsumerWidget {
                   crossAxisSpacing: 10,
                   mainAxisSpacing: 10,
                   children: [
-                    for (final m in lista)
-                      MesaCard(
-                        mesa: m,
-                        ocupada: ocup.contains(m.id),
-                        onTap: () => onOpenMesa(m),
+                    for (var i = 0; i < lista.length; i++)
+                      PopIn(
+                        delay: Duration(milliseconds: (i > 8 ? 8 : i) * 40),
+                        child: MesaCard(
+                          mesa: lista[i],
+                          ocupada: ocup.contains(lista[i].id),
+                          onTap: () => onOpenMesa(lista[i]),
+                        ),
                       ),
                   ],
                 );
