@@ -20,6 +20,9 @@ jobs:
   windows-pos:
     name: Windows POS (zip)
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: flutter_app
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -49,11 +52,14 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: app-pos-windows
-          path: app-pos-windows.zip
+          path: flutter_app/app-pos-windows.zip
 
   windows-inventario:
     name: Windows Inventario (zip)
     runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: flutter_app
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -83,7 +89,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: app-inventario-windows
-          path: app-inventario-windows.zip
+          path: flutter_app/app-inventario-windows.zip
 
   # ---------------------------------------------------------------------------
   # Android — inventario (main.dart) en APK
@@ -91,6 +97,9 @@ jobs:
   android:
     name: Android Inventario (APK)
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: flutter_app
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -114,7 +123,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: app-inventario-android
-          path: app-inventario-android.apk
+          path: flutter_app/app-inventario-android.apk
 
   # ---------------------------------------------------------------------------
   # Release — junta los 3 assets en una GitHub Release
