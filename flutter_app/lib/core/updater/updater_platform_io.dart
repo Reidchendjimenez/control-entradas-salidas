@@ -9,7 +9,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 
 bool get updaterCanRun {
   if (kIsWeb) return false;
@@ -24,8 +23,10 @@ String get updaterPlatformKey {
 }
 
 Future<String> updaterDownloadDir() async {
-  final base = await getApplicationSupportDirectory();
-  final dir = Directory('${base.path}/updates');
+  // Usar el directorio del exe (no app support) para que cada app tenga su
+  // propia carpeta de descargas. POS e inventario no se pisan.
+  final exeDir = _dirname(Platform.resolvedExecutable);
+  final dir = Directory('$exeDir\\.update_downloads');
   if (!await dir.exists()) await dir.create(recursive: true);
   return dir.path;
 }
@@ -98,32 +99,33 @@ Future<void> _installAndroid(String apkPath) async {
 // ---------------------------------------------------------------------------
 
 Future<void> _installWindows(String zipPath) async {
-  final base = await getApplicationSupportDirectory();
-  final appDir = Directory(base.path);
-  final staging = Directory('${appDir.path}/update_staging');
+  final currentExe = Platform.resolvedExecutable;
+  final exeDir = _dirname(currentExe);
+  final targetExe = _basename(currentExe);
+
+  // Staging y updates DENTRO del directorio del exe (no en app support).
+  // Cada app (POS/inventario) tiene su propio directorio, no se pisan.
+  final staging = Directory('$exeDir\\.update_staging');
   if (await staging.exists()) await staging.delete(recursive: true);
   await staging.create(recursive: true);
 
   await _extractZip(zipPath, staging.path);
 
-  final updatesDir = Directory('${appDir.path}/updates');
+  final updatesDir = Directory('$exeDir\\.update_files');
   if (await updatesDir.exists()) await updatesDir.delete(recursive: true);
   await updatesDir.create(recursive: true);
   await _copyContents(staging, updatesDir);
 
-  final bat = File('${appDir.path}/updater.bat');
-  final logFile = File('${appDir.path}/updater.log');
-  final currentExe = Platform.resolvedExecutable;
-  final targetExe = _basename(currentExe);
-  final exeDir = _dirname(currentExe);
+  final bat = File('$exeDir\\.updater.bat');
+  final logFile = File('$exeDir\\.updater.log');
   final srcPattern = '${updatesDir.path}\\*.*';
   await bat.writeAsString('''
 @echo off
 title Lycoris Updater
 echo [%date% %time%] Iniciando updater > ${_q(logFile.path)}
-echo [%date% %time%] Exe actual: %~dp0 >> ${_q(logFile.path)}
 echo [%date% %time%] ExeDir: ${exeDir} >> ${_q(logFile.path)}
 echo [%date% %time%] SrcPattern: ${srcPattern} >> ${_q(logFile.path)}
+echo [%date% %time%] TargetExe: ${targetExe} >> ${_q(logFile.path)}
 echo Esperando que cierre la aplicacion...
 taskkill /IM ${_q(targetExe)} /F >nul 2>&1
 echo [%date% %time%] taskkill completado >> ${_q(logFile.path)}
@@ -132,13 +134,14 @@ echo Copiando actualizacion...
 xcopy /E /Y /Q ${_q(srcPattern)} ${_q(exeDir)} >> ${_q(logFile.path)} 2>&1
 echo [%date% %time%] xcopy exit code: %errorlevel% >> ${_q(logFile.path)}
 if errorlevel 1 (
-  echo Error copiando archivos - ver updater.log
+  echo Error copiando archivos - ver .updater.log
   echo [%date% %time%] ERROR en xcopy >> ${_q(logFile.path)}
   timeout /t 5 /nobreak >nul
 )
-del ${_q(updatesDir.path)}\\*.* /q 2>nul
-echo Iniciando ${_q(targetExe)}...
-echo [%date% %time%] Relanzando app >> ${_q(logFile.path)}
+echo [%date% %time%] Limpiando archivos temporales >> ${_q(logFile.path)}
+rmdir /S /Q ${_q(staging.path)} 2>nul
+rmdir /S /Q ${_q(updatesDir.path)} 2>nul
+echo [%date% %time%] Relanzando ${_q(targetExe)} >> ${_q(logFile.path)}
 start "" ${_q('$exeDir\\$targetExe')}
 del "%~f0"
 ''');
