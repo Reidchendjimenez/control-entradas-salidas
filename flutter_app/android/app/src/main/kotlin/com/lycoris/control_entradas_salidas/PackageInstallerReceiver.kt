@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.IntentSender
 import android.content.pm.PackageInstaller
 import android.util.Log
-import io.flutter.Log
 
 class PackageInstallerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
