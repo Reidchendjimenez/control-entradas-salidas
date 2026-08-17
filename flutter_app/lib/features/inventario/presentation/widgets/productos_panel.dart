@@ -143,7 +143,6 @@ class ProductosPanelState extends ConsumerState<ProductosPanel> {
               }
               return Focus(
                 focusNode: _listaFocus,
-                autofocus: true,
                 onKeyEvent: _onListKey,
                 child: ListView.builder(
                   controller: _scrollCtrl,
