@@ -34,6 +34,9 @@ class SyncEngine {
   void Function(String message)? onProgress;
   void Function()? onSyncComplete;
 
+  /// Callback con el detalle completo del error (para mostrarlo al usuario).
+  void Function(String detail)? onSyncError;
+
   void _log(String msg) => onProgress?.call(msg);
 
   // ---------------------------------------------------------------------
@@ -980,8 +983,10 @@ class SyncEngine {
       _log('Sincronización completa finalizada');
       onSyncComplete?.call();
       return true;
-    } catch (e) {
+    } catch (e, st) {
+      final detalle = '$e\n$st';
       _log('Error en sincronización: $e');
+      onSyncError?.call(detalle);
       return false;
     } finally {
       _running = false;
@@ -1005,8 +1010,10 @@ class SyncEngine {
     try {
       await _processOutbox();
       await _uploadPendingMovimientos();
-    } catch (e) {
+    } catch (e, st) {
+      final detalle = '$e\n$st';
       _log('Error en push pendientes: $e');
+      onSyncError?.call(detalle);
     } finally {
       _running = false;
     }

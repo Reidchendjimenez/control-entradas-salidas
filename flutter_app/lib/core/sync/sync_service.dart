@@ -20,6 +20,14 @@ final syncEngineProvider = Provider<SyncEngine?>((ref) {
     print('[sync] $msg');
     ref.read(syncStatusProvider.notifier).progreso(SyncOrigen.general, msg);
   };
+  // Errores fatales: muestran el detalle completo en la barra para poder
+  // copiarlo desde el diálogo.
+  engine.onSyncError = (detalle) {
+    ref
+        .read(syncStatusProvider.notifier)
+        .error(SyncOrigen.general, 'Error en la sincronización',
+            detalle: detalle);
+  };
   return engine;
 });
 

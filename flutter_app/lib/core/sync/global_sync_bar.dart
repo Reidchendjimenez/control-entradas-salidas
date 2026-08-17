@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../widgets/error_details_dialog.dart';
 import 'sync_status.dart';
 
 /// Barra global de progreso de sincronización (port de `POSSyncIndicator` de
@@ -59,6 +60,19 @@ class GlobalSyncBar extends ConsumerWidget {
               style: TextStyle(fontSize: 12, color: fg),
             ),
           ),
+          if (s.estado == SyncEstado.error && s.errorDetail != null)
+            IconButton(
+              onPressed: () => showErrorDetailsDialog(
+                context,
+                titulo: 'Error de sincronización',
+                detalle: s.errorDetail!,
+              ),
+              icon: const Icon(Icons.copy, size: 16),
+              color: fg,
+              tooltip: 'Ver y copiar el error',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 24),
+            ),
         ],
       ),
     );

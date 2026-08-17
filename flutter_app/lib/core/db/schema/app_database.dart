@@ -1,7 +1,6 @@
 import 'package:drift/drift.dart';
-import 'package:drift_flutter/drift_flutter.dart';
-import 'package:flutter/foundation.dart';
 
+import 'db_executor.dart';
 import 'tables.dart';
 
 export 'tables.dart';
@@ -55,21 +54,7 @@ part 'app_database.g.dart';
 ])
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
-      : super(executor ?? _openConnection());
-
-  static QueryExecutor _openConnection() {
-    if (kIsWeb) {
-      return driftDatabase(
-        name: 'control_entradas_salidas',
-        // Assets WASM descargados en web/ (ver https://drift.simonbinder.eu/web/).
-        web: DriftWebOptions(
-          sqlite3Wasm: Uri.parse('sqlite3.wasm'),
-          driftWorker: Uri.parse('drift_worker.js'),
-        ),
-      );
-    }
-    return driftDatabase(name: 'control_entradas_salidas');
-  }
+      : super(executor ?? openDbExecutor());
 
   /// Base en memoria para tests.
   AppDatabase.forTesting(super.executor);

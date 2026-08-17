@@ -30,6 +30,12 @@ final posSyncEngineProvider = Provider<PosSyncEngine?>((ref) {
     print('[pos-sync] $msg');
     ref.read(syncStatusProvider.notifier).progreso(SyncOrigen.pos, msg);
   };
+  engine.onSyncError = (detalle) {
+    ref
+        .read(syncStatusProvider.notifier)
+        .error(SyncOrigen.pos, 'Error de sincronización del POS',
+            detalle: detalle);
+  };
   return engine;
 });
 

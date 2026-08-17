@@ -15,11 +15,15 @@ class SyncStatus {
     this.origen,
     this.estado = SyncEstado.inactivo,
     this.mensaje = '',
+    this.errorDetail,
   });
 
   final SyncOrigen? origen;
   final SyncEstado estado;
   final String mensaje;
+
+  /// Detalle completo del error (para el diálogo de copiado).
+  final String? errorDetail;
 
   bool get visible => estado != SyncEstado.inactivo;
 }
@@ -41,15 +45,21 @@ class SyncStatusNotifier extends StateNotifier<SyncStatus> {
     super.dispose();
   }
 
-  void _mostrar(SyncOrigen? origen, SyncEstado estado, String mensaje) {
+  void _mostrar(SyncOrigen? origen, SyncEstado estado, String mensaje,
+      {String? errorDetail}) {
     _hideTimer?.cancel();
     if (estado == SyncEstado.ok || estado == SyncEstado.error) {
       _hideTimer = Timer(
-        Duration(seconds: estado == SyncEstado.error ? 6 : 4),
+        Duration(seconds: estado == SyncEstado.error ? 8 : 4),
         () => state = const SyncStatus(),
       );
     }
-    state = SyncStatus(origen: origen, estado: estado, mensaje: mensaje);
+    state = SyncStatus(
+      origen: origen,
+      estado: estado,
+      mensaje: mensaje,
+      errorDetail: errorDetail,
+    );
   }
 
   /// Marca una sesión de sync como activa (manual o inicial) y muestra la barra.
@@ -68,6 +78,12 @@ class SyncStatusNotifier extends StateNotifier<SyncStatus> {
       ok ? SyncEstado.ok : SyncEstado.error,
       ok ? 'Sincronización completada' : 'Error en la sincronización',
     );
+  }
+
+  /// Reporta un error de sincronización con su detalle completo.
+  void error(SyncOrigen origen, String mensaje, {String? detalle}) {
+    _activos.remove(origen);
+    _mostrar(origen, SyncEstado.error, mensaje, errorDetail: detalle);
   }
 
   /// Puente para `engine.onProgress`: réplica de la heurística de

@@ -82,6 +82,9 @@ class PosSyncEngine {
   void Function(String message)? onProgress;
   void Function()? onSyncComplete;
 
+  /// Detalle completo del último error (para el diálogo de copiado).
+  void Function(String detail)? onSyncError;
+
   /// Motor general interno, usado solo para subir movimientos/cola no-pos
   /// (`pushPending`, sin descarga).
   late final SyncEngine _general = SyncEngine(db: _db, client: client)
@@ -104,8 +107,10 @@ class PosSyncEngine {
       _log('Sincronización POS finalizada');
       onSyncComplete?.call();
       return true;
-    } catch (e) {
+    } catch (e, st) {
+      final detalle = '$e\n$st';
       _log('Error en sync POS: $e');
+      onSyncError?.call(detalle);
       return false;
     } finally {
       _running = false;
