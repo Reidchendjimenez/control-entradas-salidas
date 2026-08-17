@@ -1,11 +1,11 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:html' as html;
 
 import '../../../../core/state/theme_controller.dart';
 import '../../../../core/sync/sync_service.dart';
 import '../../../../core/updater/update_settings_card.dart';
+import '../../../../core/utils/web_utils.dart';
 import '../../data/configuracion_providers.dart'
     show
         configuracionRepoProvider,
@@ -397,7 +397,7 @@ class _SistemaTabState extends ConsumerState<SistemaTab> {
     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Recargando...')));
     await Future.delayed(const Duration(milliseconds: 500));
     if (kIsWeb) {
-      html.window.location.reload();
+      reloadApp();
     }
   }
 }

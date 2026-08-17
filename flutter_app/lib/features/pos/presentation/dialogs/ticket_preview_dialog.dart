@@ -1,6 +1,6 @@
-import 'dart:html' as html;
-
 import 'package:flutter/material.dart';
+
+import '../../../../core/utils/web_utils.dart';
 
 /// Vista previa del ticket de comanda (port de la impresión de `printer.py`
 /// adaptada a web): muestra el ticket en monospace de 32 columnas y permite
@@ -26,28 +26,9 @@ class TicketPreviewDialog extends StatelessWidget {
   final List<String> lineas;
   final String titulo;
 
-  /// Imprime el ticket con el diálogo del navegador: inyecta un nodo oculto
-  /// con el ticket y una hoja de estilos que solo lo muestra en @media print.
+  /// Imprime el ticket con el diálogo del navegador (solo web).
   void _imprimirWeb() {
-    final doc = html.document;
-    doc.querySelector('#ticket-print')?.remove();
-    final contenedor = html.DivElement()
-      ..id = 'ticket-print'
-      ..style.cssText = 'display:none;';
-    final pre = html.PreElement()..text = lineas.join('\n');
-    contenedor.append(pre);
-    doc.body?.append(contenedor);
-    final style = html.StyleElement()
-      ..text = '''
-#ticket-print { display:block; font-family:'Courier New',monospace; font-size:14px; white-space:pre; }
-@media print {
-  body > * { display: none !important; }
-  #ticket-print { display: block !important; }
-}''';
-    doc.head?.append(style);
-    html.window.print();
-    contenedor.remove();
-    style.remove();
+    printHtml(lineas.join('\n'));
   }
 
   @override

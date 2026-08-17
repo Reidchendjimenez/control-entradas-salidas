@@ -1,9 +1,8 @@
-import 'dart:html' as html;
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/utils/web_utils.dart';
 import '../../../../core/db/schema/app_database.dart';
 import '../../data/requisiciones_providers.dart';
 
@@ -66,7 +65,7 @@ class _VisualizarViewState extends ConsumerState<VisualizarView> {
     final msg = _mensaje();
     final url =
         'https://wa.me/?text=${Uri.encodeComponent(msg)}';
-    html.window.open(url, '_blank');
+    openInNewTab(url);
     _snack('Abriendo WhatsApp...');
   }
 

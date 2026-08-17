@@ -1,10 +1,9 @@
-import 'dart:async';
-import 'dart:html' as html;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/utils/web_utils.dart';
 import '../../data/ocr_service.dart';
 import '../../data/temporales_repository.dart';
 import '../../data/validacion_providers.dart';
@@ -40,7 +39,7 @@ class _PrecargarImagenDialogState extends ConsumerState<_PrecargarImagenDialog> 
   bool _extrayendo = false;
   bool _guardando = false;
 
-  StreamSubscription? _pasteSub;
+  PasteCancel? _pasteCancel;
 
   @override
   void initState() {
@@ -51,36 +50,12 @@ class _PrecargarImagenDialogState extends ConsumerState<_PrecargarImagenDialog> 
   }
 
   void _initWebPasteListener() {
-    try {
-      _pasteSub = html.document.onPaste.listen((html.ClipboardEvent event) {
-        final items = event.clipboardData?.items;
-        if (items == null) return;
-        final count = items.length as int;
-        for (int i = 0; i < count; i++) {
-          final item = items[i];
-          if (item.type?.startsWith('image/') == true) {
-            final blob = item.getAsFile();
-            if (blob != null) {
-              final reader = html.FileReader();
-              reader.readAsArrayBuffer(blob);
-              reader.onLoadEnd.listen((_) {
-                final bytes = reader.result as Uint8List?;
-                if (bytes != null && mounted) {
-                  _procesarImagen(bytes);
-                }
-              });
-              event.preventDefault();
-              break;
-            }
-          }
-        }
-      });
-    } catch (_) {}
+    _pasteCancel = setupPasteImageListener((bytes) => _procesarImagen(bytes));
   }
 
   @override
   void dispose() {
-    _pasteSub?.cancel();
+    _pasteCancel?.call();
     _facturaCtrl.dispose();
     _proveedorCtrl.dispose();
     _montoCtrl.dispose();
