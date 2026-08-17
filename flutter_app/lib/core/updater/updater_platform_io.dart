@@ -115,6 +115,7 @@ Future<void> _installWindows(String zipPath) async {
   final currentExe = Platform.resolvedExecutable;
   final targetExe = _basename(currentExe);
   final exeDir = _dirname(currentExe);
+  final srcPattern = '${updatesDir.path}\\*.*';
   await bat.writeAsString('''
 @echo off
 title Lycoris Updater
@@ -122,14 +123,23 @@ echo Esperando que cierre la aplicacion...
 taskkill /IM ${_q(targetExe)} /F >nul 2>&1
 timeout /t 2 /nobreak >nul
 echo Copiando actualizacion...
-xcopy /E /Y /Q ${_q(updatesDir.path)}\\*.* ${_q(exeDir)}\\ >nul
-del ${_q(updatesDir.path)}\\*.* /q
+xcopy /E /Y /Q ${_q(srcPattern)} ${_q(exeDir)} >nul
+if errorlevel 1 (
+  echo Error copiando archivos
+  pause
+)
+del ${_q(updatesDir.path)}\\*.* /q 2>nul
 echo Iniciando ${_q(targetExe)}...
 start "" ${_q('$exeDir\\$targetExe')}
 del "%~f0"
 ''');
 
-  Process.start('cmd.exe', ['/c', bat.path], mode: ProcessStartMode.detached);
+  final proc = await Process.start(
+    'cmd.exe',
+    ['/c', bat.path],
+    mode: ProcessStartMode.detached,
+  );
+  await Future.delayed(const Duration(milliseconds: 500));
   exit(0);
 }
 
