@@ -39,7 +39,7 @@ jobs:
           Copy-Item windows\runner\resources\app_icon_pos.ico `
             windows\runner\resources\app_icon.ico -Force
           flutter pub get
-          flutter build windows --release `
+          flutter build windows --release -t lib/main_pos.dart `
             --dart-define=APP_ID=pos `
             --dart-define=APP_LABEL="Lycoris POS" `
             --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" `
