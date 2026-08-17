@@ -112,6 +112,7 @@ Future<void> _installWindows(String zipPath) async {
   await _copyContents(staging, updatesDir);
 
   final bat = File('${appDir.path}/updater.bat');
+  final logFile = File('${appDir.path}/updater.log');
   final currentExe = Platform.resolvedExecutable;
   final targetExe = _basename(currentExe);
   final exeDir = _dirname(currentExe);
@@ -119,17 +120,25 @@ Future<void> _installWindows(String zipPath) async {
   await bat.writeAsString('''
 @echo off
 title Lycoris Updater
+echo [%date% %time%] Iniciando updater > ${_q(logFile.path)}
+echo [%date% %time%] Exe actual: %~dp0 >> ${_q(logFile.path)}
+echo [%date% %time%] ExeDir: ${exeDir} >> ${_q(logFile.path)}
+echo [%date% %time%] SrcPattern: ${srcPattern} >> ${_q(logFile.path)}
 echo Esperando que cierre la aplicacion...
 taskkill /IM ${_q(targetExe)} /F >nul 2>&1
+echo [%date% %time%] taskkill completado >> ${_q(logFile.path)}
 timeout /t 2 /nobreak >nul
 echo Copiando actualizacion...
-xcopy /E /Y /Q ${_q(srcPattern)} ${_q(exeDir)} >nul
+xcopy /E /Y /Q ${_q(srcPattern)} ${_q(exeDir)} >> ${_q(logFile.path)} 2>&1
+echo [%date% %time%] xcopy exit code: %errorlevel% >> ${_q(logFile.path)}
 if errorlevel 1 (
-  echo Error copiando archivos
-  pause
+  echo Error copiando archivos - ver updater.log
+  echo [%date% %time%] ERROR en xcopy >> ${_q(logFile.path)}
+  timeout /t 5 /nobreak >nul
 )
 del ${_q(updatesDir.path)}\\*.* /q 2>nul
 echo Iniciando ${_q(targetExe)}...
+echo [%date% %time%] Relanzando app >> ${_q(logFile.path)}
 start "" ${_q('$exeDir\\$targetExe')}
 del "%~f0"
 ''');

@@ -52,10 +52,10 @@ class AppUpdater {
   Future<AppUpdateInfo?> checkForUpdate({bool force = false}) async {
     if (!canRun) return null;
     final remote = await _source.fetchLatest();
-    if (force) return remote;
     final local = await localVersion();
-    final newer = await _source.checkForUpdate(local);
-    return newer == null ? null : remote;
+    final newer = await _source.checkOfNewer(local, remote.version);
+    if (newer == null) return null;
+    return remote;
   }
 
   /// Descarga el binario de la plataforma y devuelve la ruta local.

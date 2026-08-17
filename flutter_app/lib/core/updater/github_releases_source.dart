@@ -33,10 +33,22 @@ class GitHubReleasesSource {
   /// Compara la versión local con la remota. `null` = sin actualización.
   Future<String?> checkForUpdate(String localVersion) async {
     final remote = await fetchLatest();
-    if (localVersion == remote.version) return null;
-    if (_compareVersions(remote.version, localVersion) <= 0) return null;
-    return remote.version;
+    return checkOfNewer(localVersion, remote.version);
   }
+
+  /// Compara `localVersion` contra `remoteVersion` directamente.
+  /// Devuelve la versión remota si es más nueva, `null` si está al día.
+  String? checkOfNewer(String localVersion, String remoteVersion) {
+    final local = _normalizeVersion(localVersion);
+    final remote = _normalizeVersion(remoteVersion);
+    if (local == remote) return null;
+    if (_compareVersions(remote, local) <= 0) return null;
+    return remote;
+  }
+
+  /// `v1.2.0` → `1.2.0`, `2.0.0+1` → `2.0.0`.
+  static String _normalizeVersion(String tag) =>
+      tag.replaceFirst(RegExp(r'^v'), '').replaceFirst(RegExp(r'\+.*'), '');
 
   /// Comparación semver simple (`1.2.0` vs `1.2.3`). Devuelve negativo si
   /// a < b, 0 si iguales, positivo si a > b.
