@@ -46,17 +46,17 @@ class _PinDialogState extends ConsumerState<_PinDialog> {
   Future<void> _entrar() async {
     final pin = _ctrl.text.trim();
     if (pin.isEmpty) return;
-    final ok = await ref
+    final result = await ref
         .read(posSessionProvider.notifier)
         .iniciarSesion(widget.usuario, pin: pin);
     if (!mounted) return;
-    if (ok) {
-      Navigator.pop(context, true);
-    } else {
+    if (result == SesionLoginResult.pinIncorrecto) {
       setState(() {
         _error = 'PIN incorrecto';
         _ctrl.clear();
       });
+    } else {
+      Navigator.pop(context, true);
     }
   }
 

@@ -89,6 +89,23 @@ class PosRepository {
     await _encolarSesion(sesionId, s.syncUuid);
   }
 
+  /// Cierra una sesión específica por ID (forzado, sin importar quién la abrió).
+  Future<void> forzarCerrarSesion(int sesionId) async {
+    final s = await (_db.select(_db.posSesiones)
+          ..where((t) => t.id.equals(sesionId)))
+        .getSingleOrNull();
+    if (s == null || s.cerradaEn != null) return;
+    final now = DateTime.now();
+    final caja = await _totalVigenteDeSesion(sesionId);
+    await (_db.update(_db.posSesiones)..where((t) => t.id.equals(sesionId)))
+        .write(PosSesionesCompanion(
+          cerradaEn: Value(now),
+          cajaFinal: Value(s.cajaInicial + caja),
+          updatedAt: Value(now),
+        ));
+    await _encolarSesion(sesionId, s.syncUuid);
+  }
+
   /// Suma de las ventas vigentes de un turno.
   Future<double> _totalVigenteDeSesion(int sesionId) async {
     final q = await _db.customSelect(
@@ -100,6 +117,32 @@ class PosRepository {
       ],
     ).getSingle();
     return q.read<double>('total');
+  }
+
+  /// Cierra sesiones stale (abiertas hace más de `horas` horas) y devuelve los
+  /// IDs de las sesiones cerradas. Útil al arrancar para no heredar turnos
+  /// viejos de otros cajeros.
+  Future<List<int>> cerrarSesionesStale({int horas = 8}) async {
+    final limite = DateTime.now().subtract(Duration(hours: horas));
+    final stale = await (_db.select(_db.posSesiones)
+          ..where((t) => t.cerradaEn.isNull())
+          ..where((t) => t.abiertaEn.isSmallerThanValue(limite)))
+        .get();
+    if (stale.isEmpty) return [];
+    final now = DateTime.now();
+    final ids = <int>[];
+    for (final s in stale) {
+      final caja = await _totalVigenteDeSesion(s.id);
+      await (_db.update(_db.posSesiones)..where((t) => t.id.equals(s.id)))
+          .write(PosSesionesCompanion(
+            cerradaEn: Value(now),
+            cajaFinal: Value(s.cajaInicial + caja),
+            updatedAt: Value(now),
+          ));
+      await _encolarSesion(s.id, s.syncUuid);
+      ids.add(s.id);
+    }
+    return ids;
   }
 
   /// Última sesión abierta (sin `cerrada_en`), con nombre de usuario.

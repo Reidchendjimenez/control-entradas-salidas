@@ -10,6 +10,23 @@ class PosSesionActiva {
   final int sesionId;
 }
 
+/// Resultado del intento de iniciar sesión.
+enum SesionLoginResult {
+  /// Se abrió un turno nuevo.
+  nueva,
+
+  /// Se retomó el turno existente del mismo usuario.
+  retomada,
+
+  /// Había un turno abierto de OTRO usuario. El caller debe preguntar
+  /// al usuario si quiere cerrar el turno ajeno y abrir uno nuevo, o
+  /// retomar el turno existente.
+  sesionAjena,
+
+  /// El PIN era incorrecto (no se hizo nada).
+  pinIncorrecto,
+}
+
 /// Estado de la sesión del POS (flujo de turnos/cajas):
 /// - Al hacer login se abre un turno con caja en 0 (o se retoma el turno que
 ///   quedó abierto si el sistema se cerró sin logout).
@@ -23,32 +40,76 @@ final posSessionProvider =
         PosSessionNotifier.new);
 
 class PosSessionNotifier extends Notifier<PosSesionActiva?> {
+  /// ID de la sesión ajena detectada durante el login (para el diálogo).
+  int? sesionAjenaId;
+  String? sesionAjenaNombre;
+
   @override
   PosSesionActiva? build() => null;
 
-  /// Valida el PIN (si el usuario lo tiene) y abre un turno de caja en 0, o
-  /// retoma el turno que quedó abierto. Devuelve `false` si el PIN es
-  /// requerido e incorrecto.
-  Future<bool> iniciarSesion(PosUsuario usuario, {String? pin}) async {
+  /// Valida el PIN (si el usuario lo tiene), cierra sesiones stale (>8h) y
+  /// abre un turno de caja en 0, o retoma el turno que quedó abierto.
+  ///
+  /// Si hay un turno abierto de OTRO usuario, no lo cierra automáticamente:
+  /// devuelve [SesionLoginResult.sesionAjena] para que la UI muestre un
+  /// diálogo de confirmación. El caller debe llamar a
+  /// [forzarCerrarSesionAjena] o [retomarSesionAjena] después.
+  Future<SesionLoginResult> iniciarSesion(PosUsuario usuario,
+      {String? pin}) async {
     if (usuario.pinHash != null && usuario.pinHash!.isNotEmpty) {
-      if (pin == null || pin.isEmpty) return false;
+      if (pin == null || pin.isEmpty) return SesionLoginResult.pinIncorrecto;
       final ok = await ref.read(posRepoProvider).verificarPin(usuario.id, pin);
-      if (!ok) return false;
+      if (!ok) return SesionLoginResult.pinIncorrecto;
     }
 
     final repo = ref.read(posRepoProvider);
+
+    // Cerrar sesiones stale (>8h abiertas) automáticamente.
+    await repo.cerrarSesionesStale(horas: 8);
+
     final abierto = await repo.getSesionActiva();
     if (abierto != null) {
-      // Turno pendiente del dispositivo: se retoma con su usuario.
+      // Turno pendiente del dispositivo.
+      if (abierto.sesion.usuarioId != usuario.id) {
+        // Turno de OTRO usuario: devolver info para que la UI pregunte.
+        sesionAjenaId = abierto.sesion.id;
+        sesionAjenaNombre = abierto.usuarioNombre;
+        return SesionLoginResult.sesionAjena;
+      }
+      // Turno del MISMO usuario: retomar silenciosamente.
       final u = await repo.getUsuario(abierto.sesion.usuarioId);
-      if (u == null) return false;
+      if (u == null) return SesionLoginResult.nueva;
       state = PosSesionActiva(usuario: u, sesionId: abierto.sesion.id);
-      return true;
+      return SesionLoginResult.retomada;
     }
 
     final sesionId = await repo.abrirSesion(usuario.id);
     state = PosSesionActiva(usuario: usuario, sesionId: sesionId);
-    return true;
+    return SesionLoginResult.nueva;
+  }
+
+  /// Cierra el turno ajeno detectado en [iniciarSesion] y abre uno nuevo para
+  /// el usuario indicado. Llamar después de que el usuario confirme en el
+  /// diálogo.
+  Future<void> forzarCerrarSesionAjena(PosUsuario usuario) async {
+    final repo = ref.read(posRepoProvider);
+    if (sesionAjenaId != null) {
+      await repo.forzarCerrarSesion(sesionAjenaId!);
+      sesionAjenaId = null;
+      sesionAjenaNombre = null;
+    }
+    final sesionId = await repo.abrirSesion(usuario.id);
+    state = PosSesionActiva(usuario: usuario, sesionId: sesionId);
+  }
+
+  /// Retoma la sesión ajena existente (el usuario decidió NO cerrarla).
+  Future<void> retomarSesionAjena(PosUsuario usuario) async {
+    final repo = ref.read(posRepoProvider);
+    if (sesionAjenaId != null) {
+      state = PosSesionActiva(usuario: usuario, sesionId: sesionAjenaId!);
+      sesionAjenaId = null;
+      sesionAjenaNombre = null;
+    }
   }
 
   /// Cierra el turno y la caja (monto final automático) y vuelve al login.

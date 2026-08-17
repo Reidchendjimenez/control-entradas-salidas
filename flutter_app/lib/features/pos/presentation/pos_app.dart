@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/sync/sync_status.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/pos_providers.dart';
+import '../data/pos_session.dart';
 import 'pos_screen.dart';
 
 /// Aplicación POS standalone — punto de entrada `lib/main_pos.dart`.
@@ -20,10 +21,11 @@ class PosApp extends ConsumerStatefulWidget {
   ConsumerState<PosApp> createState() => _PosAppState();
 }
 
-class _PosAppState extends ConsumerState<PosApp> {
+class _PosAppState extends ConsumerState<PosApp> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Arranca el sync POS: fullSync inmediato + background cada 30s.
     // La barra global muestra el progreso de esta primera sincronización.
     final notifier = ref.read(syncStatusProvider.notifier);
@@ -32,6 +34,22 @@ class _PosAppState extends ConsumerState<PosApp> {
       notifier.iniciar(SyncOrigen.pos);
       pos.fullSync();
       pos.startBackgroundSync(intervalSeconds: 30);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      // App perdió foco o se minimizó: cerrar sesión del POS para no dejar
+      // turnos huérfanos si el usuario cierra la app desde el taskbar.
+      ref.read(posSessionProvider.notifier).cerrarSesion();
     }
   }
 
