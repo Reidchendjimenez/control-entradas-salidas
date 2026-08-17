@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/db/schema/app_database.dart';
+import '../../../core/sync/global_sync_bar.dart';
+import '../../../core/sync/sync_status.dart';
 import '../data/pos_providers.dart';
 import '../data/pos_session.dart';
 import 'comanda_screen.dart';
@@ -201,6 +203,7 @@ class _LoginView extends ConsumerStatefulWidget {
 
 class _LoginViewState extends ConsumerState<_LoginView> {
   int? _selectedId;
+  SyncEstado? _lastSyncState;
 
   @override
   void initState() {
@@ -266,6 +269,19 @@ class _LoginViewState extends ConsumerState<_LoginView> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final usuarios = ref.watch(usuariosProvider);
+    final syncStatus = ref.watch(syncStatusProvider);
+
+    // Cuando el sync pasa de activo a ok, invalidar la lista de usuarios
+    // para que se muestren los descargados de Supabase.
+    if (_lastSyncState == SyncEstado.activo &&
+        syncStatus.estado == SyncEstado.ok) {
+      _lastSyncState = syncStatus.estado;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ref.invalidate(usuariosProvider);
+      });
+    } else {
+      _lastSyncState = syncStatus.estado;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -304,7 +320,9 @@ class _LoginViewState extends ConsumerState<_LoginView> {
                       ?.copyWith(color: scheme.onSurfaceVariant),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+              const GlobalSyncBar(),
+              const SizedBox(height: 12),
               usuarios.when(
                 loading: () =>
                     const Center(child: CircularProgressIndicator()),
