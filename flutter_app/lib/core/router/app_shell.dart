@@ -135,7 +135,6 @@ class _ShellAutenticadoState extends ConsumerState<_ShellAutenticado> {
               onToggleTheme: () => ref
                   .read(themeControllerProvider.notifier)
                   .toggle(),
-              onLogout: () => ref.read(sessionProvider.notifier).cerrarSesion(),
               onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
             ),
             const GlobalSyncBar(),
@@ -229,7 +228,6 @@ class _AppHeader extends StatelessWidget {
     required this.offline,
     required this.onSync,
     required this.onToggleTheme,
-    required this.onLogout,
     required this.onOpenDrawer,
   });
 
@@ -240,7 +238,6 @@ class _AppHeader extends StatelessWidget {
   final bool offline;
   final VoidCallback onSync;
   final VoidCallback onToggleTheme;
-  final VoidCallback onLogout;
   final VoidCallback onOpenDrawer;
 
   Color _color(String key) =>
@@ -333,12 +330,6 @@ class _AppHeader extends StatelessWidget {
             color: _color('header_subtitle'),
             tooltip: 'Tema',
             onPressed: onToggleTheme,
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            color: _color('header_subtitle'),
-            tooltip: 'Cerrar sesión',
-            onPressed: onLogout,
           ),
         ],
       ),
