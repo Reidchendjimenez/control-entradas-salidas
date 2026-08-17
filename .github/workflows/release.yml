@@ -32,6 +32,21 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+      - name: Determinar version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Actualizar version en pubspec.yaml
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.tag }}"
+          (Get-Content pubspec.yaml) -replace 'version: .+', "version: $version+1" | Set-Content pubspec.yaml
+          Write-Host "Version actualizada a $version"
       - name: Build Windows POS
         env:
           LYCORIS_BINARY_NAME: LycorisPOS
@@ -69,6 +84,21 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+      - name: Determinar version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Actualizar version en pubspec.yaml
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.tag }}"
+          (Get-Content pubspec.yaml) -replace 'version: .+', "version: $version+1" | Set-Content pubspec.yaml
+          Write-Host "Version actualizada a $version"
       - name: Build Windows Inventario
         env:
           LYCORIS_BINARY_NAME: LycorisControl
@@ -109,6 +139,19 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+      - name: Determinar version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Actualizar version en pubspec.yaml
+        run: |
+          VERSION="${{ steps.version.outputs.tag }}"
+          sed -i "s/^version: .*/version: $VERSION+1/" pubspec.yaml
+          echo "Version actualizada a $VERSION"
       - name: Build APK
         run: |
           flutter pub get
