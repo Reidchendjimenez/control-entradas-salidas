@@ -101,9 +101,13 @@ class PosSyncEngine {
     _running = true;
     try {
       await _processOutbox();
-      await _downloadAllFromServer();
+      final downloadErrors = await _downloadAllFromServer();
       await _general.pushPending();
-      await _setLastPosSync();
+      // Solo actualizar timestamp si no hubo errores de descarga; si falló la
+      // descarga de alguna tabla, en el próximo ciclo se reintenta.
+      if (!downloadErrors) {
+        await _setLastPosSync();
+      }
       _log('Sincronización POS finalizada');
       onSyncComplete?.call();
       return true;
@@ -121,14 +125,8 @@ class PosSyncEngine {
   /// intervalo (el arranque dispara el fullSync manual).
   void startBackgroundSync({int intervalSeconds = 30}) {
     _timer ??= Timer.periodic(Duration(seconds: intervalSeconds), (_) async {
-      try {
-        await _processOutbox();
-        await _downloadAllFromServer();
-        await _general.pushPending();
-        await _setLastPosSync();
-      } catch (e) {
-        _log('Error en sync loop POS: $e');
-      }
+      if (_running) return; // Evitar ejecución concurrente con fullSync().
+      await fullSync();
     });
   }
 
@@ -141,14 +139,17 @@ class PosSyncEngine {
   // Descarga (pos_sync.py `_download_all_from_server`)
   // ---------------------------------------------------------------------
 
-  Future<void> _downloadAllFromServer() async {
+  /// Retorna `true` si hubo errores de descarga.
+  Future<bool> _downloadAllFromServer() async {
     // Subconjunto de catálogo de inventario que el POS necesita para vender.
     await _descargarCatalogoVenta();
+    final errores = <String>[];
     for (final t in _posTables) {
       try {
         await _descargarTabla(t);
       } catch (e) {
         _log('Error descargando ${t.serverTable}: $e');
+        errores.add('${t.serverTable}: $e');
       }
     }
     // Restaura movimientos.venta_id desde venta_sync_uuid (relink_ventas_movimientos).
@@ -161,7 +162,12 @@ class PosSyncEngine {
       ''');
     } catch (e) {
       _log('Error relink ventas-movimientos: $e');
+      errores.add('relink ventas-movimientos: $e');
     }
+    if (errores.isNotEmpty) {
+      onSyncError?.call('Error descargando datos:\n${errores.join('\n')}');
+    }
+    return errores.isNotEmpty;
   }
 
   /// Subconjunto de catálogo que el POS muestra al vender (espejo de
@@ -718,13 +724,15 @@ class PosSyncEngine {
   // Subida del outbox (pos_sync.py `_upload_to_remote`)
   // ---------------------------------------------------------------------
 
-  Future<int> _processOutbox() async {
+  /// Retorna `true` si hubo errores de upload.
+  Future<bool> _processOutbox() async {
     final pending = await (_db.select(_db.syncQueue)
           ..where((t) => t.status.equals('pending') & t.targetTable.isIn(posTableNames)))
         .get();
-    if (pending.isEmpty) return 0;
+    if (pending.isEmpty) return false;
 
     var uploaded = 0;
+    final errores = <String>[];
     for (final item in pending) {
       try {
         final data = jsonDecode(item.data) as Map<String, dynamic>;
@@ -743,9 +751,13 @@ class PosSyncEngine {
               lastError: Value(e.toString()),
             ));
         _log('Error subiendo ${item.targetTable}: $e');
+        errores.add('${item.targetTable}: $e');
       }
     }
-    return uploaded;
+    if (errores.isNotEmpty) {
+      onSyncError?.call('Error subiendo datos:\n${errores.join('\n')}');
+    }
+    return errores.isNotEmpty;
   }
 
   Future<void> _uploadItem(String table, Map<String, dynamic> data, String op) async {
