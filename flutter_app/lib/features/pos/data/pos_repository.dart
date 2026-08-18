@@ -255,8 +255,8 @@ class PosRepository {
           'id': id,
           'nombre': nombre.trim(),
           'pin_hash': pin != null && pin.trim().isNotEmpty ? _pinHash(pin) : null,
-          'es_admin': esAdmin,
-          'activo': true,
+          'es_admin': esAdmin ? 1 : 0,
+          'activo': 1,
           'creado_en': DateTime.now().toIso8601String(),
         });
     return id;
@@ -292,8 +292,8 @@ class PosRepository {
           if (nombre != null) 'nombre': nombre.trim(),
           if (pin != null)
             'pin_hash': pin.isEmpty ? null : _pinHash(pin),
-          if (esAdmin != null) 'es_admin': esAdmin,
-          if (activo != null) 'activo': activo,
+          if (esAdmin != null) 'es_admin': esAdmin ? 1 : 0,
+          if (activo != null) 'activo': activo ? 1 : 0,
         });
   }
 
@@ -350,7 +350,7 @@ class PosRepository {
           'numero': numero.trim(),
           'nombre': nombre?.trim(),
           'zona': zona?.trim(),
-          'activo': true,
+          'activo': 1,
           'creado_en': DateTime.now().toIso8601String(),
         });
     return id;
@@ -377,7 +377,7 @@ class PosRepository {
           if (numero != null) 'numero': numero.trim(),
           if (nombre != null) 'nombre': nombre.trim(),
           if (zona != null) 'zona': zona.trim(),
-          if (activo != null) 'activo': activo,
+          if (activo != null) 'activo': activo ? 1 : 0,
         });
   }
 
@@ -421,7 +421,7 @@ class PosRepository {
           'numero': numero.trim(),
           'piso': piso?.trim(),
           'tipo': tipo?.trim(),
-          'activo': true,
+          'activo': 1,
           'creado_en': DateTime.now().toIso8601String(),
         });
     return id;
@@ -448,7 +448,7 @@ class PosRepository {
           if (numero != null) 'numero': numero.trim(),
           if (piso != null) 'piso': piso.trim(),
           if (tipo != null) 'tipo': tipo.trim(),
-          if (activo != null) 'activo': activo,
+          if (activo != null) 'activo': activo ? 1 : 0,
         });
   }
 
@@ -494,7 +494,7 @@ class PosRepository {
           'nombre': nombre.trim(),
           'color': color,
           'icono': icono,
-          'activo': true,
+          'activo': 1,
           'created_at': now.toIso8601String(),
           'updated_at': now.toIso8601String(),
         });
@@ -524,7 +524,7 @@ class PosRepository {
           'nombre': nombre.trim(),
           'color': color,
           'icono': icono,
-          if (activo != null) 'activo': activo,
+          if (activo != null) 'activo': activo ? 1 : 0,
           'updated_at': now.toIso8601String(),
         });
   }
@@ -588,7 +588,7 @@ class PosRepository {
           'id': nuevoId,
           'nombre': nombre.trim(),
           'color': color,
-          'activo': activo,
+          'activo': activo ? 1 : 0,
           'categoria_padre_id': categoriaPadreId,
           'pos_categoria_padre_id': posCategoriaPadreId,
           'created_at': now.toIso8601String(),
