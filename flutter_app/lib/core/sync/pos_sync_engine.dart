@@ -5,6 +5,7 @@ import 'package:drift/drift.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../db/schema/app_database.dart';
+import '../utils/file_logger.dart';
 import 'sync_engine.dart';
 
 /// Tablas del módulo POS gestionadas por `PosSyncEngine` (port de `_POS_TABLES`
@@ -72,7 +73,9 @@ const List<_PosTableDesc> _posTables = [
 ///   En la app combinada este motor hace lo mismo sin duplicar trabajo: la
 ///   cola no-pos y los movimientos solo los procesa esta subida.
 class PosSyncEngine {
-  PosSyncEngine({required AppDatabase db, required this.client}) : _db = db;
+  PosSyncEngine({required AppDatabase db, required this.client}) : _db = db {
+    FileLogger.instance.init();
+  }
 
   final AppDatabase _db;
   final SupabaseClient client;
@@ -90,7 +93,10 @@ class PosSyncEngine {
   late final SyncEngine _general = SyncEngine(db: _db, client: client)
     ..onProgress = _log;
 
-  void _log(String msg) => onProgress?.call(msg);
+  void _log(String msg) {
+    logToFile(msg);
+    onProgress?.call(msg);
+  }
 
   // ---------------------------------------------------------------------
   // Ciclo completo

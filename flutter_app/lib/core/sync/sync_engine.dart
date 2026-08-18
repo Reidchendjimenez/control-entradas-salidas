@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../db/schema/app_database.dart';
 import '../config/app_config.dart';
+import '../utils/file_logger.dart';
 import 'pos_sync_engine.dart';
 import 'sync_service.dart';
 import 'sync_tables.dart';
@@ -37,7 +38,10 @@ class SyncEngine {
   /// Callback con el detalle completo del error (para mostrarlo al usuario).
   void Function(String detail)? onSyncError;
 
-  void _log(String msg) => onProgress?.call(msg);
+  void _log(String msg) {
+    logToFile(msg);
+    onProgress?.call(msg);
+  }
 
   // ---------------------------------------------------------------------
   // 1. Subida del outbox (sync_queue)
