@@ -186,7 +186,7 @@ class _SistemaTabState extends ConsumerState<SistemaTab> {
             almProdAsync.when(
               data: (actual) => almacenesAsync.when(
                 data: (almacenes) => DropdownButtonFormField<String>(
-                  value: actual,
+                  initialValue: actual,
                   decoration: const InputDecoration(labelText: 'Almacén', isDense: true, border: OutlineInputBorder()),
                   items: almacenes.map((a) => DropdownMenuItem(value: a, child: Text(a))).toList(),
                   onChanged: (v) => _setAlmacenProduccion(v ?? 'restaurante'),

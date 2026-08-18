@@ -299,17 +299,24 @@ CREATE TRIGGER trg_pos_habitaciones_updated_at
     FOR EACH ROW EXECUTE FUNCTION set_pos_updated_at();
 
 CREATE TABLE IF NOT EXISTS pos_usuarios (
-    id         SERIAL PRIMARY KEY,
-    nombre     TEXT NOT NULL,
-    pin_hash   TEXT,
-    es_admin   INTEGER DEFAULT 0,
-    activo     INTEGER DEFAULT 1,
-    creado_en  TEXT NOT NULL,
-    updated_at TIMESTAMPTZ
+    id               SERIAL PRIMARY KEY,
+    nombre           TEXT NOT NULL,
+    pin_hash         TEXT,
+    es_admin         INTEGER DEFAULT 0,
+    es_desarrollador INTEGER DEFAULT 0,
+    activo           INTEGER DEFAULT 1,
+    creado_en        TEXT NOT NULL,
+    updated_at       TIMESTAMPTZ
 );
 CREATE TRIGGER trg_pos_usuarios_updated_at
     BEFORE INSERT OR UPDATE ON pos_usuarios
     FOR EACH ROW EXECUTE FUNCTION set_pos_updated_at();
+
+-- Usuario de desarrollo: inicia sesión SIN aperturar turno/caja. Se sincroniza
+-- a los dispositivos y puede desactivarse desde Configuración → Cajeros.
+INSERT INTO pos_usuarios (nombre, es_admin, es_desarrollador, activo, creado_en)
+SELECT 'Desarrollador', 1, 1, 1, now()::text
+WHERE NOT EXISTS (SELECT 1 FROM pos_usuarios WHERE nombre = 'Desarrollador');
 
 CREATE TABLE IF NOT EXISTS pos_settings (
     key   TEXT PRIMARY KEY,

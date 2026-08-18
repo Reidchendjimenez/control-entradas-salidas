@@ -119,7 +119,7 @@ class _ProveedorDialogState extends ConsumerState<_ProveedorDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: _estado,
+                initialValue: _estado,
                 decoration: const InputDecoration(labelText: 'Estado', border: OutlineInputBorder(), isDense: true),
                 items: const [
                   DropdownMenuItem(value: 'Activo', child: Text('Activo')),

@@ -5,8 +5,8 @@ import '../../../core/db/schema/app_database.dart';
 import '../../../core/sync/global_sync_bar.dart';
 import '../data/pos_comanda_models.dart';
 import '../data/pos_providers.dart';
-import '../data/pos_repository.dart';
 import '../data/pos_session.dart';
+import '../data/printer_service.dart';
 import '../data/tasa_bcv_service.dart';
 import '../data/ticket_escpos.dart';
 import '../data/ticket_settings.dart';
@@ -306,6 +306,13 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
     );
   }
 
+  void _snack(String msg, {Color color = const Color(0xFF4CAF50)}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: color),
+    );
+  }
+
   /// Port de `_mesa_ticket_label` (comanda_view.py:959).
   String get _mesaTicketLabel {
     final m = widget.mesa;
@@ -332,8 +339,9 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
     return etiqueta;
   }
 
-  /// Muestra la vista previa del ticket cobrado (la venta ya está registrada;
-  /// en web se imprime con el diálogo del navegador).
+  /// Muestra/imprime el ticket de la venta registrada (Fase 6.6 + fix
+  /// plataforma): en Windows envía los bytes ESC/POS a la impresora
+  /// configurada; en web muestra la vista previa con diálogo del navegador.
   Future<void> _mostrarTicket({
     required List<TicketItem> items,
     required int comandaId,
@@ -354,6 +362,32 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
       header: header,
     );
     if (!mounted) return;
+
+    if (puedeImprimirNativo) {
+      // Windows: enviar bytes ESC/POS raw a la impresora configurada.
+      final bytes = construirTicketEscpos(
+        items: items,
+        total: _total,
+        comandaId: comandaId,
+        correlativo: correlativo,
+        correccionDe: correccionDe,
+        tasa: _tasa > 0 ? _tasa : null,
+        cajero: widget.sesion.usuario.nombre,
+        mesa: _mesaTicketLabel,
+        habitacion: _habitacionTicketLabel,
+        header: header,
+      );
+      final dispositivo = await getPrinterDevice(ref.read(posRepoProvider));
+      try {
+        await imprimirTicketNativo(dispositivo ?? '', bytes);
+        _snack('Ticket enviado a la impresora');
+      } catch (e) {
+        _snack('Error de impresión:\n$e', color: const Color(0xFFEF5350));
+      }
+      return;
+    }
+
+    // Web: vista previa + diálogo del navegador.
     await showTicketPreview(context, lineas: lineas);
   }
 

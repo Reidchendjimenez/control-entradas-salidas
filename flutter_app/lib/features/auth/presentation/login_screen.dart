@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/auth/session_controller.dart';
 import '../../../core/db/database_provider.dart';
+import '../../../core/updater/auto_update_checker.dart';
 
 /// Pantalla de login / registro (porta `usr/views/login_view.py`).
 class LoginScreen extends ConsumerStatefulWidget {
@@ -86,82 +87,88 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         final pinLabel = isRegistro ? 'PIN de 4 dígitos' : 'Ingresa tu PIN';
 
         return Scaffold(
-          body: Center(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 360),
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Icon(Icons.inventory_2_outlined,
-                      size: 56, color: Theme.of(context).colorScheme.primary),
-                  const SizedBox(height: 12),
-                  Text(
-                    isRegistro ? 'Registro de Operador' : 'Bienvenido',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    isRegistro
-                        ? 'Configure el operador principal del dispositivo'
-                        : 'Ingresa tu PIN para continuar',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 24),
-                  if (isRegistro)
-                    TextField(
-                      controller: _nombreCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Nombre del operador',
-                        prefixIcon: Icon(Icons.person_outline),
+          body: Stack(
+            children: [
+              Center(
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 360),
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Icon(Icons.inventory_2_outlined,
+                          size: 56, color: Theme.of(context).colorScheme.primary),
+                      const SizedBox(height: 12),
+                      Text(
+                        isRegistro ? 'Registro de Operador' : 'Bienvenido',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.headlineSmall,
                       ),
-                      textCapitalization: TextCapitalization.words,
-                    ),
-                  if (isRegistro) const SizedBox(height: 12),
-                  TextField(
-                    controller: _pinCtrl,
-                    decoration: InputDecoration(
-                      labelText: pinLabel,
-                      prefixIcon: const Icon(Icons.lock_outline),
-                    ),
-                    keyboardType: TextInputType.number,
-                    maxLength: 4,
-                    obscureText: true,
-                  ),
-                  if (isRegistro) const SizedBox(height: 12),
-                  if (isRegistro)
-                    TextField(
-                      controller: _confirmCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Confirmar PIN',
-                        prefixIcon: Icon(Icons.lock_outline),
+                      const SizedBox(height: 4),
+                      Text(
+                        isRegistro
+                            ? 'Configure el operador principal del dispositivo'
+                            : 'Ingresa tu PIN para continuar',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
-                      keyboardType: TextInputType.number,
-                      maxLength: 4,
-                      obscureText: true,
-                    ),
-                  if (_error.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    Text(_error,
-                        style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                  ],
-                  const SizedBox(height: 20),
-                  FilledButton(
-                    onPressed: _loading ? null : _submit,
-                    child: _loading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(isRegistro ? 'Registrar' : 'Desbloquear'),
+                      const SizedBox(height: 24),
+                      if (isRegistro)
+                        TextField(
+                          controller: _nombreCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Nombre del operador',
+                            prefixIcon: Icon(Icons.person_outline),
+                          ),
+                          textCapitalization: TextCapitalization.words,
+                        ),
+                      if (isRegistro) const SizedBox(height: 12),
+                      TextField(
+                        controller: _pinCtrl,
+                        decoration: InputDecoration(
+                          labelText: pinLabel,
+                          prefixIcon: const Icon(Icons.lock_outline),
+                        ),
+                        keyboardType: TextInputType.number,
+                        maxLength: 4,
+                        obscureText: true,
+                      ),
+                      if (isRegistro) const SizedBox(height: 12),
+                      if (isRegistro)
+                        TextField(
+                          controller: _confirmCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'Confirmar PIN',
+                            prefixIcon: Icon(Icons.lock_outline),
+                          ),
+                          keyboardType: TextInputType.number,
+                          maxLength: 4,
+                          obscureText: true,
+                        ),
+                      if (_error.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        Text(_error,
+                            style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                      ],
+                      const SizedBox(height: 20),
+                      FilledButton(
+                        onPressed: _loading ? null : _submit,
+                        child: _loading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Text(isRegistro ? 'Registrar' : 'Desbloquear'),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
+              // Verificar actualizaciones antes del login (Windows/Android).
+              const Align(alignment: Alignment.topRight, child: AutoUpdateChecker()),
+            ],
           ),
         );
       },

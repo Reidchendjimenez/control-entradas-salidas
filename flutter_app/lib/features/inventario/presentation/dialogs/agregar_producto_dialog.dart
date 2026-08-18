@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
 import '../../../../core/sync/sync_service.dart';
 import '../../data/inventario_providers.dart';
 
@@ -35,7 +34,7 @@ Future<void> showAgregarProductoDialog(BuildContext context, WidgetRef ref) asyn
             if (categorias.isNotEmpty)
               DropdownButtonFormField<int>(
                 decoration: const InputDecoration(labelText: 'Categoría'),
-                value: categoriaId,
+                initialValue: categoriaId,
                 items: categorias.map((c) => DropdownMenuItem(value: c.id, child: Text(c.nombre))).toList(),
                 onChanged: (v) => categoriaId = v,
               ),

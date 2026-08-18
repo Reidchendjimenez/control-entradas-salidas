@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/configuracion_providers.dart';
-import '../data/configuracion_repository.dart';
 import 'widgets/categorias_tab.dart';
 import 'widgets/productos_tab.dart';
 import 'widgets/proveedores_tab.dart';
@@ -60,7 +58,7 @@ class _ConfiguracionScreenState extends ConsumerState<ConfiguracionScreen>
         Expanded(
           child: TabBarView(
             controller: _tabController,
-            children: [
+            children: const [
               CategoriasTab(),
               ProductosTab(),
               ProveedoresTab(),

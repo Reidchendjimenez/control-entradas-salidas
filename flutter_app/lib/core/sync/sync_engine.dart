@@ -74,18 +74,30 @@ class SyncEngine {
           case 'insert':
             if (table == 'factura_pagos') {
               await _upsertFacturaPago(data);
+            } else if (table == 'requisiciones') {
+              await _upsertRequisicion(data);
             } else {
               await _upsertRemote(table, data, 'insert');
             }
           case 'update':
             if (table == 'factura_pagos') {
               await _upsertFacturaPago(data);
+            } else if (table == 'requisiciones') {
+              await _upsertRequisicion(data);
             } else {
               await _upsertRemote(table, data, 'update');
+            }
+          case 'upsert':
+            if (table == 'requisiciones') {
+              await _upsertRequisicion(data);
+            } else {
+              await _upsertRemote(table, data, 'upsert');
             }
           case 'delete':
             if (table == 'movimientos') {
               await _deleteMovimientoPorMatch(data);
+            } else if (table == 'requisiciones') {
+              await _deleteRequisicion(data);
             } else {
               final id = data['id'];
               await client.from(table).delete().eq('id', id);
@@ -127,6 +139,78 @@ class SyncEngine {
       'referencia': data['referencia'],
       'tasa_cambio': data['tasa_cambio'],
     });
+  }
+
+  /// Sube una requisición completa (cabecera + detalles) resolviendo el id
+  /// remoto por `numero` (réplica de `sync.py` caso `requisiciones`).
+  ///
+  /// A diferencia de las tablas de catálogo, los `requisicion_detalles` hijos
+  /// referencian a la requisición por su id remoto, así que aquí se resuelve
+  /// primero la cabecera y luego se (re)suben los detalles con ese id. Es
+  /// idempotente: borra los detalles remotos de la requisición y vuelve a
+  /// insertar los locales, así ediciones sucesivas no duplican.
+  Future<void> _upsertRequisicion(Map<String, dynamic> data) async {
+    final numero = data['numero'] as String?;
+    if (numero == null || numero.isEmpty) {
+      throw StateError('numero requerido para sincronizar requisiciones');
+    }
+    final cleaned = Map<String, dynamic>.from(data)
+      ..removeWhere((k, v) => v == null || k == 'id');
+
+    final existing = await client
+        .from('requisiciones')
+        .select('id')
+        .eq('numero', numero)
+        .maybeSingle();
+    int serverId;
+    if (existing != null && existing['id'] != null) {
+      await client.from('requisiciones').update(cleaned).eq('id', existing['id']);
+      serverId = (existing['id'] as num).toInt();
+    } else {
+      final inserted =
+          await client.from('requisiciones').insert(cleaned).select('id').single();
+      serverId = (inserted['id'] as num).toInt();
+    }
+
+    // Detalles: borra los remotos y reinserta los locales (con id remoto).
+    await client
+        .from('requisicion_detalles')
+        .delete()
+        .eq('requisicion_id', serverId);
+    final localId = data['id'];
+    final detalles = await (_db.select(_db.requisicionDetalles)
+          ..where((t) => t.requisicionId.equals(localId)))
+        .get();
+    for (final d in detalles) {
+      await client.from('requisicion_detalles').insert({
+        'requisicion_id': serverId,
+        'producto_id': d.productoId,
+        'ingrediente': d.ingrediente,
+        'cantidad': d.cantidad,
+        'unidad': d.unidad,
+        'cantidad_surtida': d.cantidadSurtida,
+        'verificado': d.verificado == 1,
+      });
+    }
+  }
+
+  /// Elimina una requisición remota (y sus detalles) por `numero` (réplica de
+  /// `sync.py` caso `requisiciones` delete).
+  Future<void> _deleteRequisicion(Map<String, dynamic> data) async {
+    final numero = data['numero'] as String?;
+    if (numero == null || numero.isEmpty) return;
+    final existing = await client
+        .from('requisiciones')
+        .select('id')
+        .eq('numero', numero)
+        .maybeSingle();
+    if (existing == null || existing['id'] == null) return;
+    final serverId = (existing['id'] as num).toInt();
+    await client
+        .from('requisicion_detalles')
+        .delete()
+        .eq('requisicion_id', serverId);
+    await client.from('requisiciones').delete().eq('id', serverId);
   }
 
   /// Elimina un movimiento remoto por campos coincidentes (ID local != remoto,

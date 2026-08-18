@@ -30,7 +30,7 @@ class EntradaCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.add_circle_outline, color: Colors.green, size: 22),
+          const Icon(Icons.add_circle_outline, color: Colors.green, size: 22),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

@@ -23,7 +23,7 @@ void main() {
     await db.close();
   });
 
-  Future<(int, int)> _setupBasico(String numero) async {
+  Future<(int, int)> setupBasico(String numero) async {
     final mesaId = await repo.crearMesa(numero);
     final uid = await repo.crearUsuario('Cajero');
     final sesionId = await repo.abrirSesion(uid);
@@ -31,7 +31,7 @@ void main() {
   }
 
   /// Inserta un producto con existencia inicial y devuelve su id.
-  Future<int> _productoConStock(String nombre, double stock) async {
+  Future<int> productoConStock(String nombre, double stock) async {
     final id = await db.into(db.productos).insert(ProductosCompanion.insert(
           nombre: nombre,
           precioVenta: const Value(1),
@@ -45,7 +45,7 @@ void main() {
     return id;
   }
 
-  Future<double> _stock(int productoId, [String almacen = 'restaurante']) async {
+  Future<double> stock(int productoId, [String almacen = 'restaurante']) async {
     final e = await (db.select(db.existencias)
           ..where((t) => t.productoId.equals(productoId) & t.almacen.equals(almacen)))
         .getSingleOrNull();
@@ -53,7 +53,7 @@ void main() {
   }
 
   test('registrarVenta asigna correlativo secuencial y estado vigente', () async {
-    final (mesaId, sesionId) = await _setupBasico('1');
+    final (mesaId, sesionId) = await setupBasico('1');
     final comandaId = await ventas.guardarComanda(
         sesionId, [{'id': 1, 'tipo': 'producto', 'nombre': 'Refresco', 'precio': 2.0, 'cantidad': 1}], 2.0,
         mesaId: mesaId);
@@ -72,8 +72,8 @@ void main() {
   });
 
   test('aplicarMovimientosVenta descuenta existencias', () async {
-    final (mesaId, sesionId) = await _setupBasico('2');
-    final productoId = await _productoConStock('Coca', 10);
+    final (mesaId, sesionId) = await setupBasico('2');
+    final productoId = await productoConStock('Coca', 10);
     final comandaId = await ventas.guardarComanda(sesionId, [], 0, mesaId: mesaId);
     final corr = await ventas.siguienteCorrelativo();
     final ventaId = await ventas.registrarVenta(corr, 3.0, [],
@@ -83,15 +83,15 @@ void main() {
       {'producto_id': productoId, 'producto_nombre': 'Coca', 'cantidad': 3.0, 'almacen': 'restaurante'},
     ]);
 
-    expect(await _stock(productoId), 7.0);
+    expect(await stock(productoId), 7.0);
     final movs = await ventas.getMovimientosVenta(ventaId);
     expect(movs, hasLength(1));
     expect(movs.first['cantidad'], 3.0);
   });
 
   test('anularVenta restaura stock y reabre la comanda', () async {
-    final (mesaId, sesionId) = await _setupBasico('3');
-    final productoId = await _productoConStock('Agua', 5);
+    final (mesaId, sesionId) = await setupBasico('3');
+    final productoId = await productoConStock('Agua', 5);
     final comandaId = await ventas.guardarComanda(
         sesionId, [{'id': 1, 'tipo': 'producto', 'nombre': 'Agua', 'precio': 1.0, 'cantidad': 2}], 2.0,
         mesaId: mesaId);
@@ -112,11 +112,11 @@ void main() {
     expect((await ventas.getVenta(ventaId))!.estado, 'anulada');
     expect((await ventas.getVenta(ventaId))!.motivoAnulacion, 'Corrección de la venta');
     expect((await ventas.getComanda(comandaId))!.estado, 'abierta');
-    expect(await _stock(productoId), 5.0);
+    expect(await stock(productoId), 5.0);
   });
 
   test('getVentas pagina con beforeId', () async {
-    final (mesaId, sesionId) = await _setupBasico('4');
+    final (mesaId, sesionId) = await setupBasico('4');
     final comandaId = await ventas.guardarComanda(sesionId, [], 0, mesaId: mesaId);
     for (var i = 0; i < 5; i++) {
       final corr = await ventas.siguienteCorrelativo();
@@ -134,7 +134,7 @@ void main() {
   });
 
   test('ultima venta vigente y correlativo de ventas anuladas', () async {
-    final (mesaId, sesionId) = await _setupBasico('5');
+    final (mesaId, sesionId) = await setupBasico('5');
     final comandaId = await ventas.guardarComanda(sesionId, [], 0, mesaId: mesaId);
     final corr1 = await ventas.siguienteCorrelativo();
     final v1 = await ventas.registrarVenta(corr1, 1.0, [], comandaId: comandaId, mesaId: mesaId);

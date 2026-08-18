@@ -66,7 +66,7 @@ class FacturaCard extends StatelessWidget {
                   ),
                   Text(
                     '\$${f.totalNeto.toStringAsFixed(2)}',
-                    style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
                   ),
                 ],
               ),

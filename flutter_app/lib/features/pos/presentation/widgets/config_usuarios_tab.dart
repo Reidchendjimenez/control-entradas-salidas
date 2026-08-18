@@ -25,12 +25,19 @@ class _ConfigUsuariosTabState extends ConsumerState<ConfigUsuariosTab> {
   }
 
   Future<void> _cargar() async {
-    final usuarios = await ref.read(posRepoProvider).getUsuarios();
+    final usuarios =
+        await ref.read(posRepoProvider).getUsuarios(soloActivos: false);
     if (!mounted) return;
     setState(() {
       _usuarios = usuarios;
       _cargando = false;
     });
+  }
+
+  Future<void> _toggleActivo(PosUsuario u, bool activo) async {
+    await ref.read(posRepoProvider).actualizarUsuario(u.id, activo: activo);
+    ref.invalidate(usuariosProvider);
+    await _cargar();
   }
 
   Future<void> _nuevoCajero() async {
@@ -68,7 +75,10 @@ class _ConfigUsuariosTabState extends ConsumerState<ConfigUsuariosTab> {
                   : ListView(
                       children: [
                         for (final u in _usuarios)
-                          _UsuarioConfigCard(usuario: u),
+                          _UsuarioConfigCard(
+                            usuario: u,
+                            onToggleActivo: (v) => _toggleActivo(u, v),
+                          ),
                       ],
                     ),
         ),
@@ -78,19 +88,23 @@ class _ConfigUsuariosTabState extends ConsumerState<ConfigUsuariosTab> {
 }
 
 class _UsuarioConfigCard extends StatelessWidget {
-  const _UsuarioConfigCard({required this.usuario});
+  const _UsuarioConfigCard({required this.usuario, required this.onToggleActivo});
 
   final PosUsuario usuario;
+  final ValueChanged<bool> onToggleActivo;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final esAdmin = usuario.esAdmin == 1;
+    final esDev = usuario.esDesarrollador == 1;
     final hasPin = usuario.pinHash != null && usuario.pinHash!.isNotEmpty;
     final tags = [
       if (esAdmin) 'Admin',
+      if (esDev) 'Desarrollador',
       hasPin ? 'Con PIN' : 'Sin PIN',
     ].join(' · ');
+    final activo = usuario.activo == 1;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -106,7 +120,11 @@ class _UsuarioConfigCard extends StatelessWidget {
               width: 46,
               height: 46,
               decoration: BoxDecoration(
-                color: esAdmin ? const Color(0xFFFF9800) : const Color(0xFF7C4DFF),
+                color: esDev
+                    ? const Color(0xFF00ACC1)
+                    : esAdmin
+                        ? const Color(0xFFFF9800)
+                        : const Color(0xFF7C4DFF),
                 shape: BoxShape.circle,
               ),
               alignment: Alignment.center,
@@ -131,8 +149,17 @@ class _UsuarioConfigCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (usuario.activo != 1)
-              Icon(Icons.block, size: 18, color: scheme.outline),
+            if (!activo)
+              Text('Inactivo',
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: scheme.outline,
+                      fontWeight: FontWeight.bold)),
+            const SizedBox(width: 8),
+            Switch(
+              value: activo,
+              onChanged: onToggleActivo,
+            ),
           ],
         ),
       ),

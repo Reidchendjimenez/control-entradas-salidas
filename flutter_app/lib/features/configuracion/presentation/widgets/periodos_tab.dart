@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/db/schema/app_database.dart';
 import '../../data/configuracion_providers.dart';
-import '../../data/configuracion_repository.dart';
 
 /// Pestaña de Periodos (porta `usr/views/configuracion/periodos.py`).
 class PeriodosTab extends ConsumerStatefulWidget {
@@ -28,7 +27,7 @@ class _PeriodosTabState extends ConsumerState<PeriodosTab> {
     final scheme = Theme.of(context).colorScheme;
     final periodosAsync = ref.watch(_periodosAsync);
     final periodoActual = _periodoActual();
-    final yaAbierto = false; // Se actualizará al cargar
+    const yaAbierto = false; // Se actualizará al cargar
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -51,7 +50,7 @@ class _PeriodosTabState extends ConsumerState<PeriodosTab> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Periodos', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          const Text('Periodos', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                           Text('Archive movimientos anteriores a 3 meses por periodo mensual',
                               style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
                         ],
@@ -120,7 +119,7 @@ class _PeriodosTabState extends ConsumerState<PeriodosTab> {
                           ),
                         ],
                         const Divider(height: 20),
-                        Text('Historial de Periodos', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                        const Text('Historial de Periodos', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         if (periodos.isEmpty)
                           Text('No hay periodos archivados aún', style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13))
@@ -140,7 +139,7 @@ class _PeriodosTabState extends ConsumerState<PeriodosTab> {
                                 fecha = p.fechaApertura;
                               }
                               return ListTile(
-                                leading: Icon(Icons.check_circle, color: Colors.green, size: 20),
+                                leading: const Icon(Icons.check_circle, color: Colors.green, size: 20),
                                 title: Text(p.periodo, style: const TextStyle(fontWeight: FontWeight.bold)),
                                 subtitle: Text('Aperturado: $fecha', style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant)),
                               );

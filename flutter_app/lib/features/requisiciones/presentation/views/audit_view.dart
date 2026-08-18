@@ -33,6 +33,7 @@ class _AuditViewState extends ConsumerState<AuditView> {
   bool _totalizando = false;
   bool _guardando = false;
   int _tab = 0;
+  String? _error;
 
   @override
   void initState() {
@@ -41,13 +42,22 @@ class _AuditViewState extends ConsumerState<AuditView> {
   }
 
   Future<void> _cargar() async {
-    final repo = ref.read(requisicionesRepoProvider);
-    final items = await repo.getAuditData(widget.req.id);
-    if (mounted) {
-      setState(() {
-        _items = items;
-        _cargando = false;
-      });
+    try {
+      final repo = ref.read(requisicionesRepoProvider);
+      final items = await repo.getAuditData(widget.req.id);
+      if (mounted) {
+        setState(() {
+          _items = items;
+          _cargando = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _cargando = false;
+        });
+      }
     }
   }
 
@@ -136,6 +146,39 @@ class _AuditViewState extends ConsumerState<AuditView> {
     final scheme = Theme.of(context).colorScheme;
     if (_cargando) {
       return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 40, color: Colors.red),
+              const SizedBox(height: 12),
+              const Text('No se pudo cargar la auditoría',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text(_error!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 12, color: scheme.onSurfaceVariant)),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _error = null;
+                    _cargando = true;
+                  });
+                  _cargar();
+                },
+                icon: const Icon(Icons.refresh),
+                label: const Text('Reintentar'),
+              ),
+            ],
+          ),
+        ),
+      );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

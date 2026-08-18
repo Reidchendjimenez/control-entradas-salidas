@@ -55,6 +55,14 @@ final usuariosProvider = FutureProvider<List<PosUsuario>>((ref) {
   return ref.watch(posRepoProvider).getUsuarios();
 });
 
+/// ID del cajero con turno abierto (para marcarlo en el login), o null.
+final turnoActivoUsuarioProvider = FutureProvider<int?>((ref) {
+  return ref
+      .watch(posRepoProvider)
+      .getSesionActiva()
+      .then((a) => a?.sesion.usuarioId);
+});
+
 final platosProvider = FutureProvider<List<Plato>>((ref) {
   return ref.watch(posRepoProvider).getPlatos(soloActivos: true);
 });

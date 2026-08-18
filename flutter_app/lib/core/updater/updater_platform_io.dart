@@ -123,9 +123,9 @@ Future<void> _installWindows(String zipPath) async {
 @echo off
 title Lycoris Updater
 echo [%date% %time%] Iniciando updater > ${_q(logFile.path)}
-echo [%date% %time%] ExeDir: ${exeDir} >> ${_q(logFile.path)}
-echo [%date% %time%] SrcPattern: ${srcPattern} >> ${_q(logFile.path)}
-echo [%date% %time%] TargetExe: ${targetExe} >> ${_q(logFile.path)}
+echo [%date% %time%] ExeDir: $exeDir >> ${_q(logFile.path)}
+echo [%date% %time%] SrcPattern: $srcPattern >> ${_q(logFile.path)}
+echo [%date% %time%] TargetExe: $targetExe >> ${_q(logFile.path)}
 echo Esperando que cierre la aplicacion...
 taskkill /IM ${_q(targetExe)} /F >nul 2>&1
 echo [%date% %time%] taskkill completado >> ${_q(logFile.path)}

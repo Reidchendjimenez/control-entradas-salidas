@@ -67,6 +67,13 @@ class PosSessionNotifier extends Notifier<PosSesionActiva?> {
     // Cerrar sesiones stale (>8h abiertas) automáticamente.
     await repo.cerrarSesionesStale(horas: 8);
 
+    // Usuario desarrollador: inicia sesión SIN aperturar turno/caja
+    // (`sesionId = 0` = sin turno). No hereda ni conflictúa con turnos ajenos.
+    if (usuario.esDesarrollador == 1) {
+      state = PosSesionActiva(usuario: usuario, sesionId: 0);
+      return SesionLoginResult.nueva;
+    }
+
     final abierto = await repo.getSesionActiva();
     if (abierto != null) {
       // Turno pendiente del dispositivo.
@@ -116,7 +123,8 @@ class PosSessionNotifier extends Notifier<PosSesionActiva?> {
   Future<void> cerrarSesion() async {
     final s = state;
     state = null;
-    if (s != null) {
+    // `sesionId == 0` = sesión de desarrollador sin turno (nada que cerrar).
+    if (s != null && s.sesionId > 0) {
       await ref.read(posRepoProvider).cerrarSesion(s.sesionId);
     }
   }

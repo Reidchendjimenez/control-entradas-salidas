@@ -17,7 +17,6 @@ import '../../features/whatsapp/presentation/bandeja_screen.dart';
 import '../sync/global_sync_bar.dart';
 import '../sync/sync_service.dart';
 import '../sync/sync_status.dart';
-import '../updater/auto_update_checker.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 /// Shell principal — replica `usr/app_controller.py`:
@@ -124,7 +123,6 @@ class _ShellAutenticadoState extends ConsumerState<_ShellAutenticado> {
       body: SafeArea(
         child: Column(
           children: [
-            const AutoUpdateChecker(),
             _AppHeader(
               destinos: widget.destinos,
               index: _index,

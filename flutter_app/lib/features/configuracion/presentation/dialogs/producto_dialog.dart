@@ -62,10 +62,10 @@ class _ProductoDialogState extends ConsumerState<_ProductoDialog> {
       _esPesable = p.esPesable == 1;
       _requiereFotoPeso = p.requiereFotoPeso == 1;
       _pesoUnitarioCtrl.text = p.pesoUnitario?.toStringAsFixed(3) ?? '';
-      _precioVentaCtrl.text = p.precioVenta?.toStringAsFixed(2) ?? '';
+      _precioVentaCtrl.text = p.precioVenta.toStringAsFixed(2) ?? '';
       _unidadCtrl.text = p.unidadMedida ?? 'unidad';
-      _stockActualCtrl.text = p.stockActual?.toStringAsFixed(_esPesable ? 3 : 0) ?? '0';
-      _stockMinimoCtrl.text = p.stockMinimo?.toStringAsFixed(_esPesable ? 3 : 0) ?? '0';
+      _stockActualCtrl.text = p.stockActual.toStringAsFixed(_esPesable ? 3 : 0) ?? '0';
+      _stockMinimoCtrl.text = p.stockMinimo.toStringAsFixed(_esPesable ? 3 : 0) ?? '0';
       _tipo = p.tipo ?? 'ninguno';
       _almacenPredeterminado = p.almacenPredeterminado ?? 'principal';
       _activo = p.activo == 1;
@@ -140,7 +140,7 @@ class _ProductoDialogState extends ConsumerState<_ProductoDialog> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<int?>(
-                        value: _categoriaId,
+                        initialValue: _categoriaId,
                         decoration: const InputDecoration(labelText: 'Categoría', border: OutlineInputBorder(), isDense: true),
                         items: [
                           const DropdownMenuItem<int?>(value: null, child: Text('Sin categoría')),
@@ -202,7 +202,7 @@ class _ProductoDialogState extends ConsumerState<_ProductoDialog> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              value: _tipo,
+                              initialValue: _tipo,
                               decoration: const InputDecoration(labelText: 'Tipo', border: OutlineInputBorder(), isDense: true),
                               items: const [
                                 DropdownMenuItem(value: 'ninguno', child: Text('Ninguno')),
@@ -218,7 +218,7 @@ class _ProductoDialogState extends ConsumerState<_ProductoDialog> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
-                        value: _almacenPredeterminado,
+                        initialValue: _almacenPredeterminado,
                         decoration: const InputDecoration(labelText: 'Almacén predeterminado', border: OutlineInputBorder(), isDense: true),
                         items: almacenes.map((a) => DropdownMenuItem(value: a, child: Text(a))).toList(),
                         onChanged: (v) => setState(() => _almacenPredeterminado = v ?? 'principal'),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
 import '../../data/inventario_repository.dart';
 import '../../data/inventario_providers.dart';
 

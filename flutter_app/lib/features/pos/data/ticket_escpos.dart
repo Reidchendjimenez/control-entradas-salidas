@@ -164,7 +164,7 @@ List<int> construirTicketEscpos({
     text('Hab.: $habitacion');
     newline();
   }
-  text('${'-' * ticketCols}');
+  text('-' * ticketCols);
   newline();
   newline();
 
@@ -173,7 +173,7 @@ List<int> construirTicketEscpos({
     final subtotal = item.precio * item.cantidad;
     final precioStr = '\$${subtotal.toStringAsFixed(2)}';
     var nombre =
-        item.nombre.substring(0, item.nombre.length > 0 ? item.nombre.length : 0);
+        item.nombre.substring(0, item.nombre.isNotEmpty ? item.nombre.length : 0);
     final maxNombre = ticketCols - precioStr.length - 1 - cantStr.length;
     if (nombre.length > maxNombre) nombre = nombre.substring(0, maxNombre);
     final izquierda = cantStr + nombre;
@@ -195,7 +195,7 @@ List<int> construirTicketEscpos({
     }
   }
 
-  text('${'-' * ticketCols}');
+  text('-' * ticketCols);
   newline();
 
   if (total != null) {

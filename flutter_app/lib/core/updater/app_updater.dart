@@ -53,7 +53,7 @@ class AppUpdater {
     if (!canRun) return null;
     final remote = await _source.fetchLatest();
     final local = await localVersion();
-    final newer = await _source.checkOfNewer(local, remote.version);
+    final newer = _source.checkOfNewer(local, remote.version);
     if (newer == null) return null;
     return remote;
   }

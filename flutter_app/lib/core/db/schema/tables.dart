@@ -350,6 +350,7 @@ class PosUsuarios extends Table {
   TextColumn get nombre => text()();
   TextColumn get pinHash => text().named('pin_hash').nullable()();
   IntColumn get esAdmin => integer().named('es_admin').withDefault(const Constant(0))();
+  IntColumn get esDesarrollador => integer().named('es_desarrollador').withDefault(const Constant(0))();
   IntColumn get activo => integer().withDefault(const Constant(1))();
   DateTimeColumn get creadoEn => dateTime().named('creado_en')();
   DateTimeColumn get updatedAt => dateTime().named('updated_at').nullable()();

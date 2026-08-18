@@ -206,7 +206,7 @@ Future<List<Periodo>> getPeriodos() {
           productoId: Value(int.parse(parts[0])),
           almacen: Value(parts[1]),
           cantidad: Value(entry.value),
-          unidad: Value('unidad'),
+          unidad: const Value('unidad'),
         ), mode: InsertMode.insertOrReplace);
       }
     });
@@ -250,7 +250,7 @@ Future<List<Periodo>> getPeriodos() {
 
   Future<List<String>> getAlmacenes() async {
     final rows = await _db.customSelect('SELECT DISTINCT almacen FROM existencias WHERE almacen IS NOT NULL UNION SELECT DISTINCT almacen FROM movimientos WHERE almacen IS NOT NULL').get();
-    return rows.map((r) => r.read<String>('almacen') as String).where((a) => a.isNotEmpty).toSet().toList();
+    return rows.map((r) => r.read<String>('almacen')).where((a) => a.isNotEmpty).toSet().toList();
   }
 
   // ---------------------------------------------------------------------------

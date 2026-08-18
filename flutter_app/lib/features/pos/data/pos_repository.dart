@@ -236,7 +236,7 @@ class PosRepository {
           .getSingleOrNull();
 
   Future<int> crearUsuario(String nombre,
-      {String? pin, bool esAdmin = false}) async {
+      {String? pin, bool esAdmin = false, bool esDesarrollador = false}) async {
     final id = await _db.into(_db.posUsuarios).insert(
           PosUsuariosCompanion.insert(
             nombre: nombre.trim(),
@@ -244,6 +244,7 @@ class PosRepository {
                 ? _pinHash(pin)
                 : null),
             esAdmin: Value(esAdmin ? 1 : 0),
+            esDesarrollador: Value(esDesarrollador ? 1 : 0),
             activo: const Value(1),
             creadoEn: DateTime.now(),
           ),
@@ -256,6 +257,7 @@ class PosRepository {
           'nombre': nombre.trim(),
           'pin_hash': pin != null && pin.trim().isNotEmpty ? _pinHash(pin) : null,
           'es_admin': esAdmin ? 1 : 0,
+          'es_desarrollador': esDesarrollador ? 1 : 0,
           'activo': 1,
           'creado_en': DateTime.now().toIso8601String(),
         });
@@ -267,6 +269,7 @@ class PosRepository {
     String? nombre,
     String? pin,
     bool? esAdmin,
+    bool? esDesarrollador,
     bool? activo,
   }) async {
     final actual = await (_db.select(_db.posUsuarios)
@@ -282,6 +285,9 @@ class PosRepository {
                   ? null
                   : _pinHash(pin)),
           esAdmin: Value(esAdmin == null ? actual.esAdmin : esAdmin ? 1 : 0),
+          esDesarrollador: Value(esDesarrollador == null
+              ? actual.esDesarrollador
+              : esDesarrollador ? 1 : 0),
           activo: Value(activo == null ? actual.activo : activo ? 1 : 0),
         ));
     await addPending(_db,
@@ -293,6 +299,8 @@ class PosRepository {
           if (pin != null)
             'pin_hash': pin.isEmpty ? null : _pinHash(pin),
           if (esAdmin != null) 'es_admin': esAdmin ? 1 : 0,
+          if (esDesarrollador != null)
+            'es_desarrollador': esDesarrollador ? 1 : 0,
           if (activo != null) 'activo': activo ? 1 : 0,
         });
   }

@@ -318,7 +318,7 @@ class _MovimientoDialogState extends ConsumerState<_MovimientoDialog> {
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     decoration: const InputDecoration(labelText: 'Almacén'),
-                    value: _almacen,
+                    initialValue: _almacen,
                     items: [
                       for (final a in _almacenes)
                         DropdownMenuItem(value: a, child: Text(a.capitalize())),
@@ -362,7 +362,7 @@ class _MovimientoDialogState extends ConsumerState<_MovimientoDialog> {
                     if (_recetasQueProducen.length > 1)
                       DropdownButtonFormField<int>(
                         decoration: const InputDecoration(labelText: 'Receta'),
-                        value: _recetaSeleccionada?.id,
+                        initialValue: _recetaSeleccionada?.id,
                         items: [
                           for (final r in _recetasQueProducen)
                             DropdownMenuItem(
@@ -465,7 +465,7 @@ class _LoteSelectorState extends State<_LoteSelector> {
             DropdownButtonFormField<int?>(
               decoration:
                   const InputDecoration(labelText: 'Vincular a producción'),
-              value: widget.produccionId ?? 0,
+              initialValue: widget.produccionId ?? 0,
               items: [
                 const DropdownMenuItem<int?>(
                   value: 0,

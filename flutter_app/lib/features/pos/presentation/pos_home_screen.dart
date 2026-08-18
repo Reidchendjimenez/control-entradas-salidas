@@ -10,7 +10,6 @@ import 'widgets/pop_in.dart';
 import 'widgets/pos_home_header.dart';
 import 'widgets/pos_top_bar.dart';
 import '../../../core/sync/global_sync_bar.dart';
-import '../../../core/updater/auto_update_checker.dart';
 
 /// Selector de entrada de comandas (port mejorado de `ComandasView`): mesas,
 /// habitaciones y ventas con contadores en vivo, acceso a comandas activas y
@@ -64,7 +63,6 @@ class PosHomeScreen extends ConsumerWidget {
         ),
         child: Column(
           children: [
-            const AutoUpdateChecker(),
             PosTopBar(
               usuario: sesion.usuario,
               titulo: 'Lycoris POS',
@@ -79,6 +77,31 @@ class PosHomeScreen extends ConsumerWidget {
               ],
             ),
             const GlobalSyncBar(),
+            if (sesion.sesionId == 0)
+              Container(
+                margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: scheme.tertiaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.science_outlined,
+                        size: 18, color: scheme.onTertiaryContainer),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Sesión de desarrollador · sin turno de caja',
+                        style: TextStyle(
+                            fontSize: 13, color: scheme.onTertiaryContainer),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {

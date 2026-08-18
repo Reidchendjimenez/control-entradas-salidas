@@ -483,7 +483,9 @@ class RequisicionesRepository {
         );
   }
 
-  /// Re-encola la requisición completa en el outbox (upsert por `numero`).
+  /// Re-encola la requisición completa en el outbox. El `SyncEngine` sube la
+  /// cabecera (resolviendo el id remoto por `numero`) y todos sus detalles,
+  /// por lo que basta con enviar la fila completa de la cabecera.
   Future<void> _encolarRequisicion(int requisicionId) async {
     final req = await (_db.select(_db.requisiciones)
           ..where((t) => t.id.equals(requisicionId)))
@@ -493,7 +495,7 @@ class RequisicionesRepository {
       _db,
       tableName: 'requisiciones',
       operation: 'upsert',
-      data: {'numero': req.numero},
+      data: requisicionToSyncMap(req),
     );
   }
 

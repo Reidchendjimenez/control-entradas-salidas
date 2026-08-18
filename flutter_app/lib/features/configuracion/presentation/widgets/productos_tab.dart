@@ -8,7 +8,6 @@ import '../../data/configuracion_providers.dart'
         categoriasConfigProvider,
         almacenesConfigProvider,
         productosConfigProvider;
-import '../../data/configuracion_repository.dart';
 import '../dialogs/producto_dialog.dart';
 
 /// Pestaña de Productos (porta `usr/views/configuracion/productos.py`).
@@ -122,7 +121,7 @@ class _ProductosTabState extends ConsumerState<ProductosTab> {
               Expanded(
                 child: catAsync.when(
                   data: (cats) => DropdownButtonFormField<int?>(
-                    value: _categoriaId,
+                    initialValue: _categoriaId,
                     decoration: const InputDecoration(labelText: 'Categoría', isDense: true, border: OutlineInputBorder()),
                     items: [
                       const DropdownMenuItem<int?>(value: null, child: Text('Todas')),
@@ -140,7 +139,7 @@ class _ProductosTabState extends ConsumerState<ProductosTab> {
               Expanded(
                 child: almAsync.when(
                   data: (alms) => DropdownButtonFormField<String?>(
-                    value: _almacen,
+                    initialValue: _almacen,
                     decoration: const InputDecoration(labelText: 'Almacén', isDense: true, border: OutlineInputBorder()),
                     items: [
                       const DropdownMenuItem<String?>(value: null, child: Text('Todos')),
@@ -214,7 +213,7 @@ class _ProductoItemCard extends StatelessWidget {
     final esPesable = p.esPesable == 1;
     final catNombre = categoria?.nombre ?? 'N/A';
     final sku = p.codigo?.trim().isNotEmpty == true ? p.codigo!.trim() : 'Sin SKU';
-    final tipoTxt = (p.tipo ?? 'ninguno').isEmpty ? 'ninguno' : p.tipo!;
+    final tipoTxt = (p.tipo ?? 'ninguno').isEmpty ? 'ninguno' : p.tipo;
     final tipoTxtL = tipoTxt.toLowerCase();
 
     Color tipoColor;

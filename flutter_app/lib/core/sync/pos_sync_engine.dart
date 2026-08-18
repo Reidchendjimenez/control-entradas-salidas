@@ -108,9 +108,16 @@ class PosSyncEngine {
     try {
       await _processOutbox();
       final downloadErrors = await _downloadAllFromServer();
-      await _general.pushPending();
-      // Solo actualizar timestamp si no hubo errores de descarga; si falló la
-      // descarga de alguna tabla, en el próximo ciclo se reintenta.
+      // Subida de cola general (movimientos, facturas, etc.) — no debe
+      // bloquear el avance del timestamp de sync POS.
+      try {
+        await _general.pushPending();
+      } catch (e) {
+        _log('Error subiendo cola general: $e');
+      }
+      // Avanzar timestamp siempre que la descarga fue exitosa. La relink
+      // query y pushPending ya no afectan el flag downloadErrors, así que
+      // un error transitorio no genera descargas completas infinitas.
       if (!downloadErrors) {
         await _setLastPosSync();
       }
@@ -159,6 +166,8 @@ class PosSyncEngine {
       }
     }
     // Restaura movimientos.venta_id desde venta_sync_uuid (relink_ventas_movimientos).
+    // No cuenta como error de descarga: es una operación best-effort de
+    // reparación de integridad que no debe bloquear el avance del timestamp.
     try {
       await _db.customStatement('''
         UPDATE movimientos SET venta_id = (
@@ -168,7 +177,6 @@ class PosSyncEngine {
       ''');
     } catch (e) {
       _log('Error relink ventas-movimientos: $e');
-      errores.add('relink ventas-movimientos: $e');
     }
     if (errores.isNotEmpty) {
       onSyncError?.call('Error descargando datos:\n${errores.join('\n')}');
@@ -486,6 +494,7 @@ class PosSyncEngine {
                 nombre: (r['nombre'] as String?) ?? '',
                 pinHash: Value(r['pin_hash'] as String?),
                 esAdmin: Value(_toBoolInt(r['es_admin'])),
+                esDesarrollador: Value(_toBoolInt(r['es_desarrollador'], def: 0)),
                 activo: Value(_toBoolInt(r['activo'], def: 1)),
                 creadoEn: _toDt(r['creado_en']) ?? DateTime.now(),
                 updatedAt: Value(_toDt(r['updated_at'])),
@@ -737,7 +746,6 @@ class PosSyncEngine {
         .get();
     if (pending.isEmpty) return false;
 
-    var uploaded = 0;
     final errores = <String>[];
     for (final item in pending) {
       try {
@@ -747,7 +755,6 @@ class PosSyncEngine {
         await _uploadItem(table, data, op);
         await (_db.update(_db.syncQueue)..where((t) => t.id.equals(item.id)))
             .write(const SyncQueueCompanion(status: Value('completed')));
-        uploaded++;
         _log('$table sincronizado');
       } catch (e) {
         await (_db.update(_db.syncQueue)..where((t) => t.id.equals(item.id)))
@@ -813,9 +820,13 @@ class PosSyncEngine {
     Map<String, dynamic> data, {
     required bool insertarSinId,
   }) async {
-    final id = _toInt(data['id']);
+    // Asegurar que columnas INTEGER (es_admin, activo) nunca lleguen como
+    // booleanos a Supabase — corrige "invalid input syntax for type integer:
+    // 'true'" cuando jsonDecode produce bool en vez de int.
+    final clean = _coerceIntColumns(data);
+    final id = _toInt(clean['id']);
     if (id == null && !insertarSinId) {
-      await client.from(table).insert(data);
+      await client.from(table).insert(clean);
       return;
     }
     if (id != null) {
@@ -826,12 +837,12 @@ class PosSyncEngine {
           .limit(1)
           .maybeSingle();
       if (existing != null) {
-        final upd = Map<String, dynamic>.from(data)..remove('id');
+        final upd = Map<String, dynamic>.from(clean)..remove('id');
         await client.from(table).update(upd).eq('id', id);
         return;
       }
     }
-    await client.from(table).insert(data);
+    await client.from(table).insert(clean);
   }
 
   /// Comandas/ventas: upsert o borrado remoto emparejado por `sync_uuid`.
@@ -873,6 +884,32 @@ class PosSyncEngine {
   // ---------------------------------------------------------------------
   // Helpers de conversión
   // ---------------------------------------------------------------------
+
+  /// Columnas que el server define como INTEGER pero que Dart/jsonDecode
+  /// podría representar como bool (`true`/`false`). Se fuerzan a int antes
+  /// de enviar a Supabase.
+  static const _intColumnNames = {
+    'es_admin',
+    'es_desarrollador',
+    'activo',
+    'es_pesable',
+    'requiere_foto_peso',
+    'visible_en_pos',
+  };
+
+  /// Asegura que las columnas conocidas como INTEGER nunca sean bool en el
+  /// payload enviado a Supabase.
+  static Map<String, dynamic> _coerceIntColumns(Map<String, dynamic> data) {
+    final out = <String, dynamic>{};
+    for (final e in data.entries) {
+      if (_intColumnNames.contains(e.key) && e.value is bool) {
+        out[e.key] = (e.value as bool) ? 1 : 0;
+      } else {
+        out[e.key] = e.value;
+      }
+    }
+    return out;
+  }
 
   static int? _toInt(dynamic v) {
     if (v == null) return null;

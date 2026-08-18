@@ -10186,6 +10186,14 @@ class $PosUsuariosTable extends PosUsuarios
       type: DriftSqlType.int,
       requiredDuringInsert: false,
       defaultValue: const Constant(0));
+  static const VerificationMeta _esDesarrolladorMeta =
+      const VerificationMeta('esDesarrollador');
+  @override
+  late final GeneratedColumn<int> esDesarrollador = GeneratedColumn<int>(
+      'es_desarrollador', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
   static const VerificationMeta _activoMeta = const VerificationMeta('activo');
   @override
   late final GeneratedColumn<int> activo = GeneratedColumn<int>(
@@ -10206,8 +10214,16 @@ class $PosUsuariosTable extends PosUsuarios
       'updated_at', aliasedName, true,
       type: DriftSqlType.dateTime, requiredDuringInsert: false);
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, nombre, pinHash, esAdmin, activo, creadoEn, updatedAt];
+  List<GeneratedColumn> get $columns => [
+        id,
+        nombre,
+        pinHash,
+        esAdmin,
+        esDesarrollador,
+        activo,
+        creadoEn,
+        updatedAt
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -10234,6 +10250,12 @@ class $PosUsuariosTable extends PosUsuarios
     if (data.containsKey('es_admin')) {
       context.handle(_esAdminMeta,
           esAdmin.isAcceptableOrUnknown(data['es_admin']!, _esAdminMeta));
+    }
+    if (data.containsKey('es_desarrollador')) {
+      context.handle(
+          _esDesarrolladorMeta,
+          esDesarrollador.isAcceptableOrUnknown(
+              data['es_desarrollador']!, _esDesarrolladorMeta));
     }
     if (data.containsKey('activo')) {
       context.handle(_activoMeta,
@@ -10266,6 +10288,8 @@ class $PosUsuariosTable extends PosUsuarios
           .read(DriftSqlType.string, data['${effectivePrefix}pin_hash']),
       esAdmin: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}es_admin'])!,
+      esDesarrollador: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}es_desarrollador'])!,
       activo: attachedDatabase.typeMapping
           .read(DriftSqlType.int, data['${effectivePrefix}activo'])!,
       creadoEn: attachedDatabase.typeMapping
@@ -10286,6 +10310,7 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
   final String nombre;
   final String? pinHash;
   final int esAdmin;
+  final int esDesarrollador;
   final int activo;
   final DateTime creadoEn;
   final DateTime? updatedAt;
@@ -10294,6 +10319,7 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
       required this.nombre,
       this.pinHash,
       required this.esAdmin,
+      required this.esDesarrollador,
       required this.activo,
       required this.creadoEn,
       this.updatedAt});
@@ -10306,6 +10332,7 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
       map['pin_hash'] = Variable<String>(pinHash);
     }
     map['es_admin'] = Variable<int>(esAdmin);
+    map['es_desarrollador'] = Variable<int>(esDesarrollador);
     map['activo'] = Variable<int>(activo);
     map['creado_en'] = Variable<DateTime>(creadoEn);
     if (!nullToAbsent || updatedAt != null) {
@@ -10322,6 +10349,7 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
           ? const Value.absent()
           : Value(pinHash),
       esAdmin: Value(esAdmin),
+      esDesarrollador: Value(esDesarrollador),
       activo: Value(activo),
       creadoEn: Value(creadoEn),
       updatedAt: updatedAt == null && nullToAbsent
@@ -10338,6 +10366,7 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
       nombre: serializer.fromJson<String>(json['nombre']),
       pinHash: serializer.fromJson<String?>(json['pinHash']),
       esAdmin: serializer.fromJson<int>(json['esAdmin']),
+      esDesarrollador: serializer.fromJson<int>(json['esDesarrollador']),
       activo: serializer.fromJson<int>(json['activo']),
       creadoEn: serializer.fromJson<DateTime>(json['creadoEn']),
       updatedAt: serializer.fromJson<DateTime?>(json['updatedAt']),
@@ -10351,6 +10380,7 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
       'nombre': serializer.toJson<String>(nombre),
       'pinHash': serializer.toJson<String?>(pinHash),
       'esAdmin': serializer.toJson<int>(esAdmin),
+      'esDesarrollador': serializer.toJson<int>(esDesarrollador),
       'activo': serializer.toJson<int>(activo),
       'creadoEn': serializer.toJson<DateTime>(creadoEn),
       'updatedAt': serializer.toJson<DateTime?>(updatedAt),
@@ -10362,6 +10392,7 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
           String? nombre,
           Value<String?> pinHash = const Value.absent(),
           int? esAdmin,
+          int? esDesarrollador,
           int? activo,
           DateTime? creadoEn,
           Value<DateTime?> updatedAt = const Value.absent()}) =>
@@ -10370,6 +10401,7 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
         nombre: nombre ?? this.nombre,
         pinHash: pinHash.present ? pinHash.value : this.pinHash,
         esAdmin: esAdmin ?? this.esAdmin,
+        esDesarrollador: esDesarrollador ?? this.esDesarrollador,
         activo: activo ?? this.activo,
         creadoEn: creadoEn ?? this.creadoEn,
         updatedAt: updatedAt.present ? updatedAt.value : this.updatedAt,
@@ -10380,6 +10412,9 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
       nombre: data.nombre.present ? data.nombre.value : this.nombre,
       pinHash: data.pinHash.present ? data.pinHash.value : this.pinHash,
       esAdmin: data.esAdmin.present ? data.esAdmin.value : this.esAdmin,
+      esDesarrollador: data.esDesarrollador.present
+          ? data.esDesarrollador.value
+          : this.esDesarrollador,
       activo: data.activo.present ? data.activo.value : this.activo,
       creadoEn: data.creadoEn.present ? data.creadoEn.value : this.creadoEn,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
@@ -10393,6 +10428,7 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
           ..write('nombre: $nombre, ')
           ..write('pinHash: $pinHash, ')
           ..write('esAdmin: $esAdmin, ')
+          ..write('esDesarrollador: $esDesarrollador, ')
           ..write('activo: $activo, ')
           ..write('creadoEn: $creadoEn, ')
           ..write('updatedAt: $updatedAt')
@@ -10401,8 +10437,8 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, nombre, pinHash, esAdmin, activo, creadoEn, updatedAt);
+  int get hashCode => Object.hash(id, nombre, pinHash, esAdmin, esDesarrollador,
+      activo, creadoEn, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -10411,6 +10447,7 @@ class PosUsuario extends DataClass implements Insertable<PosUsuario> {
           other.nombre == this.nombre &&
           other.pinHash == this.pinHash &&
           other.esAdmin == this.esAdmin &&
+          other.esDesarrollador == this.esDesarrollador &&
           other.activo == this.activo &&
           other.creadoEn == this.creadoEn &&
           other.updatedAt == this.updatedAt);
@@ -10421,6 +10458,7 @@ class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
   final Value<String> nombre;
   final Value<String?> pinHash;
   final Value<int> esAdmin;
+  final Value<int> esDesarrollador;
   final Value<int> activo;
   final Value<DateTime> creadoEn;
   final Value<DateTime?> updatedAt;
@@ -10429,6 +10467,7 @@ class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
     this.nombre = const Value.absent(),
     this.pinHash = const Value.absent(),
     this.esAdmin = const Value.absent(),
+    this.esDesarrollador = const Value.absent(),
     this.activo = const Value.absent(),
     this.creadoEn = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -10438,6 +10477,7 @@ class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
     required String nombre,
     this.pinHash = const Value.absent(),
     this.esAdmin = const Value.absent(),
+    this.esDesarrollador = const Value.absent(),
     this.activo = const Value.absent(),
     required DateTime creadoEn,
     this.updatedAt = const Value.absent(),
@@ -10448,6 +10488,7 @@ class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
     Expression<String>? nombre,
     Expression<String>? pinHash,
     Expression<int>? esAdmin,
+    Expression<int>? esDesarrollador,
     Expression<int>? activo,
     Expression<DateTime>? creadoEn,
     Expression<DateTime>? updatedAt,
@@ -10457,6 +10498,7 @@ class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
       if (nombre != null) 'nombre': nombre,
       if (pinHash != null) 'pin_hash': pinHash,
       if (esAdmin != null) 'es_admin': esAdmin,
+      if (esDesarrollador != null) 'es_desarrollador': esDesarrollador,
       if (activo != null) 'activo': activo,
       if (creadoEn != null) 'creado_en': creadoEn,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -10468,6 +10510,7 @@ class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
       Value<String>? nombre,
       Value<String?>? pinHash,
       Value<int>? esAdmin,
+      Value<int>? esDesarrollador,
       Value<int>? activo,
       Value<DateTime>? creadoEn,
       Value<DateTime?>? updatedAt}) {
@@ -10476,6 +10519,7 @@ class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
       nombre: nombre ?? this.nombre,
       pinHash: pinHash ?? this.pinHash,
       esAdmin: esAdmin ?? this.esAdmin,
+      esDesarrollador: esDesarrollador ?? this.esDesarrollador,
       activo: activo ?? this.activo,
       creadoEn: creadoEn ?? this.creadoEn,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -10497,6 +10541,9 @@ class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
     if (esAdmin.present) {
       map['es_admin'] = Variable<int>(esAdmin.value);
     }
+    if (esDesarrollador.present) {
+      map['es_desarrollador'] = Variable<int>(esDesarrollador.value);
+    }
     if (activo.present) {
       map['activo'] = Variable<int>(activo.value);
     }
@@ -10516,6 +10563,7 @@ class PosUsuariosCompanion extends UpdateCompanion<PosUsuario> {
           ..write('nombre: $nombre, ')
           ..write('pinHash: $pinHash, ')
           ..write('esAdmin: $esAdmin, ')
+          ..write('esDesarrollador: $esDesarrollador, ')
           ..write('activo: $activo, ')
           ..write('creadoEn: $creadoEn, ')
           ..write('updatedAt: $updatedAt')
@@ -20455,6 +20503,7 @@ typedef $$PosUsuariosTableCreateCompanionBuilder = PosUsuariosCompanion
   required String nombre,
   Value<String?> pinHash,
   Value<int> esAdmin,
+  Value<int> esDesarrollador,
   Value<int> activo,
   required DateTime creadoEn,
   Value<DateTime?> updatedAt,
@@ -20465,6 +20514,7 @@ typedef $$PosUsuariosTableUpdateCompanionBuilder = PosUsuariosCompanion
   Value<String> nombre,
   Value<String?> pinHash,
   Value<int> esAdmin,
+  Value<int> esDesarrollador,
   Value<int> activo,
   Value<DateTime> creadoEn,
   Value<DateTime?> updatedAt,
@@ -20490,6 +20540,10 @@ class $$PosUsuariosTableFilterComposer
 
   ColumnFilters<int> get esAdmin => $composableBuilder(
       column: $table.esAdmin, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get esDesarrollador => $composableBuilder(
+      column: $table.esDesarrollador,
+      builder: (column) => ColumnFilters(column));
 
   ColumnFilters<int> get activo => $composableBuilder(
       column: $table.activo, builder: (column) => ColumnFilters(column));
@@ -20522,6 +20576,10 @@ class $$PosUsuariosTableOrderingComposer
   ColumnOrderings<int> get esAdmin => $composableBuilder(
       column: $table.esAdmin, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<int> get esDesarrollador => $composableBuilder(
+      column: $table.esDesarrollador,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<int> get activo => $composableBuilder(
       column: $table.activo, builder: (column) => ColumnOrderings(column));
 
@@ -20552,6 +20610,9 @@ class $$PosUsuariosTableAnnotationComposer
 
   GeneratedColumn<int> get esAdmin =>
       $composableBuilder(column: $table.esAdmin, builder: (column) => column);
+
+  GeneratedColumn<int> get esDesarrollador => $composableBuilder(
+      column: $table.esDesarrollador, builder: (column) => column);
 
   GeneratedColumn<int> get activo =>
       $composableBuilder(column: $table.activo, builder: (column) => column);
@@ -20590,6 +20651,7 @@ class $$PosUsuariosTableTableManager extends RootTableManager<
             Value<String> nombre = const Value.absent(),
             Value<String?> pinHash = const Value.absent(),
             Value<int> esAdmin = const Value.absent(),
+            Value<int> esDesarrollador = const Value.absent(),
             Value<int> activo = const Value.absent(),
             Value<DateTime> creadoEn = const Value.absent(),
             Value<DateTime?> updatedAt = const Value.absent(),
@@ -20599,6 +20661,7 @@ class $$PosUsuariosTableTableManager extends RootTableManager<
             nombre: nombre,
             pinHash: pinHash,
             esAdmin: esAdmin,
+            esDesarrollador: esDesarrollador,
             activo: activo,
             creadoEn: creadoEn,
             updatedAt: updatedAt,
@@ -20608,6 +20671,7 @@ class $$PosUsuariosTableTableManager extends RootTableManager<
             required String nombre,
             Value<String?> pinHash = const Value.absent(),
             Value<int> esAdmin = const Value.absent(),
+            Value<int> esDesarrollador = const Value.absent(),
             Value<int> activo = const Value.absent(),
             required DateTime creadoEn,
             Value<DateTime?> updatedAt = const Value.absent(),
@@ -20617,6 +20681,7 @@ class $$PosUsuariosTableTableManager extends RootTableManager<
             nombre: nombre,
             pinHash: pinHash,
             esAdmin: esAdmin,
+            esDesarrollador: esDesarrollador,
             activo: activo,
             creadoEn: creadoEn,
             updatedAt: updatedAt,

@@ -61,7 +61,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// Réplica de `LocalReplica.init_queue()` en sync_queue.py.
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -109,6 +109,11 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(posMesas, posMesas.updatedAt);
             await m.addColumn(posHabitaciones, posHabitaciones.updatedAt);
             await m.addColumn(posUsuarios, posUsuarios.updatedAt);
+          }
+          if (from < 8) {
+            // v7 → v8: `es_desarrollador` en pos_usuarios: usuario que inicia
+            // sesión sin aperturar turno/caja (desarrollo y diagnostico).
+            await m.addColumn(posUsuarios, posUsuarios.esDesarrollador);
           }
         },
       );

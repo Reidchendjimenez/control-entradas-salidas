@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/db/schema/app_database.dart';
 import '../../../core/sync/global_sync_bar.dart';
 import '../../../core/sync/sync_status.dart';
+import '../../../core/updater/auto_update_checker.dart';
 import '../data/pos_providers.dart';
 import '../data/pos_session.dart';
 import 'comanda_screen.dart';
@@ -51,7 +52,35 @@ class _PosRouterState extends ConsumerState<_PosRouter> {
   PosMesa? _mesa;
   PosHabitacione? _habitacion;
 
+  /// true si la sesión tiene turno de caja abierto (`sesionId == 0` es la
+  /// sesión del usuario desarrollador, sin turno).
+  bool get _tieneTurno => widget.sesion.sesionId > 0;
+
+  /// Etapas que requieren turno de caja (no aplicables al usuario
+  /// desarrollador, que inicia sesión sin aperturar turno/caja).
+  static const _etapasConTurno = {
+    _PosStage.mesas,
+    _PosStage.habitaciones,
+    _PosStage.comanda,
+    _PosStage.ventas,
+  };
+
+  void _bloquearSinTurno() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Sesión sin turno de caja: para operar ventas inicie sesión con un '
+          'cajero que abra turno.',
+        ),
+      ),
+    );
+  }
+
   void _go(_PosStage stage) {
+    if (!_tieneTurno && _etapasConTurno.contains(stage)) {
+      _bloquearSinTurno();
+      return;
+    }
     setState(() {
       _stage = stage;
       _mesa = null;
@@ -60,6 +89,10 @@ class _PosRouterState extends ConsumerState<_PosRouter> {
   }
 
   void _abrirMesa(PosMesa m) {
+    if (!_tieneTurno) {
+      _bloquearSinTurno();
+      return;
+    }
     setState(() {
       _mesa = m;
       _habitacion = null;
@@ -68,6 +101,10 @@ class _PosRouterState extends ConsumerState<_PosRouter> {
   }
 
   void _abrirHabitacion(PosHabitacione h) {
+    if (!_tieneTurno) {
+      _bloquearSinTurno();
+      return;
+    }
     setState(() {
       _habitacion = h;
       _mesa = null;
@@ -82,6 +119,10 @@ class _PosRouterState extends ConsumerState<_PosRouter> {
   /// Retoma una comanda activa desde el home (resuelve mesa/habitación por id
   /// y abre la etapa de comanda directamente).
   Future<void> _abrirComandaActiva(int? mesaId, int? habitacionId) async {
+    if (!_tieneTurno) {
+      _bloquearSinTurno();
+      return;
+    }
     final repo = ref.read(posRepoProvider);
     if (mesaId != null) {
       final m = await repo.getMesaById(mesaId);
@@ -107,6 +148,10 @@ class _PosRouterState extends ConsumerState<_PosRouter> {
   /// Después de anular una venta: abre la comanda de la mesa/habitación
   /// devuelta para corregirla y volver a cobrar (port de `VentasView._ir_a_comanda`).
   Future<void> _corregirVenta(int? mesaId, int? habitacionId) async {
+    if (!_tieneTurno) {
+      _bloquearSinTurno();
+      return;
+    }
     final repo = ref.read(posRepoProvider);
     if (mesaId != null) {
       final m = await repo.getMesaById(mesaId);
@@ -205,22 +250,6 @@ class _LoginViewState extends ConsumerState<_LoginView> {
   int? _selectedId;
   SyncEstado? _lastSyncState;
 
-  @override
-  void initState() {
-    super.initState();
-    _seedAdmin();
-  }
-
-  /// Port de `POSLoginView._seed_default_admin`: si no hay cajeros, crea
-  /// "Desarrollador" (admin, sin PIN) para la primera entrada.
-  Future<void> _seedAdmin() async {
-    final repo = ref.read(posRepoProvider);
-    if ((await repo.getUsuarios()).isEmpty) {
-      await repo.crearUsuario('Desarrollador', esAdmin: true);
-      ref.invalidate(usuariosProvider);
-    }
-  }
-
   Future<void> _login(PosUsuario u) async {
     if (u.pinHash != null && u.pinHash!.isNotEmpty) {
       final ok = await showPinDialog(context, u);
@@ -270,6 +299,7 @@ class _LoginViewState extends ConsumerState<_LoginView> {
     final scheme = Theme.of(context).colorScheme;
     final usuarios = ref.watch(usuariosProvider);
     final syncStatus = ref.watch(syncStatusProvider);
+    final turnoUsuarioId = ref.watch(turnoActivoUsuarioProvider).valueOrNull;
 
     // Cuando el sync pasa de activo a ok, invalidar la lista de usuarios
     // para que se muestren los descargados de Supabase.
@@ -293,12 +323,14 @@ class _LoginViewState extends ConsumerState<_LoginView> {
           fit: BoxFit.cover,
         ),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
+      body: Stack(
+        children: [
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -335,6 +367,7 @@ class _LoginViewState extends ConsumerState<_LoginView> {
                             UsuarioCard(
                               usuario: u,
                               selected: u.id == _selectedId,
+                              turnoAbierto: u.id == turnoUsuarioId,
                               onTap: () {
                                 setState(() => _selectedId = u.id);
                                 _login(u);
@@ -346,10 +379,17 @@ class _LoginViewState extends ConsumerState<_LoginView> {
                           _loginButton(lista),
                         ],
                       ),
-              ),
-            ],
+            ),
+          ],
           ),
         ),
+          ),
+          // Verificar actualizaciones antes del login (Windows/Android).
+          const Align(
+            alignment: Alignment.topRight,
+            child: AutoUpdateChecker(),
+          ),
+        ],
       ),
     );
   }

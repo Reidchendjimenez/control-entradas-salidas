@@ -90,6 +90,24 @@ Map<String, dynamic> categoriaToSyncMap(Categoria c) => {
           c.updatedAt?.toUtc().toIso8601String() ?? DateTime.now().toUtc().toIso8601String(),
     };
 
+/// Serializa una `Requisicione` para la cola de sync (con su id local). El
+/// `SyncEngine` resuelve el id remoto por `numero` y sube también sus
+/// detalles, así que aquí basta con la fila completa de la cabecera.
+Map<String, dynamic> requisicionToSyncMap(Requisicione r) => {
+      'id': r.id,
+      'numero': r.numero,
+      'numero_secuencial': r.numeroSecuencial,
+      'origen': r.origen,
+      'destino': r.destino,
+      'estado': r.estado,
+      'observaciones': r.observaciones,
+      'creada_por': r.creadaPor,
+      'procesada_por': r.procesadaPor,
+      'fecha_procesamiento': r.fechaProcesamiento?.toIso8601String(),
+      'fecha_creacion': r.fechaCreacion?.toIso8601String(),
+      'actualizada': r.actualizada?.toIso8601String(),
+    };
+
 /// Registra una operación pendiente en la cola de sync (outbox).
 /// Réplica de `SyncQueue.add_pending()` de sync_queue.py.
 Future<int> addPending(

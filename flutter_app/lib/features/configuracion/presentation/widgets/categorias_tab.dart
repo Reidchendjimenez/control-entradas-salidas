@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/db/schema/app_database.dart';
 import '../../data/configuracion_providers.dart';
-import '../../data/configuracion_repository.dart';
 import '../dialogs/categoria_dialog.dart';
 
 class CategoriasTab extends ConsumerStatefulWidget {
@@ -63,7 +62,7 @@ class _CategoriasTabState extends ConsumerState<CategoriasTab> {
             data: (categorias) {
               final filtered = categorias.where((c) {
                 if (_search.isEmpty) return true;
-                return c.nombre!.toLowerCase().contains(_search.toLowerCase());
+                return c.nombre.toLowerCase().contains(_search.toLowerCase());
               }).toList();
 
               if (filtered.isEmpty) {
@@ -87,7 +86,7 @@ class _CategoriasTabState extends ConsumerState<CategoriasTab> {
                         backgroundColor: _parseColor(c.color),
                         child: const Icon(Icons.category, color: Colors.white),
                       ),
-                      title: Text(c.nombre!, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      title: Text(c.nombre, style: const TextStyle(fontWeight: FontWeight.w600)),
                       subtitle: Text(
                         c.descripcion?.isNotEmpty == true ? c.descripcion! : 'Sin descripción',
                         maxLines: 1,
@@ -133,7 +132,7 @@ class _CategoriasTabState extends ConsumerState<CategoriasTab> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar categoría'),
-        content: Text('¿Eliminar "${cat.nombre!}"?'),
+        content: Text('¿Eliminar "${cat.nombre}"?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
           FilledButton(

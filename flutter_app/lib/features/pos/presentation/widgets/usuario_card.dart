@@ -9,11 +9,13 @@ class UsuarioCard extends StatelessWidget {
     super.key,
     required this.usuario,
     this.selected = false,
+    this.turnoAbierto = false,
     this.onTap,
   });
 
   final PosUsuario usuario;
   final bool selected;
+  final bool turnoAbierto;
   final VoidCallback? onTap;
 
   @override
@@ -24,6 +26,7 @@ class UsuarioCard extends StatelessWidget {
 
     final badges = <String>[
       if (esAdmin) 'Admin',
+      if (usuario.esDesarrollador == 1) 'Desarrollador',
       hasPin ? 'Con PIN' : 'Sin PIN',
     ];
 
@@ -83,6 +86,33 @@ class UsuarioCard extends StatelessWidget {
                   ],
                 ),
               ),
+              if (turnoAbierto) ...[
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: scheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.storefront,
+                          size: 14, color: scheme.onSecondaryContainer),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Turno abierto',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          color: scheme.onSecondaryContainer,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+              ],
               Icon(
                 esAdmin
                     ? Icons.admin_panel_settings_outlined

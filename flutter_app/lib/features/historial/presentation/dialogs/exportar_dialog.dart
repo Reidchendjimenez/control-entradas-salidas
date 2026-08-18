@@ -64,7 +64,7 @@ class _ExportarDialogState extends ConsumerState<_ExportarDialog> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<int>(
-                    value: _mes,
+                    initialValue: _mes,
                     decoration: const InputDecoration(labelText: 'Mes', border: OutlineInputBorder(), isDense: true),
                     items: [
                       for (var i = 0; i < 12; i++)
@@ -85,7 +85,7 @@ class _ExportarDialogState extends ConsumerState<_ExportarDialog> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _tipo,
+              initialValue: _tipo,
               decoration: const InputDecoration(labelText: 'Tipo de Documento', border: OutlineInputBorder(), isDense: true),
               items: const [
                 DropdownMenuItem(value: '', child: Text('Todos')),

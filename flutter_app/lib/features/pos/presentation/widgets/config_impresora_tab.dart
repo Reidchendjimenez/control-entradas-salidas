@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/pos_providers.dart';
+import '../../data/printer_service.dart';
 import '../../data/ticket_escpos.dart';
 import '../../data/ticket_settings.dart';
 import '../dialogs/ticket_preview_dialog.dart';
@@ -29,6 +30,9 @@ class _ConfigImpresoraTabState extends ConsumerState<ConfigImpresoraTab> {
   String _size = 'large';
   int _correlativoActual = 0;
   bool _guardando = false;
+  bool _nativo = false;
+  bool _escaneandoImpresoras = false;
+  List<String> _impresoras = const [];
 
   @override
   void initState() {
@@ -52,6 +56,8 @@ class _ConfigImpresoraTabState extends ConsumerState<ConfigImpresoraTab> {
     final header = await cargarMembrete(repo);
     final corr = await getCorrelativoActual(repo);
     final device = await getPrinterDevice(repo);
+    final nativo = puedeImprimirNativo;
+    final impresoras = nativo ? await listarImpresoras() : const <String>[];
     if (!mounted) return;
     setState(() {
       _nombreCtrl.text = header.nombre;
@@ -62,7 +68,24 @@ class _ConfigImpresoraTabState extends ConsumerState<ConfigImpresoraTab> {
       _correlativoActual = corr;
       _correlativoCtrl.text = corr.toString();
       _deviceCtrl.text = device ?? '';
+      _nativo = nativo;
+      _impresoras = impresoras;
     });
+  }
+
+  Future<void> _escanear() async {
+    setState(() => _escaneandoImpresoras = true);
+    try {
+      final impresoras = await listarImpresoras();
+      if (!mounted) return;
+      setState(() => _impresoras = impresoras);
+      _snack('${impresoras.length} impresora(s) encontrada(s)',
+          color: const Color(0xFF2196F3));
+    } catch (e) {
+      _snack('Error al escanear: $e', color: const Color(0xFFEF5350));
+    } finally {
+      if (mounted) setState(() => _escaneandoImpresoras = false);
+    }
   }
 
   void _snack(String msg, {Color color = const Color(0xFF4CAF50)}) {
@@ -115,15 +138,35 @@ class _ConfigImpresoraTabState extends ConsumerState<ConfigImpresoraTab> {
     }
   }
 
-  /// Vista previa de prueba (port de `test_imprimir` a web).
+  /// Prueba de impresión: en Windows envía un ticket ESC/POS real a la
+  /// impresora configurada; en web muestra la vista previa con el diálogo.
   Future<void> _probar() async {
     final repo = ref.read(posRepoProvider);
     final header = await cargarMembrete(repo);
     if (!mounted) return;
+    final items = <TicketItem>[
+      const (cantidad: 1, nombre: 'PRUEBA DE IMPRESIÓN', precio: 0, contornos: <String>[]),
+    ];
+    if (puedeImprimirNativo) {
+      final bytes = construirTicketEscpos(
+        items: items,
+        comandaId: 0,
+        correlativo: _correlativoActual,
+        header: header,
+      );
+      final dispositivo = _deviceCtrl.text.trim();
+      try {
+        await imprimirTicketNativo(dispositivo, bytes);
+        _snack(dispositivo.isEmpty
+            ? 'Impreso en la impresora predeterminada'
+            : 'Impreso en: $dispositivo');
+      } catch (e) {
+        _snack('Error de impresión:\n$e', color: const Color(0xFFEF5350));
+      }
+      return;
+    }
     final lineas = construirTicketPreview(
-      items: const [
-        (cantidad: 1, nombre: 'PRUEBA DE IMPRESIÓN', precio: 0, contornos: []),
-      ],
+      items: items,
       comandaId: 0,
       correlativo: _correlativoActual,
       header: header,
@@ -134,10 +177,10 @@ class _ConfigImpresoraTabState extends ConsumerState<ConfigImpresoraTab> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final labelStyle = TextStyle(
+    const labelStyle = TextStyle(
       fontSize: 12,
       fontWeight: FontWeight.bold,
-      color: const Color(0xFFBB86FC),
+      color: Color(0xFFBB86FC),
     );
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -150,7 +193,7 @@ class _ConfigImpresoraTabState extends ConsumerState<ConfigImpresoraTab> {
               children: [
                 Row(
                   children: [
-                    Text('MEMBRETE DE COMANDAS', style: labelStyle),
+                    const Text('MEMBRETE DE COMANDAS', style: labelStyle),
                     const Spacer(),
                     FilledButton.icon(
                       onPressed: _guardando ? null : _guardarMembrete,
@@ -221,7 +264,7 @@ class _ConfigImpresoraTabState extends ConsumerState<ConfigImpresoraTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('CORRELATIVO DE COMANDAS', style: labelStyle),
+                const Text('CORRELATIVO DE COMANDAS', style: labelStyle),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -272,21 +315,60 @@ class _ConfigImpresoraTabState extends ConsumerState<ConfigImpresoraTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('IMPRESORA DE COMANDAS', style: labelStyle),
+                const Text('IMPRESORA DE COMANDAS', style: labelStyle),
                 const SizedBox(height: 4),
-                Text(
-                  'En web no se detectan impresoras USB; la impresión usa el '
-                  'diálogo del navegador. El dispositivo se guarda para uso '
-                  'nativo (Android/Windows).',
-                  style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
-                ),
+                if (_nativo) ...[
+                  Text(
+                    'Impresión nativa detectada: se envían los bytes ESC/POS '
+                    'en modo RAW a la impresora seleccionada.',
+                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_impresoras.isNotEmpty) ...[
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (final p in _impresoras)
+                          FilterChip(
+                            label: Text(p, overflow: TextOverflow.ellipsis),
+                            selected: _deviceCtrl.text == p,
+                            onSelected: (_) => setState(() => _deviceCtrl.text = p),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _escaneandoImpresoras ? null : _escanear,
+                        icon: _escaneandoImpresoras
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.refresh),
+                        label: const Text('Escanear impresoras'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ] else
+                  Text(
+                    'En web no se detectan impresoras USB; la impresión usa el '
+                    'diálogo del navegador. En Windows, el nombre de la '
+                    'impresora se configura aquí.',
+                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                  ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _deviceCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Dispositivo de impresora',
-                    hintText: 'ej: /dev/usb/lp0 (solo nativo)',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: 'Impresora / dispositivo',
+                    hintText: _nativo ? 'ej: POS-80C' : 'nombre de impresora (solo Windows)',
+                    border: const OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -294,8 +376,8 @@ class _ConfigImpresoraTabState extends ConsumerState<ConfigImpresoraTab> {
                   children: [
                     FilledButton.icon(
                       onPressed: _guardarDevice,
-                      icon: const Icon(Icons.usb),
-                      label: const Text('Guardar dispositivo'),
+                      icon: const Icon(Icons.save),
+                      label: const Text('Guardar impresora'),
                     ),
                     const SizedBox(width: 8),
                     OutlinedButton.icon(
