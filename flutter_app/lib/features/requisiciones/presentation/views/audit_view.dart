@@ -192,45 +192,66 @@ class _AuditViewState extends ConsumerState<AuditView> {
   }
 
   Widget _header(ColorScheme scheme) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
-      child: Row(
+    final back = IconButton(
+      icon: const Icon(Icons.arrow_back_ios_new_rounded),
+      tooltip: 'Volver',
+      onPressed: _totalizando ? null : widget.onBack,
+    );
+    final titulo = Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded),
-            tooltip: 'Volver',
-            onPressed: _totalizando ? null : widget.onBack,
-          ),
-          Expanded(
+          const Text('Auditoría de Requisición',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text('Verifique stock físico antes de totalizar',
+              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+        ],
+      ),
+    );
+    final acciones = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        OutlinedButton.icon(
+          onPressed: _guardando ? null : _guardar,
+          icon: _guardando
+              ? const SizedBox(
+                  width: 14, height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.save, size: 18),
+          label: const Text('Guardar'),
+        ),
+        const SizedBox(width: 8),
+        FilledButton.icon(
+          onPressed: _totalizando ? null : _totalizar,
+          style: FilledButton.styleFrom(backgroundColor: Colors.green.shade700),
+          icon: const Icon(Icons.check_circle, size: 18),
+          label: Text(_totalizando ? 'Totalizando...' : 'Totalizar'),
+        ),
+      ],
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // En móvil los botones no caben junto al título: apilar para que el
+        // texto no se envuelva palabra por palabra (efecto "vertical").
+        if (constraints.maxWidth < 560) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Auditoría de Requisición',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                Text('Verifique stock físico antes de totalizar',
-                    style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                Row(children: [back, titulo]),
+                const SizedBox(height: 8),
+                Align(alignment: Alignment.centerRight, child: acciones),
               ],
             ),
-          ),
-          OutlinedButton.icon(
-            onPressed: _guardando ? null : _guardar,
-            icon: _guardando
-                ? const SizedBox(
-                    width: 14, height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.save, size: 18),
-            label: const Text('Guardar'),
-          ),
-          const SizedBox(width: 8),
-          FilledButton.icon(
-            onPressed: _totalizando ? null : _totalizar,
-            style: FilledButton.styleFrom(
-                backgroundColor: Colors.green.shade700),
-            icon: const Icon(Icons.check_circle, size: 18),
-            label: Text(_totalizando ? 'Totalizando...' : 'Totalizar'),
-          ),
-        ],
-      ),
+          );
+        }
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(8, 4, 12, 8),
+          child: Row(children: [back, titulo, acciones]),
+        );
+      },
     );
   }
 

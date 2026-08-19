@@ -60,12 +60,12 @@ class GlobalSyncBar extends ConsumerWidget {
               style: TextStyle(fontSize: 12, color: fg),
             ),
           ),
-          if (s.estado == SyncEstado.error && s.errorDetail != null)
+          if (s.estado == SyncEstado.error)
             IconButton(
               onPressed: () => showErrorDetailsDialog(
                 context,
                 titulo: 'Error de sincronización',
-                detalle: s.errorDetail!,
+                detalle: s.errorDetail ?? s.mensaje,
               ),
               icon: const Icon(Icons.copy, size: 16),
               color: fg,
@@ -76,5 +76,49 @@ class GlobalSyncBar extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+/// Listener que, ante cualquier error de sincronizacion, abre automaticamente
+/// el dialogo de detalle (con copiado al portapapeles) ademas de la barra.
+///
+/// Se monta una sola vez en el shell, asi que funciona sin importar la vista
+/// activa. Solo dispara una vez por error distinto; se reinicia al volver a un
+/// estado sin error.
+class SyncErrorDialogListener extends ConsumerStatefulWidget {
+  const SyncErrorDialogListener({super.key});
+
+  @override
+  ConsumerState<SyncErrorDialogListener> createState() =>
+      _SyncErrorDialogListenerState();
+}
+
+class _SyncErrorDialogListenerState
+    extends ConsumerState<SyncErrorDialogListener> {
+  String? _ultimoMostrado;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = ref.watch(syncStatusProvider);
+
+    if (s.estado == SyncEstado.error) {
+      final key = '${s.mensaje} ${s.errorDetail ?? ''}';
+      if (key != _ultimoMostrado) {
+        _ultimoMostrado = key;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            showErrorDetailsDialog(
+              context,
+              titulo: 'Error de sincronizacion',
+              detalle: s.errorDetail ?? s.mensaje,
+            );
+          }
+        });
+      }
+    } else {
+      _ultimoMostrado = null;
+    }
+
+    return const SizedBox.shrink();
   }
 }

@@ -136,6 +136,7 @@ class _ShellAutenticadoState extends ConsumerState<_ShellAutenticado> {
               onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
             ),
             const GlobalSyncBar(),
+            const SyncErrorDialogListener(),
             Expanded(
               child: Row(
                 children: [

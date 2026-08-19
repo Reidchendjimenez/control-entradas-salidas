@@ -97,7 +97,7 @@ class SyncStatusNotifier extends StateNotifier<SyncStatus> {
         .trim();
     if (limpio.contains('Error')) {
       _activos.remove(origen);
-      _mostrar(origen, SyncEstado.error, limpio);
+      _mostrar(origen, SyncEstado.error, limpio, errorDetail: limpio);
     } else if (limpio.endsWith('finalizada') ||
         limpio.endsWith('completada') ||
         limpio.endsWith('completado')) {
