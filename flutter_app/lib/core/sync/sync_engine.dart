@@ -189,7 +189,9 @@ class SyncEngine {
         'cantidad': d.cantidad,
         'unidad': d.unidad,
         'cantidad_surtida': d.cantidadSurtida,
-        'verificado': d.verificado == 1,
+        // 0/1 (integer): el server lo acepta tanto para columnas integer
+        // como boolean ('0'/'1' son cast válidos a boolean en Postgres).
+        'verificado': d.verificado,
       });
     }
   }
