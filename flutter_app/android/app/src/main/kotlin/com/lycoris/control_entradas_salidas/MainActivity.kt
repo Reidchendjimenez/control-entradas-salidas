@@ -102,7 +102,7 @@ class MainActivity : FlutterActivity() {
                 this,
                 sessionId,
                 Intent(this, PackageInstallerReceiver::class.java),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
             )
             session.commit(pendingIntent.intentSender)
             session.close()

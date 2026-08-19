@@ -66,6 +66,22 @@ Future<String> updaterDownloadFile(
   await sink.close();
   if (File(destPath).existsSync()) File(destPath).deleteSync();
   await file.rename(destPath);
+
+  // Validar que el archivo descargado sea un ZIP/APK válido (magic bytes PK).
+  final f = File(destPath);
+  final raf = await f.open(mode: FileMode.read);
+  final header = await raf.read(4);
+  await raf.close();
+  if (header.length < 4 ||
+      header[0] != 0x50 ||
+      header[1] != 0x4B ||
+      header[2] != 0x03 ||
+      header[3] != 0x04) {
+    await f.delete();
+    throw Exception(
+        'El archivo descargado no es un APK válido (cabecera inválida)');
+  }
+
   return destPath;
 }
 

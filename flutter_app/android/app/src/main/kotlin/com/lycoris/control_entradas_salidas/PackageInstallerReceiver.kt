@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.util.Log
+import android.widget.Toast
 
 class PackageInstallerReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -49,6 +50,11 @@ class PackageInstallerReceiver : BroadcastReceiver() {
             PackageInstaller.STATUS_FAILURE_STORAGE -> {
                 val msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
                 Log.e("LycorisUpdater", "Install failed: $msg")
+                Toast.makeText(
+                    context,
+                    "Error instalando actualización: ${msg ?: "desconocido"}",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
     }

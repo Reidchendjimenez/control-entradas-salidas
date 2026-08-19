@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 import '../updater/app_updater.dart';
 import '../updater/update_models.dart';
+import 'updater_platform.dart';
 
 /// Diálogo de "Actualización disponible" con descarga y progreso.
 ///
@@ -135,8 +136,12 @@ class _UpdateDialogBodyState extends State<_UpdateDialogBody> {
           ],
           if (_listo) ...[
             const SizedBox(height: 12),
-            Text('Instalado. La aplicación se reiniciará.',
-                style: TextStyle(color: scheme.primary)),
+            Text(
+              updaterPlatformKey == 'android'
+                  ? 'Instalación en curso. La app se reiniciará automáticamente.'
+                  : 'Instalado. La aplicación se reiniciará.',
+              style: TextStyle(color: scheme.primary),
+            ),
           ],
         ],
       ),
