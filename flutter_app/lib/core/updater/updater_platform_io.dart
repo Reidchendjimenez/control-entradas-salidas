@@ -9,6 +9,8 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 bool get updaterCanRun {
   if (kIsWeb) return false;
@@ -23,10 +25,18 @@ String get updaterPlatformKey {
 }
 
 Future<String> updaterDownloadDir() async {
-  // Usar el directorio del exe (no app support) para que cada app tenga su
-  // propia carpeta de descargas. POS e inventario no se pisan.
+  if (Platform.isAndroid) {
+    // En Android el ejecutable vive en /system o /data (solo lectura) y usa
+    // separador '/', por lo que no se puede crear la carpeta junto al exe ni
+    // con backslash. Usar un directorio escribible de la app.
+    final base = await getApplicationSupportDirectory();
+    final dir = Directory(p.join(base.path, '.update_downloads'));
+    if (!await dir.exists()) await dir.create(recursive: true);
+    return dir.path;
+  }
+  // Windows: junto al exe (cada app su propio dir). POS e inventario no se pisan.
   final exeDir = _dirname(Platform.resolvedExecutable);
-  final dir = Directory('$exeDir\\.update_downloads');
+  final dir = Directory(p.join(exeDir, '.update_downloads'));
   if (!await dir.exists()) await dir.create(recursive: true);
   return dir.path;
 }

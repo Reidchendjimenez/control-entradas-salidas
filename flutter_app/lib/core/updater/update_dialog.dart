@@ -89,15 +89,24 @@ class _UpdateDialogBodyState extends State<_UpdateDialogBody> {
 
     return AlertDialog(
       title: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const Icon(Icons.system_update, color: Color(0xFF42A5F5)),
           const SizedBox(width: 8),
-          const Expanded(
-            child: Text('Actualización disponible',
-                style: TextStyle(fontWeight: FontWeight.bold)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Actualización disponible',
+                    style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 2),
+                Text(AppConfig.appLabel,
+                    style: TextStyle(
+                        fontSize: 12, color: scheme.onSurfaceVariant)),
+              ],
+            ),
           ),
-          Text(AppConfig.appLabel,
-              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
         ],
       ),
       content: Column(
