@@ -1,0 +1,88 @@
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/sync/sync_status.dart';
+import '../../../core/theme/app_theme.dart';
+import '../data/pos_providers.dart';
+import '../data/pos_session.dart';
+import 'pos_screen.dart';
+
+/// Aplicación POS standalone — punto de entrada `lib/main_pos.dart`.
+///
+/// Misma base de datos (Supabase) que la app de inventario, pero con su propia
+/// base local (IndexedDB). Arranca el motor de sync POS al inicio (catálogo de
+/// venta + tablas pos_* + subida de movimientos) y muestra el login PIN.
+class PosApp extends ConsumerStatefulWidget {
+  const PosApp({super.key});
+
+  @override
+  ConsumerState<PosApp> createState() => _PosAppState();
+}
+
+class _PosAppState extends ConsumerState<PosApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // Arranca el sync POS: fullSync inmediato + background cada 30s.
+    // La barra global muestra el progreso de esta primera sincronización.
+    final notifier = ref.read(syncStatusProvider.notifier);
+    final pos = ref.read(posSyncEngineProvider);
+    if (pos != null) {
+      notifier.iniciar(SyncOrigen.pos);
+      pos.fullSync();
+      pos.startBackgroundSync(intervalSeconds: 30);
+      pos.startRealtime();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
+      // App perdió foco o se minimizó: cerrar sesión del POS para no dejar
+      // turnos huérfanos si el usuario cierra la app desde el taskbar.
+      ref.read(posSessionProvider.notifier).cerrarSesion();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // El POS se usa siempre en oscuro (colores del POS portado de Flet).
+    final appTheme = buildAppTheme(mode: ThemeMode.dark);
+
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Lycoris POS',
+      theme: appTheme.light(),
+      darkTheme: appTheme.dark(),
+      themeMode: ThemeMode.dark,
+      // Diálogos responsivos: en escritorio crecen (min 520, hasta 85% del
+      // ancho con tope de 1000); en móvil conservan el comportamiento por
+      // defecto de Material (igual que app_shell.dart).
+      builder: (context, child) {
+        final ancho = MediaQuery.sizeOf(context).width;
+        final esEscritorio = ancho >= 600;
+        final constraints = esEscritorio
+            ? BoxConstraints(
+                minWidth: 520,
+                maxWidth: math.min(ancho * 0.85, 1000),
+              )
+            : const BoxConstraints(minWidth: 280);
+        return DialogTheme(
+          data: Theme.of(context).dialogTheme.copyWith(constraints: constraints),
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
+      home: const PosScreen(),
+    );
+  }
+}

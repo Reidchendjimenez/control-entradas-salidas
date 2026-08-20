@@ -8,8 +8,8 @@ Sistema de gestión de inventario **Offline-First** con módulo **POS**, desarro
 
 | App | Entry point | Descripción | Binarios nativos |
 |---|---|---|---|
-| **Inventario** | `flutter_app/lib/main.dart` | Inventario, stock, producciones, requisiciones, validación de facturas, historial, WhatsApp, configuración | Windows (`LycorisControl.exe`) + Android (APK) |
-| **POS** | `flutter_app/lib/main_pos.dart` | Mesas, habitaciones, comandas, ventas, turnos/cajas, tasa BCV, impresión ESC/POS | Windows (`LycorisPOS.exe`) |
+| **Inventario** | `lib/main.dart` | Inventario, stock, producciones, requisiciones, validación de facturas, historial, WhatsApp, configuración | Windows (`LycorisControl.exe`) + Android (APK) |
+| **POS** | `lib/main_pos.dart` | Mesas, habitaciones, comandas, ventas, turnos/cajas, tasa BCV, impresión ESC/POS | Windows (`LycorisPOS.exe`) |
 
 **Arquitectura**: 3 plataformas desde un solo código base — **web** (desarrollo/uso en navegador) y **nativos** (Windows/Android) con actualización remota vía GitHub Releases.
 
@@ -48,16 +48,16 @@ Sistema de gestión de inventario **Offline-First** con módulo **POS**, desarro
 | HTTP / conectividad | `http ^1.2` + `connectivity_plus ^6` |
 | Versión de la app (updater) | `package_info_plus ^9` |
 
-Ver `flutter_app/pubspec.yaml` (versión actual: **2.0.0**).
+Ver `pubspec.yaml` (versión actual: **2.0.0**).
 
 ---
 
 ## Arquitectura
 
-**Offline-First**: todo escribe a SQLite local (drift) y sincroniza con Supabase en segundo plano (timer ~20 s).
+**Offline-First**: todo escribe a SQLite local (drift) y sincroniza con Supabase en segundo plano. Los cambios de otros dispositivos llegan en tiempo real vía WebSocket.
 
 ```
-flutter_app/lib/
+lib/
 ├── main.dart / main_pos.dart        # entry points (inventario / POS)
 ├── core/
 │   ├── auth/                        # login, PIN, sesión
@@ -65,6 +65,7 @@ flutter_app/lib/
 │   ├── db/schema/                   # esquema drift + migraciones
 │   ├── network/                     # cliente Supabase, HTTP, conectividad
 │   ├── sync/                        # motor de sincronización bidireccional + barra global
+│   │   └── realtime/                # interfaz abstracta RealtimeSource + implementación Supabase
 │   ├── theme/  state/  logging/  router/
 │   └── updater/                     # actualización remota Windows/Android
 ├── features/                        # inventario, stock, producciones, requisiciones,
@@ -73,7 +74,7 @@ flutter_app/lib/
 ```
 
 **Datos**:
-- **Local**: SQLite vía drift (`flutter_app/lib/core/db/schema/`), migraciones por `schemaVersion`.
+- **Local**: SQLite vía drift (`lib/core/db/schema/`), migraciones por `schemaVersion`.
 - **Remoto**: Supabase PostgreSQL — `supabase/schema.sql` (idempotente).
 
 **Sync** (capa `lib/core/sync/`):
@@ -82,6 +83,12 @@ flutter_app/lib/
 3. Aplicación de DDL idempotente remota.
 4. Background: timer cada ~20 s; barra de progreso del sync en la UI.
 5. Tablas POS (`pos_*`) se replican localmente y se envían a Supabase por separado.
+6. **Realtime** (WebSocket): suscripciones a Supabase Realtime para visibilidad inmediata entre dispositivos. Cuando el teléfono 1 crea una requisición, el teléfono 2 la ve sin esperar el timer.
+
+**Realtime** (capa `lib/core/sync/realtime/`):
+- Interfaz abstracta `RealtimeSource` — permite cambiar el proveedor sin tocar la lógica de sync.
+- Implementación concreta: `SupabaseRealtimeSource` (WebSocket nativo de Supabase).
+- Para migrar a otro backend (servidor propio, Firebase, etc.): implementar `RealtimeSource` y cambiar `realtimeSourceProvider`.
 
 ---
 
@@ -90,8 +97,6 @@ flutter_app/lib/
 ### Web (desarrollo)
 
 ```bash
-cd flutter_app
-
 # Inventario (puerto 8501)
 flutter build web --release -o build/web
 python3 tool/server.py 8501 build/web
@@ -143,7 +148,6 @@ Flutter no puede compilar Windows desde Linux, así que los binarios nativos se 
 ## Tests
 
 ```bash
-cd flutter_app
 flutter test
 ```
 
@@ -152,5 +156,5 @@ flutter test
 ## Documentación
 
 - `docs/PLAN_MIGRACION_FLUTTER.md` — plan completo de la migración Flet → Flutter y fases implementadas.
-- `flutter_app/lib/` — código organizado por feature (core, features/…), siguiendo la estructura modular de `AGENTS.md`.
+- `lib/` — código organizado por feature (core, features/…), siguiendo la estructura modular de `AGENTS.md`.
 - `supabase/schema.sql` — esquema remoto (idempotente).
