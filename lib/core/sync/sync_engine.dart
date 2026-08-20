@@ -696,10 +696,11 @@ class SyncEngine {
       final localEmpty = await _isTableEmpty(desc.localTable);
       // Incremental: solo las filas que cambiaron desde el último sync
       // (reducir egress: con full-download cada ciclo se excedió la cuota
-      // de Supabase, 254%). Se omite el `is.null`: filas viejas sin
-      // timestamp nunca cambian, ya se descargaron la primera vez.
+      // de Supabase, 254%). Incluye `is.null` para capturar filas creadas
+      // desde la web que no setean la columna de timestamp.
       if (!localEmpty && lastSync != null && inc != null) {
-        q = filtro.gte(inc, lastSync.toIso8601String());
+        final ts = lastSync.toIso8601String();
+        q = filtro.or('${inc}.is.null,${inc}.gte.$ts');
       } else if (!localEmpty && incById != null) {
         final maxId = await _maxLocalId(desc.localTable);
         if (maxId != null) q = filtro.gt(incById, maxId);
@@ -725,8 +726,75 @@ class SyncEngine {
         offset += pageSize;
       }
       if (total > 0) _log('$total ${desc.serverTable} descargados');
+
+      // Prune: eliminar filas locales que ya no existen en el server.
+      if (desc.pruneDeletes && !localEmpty) {
+        await _pruneDeletedRows(desc);
+      }
     } catch (e) {
       _log('Error descargando ${desc.serverTable}: $e');
+    }
+  }
+
+  /// Elimina filas locales que ya no existen en Supabase (detecta deletes
+  /// hechos desde otros dispositivos). Solo se ejecuta en tablas con
+  /// `pruneDeletes: true` (ids server-assigned).
+  Future<void> _pruneDeletedRows(SyncTableDescriptor desc) async {
+    try {
+      // 1. Obtener IDs pendientes en outbox (no borrar filas que aún no se
+      //    han subido al server).
+      final pendingOps = await (_db.select(_db.syncQueue)
+            ..where((t) =>
+                t.targetTable.equals(desc.serverTable) &
+                t.status.equals('pending')))
+          .get();
+      final pendingIds = <int>{};
+      for (final op in pendingOps) {
+        try {
+          final data = jsonDecode(op.data) as Map<String, dynamic>;
+          final id = data['id'];
+          if (id is num) pendingIds.add(id.toInt());
+        } catch (_) {}
+      }
+
+      // 2. Obtener todos los IDs del server (paginados).
+      final serverIds = <int>{};
+      var offset = 0;
+      while (true) {
+        final data = await client
+            .from(desc.serverTable)
+            .select('id')
+            .order('id')
+            .range(offset, offset + 999);
+        final rows = (data as List).cast<Map<String, dynamic>>();
+        if (rows.isEmpty) break;
+        for (final r in rows) {
+          serverIds.add((r['id'] as num).toInt());
+        }
+        offset += rows.length;
+      }
+
+      if (serverIds.isEmpty) return;
+
+      // 3. Obtener IDs locales.
+      final localRows = await _db.customSelect(
+        'SELECT id FROM ${desc.localTable}',
+      ).get();
+      final localIds = localRows.map((r) => r.read<int>('id')!).toSet();
+
+      // 4. Borrar locales que no están en el server (y no están pendientes).
+      final toDelete = localIds.difference(serverIds).difference(pendingIds);
+      if (toDelete.isEmpty) return;
+
+      // Usar IN (...) con lista plana paraDELETE masivo.
+      final placeholders = List.filled(toDelete.length, '?').join(',');
+      await _db.customStatement(
+        'DELETE FROM ${desc.localTable} WHERE id IN ($placeholders)',
+        toDelete.toList(),
+      );
+      _log('[${desc.localTable}] ${toDelete.length} filas eliminadas (prune)');
+    } catch (e) {
+      _log('Error en prune ${desc.localTable}: $e');
     }
   }
 

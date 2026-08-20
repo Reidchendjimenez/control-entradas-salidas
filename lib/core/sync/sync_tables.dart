@@ -21,12 +21,18 @@ class SyncTableDescriptor {
   /// diverge y este criterio dejaría de ver filas nuevas.
   final String? incrementalById;
 
+  /// Si es `true`, después de la descarga incremental se comparan los IDs
+  /// del server con los locales y se eliminan las filas que ya no existen en
+  /// el server (detecta deletes hechos desde otros dispositivos).
+  final bool pruneDeletes;
+
   const SyncTableDescriptor({
     required this.serverTable,
     required this.localTable,
     this.dedupeKey = '',
     this.incrementalColumn,
     this.incrementalById,
+    this.pruneDeletes = false,
   });
 }
 
@@ -52,17 +58,17 @@ const List<SyncTableDescriptor> syncedTables = [
   SyncTableDescriptor(serverTable: 'categorias', localTable: 'categorias', dedupeKey: 'nombre', incrementalColumn: 'updated_at'),
   SyncTableDescriptor(serverTable: 'productos', localTable: 'productos', dedupeKey: 'codigo', incrementalColumn: 'updated_at'),
   SyncTableDescriptor(serverTable: 'proveedores', localTable: 'proveedores', dedupeKey: 'nombre'),
-  SyncTableDescriptor(serverTable: 'existencias', localTable: 'existencias', incrementalById: 'id'),
+  SyncTableDescriptor(serverTable: 'existencias', localTable: 'existencias', incrementalById: 'id', pruneDeletes: true),
   SyncTableDescriptor(serverTable: 'stock_checkpoint', localTable: 'stock_checkpoint', dedupeKey: 'producto_id'),
-  SyncTableDescriptor(serverTable: 'periodos', localTable: 'periodos', incrementalById: 'id'),
-  SyncTableDescriptor(serverTable: 'facturas', localTable: 'facturas', dedupeKey: 'numero_factura', incrementalColumn: 'updated_at'),
+  SyncTableDescriptor(serverTable: 'periodos', localTable: 'periodos', incrementalById: 'id', pruneDeletes: true),
+  SyncTableDescriptor(serverTable: 'facturas', localTable: 'facturas', dedupeKey: 'numero_factura', incrementalColumn: 'updated_at', pruneDeletes: true),
   SyncTableDescriptor(serverTable: 'factura_pagos', localTable: 'factura_pagos'),
-  SyncTableDescriptor(serverTable: 'requisiciones', localTable: 'requisiciones', dedupeKey: 'numero', incrementalColumn: 'actualizada'),
-  SyncTableDescriptor(serverTable: 'requisicion_detalles', localTable: 'requisicion_detalles', incrementalById: 'id'),
-  SyncTableDescriptor(serverTable: 'recetas', localTable: 'recetas', incrementalColumn: 'updated_at'),
+  SyncTableDescriptor(serverTable: 'requisiciones', localTable: 'requisiciones', dedupeKey: 'numero', incrementalColumn: 'actualizada', pruneDeletes: true),
+  SyncTableDescriptor(serverTable: 'requisicion_detalles', localTable: 'requisicion_detalles', incrementalById: 'id', pruneDeletes: true),
+  SyncTableDescriptor(serverTable: 'recetas', localTable: 'recetas', incrementalColumn: 'updated_at', pruneDeletes: true),
   SyncTableDescriptor(serverTable: 'receta_componentes', localTable: 'receta_componentes'),
   SyncTableDescriptor(serverTable: 'producciones', localTable: 'producciones'),
   SyncTableDescriptor(serverTable: 'produccion_detalles', localTable: 'produccion_detalles'),
-  SyncTableDescriptor(serverTable: 'movimientos', localTable: 'movimientos', incrementalColumn: 'created_at'),
-  SyncTableDescriptor(serverTable: 'movimientos_archivo', localTable: 'movimientos_archivo', incrementalById: 'id'),
+  SyncTableDescriptor(serverTable: 'movimientos', localTable: 'movimientos', incrementalColumn: 'created_at', pruneDeletes: true),
+  SyncTableDescriptor(serverTable: 'movimientos_archivo', localTable: 'movimientos_archivo', incrementalById: 'id', pruneDeletes: true),
 ];
