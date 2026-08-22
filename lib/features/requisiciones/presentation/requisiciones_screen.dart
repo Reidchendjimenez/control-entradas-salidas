@@ -20,6 +20,20 @@ class RequisicionesScreen extends ConsumerStatefulWidget {
 
 class _RequisicionesScreenState extends ConsumerState<RequisicionesScreen> {
   Widget? _vistaActiva;
+  Future<(List<Requisicion>, Map<int, int>)>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _refresh();
+  }
+
+  void _refresh() {
+    final repo = ref.read(requisicionesRepoProvider);
+    if (repo == null) return;
+    final f = _cargar(repo);
+    setState(() => _future = f);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,12 +67,11 @@ class _RequisicionesScreenState extends ConsumerState<RequisicionesScreen> {
   void _cerrar() => setState(() => _vistaActiva = null);
 
   Widget _buildLista() {
-    final repo = ref.read(requisicionesRepoProvider);
-    if (repo == null) {
+    if (_future == null) {
       return const Center(child: Text('Supabase no configurado'));
     }
     return FutureBuilder<(List<Requisicion>, Map<int, int>)>(
-      future: _cargar(repo),
+      future: _future,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -135,6 +148,7 @@ class _RequisicionesScreenState extends ConsumerState<RequisicionesScreen> {
           content: Text(done ? 'Requisicion eliminada' : 'Error al eliminar'),
           backgroundColor: done ? Colors.green : Colors.red,
         ));
+        if (done) _refresh();
       }
     }
   }

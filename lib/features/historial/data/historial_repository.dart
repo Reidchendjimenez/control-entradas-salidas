@@ -87,15 +87,15 @@ class HistorialRepository {
     DateTime? hasta,
     String search = '',
   }) async {
-    final builder = _db.client.from('facturas').select();
+    dynamic builder = _db.client.from('facturas').select();
     if (desde != null) {
-      builder.gte('fecha_factura', desde.toUtc().toIso8601String());
+      builder = builder.gte('fecha_factura', desde.toUtc().toIso8601String());
     }
     if (hasta != null) {
       final fin = hasta.add(const Duration(days: 1));
-      builder.lt('fecha_factura', fin.toUtc().toIso8601String());
+      builder = builder.lt('fecha_factura', fin.toUtc().toIso8601String());
     }
-    builder.order('fecha_factura', ascending: false).limit(100);
+    builder = builder.order('fecha_factura', ascending: false).limit(100);
     final facturas = await builder;
 
     final term = search.trim().toLowerCase();
@@ -109,13 +109,13 @@ class HistorialRepository {
   }
 
   Future<int> countFacturas({DateTime? desde, DateTime? hasta}) async {
-    final builder = _db.client.from('facturas').select('id');
+    dynamic builder = _db.client.from('facturas').select('id');
     if (desde != null) {
-      builder.gte('fecha_factura', desde.toUtc().toIso8601String());
+      builder = builder.gte('fecha_factura', desde.toUtc().toIso8601String());
     }
     if (hasta != null) {
       final fin = hasta.add(const Duration(days: 1));
-      builder.lt('fecha_factura', fin.toUtc().toIso8601String());
+      builder = builder.lt('fecha_factura', fin.toUtc().toIso8601String());
     }
     final rows = await builder;
     return rows.length;
@@ -200,16 +200,16 @@ class HistorialRepository {
     DateTime fechaFin, {
     String? tipoDocumento,
   }) async {
-    final builder = _db.client
+    dynamic builder = _db.client
         .from('facturas')
         .select()
         .gte('fecha_factura', fechaInicio.toUtc().toIso8601String())
         .lte('fecha_factura', fechaFin.toUtc().toIso8601String())
         .eq('estado', 'Validada');
     if (tipoDocumento != null && tipoDocumento.isNotEmpty) {
-      builder.eq('tipo_documento', tipoDocumento);
+      builder = builder.eq('tipo_documento', tipoDocumento);
     }
-    builder.order('fecha_factura', ascending: true);
+    builder = builder.order('fecha_factura', ascending: true);
 
     final facturas = await builder;
     final rows = <LibroComprasRow>[];

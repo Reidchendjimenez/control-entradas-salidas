@@ -78,12 +78,12 @@ class RequisicionesRepository {
 
   Future<List<Map<String, dynamic>>> buscarProductos(String texto,
       {int limit = 30}) async {
-    final builder =
+    dynamic builder =
         _db.client.from('productos').select().eq('activo', true);
     if (texto.isNotEmpty) {
-      builder.ilike('nombre', '%$texto%');
+      builder = builder.ilike('nombre', '%$texto%');
     }
-    builder.order('nombre', ascending: true).limit(limit);
+    builder = builder.order('nombre', ascending: true).limit(limit);
     return builder;
   }
 

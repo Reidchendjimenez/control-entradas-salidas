@@ -104,10 +104,10 @@ class SupabaseService {
 
   /// Cuenta filas que cumplen un filtro.
   Future<int> count(String table, {Map<String, dynamic>? filters}) async {
-    final builder = _client.from(table).select('id');
+    dynamic builder = _client.from(table).select('id');
     if (filters != null) {
       for (final e in filters.entries) {
-        builder.eq(e.key, e.value);
+        builder = builder.eq(e.key, e.value);
       }
     }
     final data = await builder;
@@ -151,9 +151,9 @@ class SupabaseService {
     Map<String, dynamic> filters,
     Map<String, dynamic> data,
   ) async {
-    final builder = _client.from(table).update(data);
+    dynamic builder = _client.from(table).update(data);
     for (final e in filters.entries) {
-      builder.eq(e.key, e.value);
+      builder = builder.eq(e.key, e.value);
     }
     await builder;
   }

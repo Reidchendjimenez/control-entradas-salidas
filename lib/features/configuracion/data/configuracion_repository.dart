@@ -83,14 +83,15 @@ class ConfiguracionRepository {
       }
     }
 
-    final builder = _db.client.from('productos').select();
-    if (soloActivos) builder.eq('activo', true);
-    if (categoriaId != null) builder.eq('categoria_id', categoriaId);
+    var builder = _db.client.from('productos').select();
+    if (soloActivos) builder = builder.eq('activo', true);
+    if (categoriaId != null) builder = builder.eq('categoria_id', categoriaId);
     if (search != null && search.isNotEmpty) {
-      builder.ilike('nombre', '%$search%');
+      builder = builder.ilike('nombre', '%$search%');
     }
-    builder.order('nombre', ascending: true);
-    final data = await builder;
+    dynamic q = builder;
+    q = q.order('nombre', ascending: true);
+    final data = await q;
     final rows = (data as List).cast<Map<String, dynamic>>();
     final result = rows.map((r) => Producto.fromMap(r)).toList();
     if (useCache) _cache?.put('${_k}_prods', rows);

@@ -39,14 +39,14 @@ class InventarioRepository {
   // ---------------------------------------------------------------------
 
   Future<List<Producto>> getAllProductos({String searchTerm = ''}) async {
-    final builder = _db.client
+    dynamic builder = _db.client
         .from('productos')
         .select()
         .eq('activo', true);
     if (searchTerm.isNotEmpty) {
-      builder.ilike('nombre', '%$searchTerm%');
+      builder = builder.ilike('nombre', '%$searchTerm%');
     }
-    builder.order('nombre', ascending: true);
+    builder = builder.order('nombre', ascending: true);
     final data = await builder;
     final rows = (data as List).cast<Map<String, dynamic>>();
     if (rows.isEmpty) return [];
