@@ -31,8 +31,10 @@ class PosRepository {
   }
 
   Future<void> setSetting(String key, String value) async {
-    await _db.upsert('pos_settings', {'key': key, 'value': value},
-        conflictColumn: 'key');
+    await _db.client.from('pos_settings').upsert(
+      {'key': key, 'value': value},
+      onConflict: 'key',
+    );
   }
 
   // Sesiones / turnos / caja
