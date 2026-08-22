@@ -1,16 +1,13 @@
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
-import '../../../../core/sync/sync_service.dart';
+import '../../../../core/models/proveedor.dart';
 import '../../data/configuracion_repository.dart';
 
 /// Diálogo para crear/editar un Proveedor (porta `show_proveedor_dialog` / dialogs.py).
 Future<bool?> showProveedorDialog(
   BuildContext context,
   ConfiguracionRepository repo, {
-  Proveedore? proveedor,
+  Proveedor? proveedor,
 }) {
   return showDialog<bool>(
     context: context,
@@ -18,17 +15,17 @@ Future<bool?> showProveedorDialog(
   );
 }
 
-class _ProveedorDialog extends ConsumerStatefulWidget {
+class _ProveedorDialog extends StatefulWidget {
   const _ProveedorDialog({required this.repo, this.proveedor});
 
   final ConfiguracionRepository repo;
-  final Proveedore? proveedor;
+  final Proveedor? proveedor;
 
   @override
-  ConsumerState<_ProveedorDialog> createState() => _ProveedorDialogState();
+  State<_ProveedorDialog> createState() => _ProveedorDialogState();
 }
 
-class _ProveedorDialogState extends ConsumerState<_ProveedorDialog> {
+class _ProveedorDialogState extends State<_ProveedorDialog> {
   final _nombreCtrl = TextEditingController();
   final _rifCtrl = TextEditingController();
   final _telefonoCtrl = TextEditingController();
@@ -51,7 +48,7 @@ class _ProveedorDialogState extends ConsumerState<_ProveedorDialog> {
       _direccionCtrl.text = p.direccion ?? '';
       _contactoCtrl.text = p.contacto ?? '';
       _observacionesCtrl.text = p.observaciones ?? '';
-      _estado = p.estado ?? 'Activo';
+      _estado = p.estado;
     }
   }
 
@@ -67,13 +64,8 @@ class _ProveedorDialogState extends ConsumerState<_ProveedorDialog> {
     super.dispose();
   }
 
-  void _pushPending() {
-    ref.read(syncEngineProvider)?.pushPending();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final esEdicion = widget.proveedor != null;
 
     return AlertDialog(
@@ -124,7 +116,7 @@ class _ProveedorDialogState extends ConsumerState<_ProveedorDialog> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                initialValue: _estado,
+                value: _estado,
                 decoration: const InputDecoration(labelText: 'Estado', border: OutlineInputBorder(), isDense: true),
                 items: const [
                   DropdownMenuItem(value: 'Activo', child: Text('Activo')),
@@ -154,23 +146,22 @@ class _ProveedorDialogState extends ConsumerState<_ProveedorDialog> {
 
     setState(() => _guardando = true);
     try {
-      final data = ProveedoresCompanion.insert(
-        nombre: nombre,
-        rif: Value(_rifCtrl.text.trim().isEmpty ? null : _rifCtrl.text.trim()),
-        telefono: Value(_telefonoCtrl.text.trim().isEmpty ? null : _telefonoCtrl.text.trim()),
-        email: Value(_emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim()),
-        direccion: Value(_direccionCtrl.text.trim().isEmpty ? null : _direccionCtrl.text.trim()),
-        contacto: Value(_contactoCtrl.text.trim().isEmpty ? null : _contactoCtrl.text.trim()),
-        observaciones: Value(_observacionesCtrl.text.trim().isEmpty ? null : _observacionesCtrl.text.trim()),
-        estado: Value(_estado),
-      );
+      final data = <String, dynamic>{
+        'nombre': nombre,
+        'rif': _rifCtrl.text.trim().isEmpty ? null : _rifCtrl.text.trim(),
+        'telefono': _telefonoCtrl.text.trim().isEmpty ? null : _telefonoCtrl.text.trim(),
+        'email': _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
+        'direccion': _direccionCtrl.text.trim().isEmpty ? null : _direccionCtrl.text.trim(),
+        'contacto': _contactoCtrl.text.trim().isEmpty ? null : _contactoCtrl.text.trim(),
+        'observaciones': _observacionesCtrl.text.trim().isEmpty ? null : _observacionesCtrl.text.trim(),
+        'estado': _estado,
+      };
 
       if (widget.proveedor != null) {
         await widget.repo.updateProveedor(widget.proveedor!.id, data);
       } else {
         await widget.repo.createProveedor(data);
       }
-      _pushPending();
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {

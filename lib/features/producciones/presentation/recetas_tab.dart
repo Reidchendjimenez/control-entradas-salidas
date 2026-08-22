@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/db/schema/app_database.dart';
+import '../../../core/models/receta.dart';
+import '../../../core/widgets/error_display.dart';
 import '../data/producciones_providers.dart';
 import '../data/producciones_repository.dart';
 import 'dialogs/delete_receta_dialog.dart';
 import 'widgets/receta_card.dart';
 
-/// Tab Recetas: lista de recetas con cards + botón para crear/editar.
+/// Tab Recetas: lista de recetas con cards + boton para crear/editar.
 class RecetasTab extends ConsumerStatefulWidget {
   const RecetasTab({super.key, required this.onEdit});
 
@@ -29,6 +30,9 @@ class _RecetasTabState extends ConsumerState<RecetasTab> {
 
   Future<(List<Receta>, Map<int, List<ComponenteInfo>>)> _cargar() async {
     final repo = ref.read(produccionesRepoProvider);
+    if (repo == null) {
+      throw Exception('Supabase no configurado. Verifica la conexion.');
+    }
     final recetas = await repo.getRecetas();
     final componentes = await repo.getAllComponentes();
     final porReceta = <int, List<ComponenteInfo>>{};
@@ -54,7 +58,10 @@ class _RecetasTabState extends ConsumerState<RecetasTab> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snap.hasError) {
-          return Center(child: Text('Error: ${snap.error}'));
+          return ErrorDisplay(
+            error: snap.error!,
+            onRetry: _refresh,
+          );
         }
         final (recetas, porReceta) = snap.data!;
         if (recetas.isEmpty) {

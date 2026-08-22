@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/pos_models.dart';
 import '../../data/pos_providers.dart';
 
 /// Alta/edición de habitación POS (port de `ConfigPOSView._show_agregar_habitacion_dialog`
 /// y `_show_editar_habitacion_dialog`). Retorna `true` si se guardó.
 Future<bool> showHabitacionConfigDialog(BuildContext context,
-    {PosHabitacione? habitacion}) async {
+    {PosHabitacion? habitacion}) async {
   final ok = await showDialog<bool>(
     context: context,
     builder: (_) => _HabitacionConfigDialog(habitacion: habitacion),
@@ -18,7 +18,7 @@ Future<bool> showHabitacionConfigDialog(BuildContext context,
 class _HabitacionConfigDialog extends ConsumerStatefulWidget {
   const _HabitacionConfigDialog({this.habitacion});
 
-  final PosHabitacione? habitacion;
+  final PosHabitacion? habitacion;
 
   @override
   ConsumerState<_HabitacionConfigDialog> createState() =>
@@ -60,7 +60,7 @@ class _HabitacionConfigDialogState
       return;
     }
     setState(() => _guardando = true);
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     try {
       if (_esEdicion) {
         await repo.actualizarHabitacion(

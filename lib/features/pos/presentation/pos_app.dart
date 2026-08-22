@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/sync/sync_status.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/pos_providers.dart';
 import '../data/pos_session.dart';
@@ -26,16 +25,6 @@ class _PosAppState extends ConsumerState<PosApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Arranca el sync POS: fullSync inmediato + background cada 30s.
-    // La barra global muestra el progreso de esta primera sincronización.
-    final notifier = ref.read(syncStatusProvider.notifier);
-    final pos = ref.read(posSyncEngineProvider);
-    if (pos != null) {
-      notifier.iniciar(SyncOrigen.pos);
-      pos.fullSync();
-      pos.startBackgroundSync(intervalSeconds: 30);
-      pos.startRealtime();
-    }
   }
 
   @override

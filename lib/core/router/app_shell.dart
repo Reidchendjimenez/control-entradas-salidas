@@ -5,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/presentation/login_screen.dart';
 import '../auth/session_controller.dart';
+import '../data/realtime_providers.dart';
+import '../data/realtime_service.dart';
+import '../data/supabase_providers.dart';
 import '../state/theme_controller.dart';
 import '../../features/historial/presentation/historial_screen.dart';
 import '../../features/inventario/presentation/inventario_screen.dart';
@@ -14,9 +17,6 @@ import '../../features/stock/presentation/stock_screen.dart';
 import '../../features/validacion/presentation/validacion_screen.dart';
 import '../../features/configuracion/presentation/configuracion_screen.dart';
 import '../../features/whatsapp/presentation/bandeja_screen.dart';
-import '../sync/global_sync_bar.dart';
-import '../sync/sync_service.dart';
-import '../sync/sync_status.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 /// Shell principal — replica `usr/app_controller.py`:
@@ -92,25 +92,27 @@ class _ShellAutenticado extends ConsumerStatefulWidget {
 
 class _ShellAutenticadoState extends ConsumerState<_ShellAutenticado> {
   int _index = 0;
+  List<RealtimeSubscription> _realtimeSubs = [];
 
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   @override
   void initState() {
     super.initState();
-    // Arranca el sync: fullSync inmediato + background cada 20s.
-    // La barra global muestra el progreso de esta primera sincronización.
-    // Se difiere con Future para evitar modificar providers durante el build phase.
     Future(() {
-      final notifier = ref.read(syncStatusProvider.notifier);
-      final engine = ref.read(syncEngineProvider);
-      if (engine != null) {
-        notifier.iniciar(SyncOrigen.general);
-        engine.fullSync();
-        engine.startBackgroundSync();
-        engine.startRealtime();
+      final rt = ref.read(realtimeServiceProvider);
+      if (rt != null) {
+        _realtimeSubs = initRealtimeSubscriptions(rt, ref);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    for (final sub in _realtimeSubs) {
+      sub.cancel();
+    }
+    super.dispose();
   }
 
   @override
@@ -120,7 +122,6 @@ class _ShellAutenticadoState extends ConsumerState<_ShellAutenticado> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final c = isDark ? AppColors.dark : AppColors.light;
     final dest = widget.destinos[_index];
-    final offline = ref.watch(isOfflineProvider);
 
     return Scaffold(
       key: _scaffoldKey,
@@ -132,15 +133,12 @@ class _ShellAutenticadoState extends ConsumerState<_ShellAutenticado> {
               index: _index,
               colors: c,
               esEscritorio: esEscritorio,
-              offline: offline,
-              onSync: () => _dispararSync(context),
+              onSync: () {},
               onToggleTheme: () => ref
                   .read(themeControllerProvider.notifier)
                   .toggle(),
               onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer(),
             ),
-            const GlobalSyncBar(),
-            const SyncErrorDialogListener(),
             Expanded(
               child: Row(
                 children: [
@@ -190,34 +188,6 @@ class _ShellAutenticadoState extends ConsumerState<_ShellAutenticado> {
 
   Color _color(Map<String, String> c, String key) =>
       Color(int.parse(c[key]!.replaceFirst('#', '0xFF')));
-
-  Future<void> _dispararSync(BuildContext context) async {
-    final engine = ref.read(syncEngineProvider);
-    final messenger = ScaffoldMessenger.of(context);
-    if (engine == null) {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Supabase no configurado')),
-      );
-      return;
-    }
-    messenger.showSnackBar(
-      const SnackBar(
-        content: Text('Sincronizando...'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-    final notifier = ref.read(syncStatusProvider.notifier);
-    notifier.iniciar(SyncOrigen.general);
-    final ok = await engine.fullSync();
-    notifier.terminar(SyncOrigen.general, ok: ok);
-    messenger.showSnackBar(
-      SnackBar(
-        content:
-            Text(ok ? 'Sincronización completa' : 'Error al sincronizar'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
 }
 
 /// Header custom (app_controller.py `app_header`): bugb negro, ícono morado,
@@ -228,7 +198,6 @@ class _AppHeader extends StatelessWidget {
     required this.index,
     required this.colors,
     required this.esEscritorio,
-    required this.offline,
     required this.onSync,
     required this.onToggleTheme,
     required this.onOpenDrawer,
@@ -238,7 +207,6 @@ class _AppHeader extends StatelessWidget {
   final int index;
   final Map<String, String> colors;
   final bool esEscritorio;
-  final bool offline;
   final VoidCallback onSync;
   final VoidCallback onToggleTheme;
   final VoidCallback onOpenDrawer;
@@ -294,34 +262,6 @@ class _AppHeader extends StatelessWidget {
             ],
           ),
           const Spacer(),
-          Tooltip(
-            message: offline ? 'Modo offline' : 'Conectado',
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  offline ? 'OFFLINE' : 'ONLINE',
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                    color: offline
-                        ? const Color(0xFFFFB74D)
-                        : const Color(0xFF81C784),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(
-                  offline ? Icons.wifi_off : Icons.wifi,
-                  size: 16,
-                  color: offline
-                      ? const Color(0xFFFFB74D)
-                      : const Color(0xFF81C784),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 4),
           IconButton(
             icon: const Icon(Icons.sync),
             color: _color('header_subtitle'),

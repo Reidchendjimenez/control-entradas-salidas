@@ -1,10 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
-import 'package:drift/drift.dart';
-
-import '../../../core/db/schema/app_database.dart';
-
-/// Datos de una imagen temporal pre-cargada en la vista de Validación.
+/// Datos de una imagen temporal pre-cargada en la vista de Validacion.
 class TemporalData {
   final int? id;
   final Uint8List? imagen;
@@ -27,25 +25,20 @@ class TemporalData {
   });
 }
 
-/// Repositorio de temporales: imágenes pre-cargadas por OCR en Validación.
-/// Solo local (tabla `temporales`), NO se sincroniza con Supabase.
+/// Repositorio de temporales en memoria: imagenes pre-cargadas por OCR.
+/// Solo local, NO se sincroniza con Supabase.
 class TemporalesRepository {
-  TemporalesRepository(this._db);
-  final AppDatabase _db;
+  final List<TemporalData> _items = [];
+  int _nextId = 1;
+  final _controller = StreamController<List<TemporalData>>.broadcast();
 
   Stream<List<TemporalData>> watchTemporales() {
-    return (_db.select(_db.temporales)
-          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-        .watch()
-        .map((rows) => rows.map(_fromRow).toList());
+    _controller.add(List.unmodifiable(_items));
+    return _controller.stream;
   }
 
-  Future<List<TemporalData>> getTemporales() async {
-    final rows = await (_db.select(_db.temporales)
-          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-        .get();
-    return rows.map(_fromRow).toList();
-  }
+  Future<List<TemporalData>> getTemporales() async =>
+      List.unmodifiable(_items);
 
   Future<int> guardar({
     required Uint8List imagen,
@@ -55,36 +48,30 @@ class TemporalesRepository {
     double? monto,
     DateTime? fecha,
   }) async {
-    final row = await _db.temporales.insertReturning(
-      TemporalesCompanion.insert(
-        imagenB64: Value(base64Encode(imagen)),
-        tipoDocumento: Value(tipoDocumento),
-        nroFactura: Value(nroFactura),
-        proveedor: Value(proveedor),
-        monto: Value(monto),
-        fecha: Value(fecha),
-        createdAt: DateTime.now(),
-      ),
-    );
-    return row.id;
+    final id = _nextId++;
+    _items.add(TemporalData(
+      id: id,
+      imagen: imagen,
+      tipoDocumento: tipoDocumento,
+      nroFactura: nroFactura,
+      proveedor: proveedor,
+      monto: monto,
+      fecha: fecha,
+      createdAt: DateTime.now(),
+    ));
+    _controller.add(List.unmodifiable(_items));
+    return id;
   }
 
   Future<void> eliminar(int id) async {
-    await (_db.temporales.delete()..where((t) => t.id.equals(id))).go();
+    _items.removeWhere((t) => t.id == id);
+    _controller.add(List.unmodifiable(_items));
   }
 
   Future<void> limpiar() async {
-    await _db.temporales.deleteAll();
+    _items.clear();
+    _controller.add(List.unmodifiable(_items));
   }
 
-  TemporalData _fromRow(Temporale row) => TemporalData(
-        id: row.id,
-        imagen: row.imagenB64 != null ? base64Decode(row.imagenB64!) : null,
-        tipoDocumento: row.tipoDocumento,
-        nroFactura: row.nroFactura,
-        proveedor: row.proveedor,
-        monto: row.monto,
-        fecha: row.fecha,
-        createdAt: row.createdAt,
-      );
+  void dispose() => _controller.close();
 }

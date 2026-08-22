@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
-import '../../../../core/sync/sync_service.dart';
+import '../../../../core/models/categoria.dart';
 import '../../data/configuracion_providers.dart';
 import '../dialogs/categoria_dialog.dart';
 
@@ -122,7 +121,7 @@ class _CategoriasTabState extends ConsumerState<CategoriasTab> {
   }
 
   Future<void> _abrirDialogo(Categoria? cat) async {
-    final result = await showCategoriaDialog(context, ref.read(configuracionRepoProvider), categoria: cat);
+    final result = await showCategoriaDialog(context, ref.read(configuracionRepoProvider)!, categoria: cat);
     if (result == true && mounted) {
       ref.invalidate(categoriasConfigProvider);
     }
@@ -145,9 +144,8 @@ class _CategoriasTabState extends ConsumerState<CategoriasTab> {
       ),
     );
     if (confirm == true) {
-      final repo = ref.read(configuracionRepoProvider);
+      final repo = ref.read(configuracionRepoProvider)!;
       await repo.deleteCategoria(cat.id);
-      ref.read(syncEngineProvider)?.pushPending();
       if (mounted) ref.invalidate(categoriasConfigProvider);
     }
   }

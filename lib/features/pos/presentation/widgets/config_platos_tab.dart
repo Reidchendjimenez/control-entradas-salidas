@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/pos_models.dart';
 import '../../data/pos_providers.dart';
 import '../dialogs/plato_config_dialog.dart';
 
@@ -15,8 +15,8 @@ class ConfigPlatosTab extends ConsumerStatefulWidget {
 }
 
 class _ConfigPlatosTabState extends ConsumerState<ConfigPlatosTab> {
-  List<Plato> _platos = [];
-  Map<int, PlatosCategoria> _cats = {};
+  List<PosPlato> _platos = [];
+  Map<int, PosPlatoCategoria> _cats = {};
   bool _cargando = true;
   bool _verContornos = false;
 
@@ -27,7 +27,7 @@ class _ConfigPlatosTabState extends ConsumerState<ConfigPlatosTab> {
   }
 
   Future<void> _cargar() async {
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     final platos = await repo.getPlatos();
     final cats = await repo.getPlatosCategorias(soloActivas: false);
     if (!mounted) return;
@@ -45,14 +45,14 @@ class _ConfigPlatosTabState extends ConsumerState<ConfigPlatosTab> {
     }
   }
 
-  Future<void> _editarPlato(Plato p) async {
+  Future<void> _editarPlato(PosPlato p) async {
     if (await showPlatoConfigDialog(context, plato: p)) {
       ref.invalidate(platosProvider);
       await _cargar();
     }
   }
 
-  Future<void> _eliminarPlato(Plato p) async {
+  Future<void> _eliminarPlato(PosPlato p) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -72,7 +72,7 @@ class _ConfigPlatosTabState extends ConsumerState<ConfigPlatosTab> {
       ),
     );
     if (ok != true || !mounted) return;
-    await ref.read(posRepoProvider).eliminarPlato(p.id);
+    await ref.read(posRepoProvider)!.eliminarPlato(p.id);
     ref.invalidate(platosProvider);
     await _cargar();
   }
@@ -141,8 +141,8 @@ class _PlatoConfigCard extends StatelessWidget {
     required this.onDelete,
   });
 
-  final Plato plato;
-  final PlatosCategoria? cat;
+  final PosPlato plato;
+  final PosPlatoCategoria? cat;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 

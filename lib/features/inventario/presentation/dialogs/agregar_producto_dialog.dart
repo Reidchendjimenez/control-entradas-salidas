@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/sync/sync_service.dart';
 import '../../data/inventario_providers.dart';
 
 /// Diálogo para agregar un nuevo producto.
 Future<void> showAgregarProductoDialog(BuildContext context, WidgetRef ref) async {
-  final repo = ref.read(inventarioRepoProvider);
+  final repo = ref.read(inventarioRepoProvider)!;
   final categorias = await repo.getAllCategorias();
 
   final nombreCtrl = TextEditingController();
@@ -78,7 +77,6 @@ Future<void> showAgregarProductoDialog(BuildContext context, WidgetRef ref) asyn
               unidadMedida: unidad,
               esPesable: esPesable,
             );
-            await ref.read(syncEngineProvider)?.pushPending();
             if (context.mounted) Navigator.pop(context);
           },
           child: const Text('Crear'),

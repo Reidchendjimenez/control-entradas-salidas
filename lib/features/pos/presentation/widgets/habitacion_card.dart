@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/pos_models.dart';
 import 'estado_card.dart';
 
 const _disponibleColor = Color(0xFF26A69A);
@@ -16,7 +16,7 @@ class HabitacionCard extends StatelessWidget {
     this.onTap,
   });
 
-  final PosHabitacione habitacion;
+  final PosHabitacion habitacion;
   final bool ocupada;
   final VoidCallback? onTap;
 

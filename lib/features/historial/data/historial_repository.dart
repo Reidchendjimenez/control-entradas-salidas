@@ -1,9 +1,5 @@
-import 'package:drift/drift.dart';
+import '../../../core/data/supabase_service.dart';
 
-import '../../../core/db/schema/app_database.dart';
-
-/// Entrada (movimiento tipo `entrada`) con datos del producto para la card.
-/// Porta el join `Movimiento + Producto` de `historial_facturas_view.py`.
 class EntradaPorFecha {
   const EntradaPorFecha({
     required this.id,
@@ -31,7 +27,6 @@ class EntradaPorFecha {
   }
 }
 
-/// Item de detalle de una factura (movimiento activo o archivado).
 class FacturaDetalleItem {
   const FacturaDetalleItem({
     required this.productoId,
@@ -48,12 +43,13 @@ class FacturaDetalleItem {
   final bool archivado;
 
   String get cantidadTexto {
-    if (pesoTotal > 0) return 'Cant: ${cantidad.toStringAsFixed(0)} | Peso: ${pesoTotal.toStringAsFixed(2)} kg';
+    if (pesoTotal > 0) {
+      return 'Cant: ${cantidad.toStringAsFixed(0)} | Peso: ${pesoTotal.toStringAsFixed(2)} kg';
+    }
     return 'Cant: ${cantidad.toStringAsFixed(0)}';
   }
 }
 
-/// Detalle completo de una factura (movimientos + archivados + pagos).
 class FacturaDetalle {
   const FacturaDetalle({
     required this.factura,
@@ -61,208 +57,182 @@ class FacturaDetalle {
     required this.pagos,
   });
 
-  final Factura factura;
+  final Map<String, dynamic> factura;
   final List<FacturaDetalleItem> items;
-  final List<FacturaPago> pagos;
+  final List<Map<String, dynamic>> pagos;
 }
 
-/// Fila del libro de compras (export Excel).
 class LibroComprasRow {
   const LibroComprasRow({
     required this.factura,
     required this.efectivo,
     required this.transferencia,
     required this.divisasUsd,
-    required this.tasa,
+    this.tasa,
   });
 
-  final Factura factura;
+  final Map<String, dynamic> factura;
   final double efectivo;
   final double transferencia;
   final double divisasUsd;
   final double? tasa;
 }
 
-/// Repositorio de historial de facturas — porta
-/// `usr/views/historial_facturas_view.py`.
 class HistorialRepository {
   HistorialRepository(this._db);
+  final SupabaseService _db;
 
-  final AppDatabase _db;
-
-  // ---------------------------------------------------------------------
-  // Facturas
-  // ---------------------------------------------------------------------
-
-  /// Últimas 100 facturas, ordenadas por fecha desc. Filtros opcionales:
-  /// rango de fecha (`desde`/`hasta`, hasta inclusive) y búsqueda por número
-  /// o proveedor (en memoria, como el Flet).
-  Future<List<Factura>> getFacturas({
+  Future<List<Map<String, dynamic>>> getFacturas({
     DateTime? desde,
     DateTime? hasta,
     String search = '',
   }) async {
-    final q = _db.select(_db.facturas);
-    if (desde != null) q.where((t) => t.fechaFactura.isBiggerOrEqualValue(desde));
+    final builder = _db.client.from('facturas').select();
+    if (desde != null) {
+      builder.gte('fecha_factura', desde.toUtc().toIso8601String());
+    }
     if (hasta != null) {
       final fin = hasta.add(const Duration(days: 1));
-      q.where((t) => t.fechaFactura.isSmallerThanValue(fin));
+      builder.lt('fecha_factura', fin.toUtc().toIso8601String());
     }
-    q.orderBy([(t) => OrderingTerm.desc(t.fechaFactura)]);
-    q.limit(100);
+    builder.order('fecha_factura', ascending: false).limit(100);
+    final facturas = await builder;
 
-    final facturas = await q.get();
     final term = search.trim().toLowerCase();
     if (term.isEmpty) return facturas;
 
     return facturas.where((f) {
-      final num = (f.numeroFactura ?? '').toLowerCase();
-      final prov = (f.proveedor ?? '').toLowerCase();
+      final num = (f['numero_factura'] as String? ?? '').toLowerCase();
+      final prov = (f['proveedor'] as String? ?? '').toLowerCase();
       return num.contains(term) || prov.contains(term);
     }).toList();
   }
 
-  /// Total de facturas (para el texto `N factura(s)`).
   Future<int> countFacturas({DateTime? desde, DateTime? hasta}) async {
-    final q = _db.selectOnly(_db.facturas)..addColumns([_db.facturas.id.count()]);
-    if (desde != null) q.where(_db.facturas.fechaFactura.isBiggerOrEqualValue(desde));
-    if (hasta != null) {
-      q.where(_db.facturas.fechaFactura.isSmallerThanValue(hasta.add(const Duration(days: 1))));
+    final builder = _db.client.from('facturas').select('id');
+    if (desde != null) {
+      builder.gte('fecha_factura', desde.toUtc().toIso8601String());
     }
-    final row = await q.getSingle();
-    return row.read(_db.facturas.id.count()) ?? 0;
+    if (hasta != null) {
+      final fin = hasta.add(const Duration(days: 1));
+      builder.lt('fecha_factura', fin.toUtc().toIso8601String());
+    }
+    final rows = await builder;
+    return rows.length;
   }
 
-  // ---------------------------------------------------------------------
-  // Entradas por fecha
-  // ---------------------------------------------------------------------
+  Future<List<EntradaPorFecha>> getEntradasPorFecha(
+      DateTime ini, DateTime fin) async {
+    final movimientos = await _db.client
+        .from('movimientos')
+        .select()
+        .eq('tipo', 'entrada')
+        .gte('fecha_movimiento', ini.toUtc().toIso8601String())
+        .lt('fecha_movimiento', fin.toUtc().toIso8601String())
+        .order('fecha_movimiento', ascending: false)
+        .limit(200);
 
-  /// Movimientos tipo `entrada` en el rango `[ini, fin)`, con el producto,
-  /// ordenados por fecha desc (límite 200, como el Flet).
-  Future<List<EntradaPorFecha>> getEntradasPorFecha(DateTime ini, DateTime fin) async {
-    final q = _db.select(_db.movimientos).join([
-      innerJoin(_db.productos, _db.productos.id.equalsExp(_db.movimientos.productoId)),
-    ]);
-    q.where(_db.movimientos.tipo.equals('entrada'));
-    q.where(_db.movimientos.fechaMovimiento.isBiggerOrEqualValue(ini));
-    q.where(_db.movimientos.fechaMovimiento.isSmallerThanValue(fin));
-    q.orderBy([OrderingTerm.desc(_db.movimientos.fechaMovimiento)]);
-    q.limit(200);
-
-    final rows = await q.get();
-    return rows.map((r) {
-      final m = r.readTable(_db.movimientos);
-      final p = r.readTable(_db.productos);
-      return EntradaPorFecha(
-        id: m.id,
-        productoId: m.productoId,
-        nombre: p.nombre,
-        unidad: p.unidadMedida,
-        esPesable: p.esPesable == 1,
-        cantidad: m.cantidad,
-        pesoTotal: m.pesoTotal,
-        fecha: m.fechaMovimiento,
-      );
-    }).toList();
+    final result = <EntradaPorFecha>[];
+    for (final m in movimientos) {
+      final producto =
+          await _db.fetchById('productos', m['producto_id'] as int);
+      result.add(EntradaPorFecha(
+        id: m['id'] as int,
+        productoId: m['producto_id'] as int,
+        nombre: (producto?['nombre'] as String?) ?? '',
+        unidad: (producto?['unidad_medida'] as String?) ?? '',
+        esPesable: producto?['es_pesable'] == true ||
+            producto?['es_pesable'] == 1,
+        cantidad: (m['cantidad'] as num?)?.toDouble() ?? 0,
+        pesoTotal: (m['peso_total'] as num?)?.toDouble() ?? 0,
+        fecha: DateTime.tryParse(m['fecha_movimiento']?.toString() ?? ''),
+      ));
+    }
+    return result;
   }
 
-  // ---------------------------------------------------------------------
-  // Detalle de factura
-  // ---------------------------------------------------------------------
-
-  /// Movimientos (activos + archivados) y pagos de una factura.
   Future<FacturaDetalle> getFacturaDetalle(int facturaId) async {
-    final factura = await (_db.select(_db.facturas)..where((t) => t.id.equals(facturaId)))
-        .getSingle();
+    final factura = (await _db.fetchById('facturas', facturaId))!;
 
-    // Movimientos activos con producto.
-    final q = _db.select(_db.movimientos).join([
-      innerJoin(_db.productos, _db.productos.id.equalsExp(_db.movimientos.productoId)),
-    ]);
-    q.where(_db.movimientos.facturaId.equals(facturaId));
-    final activos = await q.get();
-    final itemsActivos = activos.map((r) {
-      final m = r.readTable(_db.movimientos);
-      final p = r.readTable(_db.productos);
-      return FacturaDetalleItem(
-        productoId: m.productoId,
-        nombre: p.nombre,
-        cantidad: m.cantidad,
-        pesoTotal: m.pesoTotal,
+    final movimientos = await _db.client
+        .from('movimientos')
+        .select()
+        .eq('factura_id', facturaId);
+
+    final items = <FacturaDetalleItem>[];
+    for (final m in movimientos) {
+      final p = await _db.fetchById('productos', m['producto_id'] as int);
+      items.add(FacturaDetalleItem(
+        productoId: m['producto_id'] as int,
+        nombre: (p?['nombre'] as String?) ?? '',
+        cantidad: (m['cantidad'] as num?)?.toDouble() ?? 0,
+        pesoTotal: (m['peso_total'] as num?)?.toDouble() ?? 0,
         archivado: false,
-      );
-    }).toList();
+      ));
+    }
 
-    // Movimientos archivados con producto.
-    final qa = _db.select(_db.movimientosArchivo).join([
-      innerJoin(_db.productos, _db.productos.id.equalsExp(_db.movimientosArchivo.productoId)),
-    ]);
-    qa.where(_db.movimientosArchivo.facturaId.equals(facturaId));
-    final archivados = await qa.get();
-    final itemsArchivados = archivados.map((r) {
-      final m = r.readTable(_db.movimientosArchivo);
-      final p = r.readTable(_db.productos);
-      return FacturaDetalleItem(
-        productoId: m.productoId,
-        nombre: p.nombre,
-        cantidad: m.cantidad,
-        pesoTotal: m.pesoTotal,
+    final archivados = await _db.client
+        .from('movimientos_archivo')
+        .select()
+        .eq('factura_id', facturaId);
+
+    for (final m in archivados) {
+      final p = await _db.fetchById('productos', m['producto_id'] as int);
+      items.add(FacturaDetalleItem(
+        productoId: m['producto_id'] as int,
+        nombre: (p?['nombre'] as String?) ?? '',
+        cantidad: (m['cantidad'] as num?)?.toDouble() ?? 0,
+        pesoTotal: (m['peso_total'] as num?)?.toDouble() ?? 0,
         archivado: true,
-      );
-    }).toList();
+      ));
+    }
 
-    final pagos = await (_db.select(_db.facturaPagos)
-          ..where((t) => t.facturaId.equals(facturaId)))
-        .get();
-
-    return FacturaDetalle(
-      factura: factura,
-      items: [...itemsActivos, ...itemsArchivados],
-      pagos: pagos,
+    final pagos = await _db.fetchAll(
+      'factura_pagos',
+      filters: {'factura_id': facturaId},
     );
+
+    return FacturaDetalle(factura: factura, items: items, pagos: pagos);
   }
 
-  // ---------------------------------------------------------------------
-  // Export / Libro de compras
-  // ---------------------------------------------------------------------
-
-  /// Facturas validadas del mes, con pagos desglosados (porta
-  /// `_exportar_excel`).
   Future<List<LibroComprasRow>> getLibroCompras(
     DateTime fechaInicio,
     DateTime fechaFin, {
     String? tipoDocumento,
   }) async {
-    final q = _db.select(_db.facturas);
-    q.where((t) => t.fechaFactura.isBiggerOrEqualValue(fechaInicio));
-    q.where((t) => t.fechaFactura.isSmallerOrEqualValue(fechaFin));
-    q.where((t) => t.estado.equals('Validada'));
+    final builder = _db.client
+        .from('facturas')
+        .select()
+        .gte('fecha_factura', fechaInicio.toUtc().toIso8601String())
+        .lte('fecha_factura', fechaFin.toUtc().toIso8601String())
+        .eq('estado', 'Validada');
     if (tipoDocumento != null && tipoDocumento.isNotEmpty) {
-      q.where((t) => t.tipoDocumento.equals(tipoDocumento));
+      builder.eq('tipo_documento', tipoDocumento);
     }
-    q.orderBy([(t) => OrderingTerm.asc(t.fechaFactura)]);
+    builder.order('fecha_factura', ascending: true);
 
-    final facturas = await q.get();
+    final facturas = await builder;
     final rows = <LibroComprasRow>[];
 
     for (final f in facturas) {
-      final pagos = await (_db.select(_db.facturaPagos)
-            ..where((t) => t.facturaId.equals(f.id)))
-          .get();
+      final pagos = await _db.fetchAll(
+        'factura_pagos',
+        filters: {'factura_id': f['id'] as int},
+      );
 
       var efectivo = 0.0;
       var transferencia = 0.0;
       var divisasUsd = 0.0;
       double? tasa;
       for (final p in pagos) {
-        switch (p.tipoPago) {
+        switch (p['tipo_pago'] as String?) {
           case 'efectivo':
-            efectivo = p.monto;
+            efectivo = (p['monto'] as num?)?.toDouble() ?? 0;
           case 'transferencia':
-            transferencia = p.monto;
+            transferencia = (p['monto'] as num?)?.toDouble() ?? 0;
           case 'divisas':
-            divisasUsd = p.monto;
-            tasa = p.tasaCambio;
+            divisasUsd = (p['monto'] as num?)?.toDouble() ?? 0;
+            tasa = (p['tasa_cambio'] as num?)?.toDouble();
         }
       }
       rows.add(LibroComprasRow(

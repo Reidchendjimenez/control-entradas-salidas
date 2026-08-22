@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/auth/session_controller.dart';
-import '../../../core/sync/sync_service.dart';
 import '../data/temporales_repository.dart';
 import '../data/validacion_providers.dart';
 import '../data/validacion_repository.dart';
@@ -29,6 +28,18 @@ class _ValidacionScreenState extends ConsumerState<ValidacionScreen> {
   final _searchCtrl = TextEditingController();
   final Set<int> _selected = {};
   String _search = '';
+  Future<List<EntradaPendiente>>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _loadEntradas();
+  }
+
+  Future<List<EntradaPendiente>> _loadEntradas() {
+    final repo = ref.read(validacionRepoProvider)!;
+    return repo.getEntradasPendientes(search: _search);
+  }
 
   @override
   void dispose() {
@@ -68,7 +79,10 @@ class _ValidacionScreenState extends ConsumerState<ValidacionScreen> {
     }
     if (!mounted) return;
 
-    setState(() => _selected.clear());
+    setState(() {
+      _selected.clear();
+      _future = _loadEntradas();
+    });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -103,9 +117,11 @@ class _ValidacionScreenState extends ConsumerState<ValidacionScreen> {
     if (confirmar != true) return;
 
     await repo.eliminarEntrada(entrada);
-    ref.read(syncEngineProvider)?.pushPending();
     if (mounted) {
-      setState(() => _selected.remove(entrada.id));
+      setState(() {
+        _selected.remove(entrada.id);
+        _future = _loadEntradas();
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Entrada eliminada')),
       );
@@ -114,20 +130,20 @@ class _ValidacionScreenState extends ConsumerState<ValidacionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final repo = ref.watch(validacionRepoProvider);
+    final repo = ref.watch(validacionRepoProvider)!;
     final scheme = Theme.of(context).colorScheme;
 
     return Column(
       children: [
         _buildHeader(repo, scheme),
         Expanded(
-          child: StreamBuilder<List<EntradaPendiente>>(
-            stream: repo.watchEntradasPendientes(search: _search),
+          child: FutureBuilder<List<EntradaPendiente>>(
+            future: _future,
             builder: (context, snap) {
-              if (!snap.hasData) {
+              if (snap.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              final entradas = snap.data!;
+              final entradas = snap.data ?? [];
               if (entradas.isEmpty) {
                 return const ValidacionEmptyState();
               }
@@ -156,12 +172,9 @@ class _ValidacionScreenState extends ConsumerState<ValidacionScreen> {
   }
 
   Widget _buildHeader(ValidacionRepository repo, ColorScheme scheme) {
-    return StreamBuilder<List<EntradaPendiente>>(
-      stream: repo.watchEntradasPendientes(),
-      builder: (context, snap) {
-        return Container(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-          child: Row(
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Row(
             children: [
               Expanded(
                 child: TextField(
@@ -179,7 +192,12 @@ class _ValidacionScreenState extends ConsumerState<ValidacionScreen> {
                     filled: true,
                     fillColor: scheme.surfaceContainerHighest,
                   ),
-                  onChanged: (v) => setState(() => _search = v),
+                  onChanged: (v) {
+                    setState(() {
+                      _search = v;
+                      _future = _loadEntradas();
+                    });
+                  },
                 ),
               ),
               const SizedBox(width: 12),
@@ -218,7 +236,5 @@ class _ValidacionScreenState extends ConsumerState<ValidacionScreen> {
             ],
           ),
         );
-      },
-    );
   }
 }

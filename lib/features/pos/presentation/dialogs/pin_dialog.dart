@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/pos_models.dart';
 import '../../data/pos_session.dart';
 
 /// Diálogo de PIN (4 dígitos) para cajeros protegidos. Port de

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/pos_models.dart';
 
 /// Barra superior del POS (port de `MesasView._build_top_bar` / comandas.py):
 /// logo + título a la izquierda; avatar, rol y cerrar sesión a la derecha. El

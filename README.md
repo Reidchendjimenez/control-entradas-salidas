@@ -1,98 +1,179 @@
 # Control de Entradas y Salidas
 
-Sistema de gestión de inventario **Offline-First** con módulo **POS**, desarrollado en **Flutter** (web, Windows y Android). Reemplaza la versión anterior hecha con Flet/Python.
+Sistema de gestion de inventario con modulo **POS**, desarrollado en **Flutter** (web, Windows y Android). Reemplaza la version anterior hecha con Flet/Python.
 
 ---
 
 ## Aplicaciones
 
-| App | Entry point | Descripción | Binarios nativos |
+| App | Entry point | Descripcion | Binarios nativos |
 |---|---|---|---|
-| **Inventario** | `lib/main.dart` | Inventario, stock, producciones, requisiciones, validación de facturas, historial, WhatsApp, configuración | Windows (`LycorisControl.exe`) + Android (APK) |
-| **POS** | `lib/main_pos.dart` | Mesas, habitaciones, comandas, ventas, turnos/cajas, tasa BCV, impresión ESC/POS | Windows (`LycorisPOS.exe`) |
+| **Inventario** | `lib/main.dart` | Inventario, stock, producciones, requisiciones, validacion de facturas, historial, WhatsApp, configuracion | Windows (`LycorisControl.exe`) + Android (APK) |
+| **POS** | `lib/main_pos.dart` | Mesas, habitaciones, comandas, ventas, turnos/cajas, tasa BCV, impresion ESC/POS | Windows (`LycorisPOS.exe`) |
 
-**Arquitectura**: 3 plataformas desde un solo código base — **web** (desarrollo/uso en navegador) y **nativos** (Windows/Android) con actualización remota vía GitHub Releases.
+**Arquitectura**: 3 plataformas desde un solo codigo base — **web** (desarrollo/uso en navegador) y **nativos** (Windows/Android) con actualizacion remota via GitHub Releases.
 
 ---
 
 ## Funcionalidades
 
 ### Inventario (`lib/features/`)
-- **Inventario**: categorías, productos (con stock), movimientos y lista de compra.
+- **Inventario**: categorias, productos (con stock), movimientos y lista de compra.
 - **Stock / Toma de inventario**: conteo y checkpoint por periodos.
 - **Producciones**: recetas, editor de recetas, pendientes e historial.
-- **Requisiciones**: formulario, cards, visualización y auditoría.
-- **Validación de facturas**: validación de entradas con OCR y registro de pagos.
+- **Requisiciones**: formulario, cards, visualizacion y auditoria.
+- **Validacion de facturas**: validacion de entradas con OCR y registro de pagos.
 - **Historial de facturas**: facturas y estados de pago.
-- **Configuración**: categorías, periodos, productos, proveedores y sistema.
-- **WhatsApp**: bandeja de mensajes con cola y envío vía bot.
+- **Configuracion**: categorias, periodos, productos, proveedores y sistema.
+- **WhatsApp**: bandeja de mensajes con cola y envio via bot.
 
 ### POS (`lib/features/pos/`)
 - Login con PIN, mesas, habitaciones, comandas activas, ventas y cierre de turnos/cajas.
-- Tasa del día del **BCV** (proxy con *stale-while-revalidate*).
-- Impresión de tickets **ESC/POS** (impresora térmica).
-- Configuración: categorías, platos, mesas, habitaciones, impresora, tasa, usuarios.
+- Tasa del dia del **BCV** (proxy con *stale-while-revalidate*).
+- Impresion de tickets **ESC/POS** (impresora termica).
+- Configuracion: categorias, platos, mesas, habitaciones, impresora, tasa, usuarios.
 
 ---
 
-## Stack tecnológico
+## Stack tecnologico
 
 | Necesidad | Paquete |
 |---|---|
-| Supabase (auth + Postgres REST + realtime) | `supabase_flutter ^2.8` |
-| SQLite local offline-first | `drift ^2.20` + `sqlite3_flutter_libs` |
+| Supabase (Postgres REST + Realtime) | `supabase_flutter ^2.8` |
 | Estado | `flutter_riverpod ^2.5` |
-| Navegación | `go_router ^14` |
+| Cache local (stale-while-revalidate) | `shared_preferences ^2.2` |
 | Almacenamiento seguro (credenciales/tokens) | `flutter_secure_storage ^9` |
-| Exportación Excel | `excel ^4` |
-| HTTP / conectividad | `http ^1.2` + `connectivity_plus ^6` |
-| Versión de la app (updater) | `package_info_plus ^9` |
+| Exportacion Excel | `excel ^4` |
+| HTTP | `http ^1.2` |
+| Impresion termica (Windows) | `windows_printer ^0.2` |
+| Version de la app (updater) | `package_info_plus ^9` |
 
-Ver `pubspec.yaml` (versión actual: **2.0.0**).
+Ver `pubspec.yaml` (version actual: **2.0.1**).
 
 ---
 
 ## Arquitectura
 
-**Offline-First**: todo escribe a SQLite local (drift) y sincroniza con Supabase en segundo plano. Los cambios de otros dispositivos llegan en tiempo real vía WebSocket.
+**Directo a Supabase**: toda consulta y escritura va directamente a Supabase via REST. No hay base de datos local ni capa de sincronizacion.
 
 ```
 lib/
 ├── main.dart / main_pos.dart        # entry points (inventario / POS)
 ├── core/
-│   ├── auth/                        # login, PIN, sesión
+│   ├── auth/                        # login, PIN, sesion
 │   ├── config/                      # app_config.dart (URL/key Supabase, appId, repo releases)
-│   ├── db/schema/                   # esquema drift + migraciones
-│   ├── network/                     # cliente Supabase, HTTP, conectividad
-│   ├── sync/                        # motor de sincronización bidireccional + barra global
-│   │   └── realtime/                # interfaz abstracta RealtimeSource + implementación Supabase
-│   ├── theme/  state/  logging/  router/
-│   └── updater/                     # actualización remota Windows/Android
+│   ├── data/
+│   │   ├── supabase_service.dart    # servicio CRUD generico
+│   │   ├── supabase_providers.dart  # providers de Supabase, cache, realtime
+│   │   ├── cache_service.dart       # cache local con SharedPreferences + TTL
+│   │   └── realtime_service.dart    # suscripciones Realtime generico
+│   ├── models/                      # modelos de dominio (Producto, Categoria, etc.)
+│   ├── network/                     # cliente Supabase, HTTP
+│   ├── theme/  state/  logging/
+│   └── updater/                     # actualizacion remota Windows/Android
 ├── features/                        # inventario, stock, producciones, requisiciones,
 │                                    # validacion, historial, configuracion, whatsapp, pos
+│   └── <feature>/
+│       ├── data/                    # repository + providers
+│       └── presentation/            # screens, widgets, dialogs
 └── widgets/
 ```
 
-**Datos**:
-- **Local**: SQLite vía drift (`lib/core/db/schema/`), migraciones por `schemaVersion`.
-- **Remoto**: Supabase PostgreSQL — `supabase/schema.sql` (idempotente).
+### Modelo de datos
 
-**Sync** (capa `lib/core/sync/`):
-1. Cola local `sync_queue` (outbox) con inserts/updates/deletes pendientes.
-2. Descarga masiva de las 15 tablas sincronizadas (dedupe por clave natural).
-3. Aplicación de DDL idempotente remota.
-4. Background: timer cada ~20 s; barra de progreso del sync en la UI.
-5. Tablas POS (`pos_*`) se replican localmente y se envían a Supabase por separado.
-6. **Realtime** (WebSocket): suscripciones a Supabase Realtime para visibilidad inmediata entre dispositivos. Cuando el teléfono 1 crea una requisición, el teléfono 2 la ve sin esperar el timer.
+- **Supabase** es la unica fuente de verdad (PostgreSQL).
+- Los repos consultan Supabase directamente via `supabase_flutter`.
+- **Modelos de dominio** en `lib/core/models/` desacoplan la UI de Supabase.
+- Los repos convierten `Map<String, dynamic>` a modelos de dominio.
 
-**Realtime** (capa `lib/core/sync/realtime/`):
-- Interfaz abstracta `RealtimeSource` — permite cambiar el proveedor sin tocar la lógica de sync.
-- Implementación concreta: `SupabaseRealtimeSource` (WebSocket nativo de Supabase).
-- Para migrar a otro backend (servidor propio, Firebase, etc.): implementar `RealtimeSource` y cambiar `realtimeSourceProvider`.
+### Cache local (stale-while-revalidate)
+
+Los catalogos (categorias, productos, proveedores, periodos, settings) se cachean localmente con **SharedPreferences**:
+
+1. Primera carga: consulta Supabase → guarda en cache con timestamp.
+2. Siguientes cargas: sirve desde cache si no expiro (TTL 5 min).
+3. Si expiro: sirve cache stale → refresca en background.
+4. Sin red: muestra datos cacheados (con "ultima actualizacion").
+5. Al escribir (create/update/delete): invalida cache de esa tabla.
+
+**Tablas con cache**: categorias, productos, proveedores, periodos, pos_settings.
+**Tablas sin cache** (Realtime): existencias, movimientos, ventas, comandas, whatsapp_queue.
+
+### Supabase Realtime
+
+Suscripciones WebSocket en tiempo real para sync entre dispositivos:
+
+| Tabla | Ubicacion | Efecto |
+|-------|-----------|--------|
+| `pos_sesiones` | AppShell centralizado | Invalida turno activo |
+| `pos_comandas` | AppShell centralizado | Invalida comandas/mesas |
+| `pos_venta_detalle` | AppShell centralizado | Invalida ventas |
+| `categorias` | AppShell centralizado | Invalida config categorias |
+| `productos` | AppShell centralizado | Invalida config productos |
+| `proveedores` | AppShell centralizado | Invalida config proveedores |
+| `facturas` | AppShell centralizado | Invalida historial facturas |
+| `existencias` | StockScreen interno | Reload automatico |
+| `movimientos` | StockScreen interno | Reload automatico |
+| `whatsapp_queue` | BandejaScreen interno | Refresh automatico |
 
 ---
 
-## Compilación y despliegue
+## Base de datos Supabase
+
+### Tabla requerida: `dispositivo_usuario`
+
+Ejecutar en Supabase SQL Editor el archivo:
+
+```sql
+supabase/migrations/20250101000000_add_dispositivo_usuario.sql
+```
+
+O copiar y pegar:
+
+```sql
+CREATE TABLE IF NOT EXISTS dispositivo_usuario (
+  id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  nombre        TEXT NOT NULL,
+  pin_hash      TEXT NOT NULL,
+  configurado_en TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE dispositivo_usuario ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "dispositivo_usuario_all" ON dispositivo_usuario
+  FOR ALL USING (true) WITH CHECK (true);
+```
+
+### Otras tablas requeridas en Supabase
+
+ Todas las tablas usadas por los repos deben existir en Supabase:
+
+| Tabla | Usada por |
+|-------|-----------|
+| `categorias` | Inventario, Stock, Configuracion |
+| `productos` | Inventario, Stock, Configuracion, Producciones |
+| `existencias` | Stock, Configuracion |
+| `movimientos` | Stock, Historial |
+| `proveedores` | Configuracion, Validacion |
+| `facturas` | Historial, Validacion |
+| `periodos` | Configuracion |
+| `requisiciones` | Requisiciones |
+| `pos_settings` | Configuracion, POS |
+| `dispositivo_usuario` | Auth (login PIN) |
+| `pos_sesiones` | POS (turnos/cajas) |
+| `pos_mesas` | POS |
+| `pos_habitaciones` | POS |
+| `pos_platos` | POS |
+| `pos_usuarios` | POS |
+| `pos_comandas` | POS |
+| `pos_venta_detalle` | POS |
+| `whatsapp_queue` | WhatsApp |
+
+Ver `supabase/schema.sql` para el esquema completo (idempotente).
+
+---
+
+## Compilacion y despliegue
 
 ### Web (desarrollo)
 
@@ -109,13 +190,11 @@ cp web_pos/index.html build/pos/index.html
 python3 tool/server.py 8502 build/pos
 ```
 
-`tool/server.py` además expone `/proxy-bcv` (tasa del BCV con caché y *stale-while-revalidate*) y recibe los logs de Flutter web (`POST /log`).
-
-> **Importante**: los builds web requieren `sqlite3.wasm` y `drift_worker.js` del motor SQLite de drift en el output (`web/` para inventario, `web_pos/` para POS). Copiarlos al build si no se generan automáticamente.
+`tool/server.py` expone `/proxy-bcv` (tasa del BCV con cache y *stale-while-revalidate*) y recibe los logs de Flutter web (`POST /log`).
 
 ### Nativos (CI / GitHub Actions)
 
-Flutter no puede compilar Windows desde Linux, así que los binarios nativos se generan en **CI** con `.github/workflows/release.yml`:
+Flutter no puede compilar Windows desde Linux, asi que los binarios nativos se generan en **CI** con `.github/workflows/release.yml`:
 
 | Job | Producto | Assets publicados en la release |
 |---|---|---|
@@ -124,23 +203,23 @@ Flutter no puede compilar Windows desde Linux, así que los binarios nativos se 
 | `android` | APK inventario (icono normal) | `app-inventario-android.apk` |
 | `release` | Publica la release `vX.Y.Z` | — |
 
-**Cómo generar una release**:
+**Como generar una release**:
 1. Push a `main`.
-2. Agregar los secrets `SUPABASE_URL` y `SUPABASE_ANON_KEY` en *Settings → Secrets and variables → Actions* (sin ellos se usan los fallback compilados).
-3. *Actions → "Build & Release nativa" → Run workflow* con la versión deseada (ej. `2.0.0`).
-4. Descargar los binarios desde la página de la release; las apps nativas detectan la actualización al arrancar.
+2. Agregar los secrets `SUPABASE_URL` y `SUPABASE_ANON_KEY` en *Settings → Secrets and variables → Actions*.
+3. *Actions → "Build & Release nativa" → Run workflow* con la version deseada (ej. `2.0.1`).
+4. Descargar los binarios desde la pagina de la release.
 
-> El workflow también dispara con un tag `v*` pusheado.
+> El workflow tambien dispara con un tag `v*` pusheado.
 
 ---
 
-## Configuración (dart-define)
+## Configuracion (dart-define)
 
-| Define | Default | Descripción |
+| Define | Default | Descripcion |
 |---|---|---|
 | `SUPABASE_URL` / `SUPABASE_ANON_KEY` | constantes compiladas | Credenciales de Supabase |
 | `APP_ID` | `inventario` | `pos` o `inventario` — define icono, binario y asset del updater |
-| `APP_LABEL` | según `APP_ID` | Nombre mostrado en diálogos y títulos |
+| `APP_LABEL` | segun `APP_ID` | Nombre mostrado en dialogos y titulos |
 | `UPDATE_REPO` | `reidchend/control-entradas-salidas` | Repo de releases para el updater |
 
 ---
@@ -151,10 +230,53 @@ Flutter no puede compilar Windows desde Linux, así que los binarios nativos se 
 flutter test
 ```
 
+Tests actuales (29):
+- Modelos de dominio: Producto, Categoria, Existencia, Movimiento, MensajeWhatsapp
+- TemporalesRepository (in-memory)
+- CacheService (SharedPreferences)
+- POS: login, catalogo, comanda, ventas, tasa BCV, ticket ESC/POS
+- Widget: AppShell boots
+
 ---
 
-## Documentación
+## Cambios recientes (migracion Drift → Supabase)
 
-- `docs/PLAN_MIGRACION_FLUTTER.md` — plan completo de la migración Flet → Flutter y fases implementadas.
-- `lib/` — código organizado por feature (core, features/…), siguiendo la estructura modular de `AGENTS.md`.
+### Fase 0 — Modelos de dominio (12+ archivos)
+`lib/core/models/` — modelos puros sin dependencia de Drift.
+
+### Fase 1 — Servicio base Supabase
+`supabase_service.dart` + `supabase_providers.dart`.
+
+### Fase 2 — Repositorios migrados (10 features)
+Configuracion, Inventario, Requisiciones, Validacion, Historial, Producciones, POS (repo + ventas), Stock, WhatsApp, Temporales.
+
+### Fase 3 — Limpieza Drift
+- Eliminado `lib/core/db/` completo (database_provider, schema, app_database).
+- Eliminado `lib/core/sync/` completo (sync_engine, sync_service, sync_status, global_sync_bar).
+- Eliminado dependencias: `drift`, `drift_flutter`, `sqlite3_flutter_libs`, `drift_dev`, `build_runner`, `go_router`, `connectivity_plus`.
+- Tests huérfanos eliminados.
+- Providers migrados a `Provider<Repo?>` (nullable para Supabase no configurado).
+- Login screen con error handling (try/catch + mensajes amigables).
+
+### Fase 4 — Supabase Realtime
+- `realtime_service.dart` — servicio generico de suscripciones.
+- `realtime_providers.dart` — bindings POS + admin centralizados.
+- Suscripciones internas en StockScreen y BandejaScreen.
+
+### Fase 5 — Cache local
+- `cache_service.dart` — SharedPreferences + TTL + stale-while-revalidate.
+- Integrado en `configuracion_repository.dart` (categorias, productos, proveedores, periodos, settings).
+- Invalidacion automatica en writes.
+
+### Fase 6 — Seguridad null
+- Todos los repos aceptan `SupabaseService?` y retornan vacio si es null.
+- Todos los providers retornan `Provider<Repo?>`.
+- `supabase_guard.dart` — helper para UI.
+
+---
+
+## Documentacion
+
+- `lib/` — codigo organizado por feature (core, features/...), siguiendo la estructura modular de `AGENTS.md`.
 - `supabase/schema.sql` — esquema remoto (idempotente).
+- `supabase/migrations/` — migraciones SQL.

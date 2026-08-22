@@ -2,13 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/models/requisicion.dart';
 import '../../../../core/utils/web_utils.dart';
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/widgets/error_display.dart';
 import '../../data/requisiciones_providers.dart';
 
-/// Vista de detalle de una requisición (porta `visualize_view.py`).
-/// Muestra cabecera con compartir/copiar, info de origen/destino y la
-/// lista de detalles de productos.
 class VisualizarView extends ConsumerStatefulWidget {
   const VisualizarView({
     super.key,
@@ -16,7 +14,7 @@ class VisualizarView extends ConsumerStatefulWidget {
     required this.onBack,
   });
 
-  final Requisicione req;
+  final Requisicion req;
   final VoidCallback onBack;
 
   @override
@@ -26,6 +24,7 @@ class VisualizarView extends ConsumerStatefulWidget {
 class _VisualizarViewState extends ConsumerState<VisualizarView> {
   List<RequisicionDetalle> _detalles = [];
   bool _cargando = true;
+  String? _error;
 
   @override
   void initState() {
@@ -34,13 +33,29 @@ class _VisualizarViewState extends ConsumerState<VisualizarView> {
   }
 
   Future<void> _cargar() async {
-    final repo = ref.read(requisicionesRepoProvider);
-    final detalles = await repo.getDetalles(widget.req.id);
-    if (mounted) {
-      setState(() {
-        _detalles = detalles;
-        _cargando = false;
-      });
+    setState(() {
+      _cargando = true;
+      _error = null;
+    });
+    try {
+      final repo = ref.read(requisicionesRepoProvider);
+      if (repo == null) {
+        throw Exception('Supabase no configurado. Verifica la conexion.');
+      }
+      final detalles = await repo.getDetalles(widget.req.id);
+      if (mounted) {
+        setState(() {
+          _detalles = detalles;
+          _cargando = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _cargando = false;
+        });
+      }
     }
   }
 
@@ -106,7 +121,17 @@ class _VisualizarViewState extends ConsumerState<VisualizarView> {
         Expanded(
           child: _cargando
               ? const Center(child: CircularProgressIndicator())
-              : ListView.builder(
+              : _error != null
+                  ? ErrorDisplay(
+                      error: Exception(_error),
+                      onRetry: _cargar,
+                    )
+                  : _detalles.isEmpty
+                      ? Center(
+                          child: Text('Sin detalles',
+                              style: TextStyle(color: scheme.outline)),
+                        )
+                      : ListView.builder(
                   padding: const EdgeInsets.all(16),
                   itemCount: _detalles.length,
                   itemBuilder: (context, i) {

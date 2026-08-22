@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/sync/global_sync_bar.dart';
 import '../../../core/updater/update_settings_card.dart';
 import '../data/pos_session.dart';
 import 'widgets/config_categorias_tab.dart';
@@ -40,7 +39,6 @@ class ConfigScreen extends StatelessWidget {
               onBack: onBack,
               onLogout: onLogout,
             ),
-            const GlobalSyncBar(),
             const TabBar(
               isScrollable: true,
               tabAlignment: TabAlignment.start,

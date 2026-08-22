@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/db/schema/app_database.dart';
 import '../data/historial_providers.dart';
 import 'dialogs/factura_detalle_dialog.dart';
 import 'widgets/factura_card.dart';
@@ -44,16 +43,17 @@ class _FacturasTabState extends ConsumerState<FacturasTab> {
               final filtradas = facturas.where((f) {
                 if (_search.isNotEmpty) {
                   final term = _search.toLowerCase();
-                  final num = (f.numeroFactura ?? '').toLowerCase();
-                  final prov = (f.proveedor ?? '').toLowerCase();
+                  final num = (f['numero_factura'] as String? ?? '').toLowerCase();
+                  final prov = (f['proveedor'] as String? ?? '').toLowerCase();
                   if (!num.contains(term) && !prov.contains(term)) return false;
                 }
-                if (_fechaInicio != null && (f.fechaFactura ?? DateTime(2000)).isBefore(_fechaInicio!)) {
+                final ff = DateTime.tryParse(f['fecha_factura']?.toString() ?? '');
+                if (_fechaInicio != null && ff != null && ff.isBefore(_fechaInicio!)) {
                   return false;
                 }
                 if (_fechaFin != null) {
                   final fin = _fechaFin!.add(const Duration(days: 1));
-                  if (!(f.fechaFactura ?? DateTime(2100)).isBefore(fin)) return false;
+                  if (ff == null || !ff.isBefore(fin)) return false;
                 }
                 return true;
               }).toList();
@@ -197,7 +197,7 @@ class _FacturasTabState extends ConsumerState<FacturasTab> {
     return '${p(d.day)}/${p(d.month)}/${d.year}';
   }
 
-  void _abrirDetalle(Factura f) {
-    showFacturaDetalleDialog(context, f.id);
+  void _abrirDetalle(Map<String, dynamic> f) {
+    showFacturaDetalleDialog(context, f['id'] as int);
   }
 }

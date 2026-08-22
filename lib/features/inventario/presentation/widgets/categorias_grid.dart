@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/categoria.dart';
 import '../../data/inventario_repository.dart';
 import 'categoria_card.dart';
 
-/// GridView de categorías estilo Flet (`categorias_grid = ft.GridView(
-/// expand=True, runs_count=5, max_extent=120, child_aspect_ratio=0.8, ...)`).
-/// A pantalla completa; al hacer click en una categoría se navega a sus
-/// productos (manejado por la pantalla vía `onSelect`).
+/// GridView de categorías estilo Flet.
+/// Al hacer click en una categoría se navega a sus productos (manejado por la pantalla vía `onSelect`).
 class CategoriasGrid extends ConsumerWidget {
   const CategoriasGrid({
     super.key,
@@ -23,8 +21,8 @@ class CategoriasGrid extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return StreamBuilder<List<Categoria>>(
-      stream: repo.watchCategorias(),
+    return FutureBuilder<List<Categoria>>(
+      future: repo.getAllCategorias(),
       builder: (context, snap) {
         var cats = snap.data ?? [];
         if (cats.isEmpty) {

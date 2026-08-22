@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/db/schema/app_database.dart';
 import '../../data/requisiciones_repository.dart';
 
 const String _todosAlmacenes = 'TODOS';
@@ -20,8 +19,6 @@ const Map<String, (String, Color)> _tipoLabels = {
 
 const Set<String> _tiposSalida = {'salida', 'salida_produccion', 'venta'};
 
-/// Diálogo de historial de movimientos de un producto en auditoría (porta
-/// `_show_movimientos_historial` de audit_view.py).
 Future<void> showHistorialAuditoria(
   BuildContext context, {
   required RequisicionesRepository repo,
@@ -38,7 +35,9 @@ Future<void> showHistorialAuditoria(
     return;
   }
 
-  final almacenes = (movs.map((m) => m.almacen).whereType<String>().toSet()).toList()..sort();
+  final almacenes =
+      movs.map((m) => m['almacen'] as String?).whereType<String>().toSet().toList()
+        ..sort();
   String seleccion;
   String titulo;
   if (almacenes.length > 1) {
@@ -57,10 +56,12 @@ Future<void> showHistorialAuditoria(
 
   final filtrados = seleccion == _todosAlmacenes
       ? movs
-      : movs.where((m) => m.almacen == seleccion).toList();
-  filtrados.sort(
-      (a, b) => (b.fechaMovimiento ?? DateTime(0))
-          .compareTo(a.fechaMovimiento ?? DateTime(0)));
+      : movs.where((m) => m['almacen'] == seleccion).toList();
+  filtrados.sort((a, b) {
+    final da = DateTime.tryParse(a['fecha_movimiento']?.toString() ?? '') ?? DateTime(0);
+    final db = DateTime.tryParse(b['fecha_movimiento']?.toString() ?? '') ?? DateTime(0);
+    return db.compareTo(da);
+  });
 
   if (!context.mounted) return;
   await showDialog<void>(
@@ -113,7 +114,7 @@ Future<String?> _preguntarAlmacen(
 class _MovimientoCard extends StatelessWidget {
   const _MovimientoCard({required this.m, required this.esPesable});
 
-  final Movimiento m;
+  final Map<String, dynamic> m;
   final bool esPesable;
 
   String _fmt(DateTime? d) {
@@ -125,23 +126,32 @@ class _MovimientoCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final tipo = (m['tipo'] as String?) ?? '';
     final (label, color) =
-        _tipoLabels[m.tipo] ?? (m.tipo.isEmpty ? '?' : m.tipo, scheme.outline);
+        _tipoLabels[tipo] ?? (tipo.isEmpty ? '?' : tipo, scheme.outline);
+    final fecha = DateTime.tryParse(m['fecha_movimiento']?.toString() ?? '');
+    final cantidad = (m['cantidad'] as num?)?.toDouble() ?? 0;
+    final pesoTotal = (m['peso_total'] as num?)?.toDouble() ?? 0;
+    final cantAnterior = (m['cantidad_anterior'] as num?)?.toDouble() ?? 0;
+    final cantNueva = (m['cantidad_nueva'] as num?)?.toDouble() ?? 0;
+    final registradoPor = m['registrado_por'] as String?;
+    final almacen = m['almacen'] as String?;
+    final observaciones = m['observaciones'] as String?;
 
-    var cantMedio = m.cantidad;
+    var cantMedio = cantidad;
     var unidadMedio = '';
-    if (esPesable && m.tipo != 'ajuste' && m.pesoTotal > 0) {
-      cantMedio = m.pesoTotal;
+    if (esPesable && tipo != 'ajuste' && pesoTotal > 0) {
+      cantMedio = pesoTotal;
       unidadMedio = 'kg';
     }
-    if (_tiposSalida.contains(m.tipo)) {
+    if (_tiposSalida.contains(tipo)) {
       cantMedio = -cantMedio.abs();
     }
 
     final sign = cantMedio >= 0 ? '+' : '';
     final signColor = cantMedio >= 0 ? Colors.green : scheme.error;
-    final infoParts = [m.registradoPor ?? '?', if (m.almacen != null) m.almacen!];
-    final obs = (m.observaciones ?? '').trim();
+    final infoParts = [registradoPor ?? '?', if (almacen != null) almacen];
+    final obs = (observaciones ?? '').trim();
 
     return Container(
       padding: const EdgeInsets.all(8),
@@ -155,7 +165,7 @@ class _MovimientoCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(_fmt(m.fechaMovimiento),
+              Text(_fmt(fecha),
                   style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
               const SizedBox(width: 6),
               Container(
@@ -193,7 +203,7 @@ class _MovimientoCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    m.cantidadAnterior.toStringAsFixed(1),
+                    cantAnterior.toStringAsFixed(1),
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
                   ),
@@ -212,7 +222,7 @@ class _MovimientoCard extends StatelessWidget {
                     style: TextStyle(fontSize: 10, color: scheme.onSurfaceVariant)),
                 Expanded(
                   child: Text(
-                    m.cantidadNueva.toStringAsFixed(1),
+                    cantNueva.toStringAsFixed(1),
                     textAlign: TextAlign.center,
                     style: TextStyle(
                         fontSize: 12, fontWeight: FontWeight.bold, color: scheme.onSurface),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/db/schema/app_database.dart';
+import '../../../core/models/categoria.dart';
 import '../data/inventario_providers.dart';
 import '../data/inventario_repository.dart';
 import 'widgets/categorias_grid.dart';
@@ -40,7 +40,7 @@ class _InventarioScreenState extends ConsumerState<InventarioScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final repo = ref.watch(inventarioRepoProvider);
+    final repo = ref.watch(inventarioRepoProvider)!;
     final colors = Theme.of(context).colorScheme;
 
     final Widget cuerpo = _vistaListaCompra
@@ -74,32 +74,14 @@ class _InventarioScreenState extends ConsumerState<InventarioScreen> {
     );
   }
 
-  /// F1 enfoca el buscador; flechas/Enter navegan los productos dentro de una categoría.
+  /// F1 enfoca el buscador.
   KeyEventResult _onScreenKey(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final lk = event.logicalKey;
 
-    if (_categoria != null && !_vistaListaCompra) {
-      if (lk == LogicalKeyboardKey.f1) {
-        _searchFocus.requestFocus();
-        return KeyEventResult.handled;
-      }
-      final panel = _productosKey.currentState;
-      if (panel != null) {
-        if (lk == LogicalKeyboardKey.arrowDown) {
-          panel.navegarSeleccion(1);
-          return KeyEventResult.handled;
-        }
-        if (lk == LogicalKeyboardKey.arrowUp) {
-          panel.navegarSeleccion(-1);
-          return KeyEventResult.handled;
-        }
-        if (lk == LogicalKeyboardKey.enter ||
-            lk == LogicalKeyboardKey.numpadEnter) {
-          panel.abrirSeleccion();
-          return KeyEventResult.handled;
-        }
-      }
+    if (lk == LogicalKeyboardKey.f1) {
+      _searchFocus.requestFocus();
+      return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
   }

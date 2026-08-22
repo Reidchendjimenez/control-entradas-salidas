@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/pos_models.dart';
 import '../../data/pos_providers.dart';
 import '../dialogs/nuevo_cajero_dialog.dart';
 
@@ -26,7 +26,7 @@ class _ConfigUsuariosTabState extends ConsumerState<ConfigUsuariosTab> {
 
   Future<void> _cargar() async {
     final usuarios =
-        await ref.read(posRepoProvider).getUsuarios(soloActivos: false);
+        await ref.read(posRepoProvider)!.getUsuarios(soloActivos: false);
     if (!mounted) return;
     setState(() {
       _usuarios = usuarios;
@@ -35,7 +35,7 @@ class _ConfigUsuariosTabState extends ConsumerState<ConfigUsuariosTab> {
   }
 
   Future<void> _toggleActivo(PosUsuario u, bool activo) async {
-    await ref.read(posRepoProvider).actualizarUsuario(u.id, activo: activo);
+    await ref.read(posRepoProvider)!.actualizarUsuario(u.id, activo: activo);
     ref.invalidate(usuariosProvider);
     await _cargar();
   }

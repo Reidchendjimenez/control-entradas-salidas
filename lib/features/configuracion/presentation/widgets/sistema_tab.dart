@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/state/theme_controller.dart';
-import '../../../../core/sync/sync_service.dart';
 import '../../../../core/updater/update_settings_card.dart';
 import '../../../../core/utils/web_utils.dart';
 import '../../data/configuracion_providers.dart'
@@ -127,28 +126,9 @@ class _SistemaTabState extends ConsumerState<SistemaTab> {
           icon: Icons.wifi_off,
           iconBg: scheme.errorContainer,
           children: [
-            Row(
-              children: [
-                Text('Estado:', style: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant)),
-                const SizedBox(width: 12),
-                Consumer(
-                  builder: (context, ref, _) {
-                    final sync = ref.watch(syncEngineProvider);
-                    final offline = sync?.isOffline == true;
-                    return Chip(
-                      label: Text(offline ? 'FORZADO OFFLINE' : 'ONLINE'),
-                      backgroundColor: offline ? scheme.errorContainer : scheme.primaryContainer,
-                      labelStyle: TextStyle(color: offline ? scheme.onErrorContainer : scheme.onPrimaryContainer),
-                    );
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            FilledButton.icon(
-              icon: const Icon(Icons.wifi_off),
-              label: const Text('Cambiar Modo'),
-              onPressed: _toggleOfflineMode,
+            const Text(
+              'La aplicación funciona directamente con Supabase. Sin conexión no habrá acceso a datos.',
+              style: TextStyle(fontSize: 13),
             ),
           ],
         ),
@@ -278,7 +258,7 @@ class _SistemaTabState extends ConsumerState<SistemaTab> {
   Future<void> _probarConexionLocal() async {
     setState(() => _testing = true);
     try {
-      final repo = ref.read(configuracionRepoProvider);
+      final repo = ref.read(configuracionRepoProvider)!;
       final ok = await repo.testLocalConnection();
       setState(() {
         _testResult = ok ? 'Conexión exitosa - Base de datos operativa' : 'Error de conexión';
@@ -301,17 +281,10 @@ class _SistemaTabState extends ConsumerState<SistemaTab> {
       _testResultColor = Colors.orange;
     });
     try {
-      final sync = ref.read(syncEngineProvider);
-      if (sync == null) {
-        setState(() {
-          _testResult = 'SyncEngine no disponible';
-          _testResultColor = Colors.red;
-        });
-        return;
-      }
-      final ok = await sync.fullSync();
+      final repo = ref.read(configuracionRepoProvider)!;
+      final ok = await repo.testLocalConnection();
       setState(() {
-        _testResult = ok ? 'Sincronización completa - Supabase verificado' : 'Error en sincronización';
+        _testResult = ok ? 'Conexión exitosa - Supabase verificado' : 'Error de conexión con Supabase';
         _testResultColor = ok ? Colors.green : Colors.red;
       });
     } catch (e) {
@@ -333,31 +306,21 @@ class _SistemaTabState extends ConsumerState<SistemaTab> {
     // TODO: Implementar requestPermission para FCM/web push
   }
 
-  Future<void> _toggleOfflineMode() async {
-    final sync = ref.read(syncEngineProvider);
-    if (sync != null) {
-      sync.setOfflineMode(!sync.isOffline);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(sync.isOffline ? 'Modo offline forzado' : 'Conexión normal restaurada')),
-      );
-    }
-  }
-
   Future<void> _setPermitirStockNegativo(bool v) async {
-    final repo = ref.read(configuracionRepoProvider);
+    final repo = ref.read(configuracionRepoProvider)!;
     await repo.setPermitirStockNegativo(v);
     ref.invalidate(permitirStockNegativoProvider);
   }
 
   Future<void> _setAlmacenProduccion(String almacen) async {
-    final repo = ref.read(configuracionRepoProvider);
+    final repo = ref.read(configuracionRepoProvider)!;
     await repo.setAlmacenProduccionDefault(almacen);
     ref.invalidate(almacenProduccionDefaultProvider);
   }
 
   Future<void> _cambiarOperador() async {
     final user = await ref.read(usuarioDispositivoProvider.future);
-    final repo = ref.read(configuracionRepoProvider);
+    final repo = ref.read(configuracionRepoProvider)!;
 
     if (user != null && user['pinHash'] != null) {
       final pin = await _showPinDialog(context, 'Verificar PIN actual');

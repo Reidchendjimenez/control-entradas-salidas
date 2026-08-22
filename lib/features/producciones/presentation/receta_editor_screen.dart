@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/db/schema/app_database.dart';
-import '../../../core/sync/sync_service.dart';
+import '../../../core/models/producto.dart';
+import '../../../core/models/receta.dart';
 import '../data/producciones_providers.dart';
 import '../data/producciones_repository.dart';
 
@@ -73,7 +73,7 @@ class _RecetaEditorScreenState extends ConsumerState<RecetaEditorScreen> {
   }
 
   Future<void> _cargarInicial() async {
-    final repo = ref.read(produccionesRepoProvider);
+    final repo = ref.read(produccionesRepoProvider)!;
     final stock = await repo.stockTotalPorProducto();
     if (!mounted) return;
     setState(() => _stock = stock);
@@ -217,7 +217,7 @@ class _RecetaEditorScreenState extends ConsumerState<RecetaEditorScreen> {
     ];
 
     try {
-      await ref.read(produccionesRepoProvider).saveReceta(
+      await ref.read(produccionesRepoProvider)!.saveReceta(
             nombre: nombre,
             tipo: _tipo,
             cantidadProducida: cantidad,
@@ -225,9 +225,8 @@ class _RecetaEditorScreenState extends ConsumerState<RecetaEditorScreen> {
             productoFinalId: _esSimple ? null : _finalProducto?.id,
             componentes: componentes,
             recetaId: _editando ? widget.receta!.id : null,
-            activo: _editando ? widget.receta!.activo : 1,
+            activo: _editando ? (widget.receta!.activo ? 1 : 0) : 1,
           );
-      ref.read(syncEngineProvider)?.pushPending();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Receta guardada correctamente')),

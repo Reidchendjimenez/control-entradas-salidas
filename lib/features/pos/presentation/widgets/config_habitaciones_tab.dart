@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/pos_models.dart';
 import '../../data/pos_providers.dart';
 import '../dialogs/habitacion_config_dialog.dart';
 
@@ -17,7 +17,7 @@ class ConfigHabitacionesTab extends ConsumerStatefulWidget {
 
 class _ConfigHabitacionesTabState
     extends ConsumerState<ConfigHabitacionesTab> {
-  List<PosHabitacione> _habs = [];
+  List<PosHabitacion> _habs = [];
   bool _cargando = true;
 
   @override
@@ -27,7 +27,7 @@ class _ConfigHabitacionesTabState
   }
 
   Future<void> _cargar() async {
-    final habs = await ref.read(posRepoProvider).getHabitaciones();
+    final habs = await ref.read(posRepoProvider)!.getHabitaciones();
     if (!mounted) return;
     setState(() {
       _habs = habs;
@@ -42,14 +42,14 @@ class _ConfigHabitacionesTabState
     }
   }
 
-  Future<void> _editarHabitacion(PosHabitacione h) async {
+  Future<void> _editarHabitacion(PosHabitacion h) async {
     if (await showHabitacionConfigDialog(context, habitacion: h)) {
       ref.invalidate(habitacionesProvider);
       await _cargar();
     }
   }
 
-  Future<void> _eliminarHabitacion(PosHabitacione h) async {
+  Future<void> _eliminarHabitacion(PosHabitacion h) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -69,7 +69,7 @@ class _ConfigHabitacionesTabState
       ),
     );
     if (ok != true || !mounted) return;
-    await ref.read(posRepoProvider).eliminarHabitacion(h.id);
+    await ref.read(posRepoProvider)!.eliminarHabitacion(h.id);
     ref.invalidate(habitacionesProvider);
     await _cargar();
   }
@@ -123,7 +123,7 @@ class _HabitacionConfigCard extends StatelessWidget {
     required this.onDelete,
   });
 
-  final PosHabitacione habitacion;
+  final PosHabitacion habitacion;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 

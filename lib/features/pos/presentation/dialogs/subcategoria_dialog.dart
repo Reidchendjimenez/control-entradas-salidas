@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/categoria.dart';
+import '../../../../core/models/pos_models.dart';
 import '../../data/pos_providers.dart';
 
 /// Alta/edición de sub-categoría (platos_categorias) con padre opcional
@@ -9,7 +10,7 @@ import '../../data/pos_providers.dart';
 /// Port de `ConfigPOSView._show_subcategoria_dialog` / `_show_subcat_edit_dialog`.
 /// Retorna `true` si se guardó.
 Future<bool> showSubcategoriaDialog(BuildContext context,
-    {PlatosCategoria? subcategoria}) async {
+    {PosPlatoCategoria? subcategoria}) async {
   final ok = await showDialog<bool>(
     context: context,
     builder: (_) => _SubcategoriaDialog(subcategoria: subcategoria),
@@ -20,7 +21,7 @@ Future<bool> showSubcategoriaDialog(BuildContext context,
 class _SubcategoriaDialog extends ConsumerStatefulWidget {
   const _SubcategoriaDialog({this.subcategoria});
 
-  final PlatosCategoria? subcategoria;
+  final PosPlatoCategoria? subcategoria;
 
   @override
   ConsumerState<_SubcategoriaDialog> createState() =>
@@ -69,7 +70,7 @@ class _SubcategoriaDialogState extends ConsumerState<_SubcategoriaDialog> {
   }
 
   Future<void> _cargarPadres() async {
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     final inv = await repo.getCategoriasPos();
     final pos = await repo.getPosCategorias();
     if (!mounted) return;
@@ -103,7 +104,7 @@ class _SubcategoriaDialogState extends ConsumerState<_SubcategoriaDialog> {
       posPadreId = int.tryParse(padre.substring(4));
     }
     setState(() => _guardando = true);
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     try {
       await repo.guardarPlatoCategoria(
         nombre,

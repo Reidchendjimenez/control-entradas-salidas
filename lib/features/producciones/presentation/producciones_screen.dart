@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/db/schema/app_database.dart';
+import '../../../core/models/receta.dart';
 import '../data/producciones_providers.dart';
 import 'historial_tab.dart';
 import 'pendientes_tab.dart';
@@ -39,7 +39,7 @@ class _ProduccionesScreenState extends ConsumerState<ProduccionesScreen>
     super.dispose();
   }
 
-  void _abrirEditor([Receta? receta]) {
+  void _abrirEditor(Receta? receta) {
     setState(() {
       _editorAbierto = true;
       _recetaEditando = receta;
@@ -113,7 +113,7 @@ class _ProduccionesScreenState extends ConsumerState<ProduccionesScreen>
           FilledButton.icon(
             icon: const Icon(Icons.add, size: 18),
             label: const Text('+ Nueva Receta'),
-            onPressed: () => _abrirEditor(),
+            onPressed: () => _abrirEditor(null),
           ),
           const SizedBox(width: 8),
         ],

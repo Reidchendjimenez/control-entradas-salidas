@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/producto.dart';
 
 /// Diálogo de ajuste de conteo físico (porta `build_ajuste_dialog`).
 /// Devuelve `(nuevaCantidad, motivo)` o `null` si se cancela.
@@ -10,7 +10,7 @@ Future<(double, String)?> showAjusteDialog(
   required String almacen,
   required double cantidadActual,
 }) async {
-  final esPesable = producto.esPesable == 1;
+  final esPesable = producto.esPesable;
   final cantCtrl = TextEditingController(
     text: esPesable
         ? cantidadActual.toStringAsFixed(2)

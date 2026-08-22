@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/receta.dart';
 
 /// Card de receta con badges de tipo/componentes/cantidad (porta
 /// `_build_card` de `recetas_view.py`).

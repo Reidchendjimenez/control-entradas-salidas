@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/mensaje_whatsapp.dart';
 
 /// Card individual de mensaje en la bandeja — porta `_build_card` +
 /// `_estado_icon`/`_estado_text` de `whatsapp_bandeja_view.py`.
@@ -12,7 +12,7 @@ class MensajeCard extends StatelessWidget {
     required this.onDelete,
   });
 
-  final WhatsappQueueData msg;
+  final MensajeWhatsapp msg;
   final VoidCallback onRetry;
   final VoidCallback onDelete;
 

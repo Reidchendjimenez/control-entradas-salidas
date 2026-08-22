@@ -1,23 +1,20 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
-import '../../data/requisiciones_providers.dart';
+import '../../../../core/models/requisicion.dart';
 
-/// Tarjeta de requisición en la lista (porta `build_requisicion_card`).
-/// Icono, número, origen→destino, badge de estado, items y acciones
-/// según el estado de la requisición.
-class RequisicionCard extends ConsumerWidget {
+class RequisicionCard extends StatelessWidget {
   const RequisicionCard({
     super.key,
     required this.req,
+    this.itemCount = 0,
     required this.onVisualizar,
     required this.onEditar,
     required this.onAuditar,
     required this.onEliminar,
   });
 
-  final Requisicione req;
+  final Requisicion req;
+  final int itemCount;
   final VoidCallback onVisualizar;
   final VoidCallback onEditar;
   final VoidCallback onAuditar;
@@ -43,9 +40,8 @@ class RequisicionCard extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final repo = ref.watch(requisicionesRepoProvider);
     final esPendiente = req.estado == 'pendiente';
     final estadoColor = _estadoColor(scheme);
 
@@ -116,13 +112,10 @@ class RequisicionCard extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    FutureBuilder<int>(
-                      future: repo.contarDetalles(req.id),
-                      builder: (context, snap) => Text(
-                        '${snap.data ?? 0} items',
-                        style: TextStyle(
-                            fontSize: 11, color: scheme.onSurfaceVariant),
-                      ),
+                    Text(
+                      '$itemCount items',
+                      style: TextStyle(
+                          fontSize: 11, color: scheme.onSurfaceVariant),
                     ),
                   ],
                 ),

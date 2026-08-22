@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/auth/session_controller.dart';
-import '../../../core/db/database_provider.dart';
+import '../../../core/data/supabase_providers.dart';
+import '../../../core/data/supabase_service.dart';
 import '../../../core/updater/auto_update_checker.dart';
 
 /// Pantalla de login / registro (porta `usr/views/login_view.py`).
@@ -28,11 +30,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  // Determina si hay operador registrado → modo login o registro.
+  // Determina si hay operador registrado -> modo login o registro.
   Future<bool> _hayOperador() async {
-    final db = ref.read(appDatabaseProvider);
-    final u = await db.select(db.dispositivoUsuario).getSingleOrNull();
-    return u != null;
+    try {
+      final db = ref.read(supabaseServiceProvider);
+      if (db == null) return false;
+      final rows = await db.client
+          .from('dispositivo_usuario')
+          .select('id')
+          .limit(1);
+      return rows.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> _submit() async {
@@ -47,31 +57,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (!hayOperador) {
         // Registro
         if (_nombreCtrl.text.trim().isEmpty) {
-          _error = 'Ingresa el nombre del operador';
+          setState(() => _error = 'Ingresa el nombre del operador');
           return;
         }
         if (_pinCtrl.text.length != 4) {
-          _error = 'El PIN debe tener 4 dígitos';
+          setState(() => _error = 'El PIN debe tener 4 digitos');
           return;
         }
         if (_pinCtrl.text != _confirmCtrl.text) {
-          _error = 'Los PIN no coinciden';
+          setState(() => _error = 'Los PIN no coinciden');
           return;
         }
         ok = await session.registrarOperador(
           nombre: _nombreCtrl.text.trim(),
           pin: _pinCtrl.text,
         );
-        if (!ok) _error = 'No se pudo registrar el operador';
+        if (!ok) {
+          setState(() => _error = 'No se pudo registrar. Verifica la conexion a Supabase.');
+        }
       } else {
         // Login
         if (_pinCtrl.text.length != 4) {
-          _error = 'El PIN debe tener 4 dígitos';
+          setState(() => _error = 'El PIN debe tener 4 digitos');
           return;
         }
         ok = await session.verificarPin(_pinCtrl.text);
-        if (!ok) _error = 'PIN incorrecto';
+        if (!ok) setState(() => _error = 'PIN incorrecto');
       }
+    } catch (e) {
+      setState(() => _error = 'Error: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -148,8 +162,44 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       if (_error.isNotEmpty) ...[
                         const SizedBox(height: 12),
-                        Text(_error,
-                            style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                        GestureDetector(
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: _error));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Error copiado al portapapeles'),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.errorContainer,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.error_outline,
+                                    size: 16,
+                                    color: Theme.of(context).colorScheme.error),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: SelectableText(
+                                    _error,
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.error,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                                Icon(Icons.copy,
+                                    size: 14,
+                                    color: Theme.of(context).colorScheme.error),
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                       const SizedBox(height: 20),
                       FilledButton(

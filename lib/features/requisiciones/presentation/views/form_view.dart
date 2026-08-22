@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
-import '../../../../core/sync/sync_service.dart';
+import '../../../../core/models/requisicion.dart';
 import '../../data/requisiciones_providers.dart';
 import '../../data/requisiciones_repository.dart';
 import '../dialogs/buscador_productos_dialog.dart';
 import '../dialogs/cantidad_dialog.dart';
 
-/// Formulario crear/editar requisición (porta `RequisicionForm` de form.py).
-/// Muestra Ruta de Traslado (Desde→Hacia), observaciones y lista de
-/// productos con buscador + diálogo de cantidad.
 class FormView extends ConsumerStatefulWidget {
   const FormView({
     super.key,
@@ -21,7 +17,7 @@ class FormView extends ConsumerStatefulWidget {
 
   final VoidCallback onBack;
   final VoidCallback onSaved;
-  final Requisicione? requisicion;
+  final Requisicion? requisicion;
 
   @override
   ConsumerState<FormView> createState() => _FormViewState();
@@ -53,6 +49,10 @@ class _FormViewState extends ConsumerState<FormView> {
 
   Future<void> _cargar() async {
     final repo = ref.read(requisicionesRepoProvider);
+    if (repo == null) {
+      if (mounted) setState(() => _cargado = true);
+      return;
+    }
     final almacenes = await repo.getAlmacenes();
     List<RequisicionItem> items = [];
     if (_editando) {
@@ -107,7 +107,7 @@ class _FormViewState extends ConsumerState<FormView> {
       _items.add(result.item);
     }
     setState(() {});
-    _snack('+ ${producto.nombre}');
+    _snack('+ ${(producto['nombre'] as String?) ?? ''}');
   }
 
   void _eliminar(int index) {
@@ -122,6 +122,9 @@ class _FormViewState extends ConsumerState<FormView> {
     setState(() => _guardando = true);
     try {
       final repo = ref.read(requisicionesRepoProvider);
+      if (repo == null) {
+        throw Exception('Supabase no configurado');
+      }
       await repo.guardarRequisicion(
         origen: _origen ?? 'principal',
         destino: _destino ?? 'restaurante',
@@ -129,7 +132,6 @@ class _FormViewState extends ConsumerState<FormView> {
         detalles: _items,
         editando: widget.requisicion,
       );
-      _pushPending();
       if (mounted) {
         _snack(_editando
             ? 'Requisición actualizada'
@@ -141,10 +143,6 @@ class _FormViewState extends ConsumerState<FormView> {
     } finally {
       if (mounted) setState(() => _guardando = false);
     }
-  }
-
-  void _pushPending() {
-    ref.read(syncEngineProvider)?.pushPending();
   }
 
   void _snack(String msg) {

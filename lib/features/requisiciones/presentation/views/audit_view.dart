@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
-import '../../../../core/sync/sync_service.dart';
+import '../../../../core/models/requisicion.dart';
 import '../../data/requisiciones_providers.dart';
 import '../../data/requisiciones_repository.dart';
 import '../dialogs/ajuste_auditoria_dialog.dart';
 import '../dialogs/historial_dialog.dart';
 
-/// Auditoría de una requisición (porta `AuditView` de audit_view.py).
-/// Verificación física de stock en origen/destino, ajuste de existencias y
-/// totalización del traslado.
 class AuditView extends ConsumerStatefulWidget {
   const AuditView({
     super.key,
@@ -19,7 +15,7 @@ class AuditView extends ConsumerStatefulWidget {
     required this.onTotalizada,
   });
 
-  final Requisicione req;
+  final Requisicion req;
   final VoidCallback onBack;
   final VoidCallback onTotalizada;
 
@@ -31,7 +27,6 @@ class _AuditViewState extends ConsumerState<AuditView> {
   List<AuditItem> _items = [];
   bool _cargando = true;
   bool _totalizando = false;
-  bool _guardando = false;
   int _tab = 0;
   String? _error;
 
@@ -44,6 +39,7 @@ class _AuditViewState extends ConsumerState<AuditView> {
   Future<void> _cargar() async {
     try {
       final repo = ref.read(requisicionesRepoProvider);
+      if (repo == null) throw Exception('Supabase no configurado');
       final items = await repo.getAuditData(widget.req.id);
       if (mounted) {
         setState(() {
@@ -63,11 +59,11 @@ class _AuditViewState extends ConsumerState<AuditView> {
 
   Future<void> _onVerify(AuditItem item, bool value) async {
     final repo = ref.read(requisicionesRepoProvider);
+    if (repo == null) return;
     setState(() {
       item.verificado = value;
     });
     await repo.marcarDetalleVerificado(item.detalleId, value);
-    _pushPending();
   }
 
   Future<void> _showAjuste(AuditItem item) async {
@@ -85,6 +81,7 @@ class _AuditViewState extends ConsumerState<AuditView> {
   Future<void> _showHistorial(AuditItem item) async {
     if (item.productoId == null) return;
     final repo = ref.read(requisicionesRepoProvider);
+    if (repo == null) return;
     final p = await repo.getProducto(item.productoId!);
     if (!mounted) return;
     await showHistorialAuditoria(
@@ -92,25 +89,8 @@ class _AuditViewState extends ConsumerState<AuditView> {
       repo: repo,
       productoId: item.productoId!,
       nombre: item.ingrediente,
-      esPesable: p?.esPesable == 1,
+      esPesable: p?['es_pesable'] == true || p?['es_pesable'] == 1,
     );
-  }
-
-  Future<void> _guardar() async {
-    setState(() => _guardando = true);
-    try {
-      final engine = ref.read(syncEngineProvider);
-      final ok = await engine?.fullSync();
-      if (mounted) {
-        if (ok == true) {
-          _snack('Progreso de auditoría guardado y sincronizado');
-        } else {
-          _snack('Guardado local. La sincronización se reintentará automáticamente');
-        }
-      }
-    } finally {
-      if (mounted) setState(() => _guardando = false);
-    }
   }
 
   Future<void> _totalizar() async {
@@ -123,8 +103,8 @@ class _AuditViewState extends ConsumerState<AuditView> {
     setState(() => _totalizando = true);
     try {
       final repo = ref.read(requisicionesRepoProvider);
+      if (repo == null) throw Exception('Supabase no configurado');
       await repo.totalizarRequisicion(widget.req.id);
-      _pushPending();
       if (mounted) {
         _snack('Requisición totalizada y stock trasladado');
         widget.onTotalizada();
@@ -141,10 +121,6 @@ class _AuditViewState extends ConsumerState<AuditView> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
     );
-  }
-
-  void _pushPending() {
-    ref.read(syncEngineProvider)?.pushPending();
   }
 
   @override
@@ -217,16 +193,6 @@ class _AuditViewState extends ConsumerState<AuditView> {
     final acciones = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        OutlinedButton.icon(
-          onPressed: _guardando ? null : _guardar,
-          icon: _guardando
-              ? const SizedBox(
-                  width: 14, height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2))
-              : const Icon(Icons.save, size: 18),
-          label: const Text('Guardar'),
-        ),
-        const SizedBox(width: 8),
         FilledButton.icon(
           onPressed: _totalizando ? null : _totalizar,
           style: FilledButton.styleFrom(backgroundColor: Colors.green.shade700),

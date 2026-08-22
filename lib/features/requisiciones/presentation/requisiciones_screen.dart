@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/db/schema/app_database.dart';
-import '../../../core/sync/sync_service.dart';
+import '../../../core/models/requisicion.dart';
 import '../data/requisiciones_providers.dart';
+import '../data/requisiciones_repository.dart';
 import 'widgets/requisicion_card.dart';
 import 'widgets/requisiciones_empty_state.dart';
 import 'views/audit_view.dart';
 import 'views/form_view.dart';
 import 'views/visualizar_view.dart';
 
-/// Pantalla de Requisiciones (porta `usr/views/requisiciones_view.py`).
-/// Solo orquesta: lista de tarjetas + navegación a sub-vistas
-/// (formulario, visualización, auditoría).
 class RequisicionesScreen extends ConsumerStatefulWidget {
   const RequisicionesScreen({super.key});
 
@@ -22,7 +19,6 @@ class RequisicionesScreen extends ConsumerStatefulWidget {
 }
 
 class _RequisicionesScreenState extends ConsumerState<RequisicionesScreen> {
-  /// Sub-vista activa: `null` = lista; si no, widget actual (form/visualizar/auditar).
   Widget? _vistaActiva;
 
   @override
@@ -30,7 +26,6 @@ class _RequisicionesScreenState extends ConsumerState<RequisicionesScreen> {
     if (_vistaActiva != null) {
       return _vistaActiva!;
     }
-    final repo = ref.watch(requisicionesRepoProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -48,54 +43,72 @@ class _RequisicionesScreenState extends ConsumerState<RequisicionesScreen> {
           ),
         ),
         Expanded(
-          child: StreamBuilder<List<Requisicione>>(
-            stream: repo.watchRequisiciones(),
-            builder: (context, snap) {
-              final reqs = snap.data ?? [];
-              if (reqs.isEmpty) {
-                return const RequisicionesEmptyState();
-              }
-              return ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                itemCount: reqs.length,
-                itemBuilder: (context, i) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: RequisicionCard(
-                    req: reqs[i],
-                    onVisualizar: () => _abrir(VisualizarView(
-                      req: reqs[i],
-                      onBack: _cerrar,
-                    )),
-                    onEditar: () => _abrir(FormView(
-                      requisicion: reqs[i],
-                      onBack: _cerrar,
-                      onSaved: _cerrar,
-                    )),
-                    onAuditar: () => _abrir(AuditView(
-                      req: reqs[i],
-                      onBack: _cerrar,
-                      onTotalizada: _cerrar,
-                    )),
-                    onEliminar: () => _eliminar(reqs[i]),
-                  ),
-                ),
-              );
-            },
-          ),
+          child: _buildLista(),
         ),
       ],
     );
   }
 
   void _abrir(Widget view) => setState(() => _vistaActiva = view);
-
   void _cerrar() => setState(() => _vistaActiva = null);
 
-  void _pushPending() {
-    ref.read(syncEngineProvider)?.pushPending();
+  Widget _buildLista() {
+    final repo = ref.read(requisicionesRepoProvider);
+    if (repo == null) {
+      return const Center(child: Text('Supabase no configurado'));
+    }
+    return FutureBuilder<(List<Requisicion>, Map<int, int>)>(
+      future: _cargar(repo),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snap.hasError) {
+          return Center(child: Text('Error: ${snap.error}'));
+        }
+        final (reqs, counts) = snap.data ?? (const [], <int, int>{});
+        if (reqs.isEmpty) {
+          return const RequisicionesEmptyState();
+        }
+        return ListView.builder(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          itemCount: reqs.length,
+          itemBuilder: (context, i) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: RequisicionCard(
+              req: reqs[i],
+              itemCount: counts[reqs[i].id] ?? 0,
+              onVisualizar: () => _abrir(VisualizarView(
+                req: reqs[i],
+                onBack: _cerrar,
+              )),
+              onEditar: () => _abrir(FormView(
+                requisicion: reqs[i],
+                onBack: _cerrar,
+                onSaved: _cerrar,
+              )),
+              onAuditar: () => _abrir(AuditView(
+                req: reqs[i],
+                onBack: _cerrar,
+                onTotalizada: _cerrar,
+              )),
+              onEliminar: () => _eliminar(reqs[i]),
+            ),
+          ),
+        );
+      },
+    );
   }
 
-  Future<void> _eliminar(Requisicione req) async {
+  Future<(List<Requisicion>, Map<int, int>)> _cargar(
+      RequisicionesRepository repo) async {
+    final reqs = await repo.loadRequisiciones();
+    final ids = reqs.map((r) => r.id).toList();
+    final counts = await repo.contarDetallesBatch(ids);
+    return (reqs, counts);
+  }
+
+  Future<void> _eliminar(Requisicion req) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -114,13 +127,12 @@ class _RequisicionesScreenState extends ConsumerState<RequisicionesScreen> {
       ),
     );
     if (ok == true && mounted) {
-      final done = await ref
-          .read(requisicionesRepoProvider)
-          .eliminarRequisicion(req.id);
-      if (done) _pushPending();
+      final repo = ref.read(requisicionesRepoProvider);
+      if (repo == null) return;
+      final done = await repo.eliminarRequisicion(req.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(done ? 'Requisición eliminada' : 'Error al eliminar'),
+          content: Text(done ? 'Requisicion eliminada' : 'Error al eliminar'),
           backgroundColor: done ? Colors.green : Colors.red,
         ));
       }

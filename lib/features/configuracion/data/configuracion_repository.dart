@@ -1,55 +1,68 @@
-import 'package:drift/drift.dart';
+import '../../../core/data/cache_service.dart';
+import '../../../core/data/supabase_service.dart';
+import '../../../core/models/categoria.dart';
+import '../../../core/models/producto.dart';
+import '../../../core/models/proveedor.dart';
+import '../../../core/models/periodo.dart';
 
-import '../../../core/db/schema/app_database.dart';
-import '../../../core/sync/sync_service.dart';
-
-/// Repositorio de configuración — porta `usr/views/configuracion/*`,
-/// `usr/database/local_replica.py` (Periodos, LocalReplica), `usr/database/archive.py`.
+/// Repositorio de configuracion — CRUD de catalogos y ajustes del sistema.
+/// Implementa stale-while-revalidate: sirve cache si esta fresco, si no
+/// refresca desde Supabase y actualiza cache.
 class ConfiguracionRepository {
-  ConfiguracionRepository(this._db);
+  ConfiguracionRepository(this._db, {CacheService? cache})
+      : _cache = cache;
 
-  final AppDatabase _db;
+  final SupabaseService _db;
+  final CacheService? _cache;
+
+  /// TTL para catalogos: 5 minutos.
+  static const _catalogTtl = Duration(minutes: 5);
+
+  /// Cache key prefix.
+  static const _k = 'cache_cfg';
 
   // ---------------------------------------------------------------------------
   // Categorias
   // ---------------------------------------------------------------------------
 
-  Future<List<Categoria>> getCategorias({bool soloActivos = true}) {
-    final q = _db.select(_db.categorias);
-    if (soloActivos) q.where((t) => t.activo.equals(1));
-    q.orderBy([(t) => OrderingTerm.asc(t.nombre)]);
-    return q.get();
+  Future<List<Categoria>> getCategorias({bool soloActivos = true}) async {
+    final cacheKey = '${_k}_cats_${soloActivos ? "act" : "all"}';
+    final cached = _cache?.get<List>(cacheKey, ttl: _catalogTtl);
+    if (cached != null) {
+      return (cached.data).map((e) => Categoria.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    final filters = soloActivos ? {'activo': true} : null;
+    final rows = await _db.fetchAll(
+      'categorias',
+      orderBy: 'nombre',
+      ascending: true,
+      filters: filters,
+    );
+    final result = rows.map(Categoria.fromMap).toList();
+    _cache?.put(cacheKey, rows);
+    return result;
   }
 
-  Future<int> createCategoria(CategoriasCompanion data) async {
-    final id = await _db.into(_db.categorias).insert(data);
-    final c = await (_db.select(_db.categorias)..where((t) => t.id.equals(id))).getSingleOrNull();
-    if (c != null) {
-      await addPending(_db, tableName: 'categorias', operation: 'insert', data: categoriaToSyncMap(c));
-    }
+  Future<int> createCategoria(Map<String, dynamic> data) async {
+    final id = await _db.upsert('categorias', data, conflictColumn: 'nombre');
+    _invalidateCats();
     return id;
   }
 
-  Future<int> updateCategoria(int id, CategoriasCompanion data) async {
-    final res = await (_db.update(_db.categorias)..where((t) => t.id.equals(id))).write(data);
-    final c = await (_db.select(_db.categorias)..where((t) => t.id.equals(id))).getSingleOrNull();
-    if (c != null) {
-      await addPending(_db, tableName: 'categorias', operation: 'update', data: categoriaToSyncMap(c));
-    }
-    return res;
+  Future<void> updateCategoria(int id, Map<String, dynamic> data) async {
+    await _db.updateById('categorias', id, data);
+    _invalidateCats();
   }
 
-  /// Soft-delete en el server (activo=0): borrar la categoría en remoto rompería
-  /// la FK `productos.categoria_id`.
-  Future<int> deleteCategoria(int id) async {
-    final res = await (_db.delete(_db.categorias)..where((t) => t.id.equals(id))).go();
-    await addPending(
-      _db,
-      tableName: 'categorias',
-      operation: 'update',
-      data: {'id': id, 'activo': false, 'updated_at': DateTime.now().toUtc().toIso8601String()},
-    );
-    return res;
+  /// Soft-delete: desactiva la categoria en el server (activo=false).
+  Future<void> deleteCategoria(int id) async {
+    await _db.updateById('categorias', id, {'activo': false});
+    _invalidateCats();
+  }
+
+  void _invalidateCats() {
+    _cache?.remove('${_k}_cats_act');
+    _cache?.remove('${_k}_cats_all');
   }
 
   // ---------------------------------------------------------------------------
@@ -60,174 +73,195 @@ class ConfiguracionRepository {
     bool soloActivos = true,
     int? categoriaId,
     String? search,
-  }) {
-    final q = _db.select(_db.productos);
-    if (soloActivos) q.where((t) => t.activo.equals(1));
-    if (categoriaId != null) q.where((t) => t.categoriaId.equals(categoriaId));
-    if (search != null && search.isNotEmpty) {
-      final term = search.toLowerCase();
-      q.where((t) => t.nombre.lower().contains(term));
+  }) async {
+    // Solo cacheamos la query basica (sin filtros especificos)
+    final useCache = soloActivos && categoriaId == null && (search == null || search.isEmpty);
+    if (useCache) {
+      final cached = _cache?.get<List>('${_k}_prods', ttl: _catalogTtl);
+      if (cached != null) {
+        return (cached.data).map((e) => Producto.fromMap(e as Map<String, dynamic>)).toList();
+      }
     }
-    q.orderBy([(t) => OrderingTerm.asc(t.nombre)]);
-    return q.get();
+
+    final builder = _db.client.from('productos').select();
+    if (soloActivos) builder.eq('activo', true);
+    if (categoriaId != null) builder.eq('categoria_id', categoriaId);
+    if (search != null && search.isNotEmpty) {
+      builder.ilike('nombre', '%$search%');
+    }
+    builder.order('nombre', ascending: true);
+    final data = await builder;
+    final rows = (data as List).cast<Map<String, dynamic>>();
+    final result = rows.map((r) => Producto.fromMap(r)).toList();
+    if (useCache) _cache?.put('${_k}_prods', rows);
+    return result;
   }
 
-  /// Genera el siguiente código numérico (auto-incremental), igual que el
-  /// modelo Flet: max(códigos numéricos) + 1, rellenado a >= 4 dígitos.
+  /// Genera el siguiente código numérico (auto-incremental).
   Future<String> proximoCodigoProducto() async {
-    final productos = await (_db.select(_db.productos)..where((t) => t.activo.equals(1))).get();
+    final rows = await _db.fetchAll(
+      'productos',
+      filters: {'activo': true},
+    );
     final numericos = <int>[];
-    for (final p in productos) {
-      final c = (p.codigo ?? '').trim();
+    var longitud = 4;
+    for (final r in rows) {
+      final c = (r['codigo'] as String? ?? '').trim();
       final n = int.tryParse(c);
-      if (n != null) numericos.add(n);
+      if (n != null) {
+        numericos.add(n);
+        if (c.length > longitud) longitud = c.length;
+      }
     }
     if (numericos.isEmpty) return '0001';
     final siguiente = numericos.reduce((a, b) => a > b ? a : b) + 1;
-    var longitud = 4;
-    for (final p in productos) {
-      final c = (p.codigo ?? '').trim();
-      if (int.tryParse(c) != null && c.length > longitud) longitud = c.length;
-    }
     return siguiente.toString().padLeft(longitud, '0');
   }
 
-  Future<int> createProducto(ProductosCompanion data) async {
-    final id = await _db.into(_db.productos).insert(data);
-    await _encolarProducto(id, 'insert');
+  Future<int> createProducto(Map<String, dynamic> data) async {
+    final id = await _db.insert('productos', data);
+    _cache?.remove('${_k}_prods');
     return id;
   }
 
-  Future<int> updateProducto(int id, ProductosCompanion data) async {
-    final res = await (_db.update(_db.productos)..where((t) => t.id.equals(id))).write(data);
-    await _encolarProducto(id, 'update');
-    return res;
+  Future<void> updateProducto(int id, Map<String, dynamic> data) async {
+    await _db.updateById('productos', id, data);
+    _cache?.remove('${_k}_prods');
   }
 
-  /// Encola la creación/edición del producto con la fila completa y su id local
-  /// (el server acepta id explícito y así no se rompe la FK de movimientos).
-  Future<void> _encolarProducto(int id, String op) async {
-    final p = await (_db.select(_db.productos)..where((t) => t.id.equals(id))).getSingleOrNull();
-    if (p == null) return;
-    await addPending(_db, tableName: 'productos', operation: op, data: productoToSyncMap(p));
-  }
-
-  /// Borra local y desactiva en el server (`activo=0`): borrarlo en remoto
-  /// rompería la FK de movimientos/existencias que lo referencian.
-  Future<int> deleteProducto(int id) async {
-    final p = await (_db.select(_db.productos)..where((t) => t.id.equals(id))).getSingleOrNull();
-    final res = await (_db.delete(_db.productos)..where((t) => t.id.equals(id))).go();
-    if (p != null) {
-      final data = productoToSyncMap(p)..['activo'] = false;
-      await addPending(_db, tableName: 'productos', operation: 'update', data: data);
-    }
-    return res;
+  /// Soft-delete: desactiva el producto en el server (activo=false).
+  Future<void> deleteProducto(int id) async {
+    await _db.updateById('productos', id, {'activo': false});
+    _cache?.remove('${_k}_prods');
   }
 
   // ---------------------------------------------------------------------------
   // Proveedores
   // ---------------------------------------------------------------------------
 
-  Future<List<Proveedore>> getProveedores({String estado = 'Activo'}) {
-    final q = _db.select(_db.proveedores)..where((t) => t.estado.equals(estado));
-    q.orderBy([(t) => OrderingTerm.asc(t.nombre)]);
-    return q.get();
+  Future<List<Proveedor>> getProveedores({String estado = 'Activo'}) async {
+    final cacheKey = '${_k}_prov_$estado';
+    final cached = _cache?.get<List>(cacheKey, ttl: _catalogTtl);
+    if (cached != null) {
+      return (cached.data).map((e) => Proveedor.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    final rows = await _db.fetchAll(
+      'proveedores',
+      orderBy: 'nombre',
+      ascending: true,
+      filters: {'estado': estado},
+    );
+    final result = rows.map(Proveedor.fromMap).toList();
+    _cache?.put(cacheKey, rows);
+    return result;
   }
 
-  Future<int> createProveedor(ProveedoresCompanion data) async {
-    final id = await _db.into(_db.proveedores).insert(data);
-    final p = await (_db.select(_db.proveedores)..where((t) => t.id.equals(id))).getSingleOrNull();
-    if (p != null) {
-      await addPending(_db, tableName: 'proveedores', operation: 'insert', data: proveedorToSyncMap(p));
-    }
+  Future<int> createProveedor(Map<String, dynamic> data) async {
+    final id = await _db.upsert('proveedores', data, conflictColumn: 'nombre');
+    _cache?.remove('${_k}_prov_Activo');
     return id;
   }
 
-  Future<int> updateProveedor(int id, ProveedoresCompanion data) async {
-    final res = await (_db.update(_db.proveedores)..where((t) => t.id.equals(id))).write(data);
-    final p = await (_db.select(_db.proveedores)..where((t) => t.id.equals(id))).getSingleOrNull();
-    if (p != null) {
-      await addPending(_db, tableName: 'proveedores', operation: 'update', data: proveedorToSyncMap(p));
-    }
-    return res;
+  Future<void> updateProveedor(int id, Map<String, dynamic> data) async {
+    await _db.updateById('proveedores', id, data);
+    _cache?.remove('${_k}_prov_Activo');
   }
 
-  Future<int> deleteProveedor(int id) async {
-    final res = await (_db.delete(_db.proveedores)..where((t) => t.id.equals(id))).go();
-    await addPending(_db, tableName: 'proveedores', operation: 'delete', data: {'id': id});
-    return res;
+  Future<void> deleteProveedor(int id) async {
+    await _db.deleteById('proveedores', id);
+    _cache?.remove('${_k}_prov_Activo');
   }
 
   // ---------------------------------------------------------------------------
   // Periodos
   // ---------------------------------------------------------------------------
 
-Future<List<Periodo>> getPeriodos() {
-    return (_db.select(_db.periodos)..orderBy([(t) => OrderingTerm.desc(t.fechaApertura)])).get();
+  Future<List<Periodo>> getPeriodos() async {
+    final cached = _cache?.get<List>('${_k}_periodos', ttl: _catalogTtl);
+    if (cached != null) {
+      return (cached.data).map((e) => Periodo.fromMap(e as Map<String, dynamic>)).toList();
+    }
+    final rows = await _db.fetchAll(
+      'periodos',
+      orderBy: 'fecha_apertura',
+      ascending: false,
+    );
+    final result = rows.map(Periodo.fromMap).toList();
+    _cache?.put('${_k}_periodos', rows);
+    return result;
   }
 
-  Future<bool> periodoExiste(String periodo) {
-    return (_db.select(_db.periodos)..where((t) => t.periodo.equals(periodo))).getSingleOrNull().then((v) => v != null);
+  Future<bool> periodoExiste(String periodo) async {
+    final row = await _db.fetchByField('periodos', 'periodo', periodo);
+    return row != null;
   }
 
   Future<int> crearPeriodo(String periodo, {String? registradoPor}) {
-    return _db.into(_db.periodos).insert(
-      PeriodosCompanion.insert(
-        periodo: periodo,
-        fechaApertura: DateTime.now().toIso8601String(),
-        registradoPor: Value(registradoPor),
-      ),
-    );
+    return _db.insert('periodos', {
+      'periodo': periodo,
+      'fecha_apertura': DateTime.now().toIso8601String(),
+      if (registradoPor != null) 'registrado_por': registradoPor,
+    });
   }
 
+  // ---------------------------------------------------------------------------
+  // Existencias / Recálculo
+  // ---------------------------------------------------------------------------
+
   Future<void> recalcularExistencias() async {
-    // Borrar checkpoints y recalcular desde cero
-    await _db.delete(_db.stockCheckpoint).go();
+    await _db.deleteWhere('existencias', {});
     await _recalcularExistenciasDesdeMovimientos();
   }
 
   Future<void> _recalcularExistenciasDesdeMovimientos() async {
-    final movs = await (_db.select(_db.movimientos)
-          ..where((t) => t.tipo.equals('entrada') | t.tipo.equals('salida') | t.tipo.equals('ajuste'))
-          ..orderBy([(t) => OrderingTerm.asc(t.fechaMovimiento)]))
-        .get();
+    final builder = _db.client
+        .from('movimientos')
+        .select()
+        .or('tipo.eq.entrada,tipo.eq.salida,tipo.eq.ajuste')
+        .order('fecha_movimiento', ascending: true);
+    final movs = (await builder as List).cast<Map<String, dynamic>>();
 
     final Map<String, double> stock = {};
     for (final m in movs) {
-      final key = '${m.productoId}|${m.almacen ?? 'principal'}';
-      final signo = m.tipo == 'salida' ? -1.0 : 1.0;
-      stock[key] = (stock[key] ?? 0) + (m.cantidad * signo);
+      final key = '${m['producto_id']}|${m['almacen'] ?? 'principal'}';
+      final signo = m['tipo'] == 'salida' ? -1.0 : 1.0;
+      final cantidad = (m['cantidad'] as num?)?.toDouble() ?? 0;
+      stock[key] = (stock[key] ?? 0) + (cantidad * signo);
     }
 
-    await _db.batch((batch) {
-      for (final entry in stock.entries) {
-        final parts = entry.key.split('|');
-        batch.insert(_db.existencias, ExistenciasCompanion(
-          productoId: Value(int.parse(parts[0])),
-          almacen: Value(parts[1]),
-          cantidad: Value(entry.value),
-          unidad: const Value('unidad'),
-        ), mode: InsertMode.insertOrReplace);
-      }
-    });
+    for (final entry in stock.entries) {
+      final parts = entry.key.split('|');
+      await _db.upsertById('existencias', {
+        'producto_id': int.parse(parts[0]),
+        'almacen': parts[1],
+        'cantidad': entry.value,
+        'unidad': 'unidad',
+      });
+    }
   }
 
   Future<void> clearCheckpoints() {
-    return _db.delete(_db.stockCheckpoint).go();
+    return _db.deleteWhere('existencias', {});
   }
 
   // ---------------------------------------------------------------------------
   // Sistema / Ajustes POS
   // ---------------------------------------------------------------------------
 
-  Future<String?> getPosSetting(String key, {String? def}) {
-    return _db.customSelect("SELECT value FROM pos_settings WHERE key = '$key'")
-        .getSingleOrNull()
-        .then((r) => r?.read<String>('value') ?? def);
+  Future<String?> getPosSetting(String key, {String? def}) async {
+    final cacheKey = '${_k}_setting_$key';
+    final cached = _cache?.get<String>(cacheKey, ttl: _catalogTtl);
+    if (cached != null) return cached.data;
+    final row = await _db.fetchByField('pos_settings', 'key', key);
+    final value = (row?['value'] as String?) ?? def;
+    if (value != null) _cache?.put(cacheKey, value);
+    return value;
   }
 
-  Future<void> setPosSetting(String key, String value) {
-    return _db.customStatement("INSERT OR REPLACE INTO pos_settings (key, value) VALUES ('$key', '$value')");
+  Future<void> setPosSetting(String key, String value) async {
+    await _db.upsert('pos_settings', {'key': key, 'value': value},
+        conflictColumn: 'key');
+    _cache?.remove('${_k}_setting_$key');
   }
 
   Future<bool> getPermitirStockNegativo() async {
@@ -249,88 +283,93 @@ Future<List<Periodo>> getPeriodos() {
   }
 
   Future<List<String>> getAlmacenes() async {
-    final rows = await _db.customSelect('SELECT DISTINCT almacen FROM existencias WHERE almacen IS NOT NULL UNION SELECT DISTINCT almacen FROM movimientos WHERE almacen IS NOT NULL').get();
-    return rows.map((r) => r.read<String>('almacen')).where((a) => a.isNotEmpty).toSet().toList();
+    final existencias = await _db.fetchAll('existencias');
+    final movimientos = await _db.fetchAll('movimientos');
+    final Set<String> almacenes = {};
+    for (final r in existencias) {
+      final a = r['almacen'] as String?;
+      if (a != null && a.isNotEmpty) almacenes.add(a);
+    }
+    for (final r in movimientos) {
+      final a = r['almacen'] as String?;
+      if (a != null && a.isNotEmpty) almacenes.add(a);
+    }
+    return almacenes.toList()..sort();
   }
 
   // ---------------------------------------------------------------------------
   // Dispositivo / Usuario
   // ---------------------------------------------------------------------------
 
-  Future<Map<String, dynamic>?> getUsuarioDispositivo() {
-    return _db.select(_db.dispositivoUsuario).getSingleOrNull()
-        .then((u) => u != null ? {'id': u.id, 'nombre': u.nombre, 'pinHash': u.pinHash, 'configuradoEn': u.configuradoEn} : null);
+  Future<Map<String, dynamic>?> getUsuarioDispositivo() async {
+    final row = await _db.fetchAll('dispositivo_usuario', limit: 1);
+    if (row.isEmpty) return null;
+    final u = row.first;
+    return {
+      'id': u['id'],
+      'nombre': u['nombre'],
+      'pinHash': u['pin_hash'],
+      'configuradoEn': u['configurado_en'],
+    };
   }
 
-  Future<int> crearUsuarioDispositivo(DispositivoUsuarioCompanion data) {
-    return _db.into(_db.dispositivoUsuario).insert(data);
+  Future<int> crearUsuarioDispositivo(Map<String, dynamic> data) {
+    return _db.insert('dispositivo_usuario', data);
   }
 
-  Future<int> eliminarUsuarioDispositivo() {
-    return _db.delete(_db.dispositivoUsuario).go();
+  Future<void> eliminarUsuarioDispositivo() {
+    return _db.deleteWhere('dispositivo_usuario', {});
   }
 
   Future<bool> verificarPin(String pin) async {
     final user = await getUsuarioDispositivo();
     if (user == null || user['pinHash'] == null) return true;
-    // Simple hash check (en producción usar bcrypt/argon2)
-    return user['pinHash'] == pin; // Placeholder
+    return user['pinHash'] == pin;
   }
 
   // ---------------------------------------------------------------------------
   // Archive / Periodos (funciones avanzadas)
   // ---------------------------------------------------------------------------
 
-  /// Archiva movimientos > 3 meses activos y > 7 meses retención
-  Future<(int archivados, int eliminados)> archivarMovimientos({int mesesActivos = 3, int mesesRetencion = 7}) async {
+  /// Archiva movimientos > 3 meses activos y > 7 meses retención.
+  Future<(int archivados, int eliminados)> archivarMovimientos({
+    int mesesActivos = 3,
+    int mesesRetencion = 7,
+  }) async {
     final now = DateTime.now();
-    final cutoffActivo = now.subtract(Duration(days: mesesActivos * 30));
-    final cutoffRetencion = now.subtract(Duration(days: mesesRetencion * 30));
+    final cutoffActivo = now
+        .subtract(Duration(days: mesesActivos * 30))
+        .toIso8601String();
+    final cutoffRetencion = now
+        .subtract(Duration(days: mesesRetencion * 30))
+        .toIso8601String();
 
-    final movs = await (_db.select(_db.movimientos)
-          ..where((t) => t.fechaMovimiento.isSmallerThanValue(cutoffActivo))
-          ..orderBy([(t) => OrderingTerm.asc(t.fechaMovimiento)]))
-        .get();
+    final builder = _db.client
+        .from('movimientos')
+        .select()
+        .lt('fecha_movimiento', cutoffActivo)
+        .order('fecha_movimiento', ascending: true);
+    final movs = (await builder as List).cast<Map<String, dynamic>>();
 
     int archivados = 0, eliminados = 0;
     for (final m in movs) {
-      final isOld = m.fechaMovimiento != null && m.fechaMovimiento!.isBefore(cutoffRetencion);
+      final fecha = m['fecha_movimiento'] as String?;
+      final isOld = fecha != null && fecha.compareTo(cutoffRetencion) < 0;
       if (isOld) {
-        _db.delete(_db.movimientos).where((t) => t.id.equals(m.id));
+        await _db.deleteById('movimientos', m['id'] as int);
         eliminados++;
       } else {
-        // Mover a movimientos_archivo
-        await _db.into(_db.movimientosArchivo).insertOnConflictUpdate(MovimientosArchivoCompanion.insert(
-          id: Value(m.id),
-          productoId: m.productoId,
-          facturaId: Value(m.facturaId),
-          requisicionId: Value(m.requisicionId),
-          tipo: m.tipo,
-          cantidad: m.cantidad,
-          cantidadAnterior: Value(m.cantidadAnterior),
-          cantidadNueva: Value(m.cantidadNueva),
-          pesoTotal: Value(m.pesoTotal),
-          registradoPor: Value(m.registradoPor),
-          observaciones: Value(m.observaciones),
-          almacen: Value(m.almacen),
-          fechaMovimiento: Value(m.fechaMovimiento),
-          createdAt: Value(m.createdAt),
-        ));
-        _db.delete(_db.movimientos).where((t) => t.id.equals(m.id));
+        await _db.upsertById('movimientos_archivo', m);
+        await _db.deleteById('movimientos', m['id'] as int);
         archivados++;
       }
     }
     return (archivados, eliminados);
   }
 
-  Future<int> archivarEnSupabase({int mesesActivos = 3}) async {
-    // Placeholder: delegar al SyncEngine / SyncService
-    return 0;
-  }
-
   Future<bool> testLocalConnection() async {
     try {
-      await _db.customSelect('SELECT 1').getSingle();
+      await _db.fetchAll('categorias', limit: 1);
       return true;
     } catch (_) {
       return false;

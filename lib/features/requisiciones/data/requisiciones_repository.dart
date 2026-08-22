@@ -1,10 +1,6 @@
-import 'package:drift/drift.dart';
+import '../../../core/data/supabase_service.dart';
+import '../../../core/models/requisicion.dart' as domain;
 
-import '../../../core/db/schema/app_database.dart';
-import '../../../core/sync/sync_service.dart';
-
-/// Item de una requisición (usa una estructura libre como en Python,
-/// donde los productos vienen de un buscador y el peso es opcional).
 class RequisicionItem {
   const RequisicionItem({
     this.productoId,
@@ -13,7 +9,7 @@ class RequisicionItem {
     this.unidad = 'unidad',
     this.peso,
     this.esPesable = false,
-    this.verificado = 0,
+    this.verificado = false,
   });
 
   final int? productoId;
@@ -22,14 +18,11 @@ class RequisicionItem {
   final String unidad;
   final double? peso;
   final bool esPesable;
-  final int verificado;
+  final bool verificado;
 
-  /// Nombre de detalle equivalnte a `_nombre_detalle` de data.py.
   String get nombre => ingrediente.isEmpty ? 'Desconocido' : ingrediente;
 }
 
-/// Stock de un almacén en auditoría (porta los dicts `origen`/`destino` de
-/// `get_requisicion_audit_data`).
 class AuditStock {
   const AuditStock({
     required this.inicial,
@@ -42,7 +35,6 @@ class AuditStock {
   final double final_;
 }
 
-/// Item de auditoría de un detalle de requisición.
 class AuditItem {
   AuditItem({
     required this.detalleId,
@@ -56,32 +48,19 @@ class AuditItem {
   final int detalleId;
   final int? productoId;
   final String ingrediente;
-
-  /// Verificado actual (se muta en la vista de auditoría antes de persistir).
   bool verificado;
   final AuditStock origen;
   final AuditStock destino;
 }
 
-/// Repositorio de requisiciones — porta `usr/views/requisiciones/data.py`
-/// y `service.py`. Sigue el patrón de `InventarioRepository` (offline-first).
 class RequisicionesRepository {
   RequisicionesRepository(this._db);
+  final SupabaseService _db;
 
-  final AppDatabase _db;
-
-  // ---------------------------------------------------------------------
-  // Almacenes y productos
-  // ---------------------------------------------------------------------
-
-  /// Almacenes distintos de existencias, forzando "principal" y "restaurante"
-  /// (equivalente a `get_almacenes` de data.py).
   Future<List<String>> getAlmacenes() async {
-    final rows = _db.selectOnly(_db.existencias)
-      ..addColumns([_db.existencias.almacen]);
-    final data = await rows.get();
-    final almacenes = {
-      for (final r in data) r.read(_db.existencias.almacen) as String,
+    final rows = await _db.fetchAll('existencias');
+    final almacenes = <String>{
+      for (final r in rows) r['almacen'] as String,
     };
     almacenes
       ..add('principal')
@@ -89,223 +68,174 @@ class RequisicionesRepository {
     return almacenes.toList()..sort();
   }
 
-  /// Productos activos ordenados por nombre.
-  Future<List<Producto>> getProductosActivos({int limit = 200}) {
-    final q = _db.select(_db.productos)
-      ..where((t) => t.activo.equals(1))
-      ..orderBy([(t) => OrderingTerm.asc(t.nombre)])
-      ..limit(limit);
-    return q.get();
+  Future<List<Map<String, dynamic>>> getProductosActivos({int limit = 200}) =>
+      _db.client
+          .from('productos')
+          .select()
+          .eq('activo', true)
+          .order('nombre', ascending: true)
+          .limit(limit);
+
+  Future<List<Map<String, dynamic>>> buscarProductos(String texto,
+      {int limit = 30}) async {
+    final builder =
+        _db.client.from('productos').select().eq('activo', true);
+    if (texto.isNotEmpty) {
+      builder.ilike('nombre', '%$texto%');
+    }
+    builder.order('nombre', ascending: true).limit(limit);
+    return builder;
   }
 
-  /// Búsqueda de productos activos (equivalente a `buscar_productos`).
-  Future<List<Producto>> buscarProductos(String texto, {int limit = 30}) {
-    final term = texto.toLowerCase();
-    final q = _db.select(_db.productos)
-      ..where((t) =>
-          t.activo.equals(1) & t.nombre.lower().contains(term))
-      ..orderBy([(t) => OrderingTerm.asc(t.nombre)])
-      ..limit(limit);
-    return q.get();
+  Future<Map<String, dynamic>?> getProducto(int id) async {
+    return _db.fetchById('productos', id);
   }
 
-  /// Producto por id (para saber si es pesable en auditoría).
-  Future<Producto?> getProducto(int id) {
-    return (_db.select(_db.productos)..where((t) => t.id.equals(id)))
-        .getSingleOrNull();
-  }
-
-  /// Existencia de un producto en un almacén (0 si no existe).
   Future<double> getExistencia(int productoId, String almacen) async {
-    final e = await (_db.select(_db.existencias)
-          ..where((t) =>
-              t.productoId.equals(productoId) & t.almacen.equals(almacen)))
-        .getSingleOrNull();
-    return e?.cantidad ?? 0;
+    final rows = await _db.fetchAll(
+      'existencias',
+      filters: {'producto_id': productoId},
+    );
+    for (final r in rows) {
+      if (r['almacen'] == almacen) {
+        return (r['cantidad'] as num?)?.toDouble() ?? 0;
+      }
+    }
+    return 0;
   }
 
-  // ---------------------------------------------------------------------
-  // Requisiciones (lectura)
-  // ---------------------------------------------------------------------
-
-  /// Todas las requisiciones con su conteo de detalles, orden fecha desc.
-  Future<List<Requisicione>> loadRequisiciones() {
-    return (_db.select(_db.requisiciones)
-          ..orderBy([(t) => OrderingTerm.desc(t.fechaCreacion)]))
-        .get();
+  Future<List<domain.Requisicion>> loadRequisiciones() async {
+    final rows = await _db.client
+        .from('requisiciones')
+        .select()
+        .order('fecha_creacion', ascending: false);
+    return rows.map(domain.Requisicion.fromMap).toList();
   }
 
-  Stream<List<Requisicione>> watchRequisiciones() {
-    return (_db.select(_db.requisiciones)
-          ..orderBy([(t) => OrderingTerm.desc(t.fechaCreacion)]))
-        .watch();
+  /// Cuenta detalles de varias requisiciones en una sola query.
+  Future<Map<int, int>> contarDetallesBatch(List<int> requisicionIds) async {
+    if (requisicionIds.isEmpty) return {};
+    final rows = await _db.client
+        .from('requisicion_detalles')
+        .select('requisicion_id')
+        .inFilter('requisicion_id', requisicionIds);
+    final counts = <int, int>{};
+    for (final r in rows) {
+      final rid = r['requisicion_id'] as int;
+      counts[rid] = (counts[rid] ?? 0) + 1;
+    }
+    return counts;
   }
 
   Future<int> contarDetalles(int requisicionId) async {
-    final count = await (_db.selectOnly(_db.requisicionDetalles)
-          ..addColumns([_db.requisicionDetalles.id.count()])
-          ..where(_db.requisicionDetalles.requisicionId.equals(requisicionId)))
-        .get();
-    return count.first.read(_db.requisicionDetalles.id.count()) ?? 0;
+    final rows = await _db.client
+        .from('requisicion_detalles')
+        .select('id')
+        .eq('requisicion_id', requisicionId);
+    return rows.length;
   }
 
-  Future<List<RequisicionDetalle>> getDetalles(int requisicionId) {
-    return (_db.select(_db.requisicionDetalles)
-          ..where((t) => t.requisicionId.equals(requisicionId))
-          ..orderBy([(t) => OrderingTerm.asc(t.id)]))
-        .get();
+  Future<List<domain.RequisicionDetalle>> getDetalles(int requisicionId) async {
+    final rows = await _db.client
+        .from('requisicion_detalles')
+        .select()
+        .eq('requisicion_id', requisicionId)
+        .order('id', ascending: true);
+    return rows.map(domain.RequisicionDetalle.fromMap).toList();
   }
 
-  // ---------------------------------------------------------------------
-  // Crear / editar / eliminar
-  // ---------------------------------------------------------------------
-
-  /// Guarda una requisición nueva o edita una existente (porta
-  /// `guardar_requisicion` de data.py). Devuelve el id de la requisición.
-  ///
-  /// - `editando`: actualiza la cabecera, borra y recrea los detalles.
-  /// - `moverStock`: resta en origen y suma en destino al guardar (flujo
-  ///   rápido). En el flujo normal (`estado='pendiente'`) es `false`.
   Future<int> guardarRequisicion({
     required String origen,
     required String destino,
     String? observaciones,
     List<RequisicionItem> detalles = const [],
-    Requisicione? editando,
+    domain.Requisicion? editando,
     String usuario = 'Admin',
     String estado = 'pendiente',
     bool moverStock = false,
   }) async {
     if (editando == null) {
       final numero = 'REQ-${_tsNow()}';
-      final id = await _db.into(_db.requisiciones).insert(
-            RequisicionesCompanion.insert(
-              numero: numero,
-              numeroSecuencial: 0,
-              origen: origen,
-              destino: destino,
-              estado: Value(estado),
-              observaciones: Value(observaciones),
-              creadaPor: Value(usuario),
-              fechaCreacion: Value(DateTime.now()),
-              actualizada: Value(DateTime.now()),
-            ),
-          );
+      final id = await _db.insert('requisiciones', {
+        'numero': numero,
+        'numero_secuencial': 0,
+        'origen': origen,
+        'destino': destino,
+        'estado': estado,
+        'observaciones': observaciones,
+        'creada_por': usuario,
+        'fecha_creacion': DateTime.now().toUtc().toIso8601String(),
+        'actualizada': DateTime.now().toUtc().toIso8601String(),
+      });
       for (final item in detalles) {
         await _insertDetalle(id, item);
       }
-      await _encolarRequisicion(id);
       await _aplicarMoverStock(id, moverStock);
       return id;
     }
 
-    // Edición: actualizar cabecera.
-    await (_db.update(_db.requisiciones)..where((t) => t.id.equals(editando.id)))
-        .write(RequisicionesCompanion(
-          origen: Value(origen),
-          destino: Value(destino),
-          observaciones: Value(observaciones),
-          actualizada: Value(DateTime.now()),
-        ));
+    await _db.updateById('requisiciones', editando.id, {
+      'origen': origen,
+      'destino': destino,
+      'observaciones': observaciones,
+      'actualizada': DateTime.now().toUtc().toIso8601String(),
+    });
 
-    // Borra detalles y los recrea (equivalente a edición en Python). El mapa
-    // de verificado se conserva por (producto_id, ingrediente).
-    final prevVer = <String, int>{};
+    final prevVer = <String, bool>{};
     for (final d in await getDetalles(editando.id)) {
       prevVer['${d.productoId}|${d.ingrediente}'] = d.verificado;
     }
-    await (_db.delete(_db.requisicionDetalles)
-          ..where((t) => t.requisicionId.equals(editando.id)))
-        .go();
+    await _db.deleteWhere('requisicion_detalles',
+        {'requisicion_id': editando.id});
     for (final item in detalles) {
       final key = '${item.productoId}|${item.ingrediente}';
-      await _insertDetalle(
-        editando.id,
-        item,
-        verificado: prevVer[key] ?? 0,
-      );
+      await _insertDetalle(editando.id, item,
+          verificado: prevVer[key] ?? false);
     }
-    await _encolarRequisicion(editando.id);
     await _aplicarMoverStock(editando.id, moverStock);
     return editando.id;
   }
 
-  /// Elimina una requisición y encola el borrado en el outbox.
   Future<bool> eliminarRequisicion(int requisicionId) async {
-    final req = await (_db.select(_db.requisiciones)
-          ..where((t) => t.id.equals(requisicionId)))
-        .getSingleOrNull();
+    final req = await _db.fetchById('requisiciones', requisicionId);
     if (req == null) return false;
-    await (_db.delete(_db.requisicionDetalles)
-          ..where((t) => t.requisicionId.equals(requisicionId)))
-        .go();
-    await (_db.delete(_db.requisiciones)..where((t) => t.id.equals(requisicionId))).go();
-    await addPending(
-      _db,
-      tableName: 'requisiciones',
-      operation: 'delete',
-      data: {'numero': req.numero},
-    );
+    await _db.deleteWhere(
+        'requisicion_detalles', {'requisicion_id': requisicionId});
+    await _db.deleteById('requisiciones', requisicionId);
     return true;
   }
 
-  // ---------------------------------------------------------------------
-  // Auditoría (verificar + totalizar)
-  // ---------------------------------------------------------------------
-
-  /// Datos de auditoría: por cada detalle, stock inicial/trasladada/final
-  /// de origen y destino (porta `get_requisicion_audit_data` de data.py).
   Future<List<AuditItem>> getAuditData(int requisicionId) async {
-    final req = await (_db.select(_db.requisiciones)
-          ..where((t) => t.id.equals(requisicionId)))
-        .getSingleOrNull();
-    if (req == null) return [];
-
+    final reqRows = await _db.fetchById('requisiciones', requisicionId);
+    if (reqRows == null) return [];
+    final req = domain.Requisicion.fromMap(reqRows);
     final detalles = await getDetalles(req.id);
     final items = <AuditItem>[];
-
     for (final d in detalles) {
       final sOrig = await getExistencia(d.productoId ?? -1, req.origen);
       final sDest = await getExistencia(d.productoId ?? -1, req.destino);
       final cant = d.cantidad;
-
       items.add(AuditItem(
         detalleId: d.id,
         productoId: d.productoId,
         ingrediente: d.ingrediente,
-        verificado: d.verificado == 1,
-        origen: AuditStock(
-          inicial: sOrig,
-          trasladada: cant,
-          final_: sOrig - cant,
-        ),
-        destino: AuditStock(
-          inicial: sDest,
-          trasladada: cant,
-          final_: sDest + cant,
-        ),
+        verificado: d.verificado,
+        origen:
+            AuditStock(inicial: sOrig, trasladada: cant, final_: sOrig - cant),
+        destino:
+            AuditStock(inicial: sDest, trasladada: cant, final_: sDest + cant),
       ));
     }
     return items;
   }
 
-  /// Marca un detalle como verificado/no verificado y re-encola la requisición
-  /// completa (porta `marcar_detalle_verificado`).
   Future<void> marcarDetalleVerificado(int detalleId, bool verificado) async {
-    final detalle = await (_db.select(_db.requisicionDetalles)
-          ..where((t) => t.id.equals(detalleId)))
-        .getSingleOrNull();
-    if (detalle == null) return;
-
-    await (_db.update(_db.requisicionDetalles)
-          ..where((t) => t.id.equals(detalleId)))
-        .write(RequisicionDetallesCompanion(
-          verificado: Value(verificado ? 1 : 0),
-        ));
-    await _encolarRequisicion(detalle.requisicionId);
+    final rows = await _db.fetchById('requisicion_detalles', detalleId);
+    if (rows == null) return;
+    await _db.updateById(
+        'requisicion_detalles', detalleId, {'verificado': verificado});
   }
 
-  /// Ajuste de stock para auditoría (porta `crear_ajuste_stock`).
   Future<void> crearAjusteStock({
     required int productoId,
     required String almacen,
@@ -314,63 +244,46 @@ class RequisicionesRepository {
     String usuario = 'Admin',
     double? pesoTotal,
   }) async {
-    final e = await (_db.select(_db.existencias)
-          ..where((t) =>
-              t.productoId.equals(productoId) & t.almacen.equals(almacen)))
-        .getSingleOrNull();
-    final actual = e?.cantidad ?? 0;
+    final actual = await getExistencia(productoId, almacen);
     final diff = nuevaCantidad - actual;
 
-    await _db.into(_db.movimientos).insert(
-          MovimientosCompanion.insert(
-            productoId: productoId,
-            tipo: 'ajuste',
-            cantidad: diff,
-            cantidadAnterior: Value(actual),
-            cantidadNueva: Value(nuevaCantidad),
-            pesoTotal: Value(pesoTotal ?? 0),
-            registradoPor: Value(usuario),
-            observaciones: Value('Ajuste auditoría: $motivo'),
-            almacen: Value(almacen),
-            fechaMovimiento: Value(DateTime.now()),
-            sincronizado: const Value(0),
-          ),
-        );
+    await _db.insert('movimientos', {
+      'producto_id': productoId,
+      'tipo': 'ajuste',
+      'cantidad': diff,
+      'cantidad_anterior': actual,
+      'cantidad_nueva': nuevaCantidad,
+      'peso_total': pesoTotal ?? 0,
+      'registrado_por': usuario,
+      'observaciones': 'Ajuste auditoría: $motivo',
+      'almacen': almacen,
+      'fecha_movimiento': DateTime.now().toUtc().toIso8601String(),
+    });
 
-    final producto = await (_db.select(_db.productos)
-          ..where((t) => t.id.equals(productoId)))
-        .getSingleOrNull();
-    await _db.into(_db.existencias).insertOnConflictUpdate(
-      ExistenciasCompanion.insert(
-        productoId: Value(productoId),
-        almacen: almacen,
-        cantidad: Value(nuevaCantidad),
-        unidad: Value(producto?.unidadMedida ?? 'unidad'),
-      ),
-    );
+    final prod = await _db.fetchById('productos', productoId);
+    await _db.upsert('existencias', {
+      'producto_id': productoId,
+      'almacen': almacen,
+      'cantidad': nuevaCantidad,
+      'unidad': (prod?['unidad_medida'] as String?) ?? 'unidad',
+    }, conflictColumn: 'producto_id');
   }
 
-  /// Totaliza (cierra) una requisición: registra los traslados `tr_salida` /
-  /// `tr_entrada`, actualiza existencias y pone estado 'completada'.
-  /// Porta `totalizar_requisicion` de data.py.
-  ///
-  /// Lanza [StateError] si la req ya fue totalizada o no tiene detalles.
   Future<void> totalizarRequisicion(int requisicionId,
       {String usuario = 'Admin'}) async {
-    final req = await (_db.select(_db.requisiciones)
-          ..where((t) => t.id.equals(requisicionId)))
-        .getSingleOrNull();
-    if (req == null) throw StateError('Requisición no encontrada');
+    final reqRows = await _db.fetchById('requisiciones', requisicionId);
+    if (reqRows == null) throw StateError('Requisición no encontrada');
+    final req = domain.Requisicion.fromMap(reqRows);
     if (req.estado == 'completada') {
       throw StateError('La requisición ya fue totalizada');
     }
 
-    // Ya tiene traslados registrados (detección por observación, como Python).
-    final movimientosYa = await (_db.select(_db.movimientos)
-          ..where((t) => t.observaciones.contains('req ${req.numero} →') |
-              t.observaciones.contains('req ${req.numero} ←')))
-        .get();
-    if (movimientosYa.isNotEmpty) {
+    final movimientos = await _db.client
+        .from('movimientos')
+        .select('id')
+        .or(
+            'observaciones.eq.Traslado req ${req.numero} → ${req.destino},observaciones.eq.Traslado req ${req.numero} ← ${req.origen}');
+    if (movimientos.isNotEmpty) {
       throw StateError('La requisición ya tiene traslados registrados');
     }
 
@@ -384,150 +297,103 @@ class RequisicionesRepository {
 
       final actualOrigen = await getExistencia(d.productoId!, req.origen);
       final actualDestino = await getExistencia(d.productoId!, req.destino);
-      final cantOrigenNueva = (actualOrigen - d.cantidad).clamp(0.0, double.infinity);
+      final cantOrigenNueva =
+          (actualOrigen - d.cantidad).clamp(0.0, double.infinity);
       final cantDestinoNueva = actualDestino + d.cantidad;
 
-      // Traslado de salida desde origen (cantidad negativa).
-      await _db.into(_db.movimientos).insert(
-            MovimientosCompanion.insert(
-              productoId: d.productoId!,
-              requisicionId: Value(req.id),
-              tipo: 'tr_salida',
-              cantidad: -d.cantidad,
-              cantidadAnterior: Value(actualOrigen),
-              cantidadNueva: Value(cantOrigenNueva),
-              pesoTotal: const Value(0.0),
-              registradoPor: Value(usuario),
-              observaciones: Value('Traslado req ${req.numero} → ${req.destino}'),
-              almacen: Value(req.origen),
-              fechaMovimiento: Value(DateTime.now()),
-              sincronizado: const Value(0),
-            ),
-          );
+      await _db.insert('movimientos', {
+        'producto_id': d.productoId,
+        'requisicion_id': req.id,
+        'tipo': 'tr_salida',
+        'cantidad': -d.cantidad,
+        'cantidad_anterior': actualOrigen,
+        'cantidad_nueva': cantOrigenNueva,
+        'peso_total': 0,
+        'registrado_por': usuario,
+        'observaciones': 'Traslado req ${req.numero} → ${req.destino}',
+        'almacen': req.origen,
+        'fecha_movimiento': DateTime.now().toUtc().toIso8601String(),
+      });
 
-      // Traslado de entrada al destino (cantidad positiva).
-      await _db.into(_db.movimientos).insert(
-            MovimientosCompanion.insert(
-              productoId: d.productoId!,
-              requisicionId: Value(req.id),
-              tipo: 'tr_entrada',
-              cantidad: d.cantidad,
-              cantidadAnterior: Value(actualDestino),
-              cantidadNueva: Value(cantDestinoNueva),
-              pesoTotal: const Value(0.0),
-              registradoPor: Value(usuario),
-              observaciones: Value('Traslado req ${req.numero} ← ${req.origen}'),
-              almacen: Value(req.destino),
-              fechaMovimiento: Value(DateTime.now()),
-              sincronizado: const Value(0),
-            ),
-          );
+      await _db.insert('movimientos', {
+        'producto_id': d.productoId,
+        'requisicion_id': req.id,
+        'tipo': 'tr_entrada',
+        'cantidad': d.cantidad,
+        'cantidad_anterior': actualDestino,
+        'cantidad_nueva': cantDestinoNueva,
+        'peso_total': 0,
+        'registrado_por': usuario,
+        'observaciones': 'Traslado req ${req.numero} ← ${req.origen}',
+        'almacen': req.destino,
+        'fecha_movimiento': DateTime.now().toUtc().toIso8601String(),
+      });
 
-      // Actualiza existencias origen y destino.
-      await _db.into(_db.existencias).insertOnConflictUpdate(
-        ExistenciasCompanion.insert(
-          productoId: Value(d.productoId!),
-          almacen: req.origen,
-          cantidad: Value(cantOrigenNueva),
-        ),
-      );
-      await _db.into(_db.existencias).insertOnConflictUpdate(
-        ExistenciasCompanion.insert(
-          productoId: Value(d.productoId!),
-          almacen: req.destino,
-          cantidad: Value(cantDestinoNueva),
-        ),
-      );
+      await _db.upsert('existencias', {
+        'producto_id': d.productoId,
+        'almacen': req.origen,
+        'cantidad': cantOrigenNueva,
+      }, conflictColumn: 'producto_id');
+      await _db.upsert('existencias', {
+        'producto_id': d.productoId,
+        'almacen': req.destino,
+        'cantidad': cantDestinoNueva,
+      }, conflictColumn: 'producto_id');
     }
 
-    // Cierra la requisición.
-    await (_db.update(_db.requisiciones)..where((t) => t.id.equals(req.id)))
-        .write(RequisicionesCompanion(
-          estado: const Value('completada'),
-          procesadaPor: Value(usuario),
-          fechaProcesamiento: Value(DateTime.now()),
-          actualizada: Value(DateTime.now()),
-        ));
-    await _encolarRequisicion(req.id);
+    await _db.updateById('requisiciones', req.id, {
+      'estado': 'completada',
+      'procesada_por': usuario,
+      'fecha_procesamiento': DateTime.now().toUtc().toIso8601String(),
+      'actualizada': DateTime.now().toUtc().toIso8601String(),
+    });
   }
 
-  // ---------------------------------------------------------------------
-  // Historial de movimientos (auditoría)
-  // ---------------------------------------------------------------------
-
-  Future<List<Movimiento>> getMovimientosProducto(int productoId,
-      {int limit = 9999}) {
-    return (_db.select(_db.movimientos)
-          ..where((t) => t.productoId.equals(productoId))
-          ..orderBy([(t) => OrderingTerm.desc(t.fechaMovimiento)])
-          ..limit(limit))
-        .get();
+  Future<List<Map<String, dynamic>>> getMovimientosProducto(int productoId,
+      {int limit = 9999}) async {
+    final rows = await _db.client
+        .from('movimientos')
+        .select()
+        .eq('producto_id', productoId)
+        .order('fecha_movimiento', ascending: false)
+        .limit(limit);
+    return rows;
   }
-
-  // ---------------------------------------------------------------------
-  // Internos
-  // ---------------------------------------------------------------------
 
   Future<void> _insertDetalle(int requisicionId, RequisicionItem item,
-      {int verificado = 0}) {
-    return _db.into(_db.requisicionDetalles).insert(
-          RequisicionDetallesCompanion.insert(
-            requisicionId: requisicionId,
-            productoId: Value(item.productoId),
-            ingrediente: item.nombre,
-            cantidad: item.cantidad,
-            unidad: Value(item.unidad),
-            cantidadSurtida: const Value(0),
-            verificado: Value(item.verificado != 0 ? 1 : verificado),
-          ),
-        );
+      {bool verificado = false}) {
+    return _db.insert('requisicion_detalles', {
+      'requisicion_id': requisicionId,
+      'producto_id': item.productoId,
+      'ingrediente': item.nombre,
+      'cantidad': item.cantidad,
+      'unidad': item.unidad,
+      'cantidad_surtida': 0,
+      'verificado': item.verificado || verificado,
+    }).then((_) {});
   }
 
-  /// Re-encola la requisición completa en el outbox. El `SyncEngine` sube la
-  /// cabecera (resolviendo el id remoto por `numero`) y todos sus detalles,
-  /// por lo que basta con enviar la fila completa de la cabecera.
-  Future<void> _encolarRequisicion(int requisicionId) async {
-    final req = await (_db.select(_db.requisiciones)
-          ..where((t) => t.id.equals(requisicionId)))
-        .getSingleOrNull();
-    if (req == null) return;
-    await addPending(
-      _db,
-      tableName: 'requisiciones',
-      operation: 'upsert',
-      data: requisicionToSyncMap(req),
-    );
-  }
-
-  /// Aplica mover stock al crear (flujo rápido): resta en origen y suma en
-  /// destino sin pasar por auditoría.
   Future<void> _aplicarMoverStock(int requisicionId, bool moverStock) async {
     if (!moverStock) return;
-    final req = await (_db.select(_db.requisiciones)
-          ..where((t) => t.id.equals(requisicionId)))
-        .getSingleOrNull();
-    if (req == null) return;
+    final reqRows = await _db.fetchById('requisiciones', requisicionId);
+    if (reqRows == null) return;
+    final req = domain.Requisicion.fromMap(reqRows);
 
     for (final d in await getDetalles(req.id)) {
       if (d.productoId == null) continue;
       final actualOrigen = await getExistencia(d.productoId!, req.origen);
       final actualDestino = await getExistencia(d.productoId!, req.destino);
 
-      await _db.into(_db.existencias).insertOnConflictUpdate(
-        ExistenciasCompanion.insert(
-          productoId: Value(d.productoId!),
-          almacen: req.origen,
-          cantidad:
-              Value((actualOrigen - d.cantidad).clamp(0.0, double.infinity)),
-        ),
-      );
-      await _db.into(_db.existencias).insertOnConflictUpdate(
-        ExistenciasCompanion.insert(
-          productoId: Value(d.productoId!),
-          almacen: req.destino,
-          cantidad: Value(actualDestino + d.cantidad),
-        ),
-      );
+      await _db.upsert('existencias', {
+        'producto_id': d.productoId,
+        'almacen': req.origen,
+        'cantidad': (actualOrigen - d.cantidad).clamp(0.0, double.infinity),
+      }, conflictColumn: 'producto_id');
+      await _db.upsert('existencias', {
+        'producto_id': d.productoId,
+        'almacen': req.destino,
+        'cantidad': actualDestino + d.cantidad,
+      }, conflictColumn: 'producto_id');
     }
   }
 

@@ -52,7 +52,7 @@ class _ConfigImpresoraTabState extends ConsumerState<ConfigImpresoraTab> {
   }
 
   Future<void> _cargar() async {
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     final header = await cargarMembrete(repo);
     final corr = await getCorrelativoActual(repo);
     final device = await getPrinterDevice(repo);
@@ -99,7 +99,7 @@ class _ConfigImpresoraTabState extends ConsumerState<ConfigImpresoraTab> {
     setState(() => _guardando = true);
     try {
       await guardarMembrete(
-        ref.read(posRepoProvider),
+        ref.read(posRepoProvider)!,
         nombre: _nombreCtrl.text.trim(),
         rif: _rifCtrl.text.trim(),
         direccion: _direccionCtrl.text.trim(),
@@ -121,7 +121,7 @@ class _ConfigImpresoraTabState extends ConsumerState<ConfigImpresoraTab> {
       return;
     }
     try {
-      await setCorrelativoInicial(ref.read(posRepoProvider), v);
+      await setCorrelativoInicial(ref.read(posRepoProvider)!, v);
       setState(() => _correlativoActual = v);
       _snack('Correlativo establecido en $v');
     } catch (e) {
@@ -131,7 +131,7 @@ class _ConfigImpresoraTabState extends ConsumerState<ConfigImpresoraTab> {
 
   Future<void> _guardarDevice() async {
     try {
-      await setPrinterDevice(ref.read(posRepoProvider), _deviceCtrl.text.trim());
+      await setPrinterDevice(ref.read(posRepoProvider)!, _deviceCtrl.text.trim());
       _snack('Dispositivo guardado');
     } catch (e) {
       _snack('Error: $e', color: const Color(0xFFEF5350));
@@ -141,7 +141,7 @@ class _ConfigImpresoraTabState extends ConsumerState<ConfigImpresoraTab> {
   /// Prueba de impresión: en Windows envía un ticket ESC/POS real a la
   /// impresora configurada; en web muestra la vista previa con el diálogo.
   Future<void> _probar() async {
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     final header = await cargarMembrete(repo);
     if (!mounted) return;
     final items = <TicketItem>[

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/db/schema/app_database.dart';
-import '../../../core/sync/global_sync_bar.dart';
+import '../../../core/models/pos_models.dart';
 import '../data/pos_providers.dart';
 import '../data/pos_session.dart';
 import 'widgets/habitacion_card.dart';
@@ -21,7 +20,7 @@ class HabitacionesScreen extends ConsumerWidget {
   });
 
   final PosSesionActiva sesion;
-  final ValueChanged<PosHabitacione> onOpenHabitacion;
+  final ValueChanged<PosHabitacion> onOpenHabitacion;
   final VoidCallback onBack;
   final VoidCallback onLogout;
 
@@ -39,7 +38,6 @@ class HabitacionesScreen extends ConsumerWidget {
             onBack: onBack,
             onLogout: onLogout,
           ),
-          const GlobalSyncBar(),
           Expanded(
             child: habs.when(
               loading: () =>

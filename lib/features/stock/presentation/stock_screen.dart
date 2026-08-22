@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../core/db/schema/app_database.dart';
+import '../../../core/data/realtime_service.dart';
+import '../../../core/data/supabase_providers.dart';
+import '../../../core/models/categoria.dart';
+import '../../../core/models/producto.dart';
 import '../data/stock_providers.dart';
 import '../data/stock_repository.dart';
 import 'widgets/stock_stat_card.dart';
@@ -29,16 +33,41 @@ class _StockScreenState extends ConsumerState<StockScreen> {
   Map<int, String> _categoriasMap = {};
   Future<StockStats>? _statsFuture;
   Future<List<Producto>>? _productosFuture;
+  final List<RealtimeSubscription> _rtSubs = [];
 
   @override
   void initState() {
     super.initState();
     _cargarFiltros();
     _reload();
+    _initRealtime();
+  }
+
+  void _initRealtime() {
+    final rt = ref.read(realtimeServiceProvider);
+    if (rt == null) return;
+    for (final table in ['existencias', 'movimientos']) {
+      final sub = rt.subscribe(
+        table: table,
+        events: {PostgresChangeEvent.insert, PostgresChangeEvent.update, PostgresChangeEvent.delete},
+      );
+      sub.stream.listen((_) {
+        if (mounted) _reload();
+      });
+      _rtSubs.add(sub);
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final sub in _rtSubs) {
+      sub.cancel();
+    }
+    super.dispose();
   }
 
   Future<void> _cargarFiltros() async {
-    final repo = ref.read(stockRepoProvider);
+    final repo = ref.read(stockRepoProvider)!;
     final cats = await repo.loadCategorias();
     final alm = await repo.getAlmacenes();
     if (mounted) {
@@ -51,7 +80,7 @@ class _StockScreenState extends ConsumerState<StockScreen> {
   }
 
   void _reload() {
-    final repo = ref.read(stockRepoProvider);
+    final repo = ref.read(stockRepoProvider)!;
     setState(() {
       _statsFuture = repo.getStockStats();
       _productosFuture = repo.filterProductos(
@@ -75,19 +104,19 @@ class _StockScreenState extends ConsumerState<StockScreen> {
   }
 
   Future<void> _verHistorial(Producto p) async {
-    final repo = ref.read(stockRepoProvider);
+    final repo = ref.read(stockRepoProvider)!;
     final movs = await repo.getProductoHistorial(p.id);
     if (!mounted) return;
     await showHistorialDialog(
       context,
       titulo: 'Historial: ${p.nombre}',
       movimientos: movs,
-      esPesable: p.esPesable == 1,
+      esPesable: p.esPesable,
     );
   }
 
   Future<void> _verExistencias(Producto p) async {
-    final repo = ref.read(stockRepoProvider);
+    final repo = ref.read(stockRepoProvider)!;
     await showExistenciasDialog(context, ref, p, repo);
     if (mounted) _reload();
   }

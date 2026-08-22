@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/sync/sync_service.dart';
 import '../../../../core/utils/web_utils.dart';
 import '../../data/ocr_service.dart';
 import '../../data/temporales_repository.dart';
@@ -109,7 +108,7 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
     try {
       final proveedores = await ref.read(proveedoresProvider.future);
       if (!mounted) return;
-      if (proveedores.any((p) => p.nombre == prov)) {
+      if (proveedores.any((p) => p['nombre'] == prov)) {
         _proveedor = prov;
       } else {
         _proveedor = '__nuevo__';
@@ -140,7 +139,7 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
   Future<void> _onTipoDocumento(String tipo) async {
     setState(() => _tipoDocumento = tipo);
     if (tipo == 'Entrada') {
-      final repo = ref.read(validacionRepoProvider);
+      final repo = ref.read(validacionRepoProvider)!;
       final correlativo = await repo.getNextEntradaCorrelativo();
       if (mounted) setState(() => _facturaCtrl.text = correlativo);
     } else {
@@ -177,7 +176,7 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
   }
 
   Future<void> _validar() async {
-    final repo = ref.read(validacionRepoProvider);
+    final repo = ref.read(validacionRepoProvider)!;
     setState(() => _validando = true);
     try {
       final esNuevo = _proveedor == '__nuevo__';
@@ -218,7 +217,6 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
         pagos: pagos,
         usuario: widget.usuario,
       );
-      ref.read(syncEngineProvider)?.pushPending();
 
       // Envío WhatsApp en background (fire-and-forget): si el bot está apagado,
       // el envío directo falla y el mensaje queda encolado en la bandeja.
@@ -232,7 +230,7 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
         // registro de los movimientos: el mensaje debe reflejar la factura.
         fechaEntrada: _fecha,
       );
-      final waRepo = ref.read(whatsappRepoProvider);
+      final waRepo = ref.read(whatsappRepoProvider)!;
       if (_imagenPegada != null) {
         unawaited(waRepo.enviarImagen(
           imagenBase64: base64Encode(_imagenPegada!),
@@ -372,9 +370,9 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
                     ),
                     for (final p in proveedores)
                       DropdownMenuItem(
-                        value: p.nombre,
+                        value: p['nombre'] as String,
                         child: Text(
-                          p.nombre,
+                          p['nombre'] as String,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),

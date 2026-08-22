@@ -1,89 +1,97 @@
-import 'package:drift/drift.dart';
+import '../../../core/data/supabase_service.dart';
+import '../../../core/models/categoria.dart';
+import '../../../core/models/producto.dart';
+import '../../../core/models/periodo.dart';
+import '../../../core/models/existencia.dart';
 
-import '../../../core/db/schema/app_database.dart';
-import '../../../core/sync/sync_service.dart';
-
-/// Repositorio de inventario — porta `usr/views/inventario/*` y la parte de
-/// datos de `movements.py`, `local_replica.py`.
-///
-/// Estrategia heredada: toda mutación escribe en drift y encola en el outbox;
-/// el sync engine sube/descarga. Los movimientos se registran con
-/// `sincronizado=0` y se suben por el flujo especial (no por outbox).
+/// Repositorio de inventario — CRUD de productos, movimientos y lista de compra.
+/// Opera directamente contra Supabase (sin Drift ni sync manual).
 class InventarioRepository {
   InventarioRepository(this._db);
 
-  final AppDatabase _db;
+  final SupabaseService _db;
 
   // ---------------------------------------------------------------------
   // Categorías
   // ---------------------------------------------------------------------
 
-  Future<List<Categoria>> getAllCategorias() =>
-      (_db.select(_db.categorias)..orderBy([(t) => OrderingTerm.asc(t.nombre)])).get();
-
-  Stream<List<Categoria>> watchCategorias() =>
-      (_db.select(_db.categorias)..orderBy([(t) => OrderingTerm.asc(t.nombre)])).watch();
+  Future<List<Categoria>> getAllCategorias() async {
+    final rows = await _db.fetchAll('categorias', orderBy: 'nombre');
+    return rows.map(Categoria.fromMap).toList();
+  }
 
   Future<int> insertCategoria({
     required String nombre,
     String? descripcion,
     String color = '#2196F3',
-  }) async {
-    final id = await _db.into(_db.categorias).insert(
-          CategoriasCompanion.insert(
-            nombre: nombre,
-            descripcion: Value(descripcion),
-            color: Value(color),
-            activo: const Value(1),
-            visibleEnPos: const Value(1),
-            createdAt: Value(DateTime.now()),
-          ),
-          mode: InsertMode.replace,
-        );
-    await addPending(
-      _db,
-      tableName: 'categorias',
-      operation: 'insert',
-      data: {'id': id, 'nombre': nombre},
-    );
-    return id;
+  }) {
+    return _db.upsert('categorias', {
+      'nombre': nombre,
+      'descripcion': descripcion,
+      'color': color,
+      'activo': true,
+      'visible_en_pos': true,
+    }, conflictColumn: 'nombre');
   }
 
   // ---------------------------------------------------------------------
   // Productos
   // ---------------------------------------------------------------------
 
-  Future<List<Producto>> getAllProductos({String searchTerm = ''}) {
-    final q = _db.select(_db.productos)
-      ..where((t) => t.activo.equals(1))
-      ..orderBy([(t) => OrderingTerm.asc(t.nombre)]);
+  Future<List<Producto>> getAllProductos({String searchTerm = ''}) async {
+    final builder = _db.client
+        .from('productos')
+        .select()
+        .eq('activo', true);
     if (searchTerm.isNotEmpty) {
-      q.where((t) => t.nombre.lower().contains(searchTerm.toLowerCase()));
+      builder.ilike('nombre', '%$searchTerm%');
     }
-    return q.get();
-  }
-
-  Stream<List<Producto>> watchProductos({String searchTerm = ''}) {
-    final q = _db.select(_db.productos)
-      ..where((t) => t.activo.equals(1))
-      ..orderBy([(t) => OrderingTerm.asc(t.nombre)]);
-    if (searchTerm.isNotEmpty) {
-      q.where((t) => t.nombre.lower().contains(searchTerm.toLowerCase()));
+    builder.order('nombre', ascending: true);
+    final data = await builder;
+    final rows = (data as List).cast<Map<String, dynamic>>();
+    if (rows.isEmpty) return [];
+    final ids = rows.map((r) => r['id'] as int).toList();
+    final existRows = await _db.client
+        .from('existencias')
+        .select('producto_id, cantidad')
+        .inFilter('producto_id', ids);
+    final stockMap = <int, double>{};
+    for (final e in existRows) {
+      final pid = e['producto_id'] as int;
+      final cant = (e['cantidad'] as num?)?.toDouble() ?? 0;
+      stockMap[pid] = (stockMap[pid] ?? 0) + cant;
     }
-    return q.watch();
+    return rows.map((r) {
+      final p = Producto.fromMap(r);
+      return p.copyWith(stockActual: stockMap[p.id] ?? 0);
+    }).toList();
   }
 
-  Future<List<Producto>> getProductosByCategoria(int categoriaId) {
-    final q = _db.select(_db.productos)
-      ..where((t) => t.categoriaId.equals(categoriaId))
-      ..orderBy([(t) => OrderingTerm.asc(t.nombre)]);
-    return q.get();
+  Future<List<Producto>> getProductosByCategoria(int categoriaId) async {
+    final rows = await _db.fetchAll('productos',
+        orderBy: 'nombre', filters: {'categoria_id': categoriaId});
+    if (rows.isEmpty) return [];
+    final ids = rows.map((r) => r['id'] as int).toList();
+    final existRows = await _db.client
+        .from('existencias')
+        .select('producto_id, cantidad')
+        .inFilter('producto_id', ids);
+    final stockMap = <int, double>{};
+    for (final e in existRows) {
+      final pid = e['producto_id'] as int;
+      final cant = (e['cantidad'] as num?)?.toDouble() ?? 0;
+      stockMap[pid] = (stockMap[pid] ?? 0) + cant;
+    }
+    return rows.map((r) {
+      final p = Producto.fromMap(r);
+      return p.copyWith(stockActual: stockMap[p.id] ?? 0);
+    }).toList();
   }
 
-  Future<List<Existencia>> getExistenciasByProducto(int productoId) {
-    return (_db.select(_db.existencias)
-          ..where((t) => t.productoId.equals(productoId)))
-        .get();
+  Future<List<Existencia>> getExistenciasByProducto(int productoId) async {
+    final rows = await _db.fetchAll('existencias',
+        filters: {'producto_id': productoId});
+    return rows.map(Existencia.fromMap).toList();
   }
 
   Future<void> insertProducto({
@@ -97,44 +105,31 @@ class InventarioRepository {
     String tipo = 'ninguno',
     String almacenPredeterminado = 'principal',
     bool esPesable = false,
-  }) async {
-    final id = await _db.into(_db.productos).insert(
-          ProductosCompanion.insert(
-            nombre: nombre,
-            codigo: Value(codigo),
-            descripcion: Value(descripcion),
-            categoriaId: Value(categoriaId),
-            precioVenta: Value(precioVenta),
-            unidadMedida: Value(unidadMedida),
-            stockMinimo: Value(stockMinimo),
-            tipo: Value(tipo),
-            almacenPredeterminado: Value(almacenPredeterminado),
-            esPesable: Value(esPesable ? 1 : 0),
-            activo: const Value(1),
-            createdAt: Value(DateTime.now()),
-          ),
-          mode: InsertMode.replace,
-        );
-    final p = await (_db.select(_db.productos)..where((t) => t.id.equals(id))).getSingleOrNull();
-    if (p != null) {
-      await addPending(
-        _db,
-        tableName: 'productos',
-        operation: 'insert',
-        data: productoToSyncMap(p),
-      );
-    }
+  }) {
+    return _db.insert('productos', {
+      'nombre': nombre,
+      'codigo': codigo,
+      'descripcion': descripcion,
+      'categoria_id': categoriaId,
+      'precio_venta': precioVenta,
+      'unidad_medida': unidadMedida,
+      'stock_minimo': stockMinimo,
+      'tipo': tipo,
+      'almacen_predeterminado': almacenPredeterminado,
+      'es_pesable': esPesable,
+      'activo': true,
+    });
   }
 
   // ---------------------------------------------------------------------
   // Movimientos (porta registrar_movimiento de movements.py)
   // ---------------------------------------------------------------------
 
-  /// Registra un movimiento y actualiza la existencia (offline-first).
+  /// Registra un movimiento y actualiza la existencia.
   /// Devuelve `false` si el stock no alcanza (salidas/ajustes negativos).
   Future<bool> registrarMovimiento({
     required int productoId,
-    required String tipo, // entrada, salida, ajuste, entrada_produccion
+    required String tipo,
     required double cantidad,
     double pesoTotal = 0,
     String? almacen,
@@ -146,14 +141,13 @@ class InventarioRepository {
     final almacenSel =
         (almacen ?? '').trim().isNotEmpty ? almacen!.trim() : 'principal';
 
-    final existRows = await (_db.select(_db.existencias)
-          ..where((t) => t.productoId.equals(productoId) & t.almacen.equals(almacenSel))
-          ..orderBy([(t) => OrderingTerm.desc(t.id)]))
-        .get();
+    // Obtener existencia actual
+    final existRows = await _db.fetchAll('existencias',
+        filters: {'producto_id': productoId, 'almacen': almacenSel});
     final existActual = existRows.isEmpty ? null : existRows.first;
-    final cantAnterior = existActual?.cantidad ?? 0;
+    final cantAnterior =
+        (existActual?['cantidad'] as num?)?.toDouble() ?? 0;
 
-    // Si es pesable y hay peso, se mueve por peso (kg); si no, por cantidad.
     final esPorPeso = esPesable && pesoTotal > 0;
     final cantAMover = esPorPeso ? pesoTotal : cantidad;
     final unidad = esPesable ? 'kg' : unidadMedida;
@@ -162,27 +156,25 @@ class InventarioRepository {
     if (tipo == 'entrada' || tipo == 'entrada_produccion' || tipo == 'ajuste') {
       cantNueva = cantAnterior + cantAMover;
     } else {
-      if (cantAnterior < cantAMover) return false; // stock insuficiente
+      if (cantAnterior < cantAMover) return false;
       cantNueva = cantAnterior - cantAMover;
     }
 
-    await _db.into(_db.movimientos).insert(
-          MovimientosCompanion.insert(
-            productoId: productoId,
-            tipo: tipo,
-            cantidad: cantidad,
-            cantidadAnterior: Value(cantAnterior),
-            cantidadNueva: Value(cantNueva),
-            pesoTotal: Value(pesoTotal),
-            registradoPor: Value(registradoPor),
-            observaciones: Value(observaciones ?? ''),
-            almacen: Value(almacenSel),
-            fechaMovimiento: Value(DateTime.now()),
-            createdAt: Value(DateTime.now()),
-            sincronizado: const Value(0),
-          ),
-        );
+    // Insertar movimiento
+    await _db.insert('movimientos', {
+      'producto_id': productoId,
+      'tipo': tipo,
+      'cantidad': cantidad,
+      'cantidad_anterior': cantAnterior,
+      'cantidad_nueva': cantNueva,
+      'peso_total': pesoTotal,
+      'registrado_por': registradoPor,
+      'observaciones': observaciones ?? '',
+      'almacen': almacenSel,
+      'fecha_movimiento': DateTime.now().toIso8601String(),
+    });
 
+    // Upsert existencia
     await upsertExistencia(
       productoId: productoId,
       almacen: almacenSel,
@@ -190,7 +182,6 @@ class InventarioRepository {
       unidad: unidad,
     );
 
-    // El movimiento queda sincronizado=0 → lo sube _uploadPendingMovimientos.
     return true;
   }
 
@@ -200,61 +191,66 @@ class InventarioRepository {
     required double cantidad,
     String unidad = 'unidad',
   }) async {
-    // Deduplica: queda exactamente 1 fila por (producto_id, almacen).
-    await (_db.delete(_db.existencias)
-          ..where((t) =>
-              t.productoId.equals(productoId) & t.almacen.equals(almacen)))
-        .go();
-    await _db.into(_db.existencias).insert(
-          ExistenciasCompanion.insert(
-            productoId: Value(productoId),
-            almacen: almacen,
-            cantidad: Value(cantidad),
-            unidad: Value(unidad),
-          ),
-        );
+    // Buscar existencia actual
+    final rows = await _db.fetchAll('existencias',
+        filters: {'producto_id': productoId, 'almacen': almacen});
+    if (rows.isNotEmpty) {
+      await _db.updateById('existencias', rows.first['id'] as int, {
+        'cantidad': cantidad,
+        'unidad': unidad,
+      });
+    } else {
+      await _db.insert('existencias', {
+        'producto_id': productoId,
+        'almacen': almacen,
+        'cantidad': cantidad,
+        'unidad': unidad,
+      });
+    }
   }
 
   // ---------------------------------------------------------------------
-  // Lista de compra (compras_lista) — porta usr/views/inventario/shopping_list.py
+  // Lista de compra (compras_lista)
   // ---------------------------------------------------------------------
 
-  Future<List<ComprasListaData>> getComprasLista() {
-    return (_db.select(_db.comprasLista)
-          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-        .get();
-  }
-
-  /// Versión con join a Producto + Categoría para la UI de lista de compra.
   Future<List<ComprasListaItem>> getComprasListaConProductos() async {
-    final rows = await (_db.select(_db.comprasLista)
-          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-        .get();
-
+    final rows = await _db.fetchAll('compras_lista',
+        orderBy: 'created_at', ascending: false);
     if (rows.isEmpty) return [];
 
-    // Obtener productos relacionados
-    final productoIds = rows.map((r) => r.productoId).whereType<int>().toSet();
-    final productos = await (_db.select(_db.productos)
-          ..where((t) => t.id.isIn(productoIds)))
-        .get();
+    final productoIds =
+        rows.map((r) => r['producto_id'] as int).toSet();
+    final productosRaw = await _db.client
+        .from('productos')
+        .select()
+        .inFilter('id', productoIds.toList());
+    final prodMap = {
+      for (final p in productosRaw as List)
+        (p['id'] as int): Producto.fromMap(p)
+    };
 
-    // Mapa id -> producto
-    final prodMap = {for (final p in productos) p.id: p};
-
-    // Obtener categorías de esos productos
-    final catIds = productos.map((p) => p.categoriaId).whereType<int>().toSet();
-    final categorias = await (_db.select(_db.categorias)
-          ..where((t) => t.id.isIn(catIds)))
-        .get();
-    final catMap = {for (final c in categorias) c.id: c};
+    final catIds = prodMap.values
+        .map((p) => p.categoriaId)
+        .whereType<int>()
+        .toSet();
+    final categoriasRaw = catIds.isEmpty
+        ? <Map<String, dynamic>>[]
+        : (await _db.client
+                .from('categorias')
+                .select()
+                .inFilter('id', catIds.toList())
+            as List)
+            .cast<Map<String, dynamic>>();
+    final catMap = {
+      for (final c in categoriasRaw) (c['id'] as int): Categoria.fromMap(c)
+    };
 
     return rows.map((row) {
-      final p = prodMap[row.productoId];
-      final cat = p != null && p.categoriaId != null ? catMap[p.categoriaId] : null;
+      final p = prodMap[row['producto_id'] as int];
       if (p == null) return null;
+      final cat = p.categoriaId != null ? catMap[p.categoriaId] : null;
       return ComprasListaItem(
-        id: row.id,
+        id: row['id'] as int,
         productoId: p.id,
         nombre: p.nombre,
         precioVenta: p.precioVenta,
@@ -263,29 +259,29 @@ class InventarioRepository {
         categoriaId: p.categoriaId ?? 0,
         categoriaNombre: cat?.nombre ?? '',
         categoriaColor: cat?.color ?? '#2196F3',
-        esPesable: p.esPesable == 1,
+        esPesable: p.esPesable,
       );
     }).whereType<ComprasListaItem>().toList();
   }
 
   Future<void> toggleComprasLista(int productoId) async {
-    final exists = await (_db.select(_db.comprasLista)
-          ..where((t) => t.productoId.equals(productoId)))
-        .get();
-    if (exists.isNotEmpty) {
-      await (_db.delete(_db.comprasLista)..where((t) => t.productoId.equals(productoId))).go();
+    final rows = await _db.fetchAll('compras_lista',
+        filters: {'producto_id': productoId});
+    if (rows.isNotEmpty) {
+      await _db.deleteById('compras_lista', rows.first['id'] as int);
     } else {
-      await _db.into(_db.comprasLista).insert(
-            ComprasListaCompanion.insert(
-              productoId: productoId,
-              createdAt: Value(DateTime.now()),
-            ),
-          );
+      await _db.insert('compras_lista', {
+        'producto_id': productoId,
+      });
     }
   }
 
-  Future<void> deleteComprasLista(int productoId) {
-    return (_db.delete(_db.comprasLista)..where((t) => t.productoId.equals(productoId))).go();
+  Future<void> deleteComprasLista(int productoId) async {
+    final rows = await _db.fetchAll('compras_lista',
+        filters: {'producto_id': productoId});
+    for (final r in rows) {
+      await _db.deleteById('compras_lista', r['id'] as int);
+    }
   }
 }
 

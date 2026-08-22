@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
-import '../../../../core/sync/sync_service.dart';
+import '../../../../core/models/categoria.dart';
+import '../../../../core/models/producto.dart';
 import '../../data/configuracion_providers.dart'
     show
         configuracionRepoProvider,
@@ -122,7 +122,7 @@ class _ProductosTabState extends ConsumerState<ProductosTab> {
               Expanded(
                 child: catAsync.when(
                   data: (cats) => DropdownButtonFormField<int?>(
-                    initialValue: _categoriaId,
+                    value: _categoriaId,
                     decoration: const InputDecoration(labelText: 'Categoría', isDense: true, border: OutlineInputBorder()),
                     items: [
                       const DropdownMenuItem<int?>(value: null, child: Text('Todas')),
@@ -140,7 +140,7 @@ class _ProductosTabState extends ConsumerState<ProductosTab> {
               Expanded(
                 child: almAsync.when(
                   data: (alms) => DropdownButtonFormField<String?>(
-                    initialValue: _almacen,
+                    value: _almacen,
                     decoration: const InputDecoration(labelText: 'Almacén', isDense: true, border: OutlineInputBorder()),
                     items: [
                       const DropdownMenuItem<String?>(value: null, child: Text('Todos')),
@@ -162,7 +162,7 @@ class _ProductosTabState extends ConsumerState<ProductosTab> {
   }
 
   Future<void> _abrirDialogo(Producto? prod) async {
-    final result = await showProductoDialog(context, ref.read(configuracionRepoProvider), producto: prod);
+    final result = await showProductoDialog(context, ref.read(configuracionRepoProvider)!, producto: prod);
     if (result == true && mounted) {
       ref.invalidate(productosConfigProvider);
       ref.invalidate(categoriasConfigProvider);
@@ -186,9 +186,8 @@ class _ProductosTabState extends ConsumerState<ProductosTab> {
       ),
     );
     if (confirm == true) {
-      final repo = ref.read(configuracionRepoProvider);
+      final repo = ref.read(configuracionRepoProvider)!;
       await repo.deleteProducto(prod.id);
-      ref.read(syncEngineProvider)?.pushPending();
       if (mounted) ref.invalidate(productosConfigProvider);
     }
   }
@@ -212,10 +211,10 @@ class _ProductoItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = producto;
-    final esPesable = p.esPesable == 1;
+    final esPesable = p.esPesable;
     final catNombre = categoria?.nombre ?? 'N/A';
     final sku = p.codigo?.trim().isNotEmpty == true ? p.codigo!.trim() : 'Sin SKU';
-    final tipoTxt = (p.tipo ?? 'ninguno').isEmpty ? 'ninguno' : p.tipo;
+    final tipoTxt = p.tipo.isEmpty ? 'ninguno' : p.tipo;
     final tipoTxtL = tipoTxt.toLowerCase();
 
     Color tipoColor;
@@ -260,7 +259,7 @@ class _ProductoItemCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Cat: $catNombre · Stock: ${p.stockActual.toStringAsFixed(esPesable ? 3 : 0)} ${p.unidadMedida ?? 'unidad'}',
+                    'Cat: $catNombre · Stock: ${p.stockActual.toStringAsFixed(esPesable ? 3 : 0)} ${p.unidadMedida}',
                     style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 12),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

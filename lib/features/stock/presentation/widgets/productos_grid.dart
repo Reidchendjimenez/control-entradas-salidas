@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/producto.dart';
 import 'producto_stock_card.dart';
 
 /// Grid de productos de stock (porta `_render_productos` de stock_view.py).

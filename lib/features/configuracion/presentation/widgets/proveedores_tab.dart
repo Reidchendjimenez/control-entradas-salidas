@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
-import '../../../../core/sync/sync_service.dart';
+import '../../../../core/models/proveedor.dart';
 import '../../data/configuracion_providers.dart';
 import '../dialogs/proveedor_dialog.dart';
 
@@ -37,7 +36,7 @@ class _ProveedoresTabState extends ConsumerState<ProveedoresTab> {
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(child: Text('Error: $e', style: TextStyle(color: scheme.error))),
             data: (proveedores) {
-              final filtered = proveedores.where((Proveedore p) {
+              final filtered = proveedores.where((Proveedor p) {
                 if (_search.isEmpty) return true;
                 final term = _search.toLowerCase();
                 return p.nombre.toLowerCase().contains(term) ||
@@ -133,12 +132,12 @@ class _ProveedoresTabState extends ConsumerState<ProveedoresTab> {
     );
     }
 
-  Future<void> _abrirDialogo(Proveedore? prov) async {
-    final result = await showProveedorDialog(context, ref.read(configuracionRepoProvider), proveedor: prov);
+  Future<void> _abrirDialogo(Proveedor? prov) async {
+    final result = await showProveedorDialog(context, ref.read(configuracionRepoProvider)!, proveedor: prov);
     if (result == true && mounted) ref.invalidate(proveedoresConfigProvider);
   }
 
-  Future<void> _eliminar(Proveedore prov) async {
+  Future<void> _eliminar(Proveedor prov) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -155,9 +154,8 @@ class _ProveedoresTabState extends ConsumerState<ProveedoresTab> {
       ),
     );
     if (confirm == true) {
-      final repo = ref.read(configuracionRepoProvider);
+      final repo = ref.read(configuracionRepoProvider)!;
       await repo.deleteProveedor(prov.id);
-      ref.read(syncEngineProvider)?.pushPending();
       if (mounted) ref.invalidate(proveedoresConfigProvider);
     }
   }

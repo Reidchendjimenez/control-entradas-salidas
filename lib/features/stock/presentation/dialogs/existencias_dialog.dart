@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/producto.dart';
 import '../../data/stock_repository.dart';
 import 'ajuste_dialog.dart';
 
@@ -22,7 +22,7 @@ Future<void> showExistenciasDialog(
     return;
   }
 
-  final esPesable = producto.esPesable == 1;
+  final esPesable = producto.esPesable;
 
   String fmtCant(double cant) => esPesable
       ? '${cant.toStringAsFixed(2)} ${producto.unidadMedida}'

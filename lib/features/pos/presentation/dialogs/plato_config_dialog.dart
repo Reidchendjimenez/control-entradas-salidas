@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/pos_models.dart';
+import '../../../../core/models/producto.dart' as domain;
 import '../../../../features/inventario/data/inventario_providers.dart';
 import '../../data/pos_providers.dart';
 
 /// Alta/edición de plato con ingredientes dinámicos (port de
 /// `ConfigPOSView._show_plato_dialog`). Retorna `true` si se guardó.
-Future<bool> showPlatoConfigDialog(BuildContext context, {Plato? plato}) async {
+Future<bool> showPlatoConfigDialog(BuildContext context, {PosPlato? plato}) async {
   final ok = await showDialog<bool>(
     context: context,
     builder: (_) => _PlatoConfigDialog(plato: plato),
@@ -34,7 +35,7 @@ class _IngRow {
 class _PlatoConfigDialog extends ConsumerStatefulWidget {
   const _PlatoConfigDialog({this.plato});
 
-  final Plato? plato;
+  final PosPlato? plato;
 
   @override
   ConsumerState<_PlatoConfigDialog> createState() => _PlatoConfigDialogState();
@@ -50,8 +51,8 @@ class _PlatoConfigDialogState extends ConsumerState<_PlatoConfigDialog> {
   bool _cargando = true;
   bool _guardando = false;
 
-  List<PlatosCategoria> _categorias = [];
-  List<Producto> _insumos = [];
+  List<PosPlatoCategoria> _categorias = [];
+  List<domain.Producto> _insumos = [];
 
   bool get _esEdicion => widget.plato != null;
 
@@ -68,8 +69,8 @@ class _PlatoConfigDialogState extends ConsumerState<_PlatoConfigDialog> {
   }
 
   Future<void> _cargarDatos() async {
-    final posRepo = ref.read(posRepoProvider);
-    final invRepo = ref.read(inventarioRepoProvider);
+    final posRepo = ref.read(posRepoProvider)!;
+    final invRepo = ref.read(inventarioRepoProvider)!;
     final cats = await posRepo.getPlatosCategorias();
     final productos = await invRepo.getAllProductos();
     final insumos = [
@@ -133,7 +134,7 @@ class _PlatoConfigDialogState extends ConsumerState<_PlatoConfigDialog> {
       }
     }
     setState(() => _guardando = true);
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     try {
       if (_esEdicion) {
         await repo.actualizarPlato(
@@ -255,7 +256,7 @@ class _PlatoConfigDialogState extends ConsumerState<_PlatoConfigDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(_esEdicion ? 'Editar Plato' : 'Nuevo Plato'),
+      title: Text(_esEdicion ? 'Editar PosPlato' : 'Nuevo PosPlato'),
       content: SizedBox(
         width: 520,
         child: _cargando

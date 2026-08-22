@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/pos_models.dart';
 import '../../../../features/inventario/data/inventario_providers.dart';
 import '../../data/pos_providers.dart';
 import '../dialogs/pos_categoria_dialog.dart';
@@ -20,7 +20,7 @@ class ConfigCategoriasTab extends ConsumerStatefulWidget {
 
 class _ConfigCategoriasTabState extends ConsumerState<ConfigCategoriasTab> {
   List<PosCategoria> _posCats = [];
-  List<PlatosCategoria> _subCats = [];
+  List<PosPlatoCategoria> _subCats = [];
   Map<int, String> _invMap = {};
   bool _cargando = true;
 
@@ -31,8 +31,8 @@ class _ConfigCategoriasTabState extends ConsumerState<ConfigCategoriasTab> {
   }
 
   Future<void> _cargar() async {
-    final repo = ref.read(posRepoProvider);
-    final invRepo = ref.read(inventarioRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
+    final invRepo = ref.read(inventarioRepoProvider)!;
     final pos = await repo.getPosCategorias();
     final subs = await repo.getPlatosCategorias();
     final inv = await invRepo.getAllCategorias();
@@ -45,7 +45,7 @@ class _ConfigCategoriasTabState extends ConsumerState<ConfigCategoriasTab> {
     });
   }
 
-  String _labelSubcat(PlatosCategoria sc) {
+  String _labelSubcat(PosPlatoCategoria sc) {
     if (sc.categoriaPadreId != null) {
       return '${sc.nombre}  (en ${_invMap[sc.categoriaPadreId] ?? '?'})';
     }
@@ -86,12 +86,12 @@ class _ConfigCategoriasTabState extends ConsumerState<ConfigCategoriasTab> {
       ),
     );
     if (ok != true || !mounted) return;
-    await ref.read(posRepoProvider).eliminarPosCategoria(cat.id);
+    await ref.read(posRepoProvider)!.eliminarPosCategoria(cat.id);
     await _cargar();
   }
 
-  Future<void> _toggleSubcat(PlatosCategoria sc, bool activo) async {
-    await ref.read(posRepoProvider).guardarPlatoCategoria(
+  Future<void> _toggleSubcat(PosPlatoCategoria sc, bool activo) async {
+    await ref.read(posRepoProvider)!.guardarPlatoCategoria(
           sc.nombre,
           id: sc.id,
           color: sc.color,
@@ -102,7 +102,7 @@ class _ConfigCategoriasTabState extends ConsumerState<ConfigCategoriasTab> {
     await _cargar();
   }
 
-  Future<void> _eliminarSubcat(PlatosCategoria sc) async {
+  Future<void> _eliminarSubcat(PosPlatoCategoria sc) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -122,7 +122,7 @@ class _ConfigCategoriasTabState extends ConsumerState<ConfigCategoriasTab> {
       ),
     );
     if (ok != true || !mounted) return;
-    await ref.read(posRepoProvider).eliminarPlatoCategoria(sc.id);
+    await ref.read(posRepoProvider)!.eliminarPlatoCategoria(sc.id);
     await _cargar();
   }
 

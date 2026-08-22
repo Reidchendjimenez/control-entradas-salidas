@@ -133,7 +133,7 @@ class _ExportarDialogState extends ConsumerState<_ExportarDialog> {
           .add(const Duration(days: 1))
           .subtract(const Duration(days: 1));
 
-      final repo = ref.read(historialRepoProvider);
+      final repo = ref.read(historialRepoProvider)!;
       final rows = await repo.getLibroCompras(inicio, fin, tipoDocumento: _tipo.isEmpty ? null : _tipo);
 
       if (rows.isEmpty) {
@@ -183,16 +183,17 @@ class _ExportarDialogState extends ConsumerState<_ExportarDialog> {
 
     for (final r in rows) {
       final f = r.factura;
+      final ff = DateTime.tryParse(f['fecha_factura']?.toString() ?? '');
       sheet.appendRow([
-        TextCellValue(_fmtFecha(f.fechaFactura)),
-        TextCellValue(f.numeroFactura ?? ''),
-        TextCellValue(f.proveedor ?? ''),
+        TextCellValue(_fmtFecha(ff)),
+        TextCellValue((f['numero_factura'] as String?) ?? ''),
+        TextCellValue((f['proveedor'] as String?) ?? ''),
         DoubleCellValue(r.efectivo),
         DoubleCellValue(r.transferencia),
         DoubleCellValue(r.divisasUsd),
         if (r.tasa != null) DoubleCellValue(r.tasa!) else null,
-        DoubleCellValue(f.totalNeto),
-        TextCellValue(f.validadaPor ?? ''),
+        DoubleCellValue((f['total_neto'] as num?)?.toDouble() ?? 0),
+        TextCellValue((f['validada_por'] as String?) ?? ''),
       ]);
     }
 

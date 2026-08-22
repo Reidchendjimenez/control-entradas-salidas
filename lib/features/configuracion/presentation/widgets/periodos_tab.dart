@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/periodo.dart';
 import '../../data/configuracion_providers.dart';
+import '../../data/configuracion_repository.dart';
 
 /// Pestaña de Periodos (porta `usr/views/configuracion/periodos.py`).
 class PeriodosTab extends ConsumerStatefulWidget {
@@ -14,13 +15,12 @@ class PeriodosTab extends ConsumerStatefulWidget {
 
 class _PeriodosTabState extends ConsumerState<PeriodosTab> {
   final _periodosAsync = FutureProvider<List<Periodo>>((ref) {
-    return ref.read(configuracionRepoProvider).getPeriodos();
+    return ref.read(configuracionRepoProvider)!.getPeriodos();
   });
 
   bool _aperturando = false;
   bool _recalculando = false;
   bool _forzando = false;
-  bool _reintentando = false;
 
   @override
   Widget build(BuildContext context) {
@@ -96,26 +96,11 @@ class _PeriodosTabState extends ConsumerState<PeriodosTab> {
                         ),
                         if (abierto) ...[
                           const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: FilledButton.icon(
-                                  icon: const Icon(Icons.replay),
-                                  label: const Text('Forzar archivo'),
-                                  style: FilledButton.styleFrom(backgroundColor: Colors.orange),
-                                  onPressed: _forzando ? null : _forzarArchivo,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: FilledButton.icon(
-                                  icon: const Icon(Icons.cloud_upload),
-                                  label: const Text('Reintentar nube'),
-                                  style: FilledButton.styleFrom(backgroundColor: scheme.secondary),
-                                  onPressed: _reintentando ? null : _reintentarSupabase,
-                                ),
-                              ),
-                            ],
+                          FilledButton.icon(
+                            icon: const Icon(Icons.replay),
+                            label: const Text('Forzar archivo'),
+                            style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+                            onPressed: _forzando ? null : _forzarArchivo,
                           ),
                         ],
                         const Divider(height: 20),
@@ -167,7 +152,7 @@ class _PeriodosTabState extends ConsumerState<PeriodosTab> {
   Future<void> _aperturarPeriodo() async {
     setState(() => _aperturando = true);
     try {
-      final repo = ref.read(configuracionRepoProvider);
+      final repo = ref.read(configuracionRepoProvider)!;
       final periodo = _periodoActual();
 
       if (await repo.periodoExiste(periodo)) {
@@ -193,7 +178,7 @@ class _PeriodosTabState extends ConsumerState<PeriodosTab> {
   Future<void> _recalcularDesdeCero() async {
     setState(() => _recalculando = true);
     try {
-      final repo = ref.read(configuracionRepoProvider);
+      final repo = ref.read(configuracionRepoProvider)!;
       await repo.clearCheckpoints();
       await repo.recalcularExistencias();
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Stock recalculado desde todos los movimientos')));
@@ -207,7 +192,7 @@ class _PeriodosTabState extends ConsumerState<PeriodosTab> {
   Future<void> _forzarArchivo() async {
     setState(() => _forzando = true);
     try {
-      final repo = ref.read(configuracionRepoProvider);
+      final repo = ref.read(configuracionRepoProvider)!;
       await repo.archivarMovimientos(mesesActivos: 3, mesesRetencion: 7);
       await repo.recalcularExistencias();
       if (mounted) {
@@ -221,16 +206,5 @@ class _PeriodosTabState extends ConsumerState<PeriodosTab> {
     }
   }
 
-  Future<void> _reintentarSupabase() async {
-    setState(() => _reintentando = true);
-    try {
-      final repo = ref.read(configuracionRepoProvider);
-      await repo.archivarEnSupabase(mesesActivos: 3);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reintento en Supabase completado')));
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red));
-    } finally {
-      if (mounted) setState(() => _reintentando = false);
-    }
-  }
+
 }

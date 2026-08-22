@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/existencia.dart';
+import '../../../../core/models/producto.dart';
 import '../../data/stock_providers.dart';
 
 /// Tarjeta de producto en la vista de stock (porta `build_product_card`).
@@ -19,7 +20,7 @@ class ProductoStockCard extends ConsumerWidget {
   final Map<int, String> categorias;
   final void Function(String action, Producto producto) onAction;
 
-  bool get _esPesable => producto.esPesable == 1;
+  bool get _esPesable => producto.esPesable;
 
   String _fmt(double v) => _esPesable ? v.toStringAsFixed(2) : v.round().toString();
 
@@ -34,7 +35,7 @@ class ProductoStockCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final repo = ref.watch(stockRepoProvider);
+    final repo = ref.watch(stockRepoProvider)!;
     final scheme = Theme.of(context).colorScheme;
     final unidad = producto.unidadMedida.isEmpty ? 'uds' : producto.unidadMedida;
     final catNombre = producto.categoriaId != null

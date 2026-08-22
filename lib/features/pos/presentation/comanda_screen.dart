@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/db/schema/app_database.dart';
-import '../../../core/sync/global_sync_bar.dart';
+import '../../../core/models/pos_models.dart';
 import '../data/pos_comanda_models.dart';
 import '../data/pos_providers.dart';
 import '../data/pos_session.dart';
@@ -32,7 +31,7 @@ class ComandaScreen extends ConsumerStatefulWidget {
 
   final PosSesionActiva sesion;
   final PosMesa? mesa;
-  final PosHabitacione? habitacion;
+  final PosHabitacion? habitacion;
   final VoidCallback onBack;
   final VoidCallback onLogout;
 
@@ -101,7 +100,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
   }
 
   Future<void> _iniciar() async {
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     _tasa = await repo.getTasaCambio();
     _tasaFecha = await repo.getTasaCambioFecha();
     await _cargarComandaExistente();
@@ -117,8 +116,8 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
     try {
       final nueva = await service.obtenerTasaBcv();
       final anterior = _tasa;
-      final repo = ref.read(posRepoProvider);
-      await repo.setTasaCambio(nueva, sync: true);
+      final repo = ref.read(posRepoProvider)!;
+      await repo.setTasaCambio(nueva);
       final fecha = await repo.getTasaCambioFecha();
       final cambiada = anterior > 0 && (anterior - nueva).abs() > 0.0001;
       if (!mounted) return;
@@ -150,7 +149,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
   // =========================================================================
 
   Future<void> _cargarComandaExistente() async {
-    final repo = ref.read(posVentasRepoProvider);
+    final repo = ref.read(posVentasRepoProvider)!;
     final existente = await repo.getComandaAbierta(
       mesaId: widget.mesa?.id,
       habitacionId: widget.habitacion?.id,
@@ -165,7 +164,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
   Future<void> _guardar() async {
     if (_items.isEmpty) return;
     final total = _total;
-    final comandaId = await ref.read(posVentasRepoProvider).guardarComanda(
+    final comandaId = await ref.read(posVentasRepoProvider)!.guardarComanda(
           widget.sesion.sesionId,
           [for (final i in _items) i.toJson()],
           total,
@@ -201,7 +200,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
       ),
     );
     if (ok != true || !mounted) return;
-    await ref.read(posVentasRepoProvider).eliminarComanda(id);
+    await ref.read(posVentasRepoProvider)!.eliminarComanda(id);
     _comandaId = null;
     _items.clear();
     ref.invalidate(mesasOcupadasProvider);
@@ -227,7 +226,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
 
   Future<void> _confirmarCobro() async {
     if (!mounted) return;
-    final repo = ref.read(posVentasRepoProvider);
+    final repo = ref.read(posVentasRepoProvider)!;
     final mesaI = widget.mesa?.id;
     final habId = widget.habitacion?.id;
     final total = _total;
@@ -348,7 +347,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
     required int correlativo,
     int? correccionDe,
   }) async {
-    final header = await cargarMembrete(ref.read(posRepoProvider));
+    final header = await cargarMembrete(ref.read(posRepoProvider)!);
     final lineas = construirTicketPreview(
       items: items,
       total: _total,
@@ -377,7 +376,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
         habitacion: _habitacionTicketLabel,
         header: header,
       );
-      final dispositivo = await getPrinterDevice(ref.read(posRepoProvider));
+      final dispositivo = await getPrinterDevice(ref.read(posRepoProvider)!);
       try {
         await imprimirTicketNativo(dispositivo ?? '', bytes);
         _snack('Ticket enviado a la impresora');
@@ -417,7 +416,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
   }
 
   Future<void> _cargarCategorias() async {
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     final cats = await repo.getCategoriasPos();
     final posCats = await repo.getPosCategorias(soloActivas: true);
     final platosCats = await repo.getPlatosCategorias(soloActivas: true);
@@ -473,7 +472,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
     String nombre, {
     required bool esPos,
   }) async {
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     final subcats = await repo.getSubcategorias(
       categoriaPadreId: esPos ? null : id,
       posCategoriaPadreId: esPos ? id : null,
@@ -486,12 +485,12 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
   }
 
   Future<void> _cargarSubcategorias(
-    List<PlatosCategoria> subcats,
+    List<PosPlatoCategoria> subcats,
     int padreId,
     String color,
     String nombre,
   ) async {
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     final prods = await repo.getProductosPos(categoriaId: padreId);
     final entries = <_CatalogoEntry>[
       for (final sc in subcats)
@@ -525,7 +524,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
   }
 
   Future<void> _cargarProductos(int categoriaId, String color, String nombre) async {
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     final prods = await repo.getProductosPos(categoriaId: categoriaId);
     final entries = [
       for (final p in prods)
@@ -546,7 +545,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
   }
 
   Future<void> _cargarPlatosSeccion() async {
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     final pcats = await repo.getPlatosCategorias(soloActivas: true);
     final contornos = await repo.getContornosActivos();
     final contornoCatIds = {for (final c in contornos) c.categoriaId};
@@ -573,7 +572,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
   }
 
   Future<void> _cargarPlatos(int categoriaId, String color, String nombre) async {
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     final platos = await repo.getPlatos(
         soloActivos: true, categoriaId: categoriaId, esContorno: false);
     final entries = [
@@ -600,7 +599,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
   }
 
   Future<void> _cargarContornos() async {
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     final contornos = await repo.getContornosActivos();
     final entries = [
       for (final c in contornos)
@@ -632,7 +631,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
     bool llevaContornos = false,
   }) async {
     if (llevaContornos) {
-      final contornos = await ref.read(posRepoProvider).getContornosActivos();
+      final contornos = await ref.read(posRepoProvider)!.getContornosActivos();
       if (contornos.isNotEmpty) {
         if (!mounted) return;
         final seleccionados = await showContornosDialog(
@@ -660,7 +659,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
     _listKey.currentState?.insertItem(_items.length - 1);
   }
 
-  void _agregarItemConContornos(int id, String nombre, double precio, List<Plato> contornos) {
+  void _agregarItemConContornos(int id, String nombre, double precio, List<PosPlato> contornos) {
     for (final item in _items) {
       if (item.id == id && !item.tieneContornos) {
         setState(() => item.cantidad++);
@@ -680,14 +679,14 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
     _listKey.currentState?.insertItem(_items.length - 1);
   }
 
-  Plato _platoStub(int id, String nombre) => Plato(
+  PosPlato _platoStub(int id, String nombre) => PosPlato(
         id: id,
         nombre: nombre,
         categoriaId: 0,
         precioVenta: 0,
-        activo: 1,
-        esContorno: 0,
-        llevaContornos: 1,
+        activo: true,
+        esContorno: false,
+        llevaContornos: true,
       );
 
   void _cambiarCantidad(int idx, int delta) {
@@ -728,7 +727,6 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
             onBack: widget.onBack,
             onLogout: widget.onLogout,
           ),
-          const GlobalSyncBar(),
           const Divider(height: 1),
           Expanded(
             child: _iniciando

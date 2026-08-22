@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
 import '../../data/requisiciones_providers.dart';
 
-/// Buscador de productos para agregar a una requisición (porta
-/// `ProductoBuscadorSheet` de form.py). Se abre como diálogo centrado para
-/// que el teclado móvil no tape el campo de búsqueda.
-/// Devuelve un [Producto] o `null`.
-Future<Producto?> showBuscadorProductos(BuildContext context) {
-  return showDialog<Producto>(
+Future<Map<String, dynamic>?> showBuscadorProductos(BuildContext context) {
+  return showDialog<Map<String, dynamic>>(
     context: context,
     builder: (ctx) => const _BuscadorProductosDialog(),
   );
@@ -26,7 +21,7 @@ class _BuscadorProductosDialog extends ConsumerStatefulWidget {
 class _BuscadorProductosDialogState
     extends ConsumerState<_BuscadorProductosDialog> {
   String _busqueda = '';
-  List<Producto> _resultados = [];
+  List<Map<String, dynamic>> _resultados = [];
 
   @override
   void initState() {
@@ -36,6 +31,7 @@ class _BuscadorProductosDialogState
 
   Future<void> _buscar() async {
     final repo = ref.read(requisicionesRepoProvider);
+    if (repo == null) return;
     final res = await repo.buscarProductos(_busqueda);
     if (mounted) setState(() => _resultados = res);
   }
@@ -81,6 +77,9 @@ class _BuscadorProductosDialogState
                       itemCount: _resultados.length,
                       itemBuilder: (context, i) {
                         final p = _resultados[i];
+                        final nombre = (p['nombre'] as String?) ?? '';
+                        final unidad = (p['unidad_medida'] as String?) ?? '';
+                        final esPesable = p['es_pesable'] == true || p['es_pesable'] == 1;
                         return InkWell(
                           onTap: () => Navigator.pop(context, p),
                           borderRadius: BorderRadius.circular(10),
@@ -112,11 +111,11 @@ class _BuscadorProductosDialogState
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Text(p.nombre,
+                                      Text(nombre,
                                           style: const TextStyle(
                                               fontWeight: FontWeight.bold)),
                                       Text(
-                                        'Unidad: ${p.unidadMedida} · ${p.esPesable == 1 ? 'pesable' : 'no pesable'}',
+                                        'Unidad: $unidad · ${esPesable ? 'pesable' : 'no pesable'}',
                                         style: TextStyle(
                                             fontSize: 11,
                                             color: scheme.onSurfaceVariant),

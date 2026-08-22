@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/movimiento.dart';
 
 const Map<String, (String, Color)> _tipoLabels = {
   'entrada': ('Entrada', Colors.green),

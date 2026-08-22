@@ -29,7 +29,7 @@ class _FacturaDetalleDialogState extends ConsumerState<_FacturaDetalleDialog> {
   @override
   void initState() {
     super.initState();
-    _future = ref.read(historialRepoProvider).getFacturaDetalle(widget.facturaId);
+    _future = ref.read(historialRepoProvider)!.getFacturaDetalle(widget.facturaId);
   }
 
   @override
@@ -59,7 +59,7 @@ class _FacturaDetalleDialogState extends ConsumerState<_FacturaDetalleDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Proveedor: ${f.proveedor ?? 'N/A'}',
+                  'Proveedor: ${(f['proveedor'] as String?) ?? 'N/A'}',
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                 ),
                 const Divider(height: 20),
@@ -107,7 +107,7 @@ class _FacturaDetalleDialogState extends ConsumerState<_FacturaDetalleDialog> {
                   children: [
                     const Text('TOTAL NETO:', style: TextStyle(fontWeight: FontWeight.bold)),
                     Text(
-                      '\$${f.totalNeto.toStringAsFixed(2)}',
+                      '\$${((f['total_neto'] as num?)?.toDouble() ?? 0).toStringAsFixed(2)}',
                       style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 18),
                     ),
                   ],
@@ -120,8 +120,8 @@ class _FacturaDetalleDialogState extends ConsumerState<_FacturaDetalleDialog> {
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2),
                       child: Text(
-                        '${_tipoPagoLabel(p.tipoPago)}: \$${p.monto.toStringAsFixed(2)}'
-                        '${p.tasaCambio != null ? '  (tasa ${p.tasaCambio!.toStringAsFixed(2)})' : ''}',
+                        '${_tipoPagoLabel((p['tipo_pago'] as String?) ?? '')}: \$${((p['monto'] as num?)?.toDouble() ?? 0).toStringAsFixed(2)}'
+                        '${p['tasa_cambio'] != null ? '  (tasa ${((p['tasa_cambio'] as num?)?.toDouble() ?? 0).toStringAsFixed(2)})' : ''}',
                         style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
                       ),
                     ),

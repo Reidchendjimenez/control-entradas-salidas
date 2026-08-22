@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/pos_models.dart';
 import '../../data/pos_providers.dart';
 import '../dialogs/mesa_config_dialog.dart';
 
@@ -25,7 +25,7 @@ class _ConfigMesasTabState extends ConsumerState<ConfigMesasTab> {
   }
 
   Future<void> _cargar() async {
-    final mesas = await ref.read(posRepoProvider).getMesas();
+    final mesas = await ref.read(posRepoProvider)!.getMesas();
     if (!mounted) return;
     setState(() {
       _mesas = mesas;
@@ -67,7 +67,7 @@ class _ConfigMesasTabState extends ConsumerState<ConfigMesasTab> {
       ),
     );
     if (ok != true || !mounted) return;
-    await ref.read(posRepoProvider).eliminarMesa(mesa.id);
+    await ref.read(posRepoProvider)!.eliminarMesa(mesa.id);
     ref.invalidate(mesasProvider);
     await _cargar();
   }

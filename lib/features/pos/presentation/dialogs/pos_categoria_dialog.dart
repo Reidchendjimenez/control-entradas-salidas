@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/pos_models.dart';
 import '../../data/pos_providers.dart';
 
 /// Alta/edición de categoría POS (port de `ConfigPOSView._show_pos_categoria_dialog`).
@@ -67,7 +67,7 @@ class _PosCategoriaDialogState extends ConsumerState<_PosCategoriaDialog> {
       return;
     }
     setState(() => _guardando = true);
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     try {
       if (_esEdicion) {
         await repo.actualizarPosCategoria(

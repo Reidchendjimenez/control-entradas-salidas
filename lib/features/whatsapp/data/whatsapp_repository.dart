@@ -1,101 +1,75 @@
 import 'dart:convert';
 
-import 'package:drift/drift.dart';
 import 'package:http/http.dart' as http;
 
-import '../../../core/db/schema/app_database.dart';
+import '../../../core/data/supabase_service.dart';
+import '../../../core/models/mensaje_whatsapp.dart';
 
-/// URL del bot de WhatsApp y token (replican `usr/whatsapp_notifier.py`).
 const whatsappBotUrl = 'https://lycorys-control.shares.zrok.io';
 const whatsappBotToken = 'mi_token_secreto_123';
 
-/// Repositorio de la cola local de WhatsApp — réplica de
-/// `usr/whatsapp_notifier.py` y `usr/views/whatsapp_bandeja_view.py`.
-///
-/// La cola es local (outbox): los mensajes se envían por HTTP al bot y si
-/// fallan quedan en `whatsapp_queue` con estado `pending` para reintentar.
 class WhatsappRepository {
   WhatsappRepository(this._db);
-
-  final AppDatabase _db;
+  final SupabaseService _db;
 
   static String get botUrl => whatsappBotUrl;
 
-  // ---------------------------------------------------------------------
-  // Consultas de la cola
-  // ---------------------------------------------------------------------
-
-  /// Mensajes de la cola (los más recientes primero).
-  Future<List<WhatsappQueueData>> getMensajes({
+  Future<List<MensajeWhatsapp>> getMensajes({
     String? estado,
     int limit = 100,
   }) async {
-    final q = _db.select(_db.whatsappQueue)
-      ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])
-      ..limit(limit);
-    if (estado != null) {
-      q.where((t) => t.estado.equals(estado));
-    }
-    return q.get();
+    var query = _db.client.from('whatsapp_queue').select();
+    if (estado != null) query = query.eq('estado', estado);
+    final rows = await query.order('created_at', ascending: false).limit(limit);
+    return rows.map(MensajeWhatsapp.fromMap).toList();
   }
 
-  /// Cantidad de mensajes pendientes por reintentar.
   Future<int> countPending() async {
-    final q = _db.selectOnly(_db.whatsappQueue)
-      ..addColumns([_db.whatsappQueue.id.count()])
-      ..where(_db.whatsappQueue.estado.equals('pending') &
-          _db.whatsappQueue.intentos.isSmallerThan(
-              _db.whatsappQueue.maxIntentos));
-    final row = await q.getSingle();
-    return row.read(_db.whatsappQueue.id.count()) ?? 0;
+    final rows = await _db.client
+        .from('whatsapp_queue')
+        .select('id')
+        .eq('estado', 'pending')
+        .lt('intentos', 5);
+    return rows.length;
   }
 
-  /// Guarda un mensaje en la cola local.
   Future<void> saveToQueue({
     required String tipo,
     String mensaje = '',
     String? imagenBase64,
     String? imagenPath,
   }) async {
-    await _db.into(_db.whatsappQueue).insert(
-          WhatsappQueueCompanion.insert(
-            tipo: Value(tipo),
-            mensaje: Value(mensaje),
-            imagenBase64: Value(imagenBase64),
-            imagenPath: Value(imagenPath),
-            createdAt: DateTime.now(),
-            updatedAt: Value(DateTime.now()),
-          ),
-        );
+    final now = DateTime.now().toIso8601String();
+    await _db.insert('whatsapp_queue', {
+      'tipo': tipo,
+      'mensaje': mensaje,
+      'imagen_base64': imagenBase64,
+      'imagen_path': imagenPath,
+      'estado': 'pending',
+      'intentos': 0,
+      'max_intentos': 5,
+      'created_at': now,
+      'updated_at': now,
+    });
   }
 
-  /// Actualiza el estado de un mensaje.
   Future<void> updateEstado(int id, String estado, {String? error}) async {
-    await (_db.update(_db.whatsappQueue)..where((t) => t.id.equals(id)))
-        .write(WhatsappQueueCompanion(
-      estado: Value(estado),
-      ultimoError: Value(error),
-      updatedAt: Value(DateTime.now()),
-    ));
+    await _db.updateById('whatsapp_queue', id, {
+      'estado': estado,
+      if (error != null) 'ultimo_error': error,
+      'updated_at': DateTime.now().toIso8601String(),
+    });
   }
 
-  /// Elimina un mensaje de la cola.
   Future<void> eliminar(int id) async {
-    await (_db.delete(_db.whatsappQueue)..where((t) => t.id.equals(id))).go();
+    await _db.deleteById('whatsapp_queue', id);
   }
-
-  // ---------------------------------------------------------------------
-  // Envío directo al bot
-  // ---------------------------------------------------------------------
 
   Map<String, String> get _headers => {
         'x-auth-token': whatsappBotToken,
-        // zrok (plan free) muestra una página interstitial a los navegadores
-        // y bloquea CORS; este header la salta. Véase docs de zrok.
         'skip_zrok_interstitial': '1',
       };
 
-  /// POST /send — envía un texto al grupo del bot.
   Future<bool> _enviarTextoDirecto(String mensaje) async {
     try {
       final resp = await http
@@ -104,13 +78,7 @@ class WhatsappRepository {
             headers: _headers,
             body: {'message': mensaje},
           )
-          // 30s como el de imagen: zrok se enfría en el primer request tras
-          // estar inactivo y 10s generaba timeouts falsos (el mensaje igual
-          // se encola y se reintenta, pero podía duplicarse en el retry).
           .timeout(const Duration(seconds: 30));
-      if (resp.statusCode != 200) {
-        print('[WA] send texto -> ${resp.statusCode} ${resp.body}');
-      }
       return resp.statusCode == 200;
     } catch (e) {
       print('[WA] send texto error: $e');
@@ -118,11 +86,9 @@ class WhatsappRepository {
     }
   }
 
-  /// POST /send-image — envía una imagen (base64) con caption.
   Future<bool> _enviarImagenDirecto({
     String? imagenBase64,
     String caption = '',
-    String? imagenPath,
   }) async {
     final b64 = imagenBase64;
     if (b64 == null || b64.isEmpty) return false;
@@ -131,9 +97,6 @@ class WhatsappRepository {
           .post(
             Uri.parse('$whatsappBotUrl/send-image'),
             headers: {..._headers, 'Content-Type': 'application/json'},
-            // jsonEncode escapa \n, comillas y unicode: interpolar texto crudo
-            // en JSON rompía el body cuando el caption llevaba saltos de línea
-            // (mensajes de validación) y el bot respondía 400.
             body: jsonEncode({'imageBase64': b64, 'caption': caption}),
           )
           .timeout(const Duration(seconds: 30));
@@ -143,7 +106,6 @@ class WhatsappRepository {
     }
   }
 
-  /// GET /config — estado del bot.
   Future<({bool connected, String? groupId})> getStatus() async {
     try {
       final resp = await http
@@ -162,25 +124,18 @@ class WhatsappRepository {
     }
   }
 
-  // ---------------------------------------------------------------------
-  // Envío con cola (intenta directo y si falla guarda en cola)
-  // ---------------------------------------------------------------------
-
-  /// Envía un mensaje de texto; si falla lo encola para reintentar.
   Future<bool> enviarMensaje(String mensaje) async {
     if (await _enviarTextoDirecto(mensaje)) return true;
     await saveToQueue(tipo: 'text', mensaje: mensaje);
     return false;
   }
 
-  /// Envía una imagen; si falla la encola.
   Future<bool> enviarImagen({
     required String? imagenBase64,
     String caption = '',
   }) async {
     if (imagenBase64 != null &&
-        await _enviarImagenDirecto(
-            imagenBase64: imagenBase64, caption: caption)) {
+        await _enviarImagenDirecto(imagenBase64: imagenBase64, caption: caption)) {
       return true;
     }
     await saveToQueue(
@@ -191,12 +146,6 @@ class WhatsappRepository {
     return false;
   }
 
-  // ---------------------------------------------------------------------
-  // Reintentos
-  // ---------------------------------------------------------------------
-
-  /// Procesa los mensajes pendientes/fallidos (igual que
-  /// `retry_queued_messages` en Python). Devuelve cuántos se enviaron.
   Future<int> reintentarTodos({int limit = 20}) async {
     final pendientes = await getMensajesEstados(
       estados: const ['pending', 'failed'],
@@ -209,55 +158,50 @@ class WhatsappRepository {
     return ok;
   }
 
-  /// Reintenta un único mensaje; devuelve true si se envió.
   Future<bool> reintentarUno(int id) async {
-    final msg = await (_db.select(_db.whatsappQueue)
-          ..where((t) => t.id.equals(id)))
-        .getSingleOrNull();
-    if (msg == null) return false;
-    return _enviarDesdeCola(msg);
+    final rows = await _db.client
+        .from('whatsapp_queue')
+        .select()
+        .eq('id', id)
+        .limit(1);
+    if (rows.isEmpty) return false;
+    return _enviarDesdeCola(MensajeWhatsapp.fromMap(rows.first));
   }
 
-  /// Envía un mensaje de la cola y actualiza su estado.
-  Future<bool> _enviarDesdeCola(WhatsappQueueData msg) async {
+  Future<bool> _enviarDesdeCola(MensajeWhatsapp msg) async {
     if (msg.estado != 'pending' && msg.estado != 'failed') return false;
     await updateEstado(msg.id, 'sending');
     final success = msg.tipo == 'image'
-        ? await _enviarImagenDirecto(
-            imagenBase64: msg.imagenBase64,
-            caption: msg.mensaje ?? '',
-            imagenPath: msg.imagenPath,
-          )
+        ? await _enviarImagenDirecto(imagenBase64: msg.imagenBase64, caption: msg.mensaje ?? '')
         : await _enviarTextoDirecto(msg.mensaje ?? '');
     if (success) {
       await updateEstado(msg.id, 'sent');
     } else {
       final intentos = msg.intentos + 1;
       final estado = intentos >= msg.maxIntentos ? 'failed' : 'pending';
-      await (_db.update(_db.whatsappQueue)..where((t) => t.id.equals(msg.id)))
-          .write(WhatsappQueueCompanion(
-        intentos: Value(intentos),
-        estado: Value(estado),
-        ultimoError: const Value('Error de conexión'),
-        updatedAt: Value(DateTime.now()),
-      ));
+      await _db.updateById('whatsapp_queue', msg.id, {
+        'intentos': intentos,
+        'estado': estado,
+        'ultimo_error': 'Error de conexion',
+        'updated_at': DateTime.now().toIso8601String(),
+      });
     }
     return success;
   }
 
-  /// Mensajes en los estados dados, los más antiguos primero.
-  Future<List<WhatsappQueueData>> getMensajesEstados({
+  Future<List<MensajeWhatsapp>> getMensajesEstados({
     required List<String> estados,
     int limit = 50,
   }) async {
-    final q = _db.select(_db.whatsappQueue)
-      ..where((t) => t.estado.isIn(estados))
-      ..orderBy([(t) => OrderingTerm.asc(t.createdAt)])
-      ..limit(limit);
-    return q.get();
+    final rows = await _db.client
+        .from('whatsapp_queue')
+        .select()
+        .filter('estado', 'in', estados)
+        .order('created_at', ascending: true)
+        .limit(limit);
+    return rows.map(MensajeWhatsapp.fromMap).toList();
   }
 
-  /// Mensaje de prueba del bot (igual que `_on_test_bot` en Flet).
   Future<bool> probarBot(String usuario) async {
     final ts = _fmtFechaHora(DateTime.now());
     final msg = '*Bot activo*\nUsuario: $usuario\nHora: $ts';
@@ -270,8 +214,6 @@ String _fmtFechaHora(DateTime d) {
   return '${p(d.day)}/${p(d.month)} ${p(d.hour)}:${p(d.minute)}';
 }
 
-/// Mensaje de "Entrada Validada" — réplica de
-/// `format_validation_message()` en `usr/whatsapp_notifier.py`.
 String formatValidationMessage({
   required String productos,
   required String proveedor,

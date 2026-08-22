@@ -1,9 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/db/database_provider.dart';
+import '../../../core/data/supabase_providers.dart';
 import 'requisiciones_repository.dart';
 
-/// Provider compartido del repositorio de requisiciones.
-final requisicionesRepoProvider = Provider<RequisicionesRepository>((ref) {
-  return RequisicionesRepository(ref.watch(appDatabaseProvider));
+final requisicionesRepoProvider = Provider<RequisicionesRepository?>((ref) {
+  final db = ref.watch(supabaseServiceProvider);
+  if (db == null) return null;
+  return RequisicionesRepository(db);
 });

@@ -2,9 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/auth/session_controller.dart';
-import '../../../core/db/schema/app_database.dart';
+import '../../../core/data/realtime_service.dart';
+import '../../../core/data/supabase_providers.dart';
+import '../../../core/models/mensaje_whatsapp.dart';
 import '../data/whatsapp_providers.dart';
 import 'widgets/mensaje_card.dart';
 
@@ -20,24 +23,39 @@ class BandejaScreen extends ConsumerStatefulWidget {
 
 class _BandejaScreenState extends ConsumerState<BandejaScreen> {
   Timer? _timer;
+  RealtimeSubscription? _rtSub;
 
   @override
   void initState() {
     super.initState();
-    // Réplica del hilo de reintento de `whatsapp_notifier.py` (cada 15s).
     _timer = Timer.periodic(const Duration(seconds: 15), (_) {
       _procesarReintentos();
     });
+    _initRealtime();
+  }
+
+  void _initRealtime() {
+    final rt = ref.read(realtimeServiceProvider);
+    if (rt == null) return;
+    final sub = rt.subscribe(
+      table: 'whatsapp_queue',
+      events: {PostgresChangeEvent.insert, PostgresChangeEvent.update, PostgresChangeEvent.delete},
+    );
+    sub.stream.listen((_) {
+      if (mounted) _refrescar();
+    });
+    _rtSub = sub;
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _rtSub?.cancel();
     super.dispose();
   }
 
   Future<void> _procesarReintentos() async {
-    final repo = ref.read(whatsappRepoProvider);
+    final repo = ref.read(whatsappRepoProvider)!;
     final pendientes = await repo.countPending();
     if (pendientes == 0) return;
     await repo.reintentarTodos();
@@ -55,7 +73,7 @@ class _BandejaScreenState extends ConsumerState<BandejaScreen> {
   }
 
   Future<void> _probarBot() async {
-    final repo = ref.read(whatsappRepoProvider);
+    final repo = ref.read(whatsappRepoProvider)!;
     final messenger = ScaffoldMessenger.of(context);
     final ok = await repo.probarBot(_nombreUsuario());
     messenger.showSnackBar(
@@ -69,7 +87,7 @@ class _BandejaScreenState extends ConsumerState<BandejaScreen> {
   }
 
   Future<void> _reintentarTodos() async {
-    final repo = ref.read(whatsappRepoProvider);
+    final repo = ref.read(whatsappRepoProvider)!;
     final enviados = await repo.reintentarTodos();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -80,7 +98,7 @@ class _BandejaScreenState extends ConsumerState<BandejaScreen> {
   }
 
   Future<void> _reintentarUno(int id) async {
-    final repo = ref.read(whatsappRepoProvider);
+    final repo = ref.read(whatsappRepoProvider)!;
     final ok = await repo.reintentarUno(id);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -91,7 +109,7 @@ class _BandejaScreenState extends ConsumerState<BandejaScreen> {
   }
 
   Future<void> _eliminar(int id) async {
-    final repo = ref.read(whatsappRepoProvider);
+    final repo = ref.read(whatsappRepoProvider)!;
     await repo.eliminar(id);
     _refrescar();
   }
@@ -104,7 +122,7 @@ class _BandejaScreenState extends ConsumerState<BandejaScreen> {
         _buildHeader(scheme),
         const Divider(height: 1),
         Expanded(
-          child: FutureBuilder<List<WhatsappQueueData>>(
+          child: FutureBuilder<List<MensajeWhatsapp>>(
             future: ref.watch(bandejaProvider.future),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
@@ -137,7 +155,7 @@ class _BandejaScreenState extends ConsumerState<BandejaScreen> {
                   Expanded(
                     child: RefreshIndicator(
                       onRefresh: () async {
-                        final repo = ref.read(whatsappRepoProvider);
+                        final repo = ref.read(whatsappRepoProvider)!;
                         await repo.reintentarTodos();
                         _refrescar();
                       },

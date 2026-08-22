@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/receta.dart';
 import '../../data/producciones_providers.dart';
 import '../../data/producciones_repository.dart';
 
@@ -14,7 +14,7 @@ Future<void> showCancelarProduccionDialog(
   Receta receta, {
   VoidCallback? onConfirmed,
 }) async {
-  final repo = ref.read(produccionesRepoProvider);
+  final repo = ref.read(produccionesRepoProvider)!;
   final confirmado = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(

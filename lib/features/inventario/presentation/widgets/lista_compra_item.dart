@@ -12,7 +12,7 @@ class ListaCompraItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final repo = ref.read(inventarioRepoProvider);
+    final repo = ref.read(inventarioRepoProvider)!;
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: ListTile(

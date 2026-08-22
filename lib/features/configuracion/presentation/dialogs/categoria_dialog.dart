@@ -1,9 +1,6 @@
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
-import '../../../../core/sync/sync_service.dart';
+import '../../../../core/models/categoria.dart';
 import '../../data/configuracion_repository.dart';
 
 /// Diálogo para crear/editar una Categoría (porta `show_categoria_dialog`).
@@ -18,17 +15,17 @@ Future<bool?> showCategoriaDialog(
   );
 }
 
-class _CategoriaDialog extends ConsumerStatefulWidget {
+class _CategoriaDialog extends StatefulWidget {
   const _CategoriaDialog({required this.repo, this.categoria});
 
   final ConfiguracionRepository repo;
   final Categoria? categoria;
 
   @override
-  ConsumerState<_CategoriaDialog> createState() => _CategoriaDialogState();
+  State<_CategoriaDialog> createState() => _CategoriaDialogState();
 }
 
-class _CategoriaDialogState extends ConsumerState<_CategoriaDialog> {
+class _CategoriaDialogState extends State<_CategoriaDialog> {
   final _nombreCtrl = TextEditingController();
   final _descripcionCtrl = TextEditingController();
   final _colorCtrl = TextEditingController();
@@ -43,9 +40,9 @@ class _CategoriaDialogState extends ConsumerState<_CategoriaDialog> {
       final c = widget.categoria!;
       _nombreCtrl.text = c.nombre;
       _descripcionCtrl.text = c.descripcion ?? '';
-      _colorCtrl.text = c.color ?? '#2196F3';
-      _activo = c.activo == 1;
-      _visibleEnPos = c.visibleEnPos == 1;
+      _colorCtrl.text = c.color;
+      _activo = c.activo;
+      _visibleEnPos = c.visibleEnPos;
     } else {
       _colorCtrl.text = '#2196F3';
     }
@@ -59,13 +56,8 @@ class _CategoriaDialogState extends ConsumerState<_CategoriaDialog> {
     super.dispose();
   }
 
-  void _pushPending() {
-    ref.read(syncEngineProvider)?.pushPending();
-  }
-
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final esEdicion = widget.categoria != null;
 
     return AlertDialog(
@@ -152,20 +144,19 @@ class _CategoriaDialogState extends ConsumerState<_CategoriaDialog> {
 
     setState(() => _guardando = true);
     try {
-      final data = CategoriasCompanion.insert(
-        nombre: nombre,
-        descripcion: Value(_descripcionCtrl.text.trim()),
-        color: Value(_colorCtrl.text.trim()),
-        activo: Value(_activo ? 1 : 0),
-        visibleEnPos: Value(_visibleEnPos ? 1 : 0),
-      );
+      final data = <String, dynamic>{
+        'nombre': nombre,
+        'descripcion': _descripcionCtrl.text.trim().isEmpty ? null : _descripcionCtrl.text.trim(),
+        'color': _colorCtrl.text.trim(),
+        'activo': _activo,
+        'visible_en_pos': _visibleEnPos,
+      };
 
       if (widget.categoria != null) {
         await widget.repo.updateCategoria(widget.categoria!.id, data);
       } else {
         await widget.repo.createCategoria(data);
       }
-      _pushPending();
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {

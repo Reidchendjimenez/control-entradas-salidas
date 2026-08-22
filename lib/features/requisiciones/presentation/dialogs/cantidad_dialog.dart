@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
 import '../../../calculadora/presentation/calculadora.dart';
 import '../../data/requisiciones_providers.dart';
 import '../../data/requisiciones_repository.dart';
 
-/// Resultado del diálogo de cantidad (porta `build_agregar_producto_req_dialog`).
 class CantidadProductoResult {
   const CantidadProductoResult({
     required this.item,
@@ -18,11 +16,9 @@ class CantidadProductoResult {
   final double peso;
 }
 
-/// Diálogo para indicar cantidad de un producto en la requisición.
-/// Usa el mismo modelo que inventario: campo único + calculadora (F1).
 Future<CantidadProductoResult?> showCantidadDialog(
   BuildContext context, {
-  required Producto producto,
+  required Map<String, dynamic> producto,
   required String origen,
 }) {
   return showDialog<CantidadProductoResult>(
@@ -34,7 +30,7 @@ Future<CantidadProductoResult?> showCantidadDialog(
 class _CantidadDialog extends ConsumerStatefulWidget {
   const _CantidadDialog({required this.producto, required this.origen});
 
-  final Producto producto;
+  final Map<String, dynamic> producto;
   final String origen;
 
   @override
@@ -47,7 +43,7 @@ class _CantidadDialogState extends ConsumerState<_CantidadDialog> {
   double _disponible = 0;
   bool _cargado = false;
 
-  bool get _esPesable => widget.producto.esPesable == 1;
+  bool get _esPesable => widget.producto['es_pesable'] == true || widget.producto['es_pesable'] == 1;
 
   TextEditingController get _campoPrincipal =>
       _esPesable ? _pesoTotalCtrl : _cantCtrl;
@@ -67,8 +63,12 @@ class _CantidadDialogState extends ConsumerState<_CantidadDialog> {
 
   Future<void> _cargarDisponible() async {
     final repo = ref.read(requisicionesRepoProvider);
+    if (repo == null) {
+      if (mounted) setState(() => _cargado = true);
+      return;
+    }
     final disp =
-        await repo.getExistencia(widget.producto.id, widget.origen);
+        await repo.getExistencia(widget.producto['id'] as int, widget.origen);
     if (mounted) {
       setState(() {
         _disponible = disp;
@@ -101,9 +101,12 @@ class _CantidadDialogState extends ConsumerState<_CantidadDialog> {
 
   void _agregar() {
     final p = widget.producto;
+    final nombre = (p['nombre'] as String?) ?? '';
+    final id = p['id'] as int;
     double peso = 0;
     RequisicionItem? item;
-    final unidad = p.unidadMedida.isEmpty ? 'uds' : p.unidadMedida;
+    final unidadRaw = (p['unidad_medida'] as String?) ?? '';
+    final unidad = unidadRaw.isEmpty ? 'uds' : unidadRaw;
 
     if (_esPesable) {
       final pesoTotal =
@@ -114,8 +117,8 @@ class _CantidadDialogState extends ConsumerState<_CantidadDialog> {
       }
       peso = pesoTotal;
       item = RequisicionItem(
-        productoId: p.id,
-        ingrediente: p.nombre,
+        productoId: id,
+        ingrediente: nombre,
         cantidad: peso,
         unidad: unidad,
         peso: peso,
@@ -130,8 +133,8 @@ class _CantidadDialogState extends ConsumerState<_CantidadDialog> {
         return;
       }
       item = RequisicionItem(
-        productoId: p.id,
-        ingrediente: p.nombre,
+        productoId: id,
+        ingrediente: nombre,
         cantidad: cant.toDouble(),
         unidad: unidad,
         esPesable: false,
@@ -166,7 +169,9 @@ class _CantidadDialogState extends ConsumerState<_CantidadDialog> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final p = widget.producto;
-    final unidad = p.unidadMedida.isEmpty ? 'uds' : p.unidadMedida;
+    final nombre = (p['nombre'] as String?) ?? '';
+    final unidadRaw = (p['unidad_medida'] as String?) ?? '';
+    final unidad = unidadRaw.isEmpty ? 'uds' : unidadRaw;
     final stockColor =
         _disponible > 0 ? Colors.green.shade700 : scheme.error;
     final isMobile = MediaQuery.of(context).size.width < 700;
@@ -217,7 +222,7 @@ class _CantidadDialogState extends ConsumerState<_CantidadDialog> {
           );
 
     return AlertDialog(
-      title: Text('Agregar: ${p.nombre}'),
+      title: Text('Agregar: $nombre'),
       content: Focus(
         onKeyEvent: _onKeyEvent,
         child: SizedBox(

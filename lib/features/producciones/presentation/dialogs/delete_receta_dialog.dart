@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/db/schema/app_database.dart';
-import '../../../../core/sync/sync_service.dart';
+import '../../../../core/models/receta.dart';
 import '../../data/producciones_providers.dart';
 
 /// Confirmación de eliminar receta (porta `delete_receta_dialog`).
@@ -12,7 +11,7 @@ Future<void> showDeleteRecetaDialog(
   Receta receta, {
   VoidCallback? onConfirmed,
 }) async {
-  final repo = ref.read(produccionesRepoProvider);
+  final repo = ref.read(produccionesRepoProvider)!;
   final confirmado = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -37,7 +36,6 @@ Future<void> showDeleteRecetaDialog(
 
   try {
     await repo.eliminarReceta(receta.id);
-    ref.read(syncEngineProvider)?.pushPending();
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Receta eliminada')),

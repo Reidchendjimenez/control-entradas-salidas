@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/db/schema/app_database.dart';
+import '../../../core/models/pos_models.dart';
 import 'pos_providers.dart';
 
 /// Sesión activa del POS: cajero + turno de caja abierto.
@@ -32,7 +32,7 @@ enum SesionLoginResult {
 ///   quedó abierto si el sistema se cerró sin logout).
 /// - Al cerrar sesión se cierra el turno y la caja (monto final automático =
 ///   caja inicial + ventas vigentes del turno), generando el reporte que se
-///   sincroniza como `pos_sesiones`.
+///   guarda como `pos_sesiones`.
 /// - Al arrancar siempre se pide login (no se restaura la sesión), pero el
 ///   turno abierto se conserva para retomarlo en el próximo login.
 final posSessionProvider =
@@ -58,18 +58,18 @@ class PosSessionNotifier extends Notifier<PosSesionActiva?> {
       {String? pin}) async {
     if (usuario.pinHash != null && usuario.pinHash!.isNotEmpty) {
       if (pin == null || pin.isEmpty) return SesionLoginResult.pinIncorrecto;
-      final ok = await ref.read(posRepoProvider).verificarPin(usuario.id, pin);
+      final ok = await ref.read(posRepoProvider)!.verificarPin(usuario.id, pin);
       if (!ok) return SesionLoginResult.pinIncorrecto;
     }
 
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
 
     // Cerrar sesiones stale (>8h abiertas) automáticamente.
     await repo.cerrarSesionesStale(horas: 8);
 
     // Usuario desarrollador: inicia sesión SIN aperturar turno/caja
     // (`sesionId = 0` = sin turno). No hereda ni conflictúa con turnos ajenos.
-    if (usuario.esDesarrollador == 1) {
+    if (usuario.esDesarrollador) {
       state = PosSesionActiva(usuario: usuario, sesionId: 0);
       return SesionLoginResult.nueva;
     }
@@ -99,7 +99,7 @@ class PosSessionNotifier extends Notifier<PosSesionActiva?> {
   /// el usuario indicado. Llamar después de que el usuario confirme en el
   /// diálogo.
   Future<void> forzarCerrarSesionAjena(PosUsuario usuario) async {
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     if (sesionAjenaId != null) {
       await repo.forzarCerrarSesion(sesionAjenaId!);
       sesionAjenaId = null;
@@ -111,7 +111,7 @@ class PosSessionNotifier extends Notifier<PosSesionActiva?> {
 
   /// Retoma la sesión ajena existente (el usuario decidió NO cerrarla).
   Future<void> retomarSesionAjena(PosUsuario usuario) async {
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     if (sesionAjenaId != null) {
       state = PosSesionActiva(usuario: usuario, sesionId: sesionAjenaId!);
       sesionAjenaId = null;
@@ -125,7 +125,7 @@ class PosSessionNotifier extends Notifier<PosSesionActiva?> {
     state = null;
     // `sesionId == 0` = sesión de desarrollador sin turno (nada que cerrar).
     if (s != null && s.sesionId > 0) {
-      await ref.read(posRepoProvider).cerrarSesion(s.sesionId);
+      await ref.read(posRepoProvider)!.cerrarSesion(s.sesionId);
     }
   }
 }

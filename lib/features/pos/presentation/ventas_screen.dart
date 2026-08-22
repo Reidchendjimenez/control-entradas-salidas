@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/db/schema/app_database.dart';
-import '../../../core/sync/global_sync_bar.dart';
+import '../../../core/models/pos_models.dart';
 import '../data/pos_comanda_models.dart';
 import '../data/pos_providers.dart';
 import '../data/pos_session.dart';
@@ -36,7 +35,7 @@ class _VentasScreenState extends ConsumerState<VentasScreen> {
   static const _limite = 40;
 
   final _turnos =
-      <({PosSesione sesion, String? usuarioNombre, int ventas, double totalVentas})>[];
+      <({PosSesion sesion, String? usuarioNombre, int ventas, double totalVentas})>[];
   Map<int, String> _mesas = {};
   Map<int, String> _habs = {};
   int? _bordeId;
@@ -52,7 +51,7 @@ class _VentasScreenState extends ConsumerState<VentasScreen> {
 
   /// Mapa {id: numero} de mesas y habitaciones para las tarjetas de venta.
   Future<void> _cargarUbicaciones() async {
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     final mesas = await repo.getMesas();
     final habs = await repo.getHabitaciones();
     if (!mounted) return;
@@ -85,7 +84,7 @@ class _VentasScreenState extends ConsumerState<VentasScreen> {
       }
     });
     try {
-      final repo = ref.read(posRepoProvider);
+      final repo = ref.read(posRepoProvider)!;
       final turnos = await repo.getSesiones(
           limit: _limite, beforeId: _bordeId);
       if (!mounted) return;
@@ -110,9 +109,9 @@ class _VentasScreenState extends ConsumerState<VentasScreen> {
   }
 
   Future<void> _verTurno(
-    ({PosSesione sesion, String? usuarioNombre, int ventas, double totalVentas}) turno,
+    ({PosSesion sesion, String? usuarioNombre, int ventas, double totalVentas}) turno,
   ) async {
-    final repo = ref.read(posVentasRepoProvider);
+    final repo = ref.read(posVentasRepoProvider)!;
     final ventas = await repo.getVentasPorSesion(turno.sesion.id);
     if (!mounted) return;
     showDialog<void>(
@@ -134,7 +133,7 @@ class _VentasScreenState extends ConsumerState<VentasScreen> {
       builder: (ctx) => _AnularVentaDialog(venta: venta),
     );
     if (motivo == null || !mounted) return;
-    final repo = ref.read(posVentasRepoProvider);
+    final repo = ref.read(posVentasRepoProvider)!;
     try {
       await repo.revertirMovimientosVenta(venta.id,
           registradoPor: widget.sesion.usuario.nombre);
@@ -161,8 +160,8 @@ class _VentasScreenState extends ConsumerState<VentasScreen> {
   }
 
   Future<void> _verDetalle(PosVenta venta) async {
-    final repo = ref.read(posVentasRepoProvider);
-    final posRepo = ref.read(posRepoProvider);
+    final repo = ref.read(posVentasRepoProvider)!;
+    final posRepo = ref.read(posRepoProvider)!;
     final vendedor = venta.usuarioId == null
         ? null
         : (await posRepo.getUsuario(venta.usuarioId!))?.nombre;
@@ -202,7 +201,6 @@ class _VentasScreenState extends ConsumerState<VentasScreen> {
             onBack: widget.onBack,
             onLogout: widget.onLogout,
           ),
-          const GlobalSyncBar(),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
             child: Row(
@@ -310,7 +308,7 @@ class _VentasScreenState extends ConsumerState<VentasScreen> {
 class _TurnoCard extends StatelessWidget {
   const _TurnoCard({required this.turno, required this.onTap});
 
-  final ({PosSesione sesion, String? usuarioNombre, int ventas, double totalVentas}) turno;
+  final ({PosSesion sesion, String? usuarioNombre, int ventas, double totalVentas}) turno;
   final VoidCallback onTap;
 
   @override
@@ -318,10 +316,10 @@ class _TurnoCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final s = turno.sesion;
     final abierto = s.cerradaEn == null;
-    final fechaA = s.abiertaEn.toIso8601String().substring(0, 16).replaceFirst('T', ' ');
+    final fechaA = (s.abiertaEn ?? '').substring(0, (s.abiertaEn ?? '').length > 16 ? 16 : (s.abiertaEn ?? '').length).replaceFirst('T', ' ');
     final fechaC = s.cerradaEn == null
-        ? '—'
-        : s.cerradaEn!.toIso8601String().substring(0, 16).replaceFirst('T', ' ');
+        ? '\u2014'
+        : (s.cerradaEn ?? '').substring(0, (s.cerradaEn ?? '').length > 16 ? 16 : (s.cerradaEn ?? '').length).replaceFirst('T', ' ');
     final cajaFinal = abierto ? null : s.cajaFinal;
 
     return Card(
@@ -431,14 +429,14 @@ class _DetalleTurnoDialog extends StatelessWidget {
     required this.onVerDetalle,
   });
 
-  final ({PosSesione sesion, String? usuarioNombre, int ventas, double totalVentas}) turno;
+  final ({PosSesion sesion, String? usuarioNombre, int ventas, double totalVentas}) turno;
   final List<PosVenta> ventas;
   final String Function(PosVenta) lugar;
   final void Function(PosVenta) onAnular;
   final void Function(PosVenta) onVerDetalle;
 
-  String _fecha(DateTime? d) =>
-      d == null ? '—' : d.toIso8601String().replaceFirst('T', ' ');
+  String _fecha(String? d) =>
+      d == null ? '\u2014' : d.replaceFirst('T', ' ');
 
   @override
   Widget build(BuildContext context) {
@@ -596,9 +594,8 @@ class _VentaCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final vigente = venta.estado == 'vigente';
-    final fecha = venta.createdAt
-        .toIso8601String()
-        .substring(0, 16)
+    final fecha = (venta.createdAt ?? '')
+        .substring(0, (venta.createdAt ?? '').length > 16 ? 16 : (venta.createdAt ?? '').length)
         .replaceFirst('T', ' ');
 
     final esCorreccion = venta.ventaAnulaId != null;
@@ -802,7 +799,7 @@ class _DetalleVentaDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               _fila(context, 'Fecha',
-                  venta.createdAt.toIso8601String().replaceFirst('T', ' ')),
+                  (venta.createdAt ?? '').replaceFirst('T', ' ')),
               _fila(context, 'Vendedor', vendedor ?? '-'),
               _fila(context, 'Mesa / Hab.', lugar),
               if (correlativoAnulada != null)
@@ -900,7 +897,7 @@ class _DetalleVentaDialog extends StatelessWidget {
                 _fila(context, 'Anulada por', venta.anuladaPor ?? '-'),
                 if (venta.anuladaEn != null)
                   _fila(context, 'Cuando',
-                      venta.anuladaEn!.toIso8601String().replaceFirst('T', ' ')),
+                      (venta.anuladaEn ?? '').replaceFirst('T', ' ')),
               ],
             ],
           ),

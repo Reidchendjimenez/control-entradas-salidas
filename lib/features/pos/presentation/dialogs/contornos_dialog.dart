@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/pos_models.dart';
 
 /// Diálogo de selección de contornos (port de `_show_contornos_dialog`):
 /// checkboxes de contornos activos, máximo 2 por plato. Devuelve la lista de
 /// contornos seleccionados.
-Future<List<Plato>> showContornosDialog(
+Future<List<PosPlato>> showContornosDialog(
   BuildContext context,
-  Plato plato,
-  List<Plato> contornos,
+  PosPlato plato,
+  List<PosPlato> contornos,
 ) async {
-  return await showDialog<List<Plato>>(
+  return await showDialog<List<PosPlato>>(
         context: context,
         builder: (_) => _ContornosDialog(plato: plato, contornos: contornos),
       ) ??
@@ -19,8 +19,8 @@ Future<List<Plato>> showContornosDialog(
 
 class _ContornosDialog extends StatefulWidget {
   const _ContornosDialog({required this.plato, required this.contornos});
-  final Plato plato;
-  final List<Plato> contornos;
+  final PosPlato plato;
+  final List<PosPlato> contornos;
 
   @override
   State<_ContornosDialog> createState() => _ContornosDialogState();
@@ -31,7 +31,7 @@ class _ContornosDialogState extends State<_ContornosDialog> {
   final _seleccion = <int>{};
   String? _error;
 
-  void _toggle(Plato c) {
+  void _toggle(PosPlato c) {
     setState(() {
       if (_seleccion.contains(c.id)) {
         _seleccion.remove(c.id);
@@ -102,7 +102,7 @@ class _ContornosDialogState extends State<_ContornosDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context, const <Plato>[]),
+          onPressed: () => Navigator.pop(context, const <PosPlato>[]),
           child: const Text('Cancelar'),
         ),
         FilledButton(

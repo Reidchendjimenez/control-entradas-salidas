@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/pos_models.dart';
 import 'estado_card.dart';
 
 const _libreColor = Color(0xFF5C6BC0);

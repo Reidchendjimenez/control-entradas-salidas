@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/db/schema/app_database.dart';
-import '../../../core/sync/global_sync_bar.dart';
-import '../../../core/sync/sync_status.dart';
+import '../../../core/models/pos_models.dart';
 import '../../../core/updater/auto_update_checker.dart';
 import '../data/pos_providers.dart';
 import '../data/pos_session.dart';
@@ -50,7 +48,7 @@ class _PosRouter extends ConsumerStatefulWidget {
 class _PosRouterState extends ConsumerState<_PosRouter> {
   _PosStage _stage = _PosStage.home;
   PosMesa? _mesa;
-  PosHabitacione? _habitacion;
+  PosHabitacion? _habitacion;
 
   /// true si la sesión tiene turno de caja abierto (`sesionId == 0` es la
   /// sesión del usuario desarrollador, sin turno).
@@ -100,7 +98,7 @@ class _PosRouterState extends ConsumerState<_PosRouter> {
     });
   }
 
-  void _abrirHabitacion(PosHabitacione h) {
+  void _abrirHabitacion(PosHabitacion h) {
     if (!_tieneTurno) {
       _bloquearSinTurno();
       return;
@@ -123,7 +121,7 @@ class _PosRouterState extends ConsumerState<_PosRouter> {
       _bloquearSinTurno();
       return;
     }
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     if (mesaId != null) {
       final m = await repo.getMesaById(mesaId);
       if (m == null) return;
@@ -152,7 +150,7 @@ class _PosRouterState extends ConsumerState<_PosRouter> {
       _bloquearSinTurno();
       return;
     }
-    final repo = ref.read(posRepoProvider);
+    final repo = ref.read(posRepoProvider)!;
     if (mesaId != null) {
       final m = await repo.getMesaById(mesaId);
       if (m == null) {
@@ -248,7 +246,6 @@ class _LoginView extends ConsumerStatefulWidget {
 
 class _LoginViewState extends ConsumerState<_LoginView> {
   int? _selectedId;
-  SyncEstado? _lastSyncState;
 
   Future<void> _login(PosUsuario u) async {
     if (u.pinHash != null && u.pinHash!.isNotEmpty) {
@@ -298,20 +295,7 @@ class _LoginViewState extends ConsumerState<_LoginView> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final usuarios = ref.watch(usuariosProvider);
-    final syncStatus = ref.watch(syncStatusProvider);
     final turnoUsuarioId = ref.watch(turnoActivoUsuarioProvider).valueOrNull;
-
-    // Cuando el sync pasa de activo a ok, invalidar la lista de usuarios
-    // para que se muestren los descargados de Supabase.
-    if (_lastSyncState == SyncEstado.activo &&
-        syncStatus.estado == SyncEstado.ok) {
-      _lastSyncState = syncStatus.estado;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) ref.invalidate(usuariosProvider);
-      });
-    } else {
-      _lastSyncState = syncStatus.estado;
-    }
 
     return Scaffold(
       appBar: AppBar(
@@ -352,9 +336,7 @@ class _LoginViewState extends ConsumerState<_LoginView> {
                       ?.copyWith(color: scheme.onSurfaceVariant),
                 ),
               ),
-              const SizedBox(height: 12),
-              const GlobalSyncBar(),
-              const SizedBox(height: 12),
+              const SizedBox(height: 24),
               usuarios.when(
                 loading: () =>
                     const Center(child: CircularProgressIndicator()),

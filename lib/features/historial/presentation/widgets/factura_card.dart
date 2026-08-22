@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/db/schema/app_database.dart';
-
-/// Card de factura (porta `_render_facturas` de `historial_facturas_view.py`).
 class FacturaCard extends StatelessWidget {
   const FacturaCard({super.key, required this.factura, required this.onTap});
 
-  final Factura factura;
+  final Map<String, dynamic> factura;
   final VoidCallback onTap;
 
   String _fmtFecha(DateTime? d) {
@@ -19,9 +16,13 @@ class FacturaCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final f = factura;
-    final estado = f.estado;
+    final estado = (f['estado'] as String?) ?? '';
     final esValidada = estado == 'Validada';
     final estadoColor = esValidada ? Colors.green : scheme.tertiary;
+    final numero = (f['numero_factura'] as String?) ?? 'Sin número';
+    final proveedor = (f['proveedor'] as String?) ?? '';
+    final ff = DateTime.tryParse(f['fecha_factura']?.toString() ?? '');
+    final totalNeto = (f['total_neto'] as num?)?.toDouble() ?? 0;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -35,11 +36,12 @@ class FacturaCard extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  Icon(Icons.receipt_long_outlined, color: scheme.primary, size: 20),
+                  Icon(Icons.receipt_long_outlined,
+                      color: scheme.primary, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '#${f.numeroFactura ?? 'Sin número'}',
+                      '#$numero',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -50,8 +52,11 @@ class FacturaCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                (f.proveedor?.trim().isNotEmpty == true ? f.proveedor! : 'Proveedor No Identificado'),
-                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+                proveedor.trim().isNotEmpty
+                    ? proveedor
+                    : 'Proveedor No Identificado',
+                style:
+                    TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -60,13 +65,15 @@ class FacturaCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      _fmtFecha(f.fechaFactura),
-                      style: TextStyle(fontSize: 11, color: scheme.onSurfaceVariant),
+                      _fmtFecha(ff),
+                      style: TextStyle(
+                          fontSize: 11, color: scheme.onSurfaceVariant),
                     ),
                   ),
                   Text(
-                    '\$${f.totalNeto.toStringAsFixed(2)}',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                    '\$${totalNeto.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.green),
                   ),
                 ],
               ),

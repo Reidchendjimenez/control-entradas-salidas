@@ -9,7 +9,6 @@ import 'widgets/entry_card.dart';
 import 'widgets/pop_in.dart';
 import 'widgets/pos_home_header.dart';
 import 'widgets/pos_top_bar.dart';
-import '../../../core/sync/global_sync_bar.dart';
 
 /// Selector de entrada de comandas (port mejorado de `ComandasView`): mesas,
 /// habitaciones y ventas con contadores en vivo, acceso a comandas activas y
@@ -76,7 +75,6 @@ class PosHomeScreen extends ConsumerWidget {
                   ),
               ],
             ),
-            const GlobalSyncBar(),
             if (sesion.sesionId == 0)
               Container(
                 margin: const EdgeInsets.fromLTRB(16, 4, 16, 4),

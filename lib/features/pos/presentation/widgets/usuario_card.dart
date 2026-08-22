@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/db/schema/app_database.dart';
+import '../../../../core/models/pos_models.dart';
 
 /// Card de cajero (login.py `_build_usuario_card`): avatar con iniciales,
 /// nombre, badges (Admin / Con PIN / Sin PIN) y estado de la tarjeta.

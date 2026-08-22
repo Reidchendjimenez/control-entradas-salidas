@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:control_entradas_salidas/core/db/schema/app_database.dart';
+import 'package:control_entradas_salidas/core/models/producto.dart';
 import 'package:control_entradas_salidas/features/inventario/data/inventario_repository.dart';
 import 'package:control_entradas_salidas/features/inventario/data/inventario_providers.dart';
 import '../dialogs/movimiento_dialog.dart';
@@ -30,21 +30,19 @@ class ProductosPanelState extends ConsumerState<ProductosPanel> {
   List<Producto>? _prods;
   final _listaFocus = FocusNode();
   final _scrollCtrl = ScrollController();
+  Future<List<Producto>>? _future;
 
   @override
   void initState() {
     super.initState();
-    _scrollCtrl.addListener(_onScroll);
+    _future = _loadProductos();
   }
 
-  void _onScroll() {
-    if (_prods == null || _prods!.isEmpty) return;
-    final index = (_scrollCtrl.offset / 80).round();
-    if (index >= 0 &&
-        index < _prods!.length &&
-        index != _selectedIndex) {
-      setState(() => _selectedIndex = index);
+  Future<List<Producto>> _loadProductos() async {
+    if (widget.categoriaId != null) {
+      return widget.repo.getProductosByCategoria(widget.categoriaId!);
     }
+    return widget.repo.getAllProductos(searchTerm: widget.searchTerm);
   }
 
   @override
@@ -53,6 +51,7 @@ class ProductosPanelState extends ConsumerState<ProductosPanel> {
     if (oldWidget.searchTerm != widget.searchTerm ||
         oldWidget.categoriaId != widget.categoriaId) {
       _selectedIndex = 0;
+      _future = _loadProductos();
     }
   }
 
@@ -114,15 +113,11 @@ class ProductosPanelState extends ConsumerState<ProductosPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final future = widget.categoriaId != null
-        ? widget.repo.getProductosByCategoria(widget.categoriaId!)
-        : widget.repo.getAllProductos(searchTerm: widget.searchTerm);
-
     return Column(
       children: [
         Expanded(
           child: FutureBuilder<List<Producto>>(
-            future: future,
+            future: _future,
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
@@ -150,7 +145,6 @@ class ProductosPanelState extends ConsumerState<ProductosPanel> {
                   itemCount: prods.length,
                   itemBuilder: (context, i) => ProductoCard(
                     producto: prods[i],
-                    repo: widget.repo,
                     seleccionado: i == _selectedIndex,
                     onMovimiento: _showMovimientoDialog,
                     onToggleLista: _toggleListaCompra,
@@ -170,7 +164,10 @@ class ProductosPanelState extends ConsumerState<ProductosPanel> {
   }
 
   Future<void> _toggleListaCompra(Producto p) async {
-    await ref.read(inventarioRepoProvider).toggleComprasLista(p.id);
+    final repo = ref.read(inventarioRepoProvider);
+    if (repo == null) return;
+    await repo.toggleComprasLista(p.id);
+    _future = _loadProductos();
     setState(() {});
   }
 

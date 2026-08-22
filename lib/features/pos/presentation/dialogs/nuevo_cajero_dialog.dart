@@ -48,7 +48,7 @@ class _NuevoCajeroDialogState extends ConsumerState<_NuevoCajeroDialog> {
       }
     }
     setState(() => _guardando = true);
-    await ref.read(posRepoProvider).crearUsuario(
+    await ref.read(posRepoProvider)!.crearUsuario(
           nombre,
           pin: _conPin ? _pinCtrl.text.trim() : null,
           esAdmin: _esAdmin,

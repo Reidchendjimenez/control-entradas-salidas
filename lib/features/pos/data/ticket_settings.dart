@@ -37,10 +37,10 @@ Future<void> guardarMembrete(
   String telefono = '',
   String size = 'large',
 }) async {
-  await repo.setSetting(kComandaHeaderNombre, nombre, sync: true);
-  await repo.setSetting(kComandaHeaderRif, rif, sync: true);
-  await repo.setSetting(kComandaHeaderDireccion, direccion, sync: true);
-  await repo.setSetting(kComandaHeaderTelefono, telefono, sync: true);
+  await repo.setSetting(kComandaHeaderNombre, nombre);
+  await repo.setSetting(kComandaHeaderRif, rif);
+  await repo.setSetting(kComandaHeaderDireccion, direccion);
+  await repo.setSetting(kComandaHeaderTelefono, telefono);
   await setHeaderSize(repo, size);
 }
 
@@ -50,7 +50,7 @@ Future<int> getCorrelativoActual(PosRepository repo) async {
 }
 
 Future<void> setCorrelativoInicial(PosRepository repo, int valor) async {
-  await repo.setSetting(kComandaCorrelativo, valor.toString(), sync: true);
+  await repo.setSetting(kComandaCorrelativo, valor.toString());
 }
 
 Future<String> getHeaderSize(PosRepository repo) async {
@@ -58,7 +58,7 @@ Future<String> getHeaderSize(PosRepository repo) async {
 }
 
 Future<void> setHeaderSize(PosRepository repo, String size) async {
-  await repo.setSetting(kComandaHeaderSize, _sizeValido(size), sync: true);
+  await repo.setSetting(kComandaHeaderSize, _sizeValido(size));
 }
 
 Future<String?> getPrinterDevice(PosRepository repo) async {
@@ -66,5 +66,5 @@ Future<String?> getPrinterDevice(PosRepository repo) async {
 }
 
 Future<void> setPrinterDevice(PosRepository repo, String devicePath) async {
-  await repo.setSetting(kPrinterDevice, devicePath, sync: true);
+  await repo.setSetting(kPrinterDevice, devicePath);
 }

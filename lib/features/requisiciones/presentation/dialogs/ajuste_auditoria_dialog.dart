@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../calculadora/presentation/calculadora.dart';
-import '../../../../core/sync/sync_service.dart';
 import '../../data/requisiciones_providers.dart';
 import '../../data/requisiciones_repository.dart';
 
@@ -75,9 +74,10 @@ class _AjusteDialogState extends ConsumerState<_AjusteDialog> {
 
   Future<void> _cargarProducto() async {
     final repo = ref.read(requisicionesRepoProvider);
+    if (repo == null) return;
     final p = await repo.getProducto(widget.item.productoId ?? -1);
     if (mounted && p != null) {
-      setState(() => _esPesable = p.esPesable == 1);
+      setState(() => _esPesable = p['es_pesable'] == true || p['es_pesable'] == 1);
     }
   }
 
@@ -132,6 +132,7 @@ class _AjusteDialogState extends ConsumerState<_AjusteDialog> {
 
   Future<void> _aceptar() async {
     final repo = ref.read(requisicionesRepoProvider);
+    if (repo == null) return;
     final p = widget.item.productoId ?? -1;
     if (_esPesable) {
       final pesoTotal = double.tryParse(_pesoTotalCtrl.text.replaceAll(',', '.')) ?? -1;
@@ -146,7 +147,6 @@ class _AjusteDialogState extends ConsumerState<_AjusteDialog> {
         motivo: 'Ajuste durante auditoría',
         pesoTotal: pesoTotal,
       );
-      _pushPending();
       if (mounted) {
         Navigator.pop(context, AjusteStockResult(
           productoId: p,
@@ -166,7 +166,6 @@ class _AjusteDialogState extends ConsumerState<_AjusteDialog> {
         nuevaCantidad: nuevaQty,
         motivo: 'Ajuste durante auditoría',
       );
-      _pushPending();
       if (mounted) {
         Navigator.pop(context, AjusteStockResult(
           productoId: p,
@@ -196,10 +195,6 @@ class _AjusteDialogState extends ConsumerState<_AjusteDialog> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
     );
-  }
-
-  void _pushPending() {
-    ref.read(syncEngineProvider)?.pushPending();
   }
 
   @override

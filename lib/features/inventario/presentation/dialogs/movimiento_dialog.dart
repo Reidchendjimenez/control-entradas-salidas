@@ -3,19 +3,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:control_entradas_salidas/core/auth/session_controller.dart';
-import 'package:control_entradas_salidas/core/db/schema/app_database.dart';
-import 'package:control_entradas_salidas/core/sync/sync_service.dart';
+import 'package:control_entradas_salidas/core/models/producto.dart';
+import 'package:control_entradas_salidas/core/models/receta.dart';
+import 'package:control_entradas_salidas/core/models/existencia.dart';
 import 'package:control_entradas_salidas/features/calculadora/presentation/calculadora.dart';
 import 'package:control_entradas_salidas/features/inventario/data/inventario_providers.dart';
 import 'package:control_entradas_salidas/features/producciones/data/producciones_providers.dart';
 import 'package:control_entradas_salidas/features/producciones/data/producciones_repository.dart';
 
 /// Diálogo para registrar movimiento (entrada/salida/ajuste) con soporte pesable.
-///
-/// Para productos de tipo "producción" la entrada SIEMPRE se registra como
-/// producción pendiente (Etapa 1), con selector de receta (si hay varias) y
-/// de lote (vincular a una producción pendiente existente), igual que en
-/// `usr/views/inventario/dialogs.py`.
 Future<void> showMovimientoDialog(BuildContext context, WidgetRef ref, Producto p) {
   return showDialog<void>(
     context: context,
@@ -39,7 +35,7 @@ class _MovimientoDialogState extends ConsumerState<_MovimientoDialog> {
   String _almacen = 'principal';
   List<String> _almacenes = ['principal'];
   int? _recetaId;
-  int? _produccionId; // null = crear lote nuevo
+  int? _produccionId;
 
   final _cantCtrl = TextEditingController(text: '1');
   final _pesoTotalCtrl = TextEditingController();
@@ -53,7 +49,7 @@ class _MovimientoDialogState extends ConsumerState<_MovimientoDialog> {
   List<Receta> _recetasQueProducen = [];
 
   Producto get _producto => widget.producto;
-  bool get _esPesable => _producto.esPesable == 1;
+  bool get _esPesable => _producto.esPesable;
   bool get _esProduccion => _esProductoProduccion && _tipo == 'entrada';
 
   @override
@@ -65,7 +61,7 @@ class _MovimientoDialogState extends ConsumerState<_MovimientoDialog> {
   }
 
   Future<void> _cargarExistencias() async {
-    final repo = ref.read(inventarioRepoProvider);
+    final repo = ref.read(inventarioRepoProvider)!;
     final existencias = await repo.getExistenciasByProducto(_producto.id);
     final almacenes = existencias.map((e) => e.almacen).toSet().toList();
     if (!almacenes.contains('principal')) almacenes.add('principal');
@@ -80,7 +76,7 @@ class _MovimientoDialogState extends ConsumerState<_MovimientoDialog> {
   }
 
   Future<void> _cargarRecetas() async {
-    final prodRepo = ref.read(produccionesRepoProvider);
+    final prodRepo = ref.read(produccionesRepoProvider)!;
     final all = await prodRepo.getRecetas();
     final porFinal = all.where((r) => r.productoFinalId == _producto.id);
     final componentes = await prodRepo.getAllComponentes();
@@ -136,8 +132,6 @@ class _MovimientoDialogState extends ConsumerState<_MovimientoDialog> {
     double cantidad;
     double pesoTotal;
     if (_esPesable) {
-      // Solo se pide peso total: la multiplicación (und × kg/und) se hace en la
-      // calculadora. Se guarda `cantidad` en kg para consistencia de stock.
       final peso =
           double.tryParse(_pesoTotalCtrl.text.replaceAll(',', '.')) ?? 0;
       if (peso <= 0) {
@@ -156,7 +150,7 @@ class _MovimientoDialogState extends ConsumerState<_MovimientoDialog> {
       pesoTotal = 0;
     }
 
-    final repo = ref.read(inventarioRepoProvider);
+    final repo = ref.read(inventarioRepoProvider)!;
 
     if (_esProduccion) {
       final receta = _recetaSeleccionada;
@@ -166,9 +160,11 @@ class _MovimientoDialogState extends ConsumerState<_MovimientoDialog> {
             'Créala primero en Producciones > Recetas.');
         return;
       }
-      final prodRepo = ref.read(produccionesRepoProvider);
-      final res = await prodRepo.registrarProduccionPendiente(
-        producto: _producto,
+      final prodRepo = ref.read(produccionesRepoProvider)!;
+      final res = await prodRepo.registrarProduccionPendienteRaw(
+        productoId: _producto.id,
+        esPesable: _esPesable,
+        unidadMedida: _producto.unidadMedida,
         receta: receta,
         cantidad: _esPesable ? pesoTotal : cantidad,
         pesoTotal: pesoTotal,
@@ -185,7 +181,6 @@ class _MovimientoDialogState extends ConsumerState<_MovimientoDialog> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Entrada de producción registrada')),
       );
-      _pushPending();
       return;
     }
 
@@ -210,13 +205,6 @@ class _MovimientoDialogState extends ConsumerState<_MovimientoDialog> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Movimiento registrado')),
     );
-    _pushPending();
-  }
-
-  /// Intenta subir el movimiento a Supabase de inmediato (si hay conexión);
-  /// si falla, queda pendiente para el siguiente ciclo de sync.
-  void _pushPending() {
-    ref.read(syncEngineProvider)?.pushPending();
   }
 
   void _mostrarError(String msg) {
@@ -242,8 +230,6 @@ class _MovimientoDialogState extends ConsumerState<_MovimientoDialog> {
   TextEditingController get _campoPrincipal =>
       _esPesable ? _pesoTotalCtrl : _cantCtrl;
 
-  /// Abre la calculadora (F1) apuntando al campo con foco; si no hay foco,
-  /// al campo principal.
   void _abrirCalculadora() {
     final controller = _campoFocalizado ?? _campoPrincipal;
     final initial = double.tryParse(controller.text.replaceAll(',', '.')) ?? 0;
@@ -318,7 +304,7 @@ class _MovimientoDialogState extends ConsumerState<_MovimientoDialog> {
                   const SizedBox(height: 12),
                   DropdownButtonFormField<String>(
                     decoration: const InputDecoration(labelText: 'Almacén'),
-                    initialValue: _almacen,
+                    value: _almacen,
                     items: [
                       for (final a in _almacenes)
                         DropdownMenuItem(value: a, child: Text(a.capitalize())),
@@ -362,7 +348,7 @@ class _MovimientoDialogState extends ConsumerState<_MovimientoDialog> {
                     if (_recetasQueProducen.length > 1)
                       DropdownButtonFormField<int>(
                         decoration: const InputDecoration(labelText: 'Receta'),
-                        initialValue: _recetaSeleccionada?.id,
+                        value: _recetaSeleccionada?.id,
                         items: [
                           for (final r in _recetasQueProducen)
                             DropdownMenuItem(
@@ -381,7 +367,7 @@ class _MovimientoDialogState extends ConsumerState<_MovimientoDialog> {
                     const SizedBox(height: 8),
                     _LoteSelector(
                       key: ValueKey(_recetaSeleccionada?.id),
-                      repo: ref.read(produccionesRepoProvider),
+                      repo: ref.read(produccionesRepoProvider)!,
                       recetaId: _recetaSeleccionada?.id,
                       produccionId: _produccionId,
                       onChanged: (id) => setState(() => _produccionId = id),
@@ -404,8 +390,6 @@ class _MovimientoDialogState extends ConsumerState<_MovimientoDialog> {
   }
 }
 
-/// Selector de lote: "Nueva producción (crear lote)" o vincular a una
-/// producción pendiente de la receta (default: la más reciente).
 class _LoteSelector extends StatefulWidget {
   const _LoteSelector({
     super.key,
@@ -465,7 +449,7 @@ class _LoteSelectorState extends State<_LoteSelector> {
             DropdownButtonFormField<int?>(
               decoration:
                   const InputDecoration(labelText: 'Vincular a producción'),
-              initialValue: widget.produccionId ?? 0,
+              value: widget.produccionId ?? 0,
               items: [
                 const DropdownMenuItem<int?>(
                   value: 0,
@@ -496,7 +480,6 @@ class _LoteSelectorState extends State<_LoteSelector> {
   }
 }
 
-/// Panel de stock por almacén dentro del diálogo de movimiento.
 class _StockInfoPanel extends StatelessWidget {
   const _StockInfoPanel({required this.existencias});
 

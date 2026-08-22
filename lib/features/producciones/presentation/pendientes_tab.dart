@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/db/schema/app_database.dart';
+import '../../../core/models/receta.dart';
+import '../../../core/widgets/error_display.dart';
 import '../data/producciones_providers.dart';
 import '../data/producciones_repository.dart';
 import 'dialogs/cancelar_produccion_dialog.dart';
@@ -27,6 +28,9 @@ class _PendientesTabState extends ConsumerState<PendientesTab> {
 
   Future<List<PendienteCardData>> _cargar() async {
     final repo = ref.read(produccionesRepoProvider);
+    if (repo == null) {
+      throw Exception('Supabase no configurado. Verifica la conexion.');
+    }
     final pendientes = await repo.getProduccionesPorEstado('pendiente');
     final recetas = await repo.getRecetas();
     final recetaPorId = {for (final r in recetas) r.id: r};
@@ -62,7 +66,10 @@ class _PendientesTabState extends ConsumerState<PendientesTab> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snap.hasError) {
-          return Center(child: Text('Error: ${snap.error}'));
+          return ErrorDisplay(
+            error: snap.error!,
+            onRetry: _refresh,
+          );
         }
         final datos = snap.data!;
         if (datos.isEmpty) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/widgets/error_display.dart';
 import '../data/producciones_providers.dart';
 import '../data/producciones_repository.dart';
 import 'widgets/historial_card.dart';
@@ -24,6 +25,9 @@ class _HistorialTabState extends ConsumerState<HistorialTab> {
 
   Future<List<HistorialCardData>> _cargar() async {
     final repo = ref.read(produccionesRepoProvider);
+    if (repo == null) {
+      throw Exception('Supabase no configurado. Verifica la conexion.');
+    }
     final producciones = await repo.getProducciones();
     final datos = <HistorialCardData>[];
     for (final p in producciones) {
@@ -52,7 +56,10 @@ class _HistorialTabState extends ConsumerState<HistorialTab> {
           return const Center(child: CircularProgressIndicator());
         }
         if (snap.hasError) {
-          return Center(child: Text('Error: ${snap.error}'));
+          return ErrorDisplay(
+            error: snap.error!,
+            onRetry: _refresh,
+          );
         }
         final datos = snap.data!;
         if (datos.isEmpty) {

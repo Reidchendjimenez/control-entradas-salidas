@@ -1,66 +1,63 @@
-import 'package:drift/drift.dart';
+import '../../../core/data/supabase_service.dart';
+import '../../../core/models/categoria.dart';
+import '../../../core/models/existencia.dart';
+import '../../../core/models/movimiento.dart';
+import '../../../core/models/producto.dart';
+import '../../../core/utils/supabase_cast.dart';
 
-import '../../../core/db/schema/app_database.dart';
-
-/// Estadísticas de stock para la cabecera (Total / Bajo / Agotado).
 class StockStats {
-  const StockStats({
-    this.total = 0,
-    this.bajo = 0,
-    this.agotado = 0,
-  });
-
+  const StockStats({this.total = 0, this.bajo = 0, this.agotado = 0});
   final int total;
   final int bajo;
   final int agotado;
 }
 
-/// Repositorio de stock — porta `usr/views/stock/data.py` y la parte de
-/// `ajustar_existencia` de movements.py.
 class StockRepository {
   StockRepository(this._db);
+  final SupabaseService _db;
 
-  final AppDatabase _db;
-
-  // ---------------------------------------------------------------------
-  // Datos maestros
-  // ---------------------------------------------------------------------
-
-  Future<List<Categoria>> loadCategorias() {
-    return (_db.select(_db.categorias)..where((t) => t.activo.equals(1))).get();
+  Future<List<Categoria>> loadCategorias() async {
+    final rows = await _db.client
+        .from('categorias')
+        .select()
+        .eq('activo', true)
+        .order('nombre');
+    return rows.map(Categoria.fromMap).toList();
   }
 
-  /// Almacenes distintos de existencias (porta `load_warehouses`).
   Future<List<String>> getAlmacenes() async {
-    final rows = _db.selectOnly(_db.existencias)
-      ..addColumns([_db.existencias.almacen]);
-    final data = await rows.get();
-    return {
-      for (final r in data) r.read(_db.existencias.almacen) as String,
-    }.toList()
-      ..sort();
+    final rows =
+        await _db.client.from('existencias').select('almacen');
+    final almacenes =
+        rows.map((r) => r['almacen'] as String).toSet().toList();
+    almacenes.sort();
+    return almacenes;
   }
 
-  Future<List<Producto>> loadProductos({int limit = 50}) {
-    return (_db.select(_db.productos)
-          ..where((t) => t.activo.equals(1))
-          ..orderBy([(t) => OrderingTerm.asc(t.nombre)])
-          ..limit(limit))
-        .get();
+  Future<List<Producto>> loadProductos({int limit = 50}) async {
+    final rows = await _db.client
+        .from('productos')
+        .select()
+        .eq('activo', true)
+        .order('nombre')
+        .limit(limit);
+    return rows.map(Producto.fromMap).toList();
   }
 
   Future<Map<int, Map<String, double>>> getExistenciasMap(
       List<int> productoIds) async {
     final result = <int, Map<String, double>>{};
     if (productoIds.isEmpty) return result;
-
-    final rows = await (_db.select(_db.existencias)
-          ..where((t) => t.productoId.isIn(productoIds)))
-        .get();
+    final rows = await _db.client
+        .from('existencias')
+        .select('producto_id, almacen, cantidad')
+        .filter('producto_id', 'in', productoIds);
     for (final e in rows) {
-      final id = e.productoId ?? 0;
-      result.putIfAbsent(id, () => {});
-      result[id]![e.almacen] = e.cantidad;
+      final pid = e['producto_id'] as int;
+      final almacen = e['almacen'] as String;
+      final cant = (e['cantidad'] as num?)?.toDouble() ?? 0;
+      result.putIfAbsent(pid, () => {});
+      result[pid]![almacen] = cant;
     }
     return result;
   }
@@ -73,34 +70,22 @@ class StockRepository {
     };
   }
 
-  // ---------------------------------------------------------------------
-  // Filtros (porta `filter_products_db` y `get_stock_stats`)
-  // ---------------------------------------------------------------------
-
-  /// Productos filtrados por búsqueda/categoría/almacén/estado de stock.
   Future<List<Producto>> filterProductos({
     String search = '',
     int? categoriaId,
     String? almacen,
-    String? stockStatus, // null | 'low' | 'out'
+    String? stockStatus,
     int limit = 50,
   }) async {
-    final q = _db.select(_db.productos);
-
-    q.where((t) {
-      var w = t.activo.equals(1);
-      if (search.isNotEmpty) {
-        final term = search.toLowerCase();
-        w = w & t.nombre.lower().contains(term);
-      }
-      if (categoriaId != null) {
-        w = w & t.categoriaId.equals(categoriaId);
-      }
-      return w;
-    });
-    q.orderBy([(t) => OrderingTerm.asc(t.nombre)]);
-
-    final productos = await q.get();
+    var query = _db.client.from('productos').select().eq('activo', true);
+    if (search.isNotEmpty) {
+      query = query.ilike('nombre', '%$search%');
+    }
+    if (categoriaId != null) {
+      query = query.eq('categoria_id', categoriaId);
+    }
+    final rows = await query.order('nombre');
+    var productos = rows.map(Producto.fromMap).toList();
 
     if (almacen == null && stockStatus == null) {
       return productos.take(limit).toList();
@@ -131,11 +116,9 @@ class StockRepository {
     return result;
   }
 
-  /// Estadísticas de stock desde la BD (porta `get_stock_stats`).
   Future<StockStats> getStockStats() async {
     final productos = await loadProductos(limit: 99999);
     final stockTotales = await getStockTotal([for (final p in productos) p.id]);
-
     var total = 0, bajo = 0, agotado = 0;
     for (final p in productos) {
       final stock = stockTotales[p.id] ?? 0;
@@ -149,34 +132,26 @@ class StockRepository {
     return StockStats(total: total, bajo: bajo, agotado: agotado);
   }
 
-  // ---------------------------------------------------------------------
-  // Detalle de producto
-  // ---------------------------------------------------------------------
-
-  Future<List<Existencia>> getExistenciasProducto(int productoId) {
-    return (_db.select(_db.existencias)
-          ..where((t) => t.productoId.equals(productoId))
-          ..orderBy([(t) => OrderingTerm.asc(t.almacen)]))
-        .get();
+  Future<List<Existencia>> getExistenciasProducto(int productoId) async {
+    final rows = await _db.client
+        .from('existencias')
+        .select()
+        .eq('producto_id', productoId)
+        .order('almacen');
+    return rows.map(Existencia.fromMap).toList();
   }
 
-  /// Historial de movimientos de un producto (porta `get_producto_historial`).
   Future<List<Movimiento>> getProductoHistorial(int productoId,
-      {int limit = 100}) {
-    return (_db.select(_db.movimientos)
-          ..where((t) => t.productoId.equals(productoId))
-          ..orderBy([(t) => OrderingTerm.desc(t.fechaMovimiento)])
-          ..limit(limit))
-        .get();
+      {int limit = 100}) async {
+    final rows = await _db.client
+        .from('movimientos')
+        .select()
+        .eq('producto_id', productoId)
+        .order('fecha_movimiento', ascending: false)
+        .limit(limit);
+    return rows.map(Movimiento.fromMap).toList();
   }
 
-  // ---------------------------------------------------------------------
-  // Ajuste de stock (porta `ajustar_existencia` de movements.py)
-  // ---------------------------------------------------------------------
-
-  /// Ajusta la existencia de un producto/almaCén a la nueva cantidad física.
-  /// Devuelve `true` si se creó movimiento. Si `nueva == actual`, no crea
-  /// nada y devuelve `false`.
   Future<bool> ajustarExistencia({
     required int productoId,
     required String almacen,
@@ -184,53 +159,54 @@ class StockRepository {
     String? motivo,
     String usuario = 'sistema',
   }) async {
-    final rows = await (_db.select(_db.existencias)
-          ..where((t) =>
-              t.productoId.equals(productoId) & t.almacen.equals(almacen))
-          ..orderBy([(t) => OrderingTerm.desc(t.id)]))
-        .get();
-    final e = rows.isEmpty ? null : rows.first;
-    final actual = e?.cantidad ?? 0;
+    final rows = await _db.client
+        .from('existencias')
+        .select('id, cantidad')
+        .eq('producto_id', productoId)
+        .eq('almacen', almacen)
+        .order('id', ascending: false)
+        .limit(1);
+    final actual =
+        rows.isNotEmpty ? (rows.first['cantidad'] as num?)?.toDouble() ?? 0 : 0.0;
 
-    if ((nuevaCantidad - actual).abs() < 1e-9) {
-      return false; // Sin cambios, no se crea movimiento.
+    if ((nuevaCantidad - actual).abs() < 1e-9) return false;
+
+    final pRows = await _db.client
+        .from('productos')
+        .select('es_pesable, unidad_medida')
+        .eq('id', productoId)
+        .limit(1);
+    final esPesable = pRows.isNotEmpty && toBool(pRows.first['es_pesable']);
+    final unidad =
+        pRows.isNotEmpty ? (pRows.first['unidad_medida'] as String?) ?? 'unidad' : 'unidad';
+    final now = DateTime.now().toIso8601String();
+
+    await _db.insert('movimientos', {
+      'producto_id': productoId,
+      'tipo': 'ajuste',
+      'cantidad': (nuevaCantidad - actual).abs(),
+      'cantidad_anterior': actual,
+      'cantidad_nueva': nuevaCantidad,
+      'peso_total': esPesable ? nuevaCantidad : 0.0,
+      'registrado_por': usuario,
+      'observaciones': motivo ?? '',
+      'almacen': almacen,
+      'fecha_movimiento': now,
+      'created_at': now,
+    });
+
+    if (rows.isNotEmpty) {
+      await _db.updateById('existencias', rows.first['id'] as int, {
+        'cantidad': nuevaCantidad,
+      });
+    } else {
+      await _db.insert('existencias', {
+        'producto_id': productoId,
+        'almacen': almacen,
+        'cantidad': nuevaCantidad,
+        'unidad': unidad,
+      });
     }
-
-    final producto = await (_db.select(_db.productos)
-          ..where((t) => t.id.equals(productoId)))
-        .getSingleOrNull();
-    final esPesable = producto?.esPesable == 1;
-
-    await _db.into(_db.movimientos).insert(
-          MovimientosCompanion.insert(
-            productoId: productoId,
-            tipo: 'ajuste',
-            cantidad: (nuevaCantidad - actual).abs(),
-            cantidadAnterior: Value(actual),
-            cantidadNueva: Value(nuevaCantidad),
-            pesoTotal: Value(esPesable ? nuevaCantidad : 0.0),
-            registradoPor: Value(usuario),
-            observaciones: Value(motivo ?? ''),
-            almacen: Value(almacen),
-            fechaMovimiento: Value(DateTime.now()),
-            createdAt: Value(DateTime.now()),
-            sincronizado: const Value(0),
-          ),
-        );
-
-    await (_db.delete(_db.existencias)
-          ..where((t) =>
-              t.productoId.equals(productoId) & t.almacen.equals(almacen)))
-        .go();
-    await _db.into(_db.existencias).insert(
-          ExistenciasCompanion.insert(
-            productoId: Value(productoId),
-            almacen: almacen,
-            cantidad: Value(nuevaCantidad),
-            unidad: Value(producto?.unidadMedida ?? 'unidad'),
-          ),
-        );
-
     return true;
   }
 }

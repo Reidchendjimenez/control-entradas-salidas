@@ -1,48 +1,47 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:drift/drift.dart';
 
-import '../db/database_provider.dart';
-import '../db/schema/app_database.dart';
+import '../data/supabase_service.dart';
+import '../data/supabase_providers.dart';
 
-/// Provider del controlador de sesión.
 final sessionProvider =
     StateNotifierProvider<SessionController, SessionState>((ref) {
-  return SessionController(ref.watch(appDatabaseProvider));
+  return SessionController(ref.watch(supabaseServiceProvider));
 });
 
-/// Controlador de sesión (autenticación PIN + nombre).
-/// Porta la lógica de `LoginView` y `LocalReplica.get_usuario_dispositivo()`.
 class SessionController extends StateNotifier<SessionState> {
   SessionController(this._db) : super(const SessionState.unauthenticated());
+  final SupabaseService? _db;
 
-  final AppDatabase _db;
-
-  /// Registra el operador inicial (equivalente a modo="registro").
   Future<bool> registrarOperador({
     required String nombre,
     required String pin,
   }) async {
-    final id = await _db.into(_db.dispositivoUsuario).insert(
-          DispositivoUsuarioCompanion.insert(
-            nombre: nombre,
-            pinHash: Value(pin),
-            configuradoEn: DateTime.now(),
-          ),
-        );
-    if (id > 0) {
+    if (_db == null) return false;
+    final result = await _db!.insert('dispositivo_usuario', {
+      'nombre': nombre,
+      'pin_hash': pin,
+      'configurado_en': DateTime.now().toIso8601String(),
+    });
+    if (result != null) {
       state = SessionState.authenticated(nombre: nombre, pinHash: pin);
       return true;
     }
     return false;
   }
 
-  /// Verifica el PIN (equivalente a modo="login").
   Future<bool> verificarPin(String pin) async {
-    final u = await _db.select(_db.dispositivoUsuario).getSingleOrNull();
-    if (u == null || u.pinHash == null) return false;
-    if (u.pinHash == pin) {
-      // (en producción: comparar hash)
-      state = SessionState.authenticated(nombre: u.nombre, pinHash: u.pinHash!);
+    if (_db == null) return false;
+    final rows = await _db!.client
+        .from('dispositivo_usuario')
+        .select('nombre, pin_hash')
+        .limit(1);
+    if (rows.isEmpty) return false;
+    final u = rows.first;
+    if (u['pin_hash'] == pin) {
+      state = SessionState.authenticated(
+        nombre: u['nombre'] as String,
+        pinHash: u['pin_hash'] as String,
+      );
       return true;
     }
     return false;
@@ -53,15 +52,12 @@ class SessionController extends StateNotifier<SessionState> {
   }
 }
 
-/// Estado de la sesión (usuario logueado o no).
 sealed class SessionState {
   const SessionState();
-
   const factory SessionState.authenticated({
     required String nombre,
     required String pinHash,
   }) = Authenticated;
-
   const factory SessionState.unauthenticated() = Unauthenticated;
 }
 
