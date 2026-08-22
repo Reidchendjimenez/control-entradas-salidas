@@ -100,12 +100,17 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
   }
 
   Future<void> _iniciar() async {
-    final repo = ref.read(posRepoProvider)!;
-    _tasa = await repo.getTasaCambio();
-    _tasaFecha = await repo.getTasaCambioFecha();
-    await _cargarComandaExistente();
-    await _cargarCategorias();
-    if (mounted) setState(() => _iniciando = false);
+    try {
+      final repo = ref.read(posRepoProvider)!;
+      _tasa = await repo.getTasaCambio();
+      _tasaFecha = await repo.getTasaCambioFecha();
+      await _cargarComandaExistente();
+      await _cargarCategorias();
+    } catch (e) {
+      debugPrint('[comanda] _iniciar error: $e');
+    } finally {
+      if (mounted) setState(() => _iniciando = false);
+    }
   }
 
   /// Consulta la tasa BCV en línea y actualiza el total en Bs (y la guardada).
@@ -284,11 +289,22 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
       if (ventaId != null) {
         try {
           await repo.eliminarVentaYMovimientos(ventaId);
-        } catch (_) {}
+        } catch (rollbackErr) {
+          debugPrint('[comanda] rollback failed for venta $ventaId: $rollbackErr');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: const Text(
+                  'La venta quedó registrada pero no se pudo revertir. Anúlala manualmente.'),
+              backgroundColor: Colors.orange[800],
+              duration: const Duration(seconds: 8),
+            ));
+          }
+        }
       }
       if (!mounted) return;
+      final msg = ex is Exception ? (ex.toString().replaceFirst('Exception: ', '')) : '$ex';
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error al cobrar: $ex')));
+          .showSnackBar(SnackBar(content: Text('Error al cobrar: $msg')));
     }
   }
 

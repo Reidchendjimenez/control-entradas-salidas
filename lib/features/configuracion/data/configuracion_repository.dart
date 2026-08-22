@@ -85,7 +85,7 @@ class ConfiguracionRepository {
     }
 
     var builder = _db.client.from('productos').select();
-    if (soloActivos) builder = builder.eq('activo', true);
+    if (soloActivos) builder = builder.eq('activo', 1);
     if (categoriaId != null) builder = builder.eq('categoria_id', categoriaId);
     if (search != null && search.isNotEmpty) {
       builder = builder.ilike('nombre', '%$search%');

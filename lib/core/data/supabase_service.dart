@@ -15,6 +15,14 @@ class SupabaseService {
   /// Cliente Supabase subyacente (para queries complejas).
   SupabaseClient get client => _client;
 
+  /// Convierte bool→int en un map (columnas integer de Supabase).
+  static Map<String, dynamic> _encodeMap(Map<String, dynamic> m) {
+    return {
+      for (final e in m.entries)
+        e.key: e.value is bool ? (e.value ? 1 : 0) : e.value,
+    };
+  }
+
   // -------------------------------------------------------------------
   // SELECT
   // -------------------------------------------------------------------
@@ -107,7 +115,8 @@ class SupabaseService {
     dynamic builder = _client.from(table).select('id');
     if (filters != null) {
       for (final e in filters.entries) {
-        builder = builder.eq(e.key, e.value);
+        final v = e.value is bool ? (e.value ? 1 : 0) : e.value;
+        builder = builder.eq(e.key, v);
       }
     }
     final data = await builder;
@@ -121,7 +130,7 @@ class SupabaseService {
   /// Inserta una fila y retorna el ID asignado por el server.
   Future<int> insert(String table, Map<String, dynamic> data) async {
     final result =
-        await _client.from(table).insert(data).select('id').single();
+        await _client.from(table).insert(_encodeMap(data)).select('id').single();
     return (result['id'] as num).toInt();
   }
 
@@ -129,7 +138,7 @@ class SupabaseService {
   Future<void> insertBatch(
       String table, List<Map<String, dynamic>> rows) async {
     if (rows.isEmpty) return;
-    await _client.from(table).insert(rows);
+    await _client.from(table).insert(rows.map(_encodeMap).toList());
   }
 
   // -------------------------------------------------------------------
@@ -142,7 +151,7 @@ class SupabaseService {
     int id,
     Map<String, dynamic> data,
   ) async {
-    await _client.from(table).update(data).eq('id', id);
+    await _client.from(table).update(_encodeMap(data)).eq('id', id);
   }
 
   /// Actualiza filas por filtro.
@@ -151,9 +160,10 @@ class SupabaseService {
     Map<String, dynamic> filters,
     Map<String, dynamic> data,
   ) async {
-    dynamic builder = _client.from(table).update(data);
+    dynamic builder = _client.from(table).update(_encodeMap(data));
     for (final e in filters.entries) {
-      builder = builder.eq(e.key, e.value);
+      final v = e.value is bool ? (e.value ? 1 : 0) : e.value;
+      builder = builder.eq(e.key, v);
     }
     await builder;
   }
@@ -170,7 +180,7 @@ class SupabaseService {
   }) async {
     final result = await _client
         .from(table)
-        .upsert(data, onConflict: conflictColumn)
+        .upsert(_encodeMap(data), onConflict: conflictColumn)
         .select('id')
         .single();
     return (result['id'] as num).toInt();
@@ -180,7 +190,7 @@ class SupabaseService {
   Future<int> upsertById(String table, Map<String, dynamic> data) async {
     final result = await _client
         .from(table)
-        .upsert(data, onConflict: 'id')
+        .upsert(_encodeMap(data), onConflict: 'id')
         .select('id')
         .single();
     return (result['id'] as num).toInt();

@@ -20,7 +20,7 @@ class StockRepository {
     final rows = await _db.client
         .from('categorias')
         .select()
-        .eq('activo', true)
+        .eq('activo', 1)
         .order('nombre');
     return rows.map(Categoria.fromMap).toList();
   }
@@ -38,7 +38,7 @@ class StockRepository {
     final rows = await _db.client
         .from('productos')
         .select()
-        .eq('activo', true)
+        .eq('activo', 1)
         .order('nombre')
         .limit(limit);
     return rows.map(Producto.fromMap).toList();
@@ -77,7 +77,7 @@ class StockRepository {
     String? stockStatus,
     int limit = 50,
   }) async {
-    var query = _db.client.from('productos').select().eq('activo', true);
+    var query = _db.client.from('productos').select().eq('activo', 1);
     if (search.isNotEmpty) {
       query = query.ilike('nombre', '%$search%');
     }

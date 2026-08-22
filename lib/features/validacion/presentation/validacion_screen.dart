@@ -75,7 +75,11 @@ class _ValidacionScreenState extends ConsumerState<ValidacionScreen> {
 
     // El temporal usado se consume.
     if (temporalUsado?.id != null) {
-      await temporalesRepo.eliminar(temporalUsado!.id!);
+      try {
+        await temporalesRepo.eliminar(temporalUsado!.id!);
+      } catch (e) {
+        debugPrint('[validacion] eliminar temporal falló: $e');
+      }
     }
     if (!mounted) return;
 

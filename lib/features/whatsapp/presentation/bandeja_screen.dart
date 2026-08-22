@@ -55,11 +55,13 @@ class _BandejaScreenState extends ConsumerState<BandejaScreen> {
   }
 
   Future<void> _procesarReintentos() async {
-    final repo = ref.read(whatsappRepoProvider)!;
-    final pendientes = await repo.countPending();
-    if (pendientes == 0) return;
-    await repo.reintentarTodos();
-    _refrescar();
+    try {
+      final repo = ref.read(whatsappRepoProvider)!;
+      final pendientes = await repo.countPending();
+      if (pendientes == 0) return;
+      await repo.reintentarTodos();
+      _refrescar();
+    } catch (_) {}
   }
 
   void _refrescar() {
@@ -87,31 +89,49 @@ class _BandejaScreenState extends ConsumerState<BandejaScreen> {
   }
 
   Future<void> _reintentarTodos() async {
-    final repo = ref.read(whatsappRepoProvider)!;
-    final enviados = await repo.reintentarTodos();
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$enviados mensaje(s) enviado(s)')),
-      );
+    try {
+      final repo = ref.read(whatsappRepoProvider)!;
+      final enviados = await repo.reintentarTodos();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$enviados mensaje(s) enviado(s)')),
+        );
+      }
+      _refrescar();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al reintentar: $e')),
+        );
+      }
     }
-    _refrescar();
   }
 
   Future<void> _reintentarUno(int id) async {
-    final repo = ref.read(whatsappRepoProvider)!;
-    final ok = await repo.reintentarUno(id);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ok ? 'Mensaje reenviado' : 'Error al reenviar')),
-      );
+    try {
+      final repo = ref.read(whatsappRepoProvider)!;
+      final ok = await repo.reintentarUno(id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(ok ? 'Mensaje reenviado' : 'Error al reenviar')),
+        );
+      }
+      _refrescar();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al reenviar: $e')),
+        );
+      }
     }
-    _refrescar();
   }
 
   Future<void> _eliminar(int id) async {
-    final repo = ref.read(whatsappRepoProvider)!;
-    await repo.eliminar(id);
-    _refrescar();
+    try {
+      final repo = ref.read(whatsappRepoProvider)!;
+      await repo.eliminar(id);
+      _refrescar();
+    } catch (_) {}
   }
 
   @override

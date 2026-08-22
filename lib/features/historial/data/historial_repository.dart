@@ -132,17 +132,29 @@ class HistorialRepository {
         .order('fecha_movimiento', ascending: false)
         .limit(200);
 
+    if (movimientos.isEmpty) return const [];
+
+    final productoIds = movimientos
+        .map((m) => m['producto_id'] as int)
+        .toSet()
+        .toList();
+    final productos = await _db.client
+        .from('productos')
+        .select('id, nombre, unidad_medida, es_pesable')
+        .inFilter('id', productoIds);
+    final prodMap = <int, Map<String, dynamic>>{
+      for (final p in productos) p['id'] as int: p,
+    };
+
     final result = <EntradaPorFecha>[];
     for (final m in movimientos) {
-      final producto =
-          await _db.fetchById('productos', m['producto_id'] as int);
+      final p = prodMap[m['producto_id'] as int];
       result.add(EntradaPorFecha(
         id: m['id'] as int,
         productoId: m['producto_id'] as int,
-        nombre: (producto?['nombre'] as String?) ?? '',
-        unidad: (producto?['unidad_medida'] as String?) ?? '',
-        esPesable: producto?['es_pesable'] == true ||
-            producto?['es_pesable'] == 1,
+        nombre: (p?['nombre'] as String?) ?? '',
+        unidad: (p?['unidad_medida'] as String?) ?? '',
+        esPesable: p?['es_pesable'] == 1,
         cantidad: (m['cantidad'] as num?)?.toDouble() ?? 0,
         pesoTotal: (m['peso_total'] as num?)?.toDouble() ?? 0,
         fecha: DateTime.tryParse(m['fecha_movimiento']?.toString() ?? ''),
@@ -159,28 +171,42 @@ class HistorialRepository {
         .select()
         .eq('factura_id', facturaId);
 
+    final archivados = await _db.client
+        .from('movimientos_archivo')
+        .select()
+        .eq('factura_id', facturaId);
+
+    final allMoves = [...movimientos, ...archivados];
+    final productoIds = allMoves
+        .map((m) => m['producto_id'] as int)
+        .toSet()
+        .toList();
+    final prodMap = <int, String>{};
+    if (productoIds.isNotEmpty) {
+      final productos = await _db.client
+          .from('productos')
+          .select('id, nombre')
+          .inFilter('id', productoIds);
+      for (final p in productos) {
+        prodMap[p['id'] as int] = (p['nombre'] as String?) ?? '';
+      }
+    }
+
     final items = <FacturaDetalleItem>[];
     for (final m in movimientos) {
-      final p = await _db.fetchById('productos', m['producto_id'] as int);
       items.add(FacturaDetalleItem(
         productoId: m['producto_id'] as int,
-        nombre: (p?['nombre'] as String?) ?? '',
+        nombre: prodMap[m['producto_id'] as int] ?? '',
         cantidad: (m['cantidad'] as num?)?.toDouble() ?? 0,
         pesoTotal: (m['peso_total'] as num?)?.toDouble() ?? 0,
         archivado: false,
       ));
     }
 
-    final archivados = await _db.client
-        .from('movimientos_archivo')
-        .select()
-        .eq('factura_id', facturaId);
-
     for (final m in archivados) {
-      final p = await _db.fetchById('productos', m['producto_id'] as int);
       items.add(FacturaDetalleItem(
         productoId: m['producto_id'] as int,
-        nombre: (p?['nombre'] as String?) ?? '',
+        nombre: prodMap[m['producto_id'] as int] ?? '',
         cantidad: (m['cantidad'] as num?)?.toDouble() ?? 0,
         pesoTotal: (m['peso_total'] as num?)?.toDouble() ?? 0,
         archivado: true,
@@ -212,14 +238,22 @@ class HistorialRepository {
     builder = builder.order('fecha_factura', ascending: true);
 
     final facturas = await builder;
+    if (facturas.isEmpty) return const [];
+
+    final facturaIds = facturas.map((f) => f['id'] as int).toList();
+    final allPagos = await _db.client
+        .from('factura_pagos')
+        .select()
+        .inFilter('factura_id', facturaIds);
+    final pagosMap = <int, List<Map<String, dynamic>>>{};
+    for (final p in allPagos) {
+      final fid = p['factura_id'] as int;
+      (pagosMap[fid] ??= []).add(p);
+    }
+
     final rows = <LibroComprasRow>[];
-
     for (final f in facturas) {
-      final pagos = await _db.fetchAll(
-        'factura_pagos',
-        filters: {'factura_id': f['id'] as int},
-      );
-
+      final pagos = pagosMap[f['id'] as int] ?? const [];
       var efectivo = 0.0;
       var transferencia = 0.0;
       var divisasUsd = 0.0;

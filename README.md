@@ -28,7 +28,8 @@ Sistema de gestion de inventario con modulo **POS**, desarrollado en **Flutter**
 - **WhatsApp**: bandeja de mensajes con cola y envio via bot.
 
 ### POS (`lib/features/pos/`)
-- Login con PIN, mesas, habitaciones, comandas activas, ventas y cierre de turnos/cajas.
+- Login con PIN por dispositivo (`device_id` unico por dispositivo).
+- Mesas, habitaciones, comandas activas, ventas y cierre de turnos/cajas.
 - Tasa del dia del **BCV** (proxy con *stale-while-revalidate*).
 - Impresion de tickets **ESC/POS** (impresora termica).
 - Configuracion: categorias, platos, mesas, habitaciones, impresora, tasa, usuarios.
@@ -47,6 +48,7 @@ Sistema de gestion de inventario con modulo **POS**, desarrollado en **Flutter**
 | HTTP | `http ^1.2` |
 | Impresion termica (Windows) | `windows_printer ^0.2` |
 | Version de la app (updater) | `package_info_plus ^9` |
+| UUID por dispositivo | `uuid ^4.4` |
 
 Ver `pubspec.yaml` (version actual: **2.0.1**).
 
@@ -60,10 +62,10 @@ Ver `pubspec.yaml` (version actual: **2.0.1**).
 lib/
 ├── main.dart / main_pos.dart        # entry points (inventario / POS)
 ├── core/
-│   ├── auth/                        # login, PIN, sesion
+│   ├── auth/                        # login, PIN, sesion, device_id
 │   ├── config/                      # app_config.dart (URL/key Supabase, appId, repo releases)
 │   ├── data/
-│   │   ├── supabase_service.dart    # servicio CRUD generico
+│   │   ├── supabase_service.dart    # servicio CRUD generico (con conversion bool→int)
 │   │   ├── supabase_providers.dart  # providers de Supabase, cache, realtime
 │   │   ├── cache_service.dart       # cache local con SharedPreferences + TTL
 │   │   └── realtime_service.dart    # suscripciones Realtime generico
@@ -85,6 +87,16 @@ lib/
 - Los repos consultan Supabase directamente via `supabase_flutter`.
 - **Modelos de dominio** en `lib/core/models/` desacoplan la UI de Supabase.
 - Los repos convierten `Map<String, dynamic>` a modelos de dominio.
+
+### Conversion bool→int
+
+Las columnas `integer` de Supabase que representan booleanos (`activo`, `es_pesable`, `es_contorno`, etc.) requieren `0`/`1` en vez de `true`/`false`.
+
+**Regla**: `SupabaseService._encodeMap()` aplica conversion automatica en todos los metodos de escritura (`insert`, `insertBatch`, `updateById`, `updateWhere`, `upsert`, `upsertById`). Los filtros `.eq()` directos al cliente deben usar `1`/`0` explicitamente.
+
+### Auth por dispositivo
+
+Cada dispositivo genera un UUID unico (`DeviceIdService`) almacenado en `SharedPreferences`. El PIN se asocia al `device_id` en la tabla `dispositivo_usuario`. Un solo usuario por dispositivo.
 
 ### Cache local (stale-while-revalidate)
 
@@ -126,6 +138,7 @@ Ejecutar en Supabase SQL Editor el archivo:
 
 ```sql
 supabase/migrations/20250101000000_add_dispositivo_usuario.sql
+supabase/migrations/20250102000000_add_device_id.sql
 ```
 
 O copiar y pegar:
@@ -135,6 +148,7 @@ CREATE TABLE IF NOT EXISTS dispositivo_usuario (
   id            BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   nombre        TEXT NOT NULL,
   pin_hash      TEXT NOT NULL,
+  device_id     TEXT UNIQUE,
   configurado_en TIMESTAMPTZ DEFAULT now()
 );
 
@@ -144,30 +158,42 @@ CREATE POLICY "dispositivo_usuario_all" ON dispositivo_usuario
   FOR ALL USING (true) WITH CHECK (true);
 ```
 
-### Otras tablas requeridas en Supabase
-
- Todas las tablas usadas por los repos deben existir en Supabase:
+### Todas las tablas de Supabase
 
 | Tabla | Usada por |
 |-------|-----------|
-| `categorias` | Inventario, Stock, Configuracion |
-| `productos` | Inventario, Stock, Configuracion, Producciones |
-| `existencias` | Stock, Configuracion |
-| `movimientos` | Stock, Historial |
+| `categorias` | Inventario, Stock, Configuracion, POS |
+| `productos` | Inventario, Stock, Configuracion, Producciones, POS |
+| `existencias` | Stock, Configuracion, Requisiciones |
+| `movimientos` | Stock, Historial, Requisiciones, Producciones |
 | `proveedores` | Configuracion, Validacion |
 | `facturas` | Historial, Validacion |
+| `factura_pagos` | Historial |
 | `periodos` | Configuracion |
 | `requisiciones` | Requisiciones |
+| `requisicion_detalles` | Requisiciones |
+| `recetas` | Producciones |
+| `receta_componentes` | Producciones |
+| `producciones` | Producciones |
+| `produccion_detalles` | Producciones |
+| `platos_categorias` | POS |
+| `platos` | POS |
+| `plato_ingredientes` | POS |
+| `plato_contornos` | POS |
 | `pos_settings` | Configuracion, POS |
-| `dispositivo_usuario` | Auth (login PIN) |
+| `pos_usuarios` | POS |
 | `pos_sesiones` | POS (turnos/cajas) |
 | `pos_mesas` | POS |
 | `pos_habitaciones` | POS |
-| `pos_platos` | POS |
-| `pos_usuarios` | POS |
+| `pos_categorias` | POS |
 | `pos_comandas` | POS |
-| `pos_venta_detalle` | POS |
+| `pos_ventas` | POS |
+| `dispositivo_usuario` | Auth (login PIN por dispositivo) |
+| `fcm_tokens` | Notificaciones push |
+| `compras_lista` | Inventario (lista de compra) |
 | `whatsapp_queue` | WhatsApp |
+| `stock_checkpoint` | Stock (toma de inventario) |
+| `resumen` | Resumen/estadisticas |
 
 Ver `supabase/schema.sql` para el esquema completo (idempotente).
 
@@ -205,7 +231,7 @@ Flutter no puede compilar Windows desde Linux, asi que los binarios nativos se g
 
 **Como generar una release**:
 1. Push a `main`.
-2. Agregar los secrets `SUPABASE_URL` y `SUPABASE_ANON_KEY` en *Settings → Secrets and variables → Actions*.
+2. Agregar los secrets `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` en *Settings → Secrets and variables → Actions*.
 3. *Actions → "Build & Release nativa" → Run workflow* con la version deseada (ej. `2.0.1`).
 4. Descargar los binarios desde la pagina de la release.
 
@@ -237,41 +263,25 @@ Tests actuales (29):
 - POS: login, catalogo, comanda, ventas, tasa BCV, ticket ESC/POS
 - Widget: AppShell boots
 
+> Ejecutar con `LD_LIBRARY_PATH=/tmp/opencode/libs` si hay problemas con SQLite en Linux.
+
 ---
 
-## Cambios recientes (migracion Drift → Supabase)
+## Historial de migraciones
 
-### Fase 0 — Modelos de dominio (12+ archivos)
-`lib/core/models/` — modelos puros sin dependencia de Drift.
+### Migracion Drift → Supabase (completada)
 
-### Fase 1 — Servicio base Supabase
-`supabase_service.dart` + `supabase_providers.dart`.
-
-### Fase 2 — Repositorios migrados (10 features)
-Configuracion, Inventario, Requisiciones, Validacion, Historial, Producciones, POS (repo + ventas), Stock, WhatsApp, Temporales.
-
-### Fase 3 — Limpieza Drift
-- Eliminado `lib/core/db/` completo (database_provider, schema, app_database).
-- Eliminado `lib/core/sync/` completo (sync_engine, sync_service, sync_status, global_sync_bar).
-- Eliminado dependencias: `drift`, `drift_flutter`, `sqlite3_flutter_libs`, `drift_dev`, `build_runner`, `go_router`, `connectivity_plus`.
-- Tests huérfanos eliminados.
-- Providers migrados a `Provider<Repo?>` (nullable para Supabase no configurado).
-- Login screen con error handling (try/catch + mensajes amigables).
-
-### Fase 4 — Supabase Realtime
-- `realtime_service.dart` — servicio generico de suscripciones.
-- `realtime_providers.dart` — bindings POS + admin centralizados.
-- Suscripciones internas en StockScreen y BandejaScreen.
-
-### Fase 5 — Cache local
-- `cache_service.dart` — SharedPreferences + TTL + stale-while-revalidate.
-- Integrado en `configuracion_repository.dart` (categorias, productos, proveedores, periodos, settings).
-- Invalidacion automatica en writes.
-
-### Fase 6 — Seguridad null
-- Todos los repos aceptan `SupabaseService?` y retornan vacio si es null.
-- Todos los providers retornan `Provider<Repo?>`.
-- `supabase_guard.dart` — helper para UI.
+- **Fase 0**: Modelos de dominio (12+ archivos en `lib/core/models/`)
+- **Fase 1**: Servicio base Supabase (`supabase_service.dart` + providers)
+- **Fase 2**: Repositorios migrados (10 features)
+- **Fase 3**: Limpieza Drift — eliminados `lib/core/db/`, `lib/core/sync/`, dependencias drift/sqlite3
+- **Fase 4**: Supabase Realtime — suscripciones WebSocket para sync entre dispositivos
+- **Fase 5**: Cache local — stale-while-revalidate con SharedPreferences
+- **Fase 6**: Null-safe providers — `Provider<Repo?>` con `supabase_guard.dart`
+- **Fase 7**: Auth por dispositivo — `DeviceIdService` con UUID + `device_id` en `dispositivo_usuario`
+- **Fase 8**: Fix bool→int — conversion automatica en `SupabaseService._encodeMap()` + filtros directos
+- **Fase 9**: Fix N+1 queries — batch queries en historial, requisiciones y facturas
+- **Fase 10**: Fix error handling — try/catch en comanda_screen, validacion_screen, bandeja_screen
 
 ---
 

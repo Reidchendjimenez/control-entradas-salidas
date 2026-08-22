@@ -42,7 +42,7 @@ class InventarioRepository {
     dynamic builder = _db.client
         .from('productos')
         .select()
-        .eq('activo', true);
+        .eq('activo', 1);
     if (searchTerm.isNotEmpty) {
       builder = builder.ilike('nombre', '%$searchTerm%');
     }

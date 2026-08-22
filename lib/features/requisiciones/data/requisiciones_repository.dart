@@ -72,14 +72,14 @@ class RequisicionesRepository {
       _db.client
           .from('productos')
           .select()
-          .eq('activo', true)
+          .eq('activo', 1)
           .order('nombre', ascending: true)
           .limit(limit);
 
   Future<List<Map<String, dynamic>>> buscarProductos(String texto,
       {int limit = 30}) async {
     dynamic builder =
-        _db.client.from('productos').select().eq('activo', true);
+        _db.client.from('productos').select().eq('activo', 1);
     if (texto.isNotEmpty) {
       builder = builder.ilike('nombre', '%$texto%');
     }
@@ -210,10 +210,23 @@ class RequisicionesRepository {
     if (reqRows == null) return [];
     final req = domain.Requisicion.fromMap(reqRows);
     final detalles = await getDetalles(req.id);
+
+    final productoIds = detalles.map((d) => d.productoId ?? -1).toSet().toList();
+    final stockRows = await _db.client
+        .from('existencias')
+        .select('producto_id, almacen, cantidad')
+        .inFilter('producto_id', productoIds);
+    final stockMap = <String, double>{};
+    for (final r in stockRows) {
+      final key = '${r['producto_id']}_${r['almacen']}';
+      stockMap[key] = (r['cantidad'] as num?)?.toDouble() ?? 0;
+    }
+
     final items = <AuditItem>[];
     for (final d in detalles) {
-      final sOrig = await getExistencia(d.productoId ?? -1, req.origen);
-      final sDest = await getExistencia(d.productoId ?? -1, req.destino);
+      final pid = d.productoId ?? -1;
+      final sOrig = stockMap['${pid}_${req.origen}'] ?? 0;
+      final sDest = stockMap['${pid}_${req.destino}'] ?? 0;
       final cant = d.cantidad;
       items.add(AuditItem(
         detalleId: d.id,
