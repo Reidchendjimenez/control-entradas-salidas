@@ -37,7 +37,7 @@ class PosHomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    final esAdmin = sesion.usuario.esAdmin == 1;
+    final esAdmin = sesion.usuario.esAdmin;
 
     final mesasOcupadas = ref.watch(mesasOcupadasProvider).valueOrNull?.length ?? 0;
     final habitacionesOcupadas =

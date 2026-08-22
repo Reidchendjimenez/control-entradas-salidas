@@ -63,8 +63,8 @@ class _PlatoConfigDialogState extends ConsumerState<_PlatoConfigDialog> {
     _nombreCtrl.text = p?.nombre ?? '';
     _precioCtrl.text = p == null ? '' : p.precioVenta.toStringAsFixed(2);
     _categoriaId = p?.categoriaId;
-    _esContorno = p?.esContorno == 1;
-    _llevaContornos = p?.llevaContornos == 1;
+    _esContorno = p?.esContorno ?? false;
+    _llevaContornos = p?.llevaContornos ?? false;
     _cargarDatos();
   }
 

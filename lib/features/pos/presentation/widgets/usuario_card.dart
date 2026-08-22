@@ -21,12 +21,12 @@ class UsuarioCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final esAdmin = usuario.esAdmin == 1;
+    final esAdmin = usuario.esAdmin;
     final hasPin = usuario.pinHash != null && usuario.pinHash!.isNotEmpty;
 
     final badges = <String>[
       if (esAdmin) 'Admin',
-      if (usuario.esDesarrollador == 1) 'Desarrollador',
+      if (usuario.esDesarrollador) 'Desarrollador',
       hasPin ? 'Con PIN' : 'Sin PIN',
     ];
 

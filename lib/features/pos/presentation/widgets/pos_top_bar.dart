@@ -24,7 +24,7 @@ class PosTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final esAdmin = usuario.esAdmin == 1;
+    final esAdmin = usuario.esAdmin;
     final iniciales = usuario.nombre.isEmpty
         ? '?'
         : usuario.nombre.substring(0, 2).toUpperCase();

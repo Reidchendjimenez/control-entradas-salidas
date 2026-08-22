@@ -177,7 +177,7 @@ class _ConfigCategoriasTabState extends ConsumerState<ConfigCategoriasTab> {
                             _SubcatRow(
                               color: _hexColor(sc.color),
                               label: _labelSubcat(sc),
-                              activo: sc.activo == 1,
+                              activo: sc.activo,
                               onToggle: (v) => _toggleSubcat(sc, v),
                               onEdit: () async {
                                 if (await showSubcategoriaDialog(context,

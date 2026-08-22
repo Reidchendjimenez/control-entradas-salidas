@@ -597,13 +597,13 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
           nombre: p.nombre,
           color: color,
           subtitulo: '\$${p.precioVenta.toStringAsFixed(2)}',
-          badge: p.llevaContornos == 1,
+          badge: p.llevaContornos,
           onTap: () => _agregarItem(
               id: p.id,
               nombre: p.nombre,
               precio: p.precioVenta,
               tipo: 'plato',
-              llevaContornos: p.llevaContornos == 1),
+              llevaContornos: p.llevaContornos),
         ),
     ];
     _ir(_Seccion.platosDeCat);

@@ -110,7 +110,7 @@ class _SubcategoriaDialogState extends ConsumerState<_SubcategoriaDialog> {
         nombre,
         id: widget.subcategoria?.id,
         color: _color,
-        activo: widget.subcategoria?.activo == 1 || widget.subcategoria == null,
+        activo: widget.subcategoria?.activo ?? true,
         categoriaPadreId: catPadreId,
         posCategoriaPadreId: posPadreId,
       );

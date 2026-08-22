@@ -132,14 +132,14 @@ class _RecetaEditorScreenState extends ConsumerState<RecetaEditorScreen> {
     final term = texto.toLowerCase().trim();
     if (term.isEmpty) return [];
     return productos
-        .where((p) => p.activo == 1 && p.nombre.toLowerCase().contains(term))
+        .where((p) => p.activo && p.nombre.toLowerCase().contains(term))
         .take(8)
         .toList();
   }
 
   void _agregarProducto(Producto p) {
     setState(() {
-      final esPesable = p.esPesable == 1;
+      final esPesable = p.esPesable;
       final row = _CompRow()
         ..productoId = p.id
         ..cantidadCtrl.text = '1'
@@ -573,7 +573,7 @@ class _RecetaEditorScreenState extends ConsumerState<RecetaEditorScreen> {
                                             fontWeight: FontWeight.w500)),
                                     Text(
                                       'Stock: ${_fmtCant(_stock[p.id] ?? 0)} ${p.unidadMedida}'
-                                      '${p.esPesable == 1 ? ' · pesable' : ''}',
+                                      '${p.esPesable ? ' · pesable' : ''}',
                                       style: TextStyle(
                                           fontSize: 11,
                                           color: scheme.onSurfaceVariant),
@@ -633,7 +633,7 @@ class _RecetaEditorScreenState extends ConsumerState<RecetaEditorScreen> {
               hint: const Text('Producto...'),
               items: [
                 for (final p in productos)
-                  if (p.activo == 1)
+                  if (p.activo)
                     DropdownMenuItem(
                       value: p.id,
                       child: Text(p.nombre,

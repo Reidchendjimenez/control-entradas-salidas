@@ -96,15 +96,15 @@ class _UsuarioConfigCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final esAdmin = usuario.esAdmin == 1;
-    final esDev = usuario.esDesarrollador == 1;
+    final esAdmin = usuario.esAdmin;
+    final esDev = usuario.esDesarrollador;
     final hasPin = usuario.pinHash != null && usuario.pinHash!.isNotEmpty;
     final tags = [
       if (esAdmin) 'Admin',
       if (esDev) 'Desarrollador',
       hasPin ? 'Con PIN' : 'Sin PIN',
     ].join(' · ');
-    final activo = usuario.activo == 1;
+    final activo = usuario.activo;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),

@@ -149,8 +149,8 @@ class _PlatoConfigCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final esContorno = plato.esContorno == 1;
-    final lleva = plato.llevaContornos == 1;
+    final esContorno = plato.esContorno;
+    final lleva = plato.llevaContornos;
     final colorCat = cat?.color ?? '#FF6F00';
 
     return Card(
