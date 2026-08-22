@@ -200,9 +200,10 @@ class SupabaseService {
     String table,
     Map<String, dynamic> filters,
   ) async {
-    final builder = _client.from(table).delete();
+    var builder = _client.from(table).delete();
     for (final e in filters.entries) {
-      builder.eq(e.key, e.value);
+      final v = e.value is bool ? (e.value ? 1 : 0) : e.value;
+      builder = builder.eq(e.key, v);
     }
     await builder;
   }
