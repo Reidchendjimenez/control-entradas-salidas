@@ -112,6 +112,6 @@ class RecetaComponente {
         'cantidad': cantidad,
         'unidad': unidad,
         'tipo_componente': tipoComponente,
-        'peso_variable': pesoVariable,
+        'peso_variable': pesoVariable ? 1 : 0,
       };
 }

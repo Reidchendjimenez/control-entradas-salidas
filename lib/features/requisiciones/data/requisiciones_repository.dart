@@ -233,7 +233,7 @@ class RequisicionesRepository {
     final rows = await _db.fetchById('requisicion_detalles', detalleId);
     if (rows == null) return;
     await _db.updateById(
-        'requisicion_detalles', detalleId, {'verificado': verificado});
+        'requisicion_detalles', detalleId, {'verificado': verificado ? 1 : 0});
   }
 
   Future<void> crearAjusteStock({
@@ -261,12 +261,27 @@ class RequisicionesRepository {
     });
 
     final prod = await _db.fetchById('productos', productoId);
-    await _db.upsert('existencias', {
-      'producto_id': productoId,
-      'almacen': almacen,
-      'cantidad': nuevaCantidad,
-      'unidad': (prod?['unidad_medida'] as String?) ?? 'unidad',
-    }, conflictColumn: 'producto_id');
+    final unidad = (prod?['unidad_medida'] as String?) ?? 'unidad';
+    final rows = await _db.client
+        .from('existencias')
+        .select('id')
+        .eq('producto_id', productoId)
+        .eq('almacen', almacen)
+        .limit(1);
+    if (rows.isNotEmpty) {
+      await _db.updateById(
+          'existencias', rows.first['id'] as int, {
+        'cantidad': nuevaCantidad,
+        'unidad': unidad,
+      });
+    } else {
+      await _db.insert('existencias', {
+        'producto_id': productoId,
+        'almacen': almacen,
+        'cantidad': nuevaCantidad,
+        'unidad': unidad,
+      });
+    }
   }
 
   Future<void> totalizarRequisicion(int requisicionId,
@@ -329,16 +344,8 @@ class RequisicionesRepository {
         'fecha_movimiento': DateTime.now().toUtc().toIso8601String(),
       });
 
-      await _db.upsert('existencias', {
-        'producto_id': d.productoId,
-        'almacen': req.origen,
-        'cantidad': cantOrigenNueva,
-      }, conflictColumn: 'producto_id');
-      await _db.upsert('existencias', {
-        'producto_id': d.productoId,
-        'almacen': req.destino,
-        'cantidad': cantDestinoNueva,
-      }, conflictColumn: 'producto_id');
+      await _upsertExistencia(d.productoId!, req.origen, cantOrigenNueva);
+      await _upsertExistencia(d.productoId!, req.destino, cantDestinoNueva);
     }
 
     await _db.updateById('requisiciones', req.id, {
@@ -369,7 +376,7 @@ class RequisicionesRepository {
       'cantidad': item.cantidad,
       'unidad': item.unidad,
       'cantidad_surtida': 0,
-      'verificado': item.verificado || verificado,
+      'verificado': (item.verificado || verificado) ? 1 : 0,
     }).then((_) {});
   }
 
@@ -384,16 +391,30 @@ class RequisicionesRepository {
       final actualOrigen = await getExistencia(d.productoId!, req.origen);
       final actualDestino = await getExistencia(d.productoId!, req.destino);
 
-      await _db.upsert('existencias', {
-        'producto_id': d.productoId,
-        'almacen': req.origen,
-        'cantidad': (actualOrigen - d.cantidad).clamp(0.0, double.infinity),
-      }, conflictColumn: 'producto_id');
-      await _db.upsert('existencias', {
-        'producto_id': d.productoId,
-        'almacen': req.destino,
-        'cantidad': actualDestino + d.cantidad,
-      }, conflictColumn: 'producto_id');
+      await _upsertExistencia(d.productoId!, req.origen,
+          (actualOrigen - d.cantidad).clamp(0.0, double.infinity));
+      await _upsertExistencia(
+          d.productoId!, req.destino, actualDestino + d.cantidad);
+    }
+  }
+
+  Future<void> _upsertExistencia(
+      int productoId, String almacen, double cantidad) async {
+    final rows = await _db.client
+        .from('existencias')
+        .select('id')
+        .eq('producto_id', productoId)
+        .eq('almacen', almacen)
+        .limit(1);
+    if (rows.isNotEmpty) {
+      await _db.updateById(
+          'existencias', rows.first['id'] as int, {'cantidad': cantidad});
+    } else {
+      await _db.insert('existencias', {
+        'producto_id': productoId,
+        'almacen': almacen,
+        'cantidad': cantidad,
+      });
     }
   }
 

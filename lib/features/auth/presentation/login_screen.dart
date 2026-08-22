@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/auth/device_id_service.dart';
 import '../../../core/auth/session_controller.dart';
 import '../../../core/data/supabase_providers.dart';
 import '../../../core/data/supabase_service.dart';
@@ -30,14 +31,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  // Determina si hay operador registrado -> modo login o registro.
+  // Determina si este dispositivo tiene operador registrado.
   Future<bool> _hayOperador() async {
     try {
       final db = ref.read(supabaseServiceProvider);
       if (db == null) return false;
+      final deviceId = await DeviceIdService.instance.id;
       final rows = await db.client
           .from('dispositivo_usuario')
           .select('id')
+          .eq('device_id', deviceId)
           .limit(1);
       return rows.isNotEmpty;
     } catch (_) {

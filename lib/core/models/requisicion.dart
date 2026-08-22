@@ -135,7 +135,7 @@ class RequisicionDetalle {
         'cantidad': cantidad,
         'unidad': unidad,
         'cantidad_surtida': cantidadSurtida,
-        'verificado': verificado,
+        'verificado': verificado ? 1 : 0,
       };
 
   RequisicionDetalle copyWith({

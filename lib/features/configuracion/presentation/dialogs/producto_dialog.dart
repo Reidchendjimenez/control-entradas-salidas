@@ -345,8 +345,8 @@ class _ProductoDialogState extends ConsumerState<_ProductoDialog> {
             ? null
             : _descripcionCtrl.text.trim(),
         'categoria_id': _categoriaId,
-        'es_pesable': _esPesable,
-        'requiere_foto_peso': _requiereFotoPeso,
+        'es_pesable': _esPesable ? 1 : 0,
+        'requiere_foto_peso': _requiereFotoPeso ? 1 : 0,
         'peso_unitario': _pesoUnitarioCtrl.text.isEmpty
             ? null
             : double.tryParse(_pesoUnitarioCtrl.text),

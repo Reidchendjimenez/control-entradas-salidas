@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'device_id_service.dart';
 import '../data/supabase_service.dart';
 import '../data/supabase_providers.dart';
 
@@ -17,9 +18,11 @@ class SessionController extends StateNotifier<SessionState> {
     required String pin,
   }) async {
     if (_db == null) return false;
+    final deviceId = await DeviceIdService.instance.id;
     final result = await _db!.insert('dispositivo_usuario', {
       'nombre': nombre,
       'pin_hash': pin,
+      'device_id': deviceId,
       'configurado_en': DateTime.now().toIso8601String(),
     });
     if (result != null) {
@@ -31,9 +34,11 @@ class SessionController extends StateNotifier<SessionState> {
 
   Future<bool> verificarPin(String pin) async {
     if (_db == null) return false;
+    final deviceId = await DeviceIdService.instance.id;
     final rows = await _db!.client
         .from('dispositivo_usuario')
         .select('nombre, pin_hash')
+        .eq('device_id', deviceId)
         .limit(1);
     if (rows.isEmpty) return false;
     final u = rows.first;

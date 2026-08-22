@@ -116,8 +116,8 @@ class InventarioRepository {
       'stock_minimo': stockMinimo,
       'tipo': tipo,
       'almacen_predeterminado': almacenPredeterminado,
-      'es_pesable': esPesable,
-      'activo': true,
+      'es_pesable': esPesable ? 1 : 0,
+      'activo': 1,
     });
   }
 

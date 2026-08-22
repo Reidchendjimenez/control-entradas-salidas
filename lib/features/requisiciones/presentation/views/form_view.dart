@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/models/requisicion.dart';
@@ -139,7 +140,27 @@ class _FormViewState extends ConsumerState<FormView> {
         widget.onSaved();
       }
     } catch (e) {
-      if (mounted) _snack('Error: $e');
+      if (mounted) {
+        final msg = 'Error: $e';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: GestureDetector(
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: msg));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Error copiado')),
+              );
+            },
+            child: Text(msg),
+          ),
+          duration: const Duration(seconds: 10),
+          action: SnackBarAction(
+            label: 'Copiar',
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: msg));
+            },
+          ),
+        ));
+      }
     } finally {
       if (mounted) setState(() => _guardando = false);
     }

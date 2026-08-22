@@ -1,3 +1,4 @@
+import '../../../core/auth/device_id_service.dart';
 import '../../../core/data/cache_service.dart';
 import '../../../core/data/supabase_service.dart';
 import '../../../core/models/categoria.dart';
@@ -56,7 +57,7 @@ class ConfiguracionRepository {
 
   /// Soft-delete: desactiva la categoria en el server (activo=false).
   Future<void> deleteCategoria(int id) async {
-    await _db.updateById('categorias', id, {'activo': false});
+    await _db.updateById('categorias', id, {'activo': 0});
     _invalidateCats();
   }
 
@@ -132,7 +133,7 @@ class ConfiguracionRepository {
 
   /// Soft-delete: desactiva el producto en el server (activo=false).
   Future<void> deleteProducto(int id) async {
-    await _db.updateById('productos', id, {'activo': false});
+    await _db.updateById('productos', id, {'activo': 0});
     _cache?.remove('${_k}_prods');
   }
 
@@ -232,12 +233,27 @@ class ConfiguracionRepository {
 
     for (final entry in stock.entries) {
       final parts = entry.key.split('|');
-      await _db.upsertById('existencias', {
-        'producto_id': int.parse(parts[0]),
-        'almacen': parts[1],
-        'cantidad': entry.value,
-        'unidad': 'unidad',
-      });
+      final productoId = int.parse(parts[0]);
+      final almacen = parts[1];
+      final rows = await _db.client
+          .from('existencias')
+          .select('id')
+          .eq('producto_id', productoId)
+          .eq('almacen', almacen)
+          .limit(1);
+      if (rows.isNotEmpty) {
+        await _db.updateById(
+            'existencias', rows.first['id'] as int, {
+          'cantidad': entry.value,
+        });
+      } else {
+        await _db.insert('existencias', {
+          'producto_id': productoId,
+          'almacen': almacen,
+          'cantidad': entry.value,
+          'unidad': 'unidad',
+        });
+      }
     }
   }
 
@@ -303,9 +319,14 @@ class ConfiguracionRepository {
   // ---------------------------------------------------------------------------
 
   Future<Map<String, dynamic>?> getUsuarioDispositivo() async {
-    final row = await _db.fetchAll('dispositivo_usuario', limit: 1);
-    if (row.isEmpty) return null;
-    final u = row.first;
+    final deviceId = await DeviceIdService.instance.id;
+    final rows = await _db.client
+        .from('dispositivo_usuario')
+        .select('id, nombre, pin_hash, configurado_en')
+        .eq('device_id', deviceId)
+        .limit(1);
+    if (rows.isEmpty) return null;
+    final u = rows.first;
     return {
       'id': u['id'],
       'nombre': u['nombre'],
@@ -318,8 +339,12 @@ class ConfiguracionRepository {
     return _db.insert('dispositivo_usuario', data);
   }
 
-  Future<void> eliminarUsuarioDispositivo() {
-    return _db.deleteWhere('dispositivo_usuario', {});
+  Future<void> eliminarUsuarioDispositivo() async {
+    final deviceId = await DeviceIdService.instance.id;
+    await _db.client
+        .from('dispositivo_usuario')
+        .delete()
+        .eq('device_id', deviceId);
   }
 
   Future<bool> verificarPin(String pin) async {

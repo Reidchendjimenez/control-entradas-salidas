@@ -25,14 +25,14 @@ class _RequisicionesScreenState extends ConsumerState<RequisicionesScreen> {
   @override
   void initState() {
     super.initState();
-    _refresh();
+    final repo = ref.read(requisicionesRepoProvider);
+    if (repo != null) _future = _cargar(repo);
   }
 
   void _refresh() {
     final repo = ref.read(requisicionesRepoProvider);
     if (repo == null) return;
-    final f = _cargar(repo);
-    setState(() => _future = f);
+    setState(() => _future = _cargar(repo));
   }
 
   @override
@@ -51,7 +51,10 @@ class _RequisicionesScreenState extends ConsumerState<RequisicionesScreen> {
             onPressed: () => setState(() {
               _vistaActiva = FormView(
                 onBack: () => setState(() => _vistaActiva = null),
-                onSaved: () => setState(() => _vistaActiva = null),
+                onSaved: () {
+                  setState(() => _vistaActiva = null);
+                  _refresh();
+                },
               );
             }),
           ),
@@ -98,7 +101,10 @@ class _RequisicionesScreenState extends ConsumerState<RequisicionesScreen> {
               onEditar: () => _abrir(FormView(
                 requisicion: reqs[i],
                 onBack: _cerrar,
-                onSaved: _cerrar,
+                onSaved: () {
+                  _cerrar();
+                  _refresh();
+                },
               )),
               onAuditar: () => _abrir(AuditView(
                 req: reqs[i],
