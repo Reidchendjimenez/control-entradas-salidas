@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -50,7 +51,9 @@ Future<String> updaterDownloadFile(
   final tmpPath = '$destPath.part';
   final req = http.Request('GET', Uri.parse(url))
     ..headers['User-Agent'] = 'Lycoris-App';
-  final res = await http.Client().send(req);
+  final io = HttpClient()
+    ..badCertificateCallback = (_, __, ___) => true;
+  final res = await IOClient(io).send(req);
   if (res.statusCode != 200) {
     throw Exception('Descarga falló (HTTP ${res.statusCode})');
   }
