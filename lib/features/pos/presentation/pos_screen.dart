@@ -112,7 +112,34 @@ class _PosRouterState extends ConsumerState<_PosRouter> {
   }
 
   void _cerrarSesion() {
-    ref.read(posSessionProvider.notifier).cerrarSesion();
+    showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cerrar sesión'),
+        content: const Text('¿Qué deseas hacer?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('Solo salir'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cerrar turno'),
+          ),
+        ],
+      ),
+    ).then((opcion) {
+      if (opcion == null) return;
+      if (opcion == true) {
+        ref.read(posSessionProvider.notifier).cerrarSesion();
+      } else {
+        ref.read(posSessionProvider.notifier).salirSinCerrar();
+      }
+    });
   }
 
   /// Retoma una comanda activa desde el home (resuelve mesa/habitación por id

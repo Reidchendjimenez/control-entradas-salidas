@@ -128,4 +128,9 @@ class PosSessionNotifier extends Notifier<PosSesionActiva?> {
       await ref.read(posRepoProvider)!.cerrarSesion(s.sesionId);
     }
   }
+
+  /// Vuelve al login sin cerrar la sesión en BD (el turno queda abierto).
+  void salirSinCerrar() {
+    state = null;
+  }
 }
