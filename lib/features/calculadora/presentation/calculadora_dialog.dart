@@ -21,6 +21,7 @@ class _CalculadoraDialog extends ConsumerStatefulWidget {
 
 class _CalculadoraDialogState extends ConsumerState<_CalculadoraDialog> {
   String _display = '';
+  String _expression = '';
   double _operand1 = 0;
   String? _operator;
   bool _newEntry = true;
@@ -29,6 +30,9 @@ class _CalculadoraDialogState extends ConsumerState<_CalculadoraDialog> {
   void initState() {
     super.initState();
     _display = _fmt(widget.initialValue);
+    if (widget.initialValue != 0) {
+      _expression = _fmt(widget.initialValue);
+    }
   }
 
   String _fmt(double v) {
@@ -39,12 +43,23 @@ class _CalculadoraDialogState extends ConsumerState<_CalculadoraDialog> {
   void _onDigit(String d) {
     setState(() {
       if (_newEntry || _display == '0') {
-        _display = d == '.' ? '0.' : d;
+        final newDigit = d == '.' ? '0.' : d;
+        _display = newDigit;
+        if (_operator != null) {
+          _expression = '${_fmt(_operand1)} $_operator $newDigit';
+        } else {
+          _expression = newDigit;
+        }
         _newEntry = false;
       } else if (d == '.' && _display.contains('.')) {
         return;
       } else {
         _display += d;
+        if (_operator != null) {
+          _expression = '${_fmt(_operand1)} $_operator $_display';
+        } else {
+          _expression = _display;
+        }
       }
     });
   }
@@ -58,6 +73,7 @@ class _CalculadoraDialogState extends ConsumerState<_CalculadoraDialog> {
       _operand1 = val;
     }
     _operator = op;
+    _expression = '${_fmt(_operand1)} $op';
     _newEntry = true;
   }
 
@@ -66,6 +82,7 @@ class _CalculadoraDialogState extends ConsumerState<_CalculadoraDialog> {
     final val = double.tryParse(_display) ?? 0;
     final res = _compute(_operand1, val, _operator!);
     setState(() {
+      _expression = '${_fmt(_operand1)} $_operator ${_fmt(val)} =';
       _display = _fmt(res);
       _operator = null;
       _operand1 = res;
@@ -76,6 +93,7 @@ class _CalculadoraDialogState extends ConsumerState<_CalculadoraDialog> {
   void _onClear() {
     setState(() {
       _display = '0';
+      _expression = '';
       _operand1 = 0;
       _operator = null;
       _newEntry = true;
@@ -126,15 +144,32 @@ class _CalculadoraDialogState extends ConsumerState<_CalculadoraDialog> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: scheme.outlineVariant),
                 ),
-                child: Text(
-                  _display,
-                  textAlign: TextAlign.right,
-                  style: TextStyle(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: 'monospace',
-                    color: scheme.onSurface,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_expression.isNotEmpty)
+                      Text(
+                        _expression,
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontFamily: 'monospace',
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _display,
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'monospace',
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
