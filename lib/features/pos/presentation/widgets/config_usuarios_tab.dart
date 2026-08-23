@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/models/pos_models.dart';
@@ -41,7 +42,16 @@ class _ConfigUsuariosTabState extends ConsumerState<ConfigUsuariosTab> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar usuarios: $e')),
+          SnackBar(
+            content: Text('Error al cargar usuarios: $e'),
+            duration: const Duration(seconds: 8),
+            action: SnackBarAction(
+              label: 'Copiar',
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: '$e'));
+              },
+            ),
+          ),
         );
       }
     }
@@ -55,7 +65,16 @@ class _ConfigUsuariosTabState extends ConsumerState<ConfigUsuariosTab> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al actualizar: $e')),
+        SnackBar(
+          content: Text('Error al actualizar: $e'),
+          duration: const Duration(seconds: 8),
+          action: SnackBarAction(
+            label: 'Copiar',
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: '$e'));
+            },
+          ),
+        ),
       );
     }
   }

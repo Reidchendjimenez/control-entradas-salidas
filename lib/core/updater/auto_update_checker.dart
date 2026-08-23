@@ -1,6 +1,7 @@
 import 'dart:developer' as dev;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'update_dialog.dart';
@@ -41,8 +42,20 @@ class _AutoUpdateCheckerState extends ConsumerState<AutoUpdateChecker> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('No se pudo verificar actualizaciones: $e'),
-          duration: const Duration(seconds: 4),
+          content: Text('Error de actualización: $e'),
+          duration: const Duration(seconds: 8),
+          action: SnackBarAction(
+            label: 'Copiar',
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: '$e'));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Error copiado al portapapeles'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+          ),
         ),
       );
     }

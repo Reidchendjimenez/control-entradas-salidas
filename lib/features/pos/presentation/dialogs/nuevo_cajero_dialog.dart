@@ -61,7 +61,16 @@ class _NuevoCajeroDialogState extends ConsumerState<_NuevoCajeroDialog> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al guardar: $e')),
+        SnackBar(
+          content: Text('Error al guardar: $e'),
+          duration: const Duration(seconds: 8),
+          action: SnackBarAction(
+            label: 'Copiar',
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: '$e'));
+            },
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _guardando = false);
