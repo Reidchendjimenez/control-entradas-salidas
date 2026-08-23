@@ -215,7 +215,12 @@ class _AjusteDialogState extends ConsumerState<_AjusteDialog> {
                   border: const OutlineInputBorder(),
                   suffixIcon: CalculadoraSuffixIcon(
                     targetController: _pesoTotalCtrl,
-                    onResult: (_) => _recalcDesdePesoTotal(),
+                    onResult: (result) {
+                      setState(() {
+                        _finalCtrl.text =
+                            (result - _trasladada).toStringAsFixed(3);
+                      });
+                    },
                   ),
                 ),
                 keyboardType:
@@ -230,15 +235,11 @@ class _AjusteDialogState extends ConsumerState<_AjusteDialog> {
                     border: const OutlineInputBorder(),
                     suffixIcon: CalculadoraSuffixIcon(
                       targetController: _finalCtrl,
-                      onResult: (_) {
-                        try {
-                          final nuevoFinal =
-                              double.tryParse(_finalCtrl.text.replaceAll(',', '.')) ?? 0;
-                          setState(() {
-                            _pesoTotalCtrl.text =
-                                (nuevoFinal + _trasladada).toStringAsFixed(3);
-                          });
-                        } catch (_) {}
+                      onResult: (result) {
+                        setState(() {
+                          _pesoTotalCtrl.text =
+                              (result + _trasladada).toStringAsFixed(3);
+                        });
                       },
                     ),
                     suffixText: 'kg'),
