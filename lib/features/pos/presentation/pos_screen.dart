@@ -50,9 +50,10 @@ class _PosRouterState extends ConsumerState<_PosRouter> {
   PosMesa? _mesa;
   PosHabitacion? _habitacion;
 
-  /// true si la sesión tiene turno de caja abierto (`sesionId == 0` es la
-  /// sesión del usuario desarrollador, sin turno).
-  bool get _tieneTurno => widget.sesion.sesionId > 0;
+  /// true si la sesión tiene turno de caja abierto o es usuario
+  /// desarrollador (sesionId == 0, pruebas sin turno).
+  bool get _tieneTurno =>
+      widget.sesion.sesionId > 0 || widget.sesion.usuario.esDesarrollador;
 
   /// Etapas que requieren turno de caja (no aplicables al usuario
   /// desarrollador, que inicia sesión sin aperturar turno/caja).

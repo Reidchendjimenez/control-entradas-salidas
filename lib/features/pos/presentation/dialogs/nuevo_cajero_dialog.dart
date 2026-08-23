@@ -25,6 +25,7 @@ class _NuevoCajeroDialogState extends ConsumerState<_NuevoCajeroDialog> {
   final _pinCtrl = TextEditingController();
   bool _conPin = false;
   bool _esAdmin = false;
+  bool _esDesarrollador = false;
   bool _guardando = false;
 
   @override
@@ -52,6 +53,7 @@ class _NuevoCajeroDialogState extends ConsumerState<_NuevoCajeroDialog> {
           nombre,
           pin: _conPin ? _pinCtrl.text.trim() : null,
           esAdmin: _esAdmin,
+          esDesarrollador: _esDesarrollador,
         );
     ref.invalidate(usuariosProvider);
     if (mounted) Navigator.pop(context);
@@ -111,6 +113,13 @@ class _NuevoCajeroDialogState extends ConsumerState<_NuevoCajeroDialog> {
               onChanged: (v) => setState(() => _esAdmin = v),
               title: const Text('Es administrador'),
               subtitle: const Text('Acceso a configuración'),
+              contentPadding: EdgeInsets.zero,
+            ),
+            SwitchListTile(
+              value: _esDesarrollador,
+              onChanged: (v) => setState(() => _esDesarrollador = v),
+              title: const Text('Desarrollador'),
+              subtitle: const Text('Pruebas sin guardar en BD'),
               contentPadding: EdgeInsets.zero,
             ),
           ],

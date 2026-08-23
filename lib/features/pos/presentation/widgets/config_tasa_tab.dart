@@ -56,6 +56,7 @@ class _ConfigTasaTabState extends ConsumerState<ConfigTasaTab> {
       final tasa = await _service.obtenerTasaBcv();
       final anterior = await repo.getTasaCambio();
       await repo.setTasaCambio(tasa);
+      ref.invalidate(tasaCambioProvider);
       final cambiada = anterior <= 0 || (anterior - tasa).abs() > 0.0001;
       final fuente = _service.ultimaFuente ?? '?';
       if (!mounted) return;
@@ -93,6 +94,7 @@ class _ConfigTasaTabState extends ConsumerState<ConfigTasaTab> {
     setState(() => _guardandoManual = true);
     try {
       await ref.read(posRepoProvider)!.setTasaCambio(valor);
+      ref.invalidate(tasaCambioProvider);
       await _cargarGuardada();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

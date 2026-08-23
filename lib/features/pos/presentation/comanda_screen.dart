@@ -123,6 +123,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
       final anterior = _tasa;
       final repo = ref.read(posRepoProvider)!;
       await repo.setTasaCambio(nueva);
+      ref.invalidate(tasaCambioProvider);
       final fecha = await repo.getTasaCambioFecha();
       final cambiada = anterior > 0 && (anterior - nueva).abs() > 0.0001;
       if (!mounted) return;
@@ -275,6 +276,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
       ref.invalidate(ventasProvider);
       await _mostrarTicket(
         items: ticketItems,
+        total: total,
         comandaId: comandaId,
         correlativo: correlativo,
         correccionDe: anulada?.correlativo,
@@ -359,6 +361,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
   /// configurada; en web muestra la vista previa con diálogo del navegador.
   Future<void> _mostrarTicket({
     required List<TicketItem> items,
+    required double total,
     required int comandaId,
     required int correlativo,
     int? correccionDe,
@@ -366,7 +369,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
     final header = await cargarMembrete(ref.read(posRepoProvider)!);
     final lineas = construirTicketPreview(
       items: items,
-      total: _total,
+      total: total,
       comandaId: comandaId,
       correlativo: correlativo,
       correccionDe: correccionDe,
@@ -382,7 +385,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
       // Windows: enviar bytes ESC/POS raw a la impresora configurada.
       final bytes = construirTicketEscpos(
         items: items,
-        total: _total,
+        total: total,
         comandaId: comandaId,
         correlativo: correlativo,
         correccionDe: correccionDe,

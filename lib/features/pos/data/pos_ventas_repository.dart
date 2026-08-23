@@ -23,6 +23,8 @@ class PosVentasRepository {
     int? mesaId,
     int? habitacionId,
   }) async {
+    // Modo desarrollador: sin escritura en BD
+    if (sesionId == 0) return -1;
     final itemsJson = jsonEncode(items);
     final now = DateTime.now().toIso8601String();
 
@@ -197,8 +199,11 @@ class PosVentasRepository {
     });
   }
 
-  Future<void> cerrarComanda(int comandaId) =>
-      cambiarEstadoComanda(comandaId, 'cerrada');
+  Future<void> cerrarComanda(int comandaId) {
+    // Modo desarrollador: comanda fake, sin escritura
+    if (comandaId < 0) return Future.value();
+    return cambiarEstadoComanda(comandaId, 'cerrada');
+  }
 
   Future<void> eliminarComanda(int comandaId) async {
     await _db.deleteById('pos_comandas', comandaId);
@@ -226,6 +231,8 @@ class PosVentasRepository {
     int? ventaAnulaId,
     double? tasaBs,
   }) async {
+    // Modo desarrollador: sin escritura en BD
+    if (sesionId != null && sesionId == 0) return -2;
     final now = DateTime.now().toIso8601String();
     final syncUuid = _uuid.v4();
 
@@ -270,6 +277,8 @@ class PosVentasRepository {
     List<Map<String, dynamic>> movimientos, {
     String? registradoPor,
   }) async {
+    // Modo desarrollador: venta fake, sin escritura
+    if (ventaId < 0) return;
     final vsRows = await _db.client
         .from('pos_ventas')
         .select('sync_uuid')
@@ -331,6 +340,7 @@ class PosVentasRepository {
 
   Future<void> anularVenta(int ventaId,
       {String? anuladaPor, String motivo = 'Correccion'}) async {
+    if (ventaId < 0) return;
     final now = DateTime.now().toIso8601String();
     await _db.updateById('pos_ventas', ventaId, {
       'estado': 'anulada',
@@ -343,6 +353,7 @@ class PosVentasRepository {
 
   Future<void> revertirMovimientosVenta(int ventaId,
       {String? registradoPor}) async {
+    if (ventaId < 0) return;
     final vsRows = await _db.client
         .from('pos_ventas')
         .select('sync_uuid')
