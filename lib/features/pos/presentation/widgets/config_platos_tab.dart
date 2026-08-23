@@ -82,7 +82,7 @@ class _ConfigPlatosTabState extends ConsumerState<ConfigPlatosTab> {
     final scheme = Theme.of(context).colorScheme;
     final visibles = [
       for (final p in _platos)
-        if (p.esContorno == (_verContornos ? 1 : 0)) p,
+        if (p.esContorno == _verContornos) p,
     ];
 
     return Column(
