@@ -49,14 +49,23 @@ class _NuevoCajeroDialogState extends ConsumerState<_NuevoCajeroDialog> {
       }
     }
     setState(() => _guardando = true);
-    await ref.read(posRepoProvider)!.crearUsuario(
-          nombre,
-          pin: _conPin ? _pinCtrl.text.trim() : null,
-          esAdmin: _esAdmin,
-          esDesarrollador: _esDesarrollador,
-        );
-    ref.invalidate(usuariosProvider);
-    if (mounted) Navigator.pop(context);
+    try {
+      await ref.read(posRepoProvider)!.crearUsuario(
+            nombre,
+            pin: _conPin ? _pinCtrl.text.trim() : null,
+            esAdmin: _esAdmin,
+            esDesarrollador: _esDesarrollador,
+          );
+      ref.invalidate(usuariosProvider);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al guardar: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _guardando = false);
+    }
   }
 
   void _mostrarError(TextEditingController c, String msg) {

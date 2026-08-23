@@ -25,19 +25,39 @@ class _ConfigUsuariosTabState extends ConsumerState<ConfigUsuariosTab> {
   }
 
   Future<void> _cargar() async {
-    final usuarios =
-        await ref.read(posRepoProvider)!.getUsuarios(soloActivos: false);
-    if (!mounted) return;
-    setState(() {
-      _usuarios = usuarios;
-      _cargando = false;
-    });
+    try {
+      final usuarios =
+          await ref.read(posRepoProvider)!.getUsuarios(soloActivos: false);
+      if (!mounted) return;
+      setState(() {
+        _usuarios = usuarios;
+        _cargando = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _usuarios = [];
+        _cargando = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al cargar usuarios: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _toggleActivo(PosUsuario u, bool activo) async {
-    await ref.read(posRepoProvider)!.actualizarUsuario(u.id, activo: activo);
-    ref.invalidate(usuariosProvider);
-    await _cargar();
+    try {
+      await ref.read(posRepoProvider)!.actualizarUsuario(u.id, activo: activo);
+      ref.invalidate(usuariosProvider);
+      await _cargar();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al actualizar: $e')),
+      );
+    }
   }
 
   Future<void> _nuevoCajero() async {
