@@ -7,14 +7,14 @@ import '../../data/pos_session.dart';
 
 /// Diálogo de PIN (4 dígitos) para cajeros protegidos. Port de
 /// `POSLoginView._show_pin_dialog` / `_verify_pin_and_login` (login.py).
-/// Devuelve `true` si el PIN es correcto y se abrió la sesión.
-Future<bool> showPinDialog(BuildContext context, PosUsuario usuario) async {
-  return await showDialog<bool>(
+/// Devuelve el resultado de `iniciarSesion` o `null` si se canceló.
+Future<SesionLoginResult?> showPinDialog(
+    BuildContext context, PosUsuario usuario) async {
+  return await showDialog<SesionLoginResult>(
         context: context,
         barrierDismissible: false,
         builder: (_) => _PinDialog(usuario: usuario),
-      ) ??
-      false;
+      );
 }
 
 class _PinDialog extends ConsumerStatefulWidget {
@@ -56,7 +56,7 @@ class _PinDialogState extends ConsumerState<_PinDialog> {
         _ctrl.clear();
       });
     } else {
-      Navigator.pop(context, true);
+      Navigator.pop(context, result);
     }
   }
 
@@ -85,7 +85,7 @@ class _PinDialogState extends ConsumerState<_PinDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context, false),
+          onPressed: () => Navigator.pop(context),
           child: const Text('Cancelar'),
         ),
         FilledButton(

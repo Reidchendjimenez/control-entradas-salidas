@@ -1,3 +1,5 @@
+import 'dart:developer' as dev;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -34,8 +36,15 @@ class _AutoUpdateCheckerState extends ConsumerState<AutoUpdateChecker> {
       final info = await updater.checkForUpdate();
       if (!mounted || info == null) return;
       await UpdateDialog.show(context, updater: updater, info: info);
-    } catch (_) {
-      // Silencioso: no molestar al arrancar si no hay red.
+    } catch (e) {
+      dev.log('Auto-update check failed: $e', name: 'AutoUpdateChecker');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo verificar actualizaciones: $e'),
+          duration: const Duration(seconds: 4),
+        ),
+      );
     }
   }
 }

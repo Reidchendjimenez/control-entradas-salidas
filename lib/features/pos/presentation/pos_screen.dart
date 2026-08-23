@@ -250,45 +250,55 @@ class _LoginViewState extends ConsumerState<_LoginView> {
 
   Future<void> _login(PosUsuario u) async {
     if (u.pinHash != null && u.pinHash!.isNotEmpty) {
-      final ok = await showPinDialog(context, u);
-      if (!ok && mounted) {
-        ref.invalidate(usuariosProvider);
+      final result = await showPinDialog(context, u);
+      if (result == null || result == SesionLoginResult.pinIncorrecto) {
+        if (mounted) ref.invalidate(usuariosProvider);
         return;
       }
+      // PIN correcto: sesión ya iniciada dentro del diálogo.
+      // Manejar sesionAjena si aplica.
+      if (result == SesionLoginResult.sesionAjena) {
+        await _manejarSesionAjena(u);
+      }
+      return;
     }
     final notifier = ref.read(posSessionProvider.notifier);
     final result = await notifier.iniciarSesion(u);
     if (!mounted) return;
 
     if (result == SesionLoginResult.sesionAjena) {
-      // Turno abierto de otro usuario: preguntar qué hacer.
-      final cerrar = await showDialog<bool>(
-        context: context,
-        barrierDismissible: false,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Turno abierto de otro cajero'),
-          content: Text(
-            'Hay un turno abierto de ${notifier.sesionAjenaNombre ?? "otro cajero"}. '
-            '¿Cerrar ese turno y abrir uno nuevo para ${u.nombre}?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: const Text('Retomar turno existente'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: const Text('Cerrar y abrir nuevo'),
-            ),
-          ],
+      await _manejarSesionAjena(u);
+    }
+  }
+
+  Future<void> _manejarSesionAjena(PosUsuario u) async {
+    final notifier = ref.read(posSessionProvider.notifier);
+    final cerrar = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Turno abierto de otro cajero'),
+        content: Text(
+          'Hay un turno abierto de ${notifier.sesionAjenaNombre ?? "otro cajero"}. '
+          '¿Cerrar ese turno y abrir uno nuevo para ${u.nombre}?',
         ),
-      );
-      if (!mounted) return;
-      if (cerrar == true) {
-        await notifier.forzarCerrarSesionAjena(u);
-      } else {
-        await notifier.retomarSesionAjena(u);
-      }
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Retomar turno existente'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Cerrar y abrir nuevo'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (cerrar == true) {
+      await notifier.forzarCerrarSesionAjena(u);
+    } else {
+      await notifier.retomarSesionAjena(u);
     }
   }
 
