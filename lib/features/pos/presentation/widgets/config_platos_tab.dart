@@ -19,11 +19,20 @@ class _ConfigPlatosTabState extends ConsumerState<ConfigPlatosTab> {
   Map<int, PosPlatoCategoria> _cats = {};
   bool _cargando = true;
   bool _verContornos = false;
+  String _busqueda = '';
+  int? _catFiltro;
+  final _searchCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _cargar();
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _cargar() async {
@@ -80,32 +89,91 @@ class _ConfigPlatosTabState extends ConsumerState<ConfigPlatosTab> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final catsLista = _cats.values.toList()..sort((a, b) => a.nombre.compareTo(b.nombre));
     final visibles = [
       for (final p in _platos)
-        if (p.esContorno == _verContornos) p,
+        if (p.esContorno == _verContornos)
+          if (_catFiltro == null || p.categoriaId == _catFiltro)
+            if (_busqueda.isEmpty ||
+                p.nombre.toLowerCase().contains(_busqueda.toLowerCase()))
+              p,
     ];
 
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(8, 4, 8, 12),
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 4),
           child: Row(
             children: [
-              const Spacer(),
+              Expanded(
+                child: TextField(
+                  controller: _searchCtrl,
+                  decoration: InputDecoration(
+                    hintText: 'Buscar plato...',
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    suffixIcon: _busqueda.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () {
+                              _searchCtrl.clear();
+                              setState(() => _busqueda = '');
+                            },
+                          )
+                        : null,
+                    isDense: true,
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  onChanged: (v) => setState(() => _busqueda = v),
+                ),
+              ),
+              const SizedBox(width: 8),
               OutlinedButton.icon(
                 onPressed: () => setState(() => _verContornos = !_verContornos),
-                icon: const Icon(Icons.dataset_linked),
-                label: Text(_verContornos ? 'Ver platos' : 'Ver contornos'),
+                icon: const Icon(Icons.dataset_linked, size: 18),
+                label: Text(_verContornos ? 'Platos' : 'Contornos'),
               ),
               const SizedBox(width: 8),
               FilledButton.icon(
                 onPressed: _nuevoPlato,
-                icon: const Icon(Icons.add),
-                label: const Text('Nuevo plato'),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Nuevo'),
               ),
             ],
           ),
         ),
+        SizedBox(
+          height: 38,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: FilterChip(
+                  label: const Text('Todos'),
+                  selected: _catFiltro == null,
+                  onSelected: (_) => setState(() => _catFiltro = null),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ),
+              for (final c in catsLista)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: FilterChip(
+                    label: Text(c.nombre),
+                    selected: _catFiltro == c.id,
+                    onSelected: (_) =>
+                        setState(() => _catFiltro = _catFiltro == c.id ? null : c.id),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
         Expanded(
           child: _cargando
               ? const Center(child: CircularProgressIndicator())
