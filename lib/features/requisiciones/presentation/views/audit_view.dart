@@ -245,20 +245,24 @@ class _AuditViewState extends ConsumerState<AuditView> {
 
   Widget _tabContent(ColorScheme scheme) {
     final esOrigen = _tab == 0;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      scrollDirection: Axis.horizontal,
-      child: SizedBox(
-        width: 560,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _rowHeader(scheme),
-            const SizedBox(height: 8),
-            for (final item in _items) _itemRow(scheme, item, esOrigen),
-          ],
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: 560,
+            height: constraints.maxHeight,
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                _rowHeader(scheme),
+                const SizedBox(height: 8),
+                for (final item in _items) _itemRow(scheme, item, esOrigen),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

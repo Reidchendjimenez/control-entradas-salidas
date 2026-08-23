@@ -213,8 +213,10 @@ class _AjusteDialogState extends ConsumerState<_AjusteDialog> {
                 decoration: InputDecoration(
                   labelText: 'Peso Inicial (kg)',
                   border: const OutlineInputBorder(),
-                  suffixIcon:
-                      CalculadoraSuffixIcon(targetController: _pesoTotalCtrl),
+                  suffixIcon: CalculadoraSuffixIcon(
+                    targetController: _pesoTotalCtrl,
+                    onResult: (_) => _recalcDesdePesoTotal(),
+                  ),
                 ),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
@@ -223,9 +225,22 @@ class _AjusteDialogState extends ConsumerState<_AjusteDialog> {
               const SizedBox(height: 8),
               TextField(
                 controller: _finalCtrl,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                     labelText: 'Stock Final',
-                    border: OutlineInputBorder(),
+                    border: const OutlineInputBorder(),
+                    suffixIcon: CalculadoraSuffixIcon(
+                      targetController: _finalCtrl,
+                      onResult: (_) {
+                        try {
+                          final nuevoFinal =
+                              double.tryParse(_finalCtrl.text.replaceAll(',', '.')) ?? 0;
+                          setState(() {
+                            _pesoTotalCtrl.text =
+                                (nuevoFinal + _trasladada).toStringAsFixed(3);
+                          });
+                        } catch (_) {}
+                      },
+                    ),
                     suffixText: 'kg'),
                 keyboardType:
                     const TextInputType.numberWithOptions(decimal: true),
