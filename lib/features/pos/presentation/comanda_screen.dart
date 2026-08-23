@@ -180,6 +180,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
     _comandaId = comandaId;
     ref.invalidate(mesasOcupadasProvider);
     ref.invalidate(habitacionesOcupadasProvider);
+    ref.invalidate(comandasActivasProvider);
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('Comanda guardada')));
@@ -211,6 +212,7 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
     _items.clear();
     ref.invalidate(mesasOcupadasProvider);
     ref.invalidate(habitacionesOcupadasProvider);
+    ref.invalidate(comandasActivasProvider);
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('Comanda eliminada')));
@@ -273,7 +275,9 @@ class _ComandaScreenState extends ConsumerState<ComandaScreen> {
       _items.clear();
       ref.invalidate(mesasOcupadasProvider);
       ref.invalidate(habitacionesOcupadasProvider);
+      ref.invalidate(comandasActivasProvider);
       ref.invalidate(ventasProvider);
+      ref.invalidate(ventasHoyProvider);
       await _mostrarTicket(
         items: ticketItems,
         total: total,
