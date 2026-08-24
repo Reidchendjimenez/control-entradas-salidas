@@ -103,25 +103,36 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
     if (prov.isEmpty) {
       return;
     }
-    if (prov == 'Varios') {
-      _proveedor = 'Varios';
+    await _resolverProveedor(prov);
+    if (mounted) setState(() {});
+  }
+
+  /// Resuelve si un nombre de proveedor existe en BD.
+  /// Si existe → lo selecciona en el dropdown.
+  /// Si no existe → activa modo "__nuevo__" prellenando el campo.
+  Future<void> _resolverProveedor(String provNombre) async {
+    if (provNombre.isEmpty || provNombre == 'Varios') {
+      setState(() => _proveedor = provNombre);
       return;
     }
     try {
       final proveedores = await ref.read(proveedoresProvider.future);
       if (!mounted) return;
-      if (proveedores.any((p) => p['nombre'] == prov)) {
-        _proveedor = prov;
+      if (proveedores.any((p) => p['nombre'] == provNombre)) {
+        setState(() => _proveedor = provNombre);
       } else {
-        _proveedor = '__nuevo__';
-        _nuevoProveedorCtrl.text = prov;
+        setState(() {
+          _proveedor = '__nuevo__';
+          _nuevoProveedorCtrl.text = provNombre;
+        });
       }
     } catch (_) {
       if (!mounted) return;
-      _proveedor = '__nuevo__';
-      _nuevoProveedorCtrl.text = prov;
+      setState(() {
+        _proveedor = '__nuevo__';
+        _nuevoProveedorCtrl.text = provNombre;
+      });
     }
-    if (mounted) setState(() {});
   }
 
   void _initWebPasteListener() {
@@ -586,6 +597,11 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
             _proveedor = provNombre;
           }
         });
+        // Resolver proveedor: si no existe en BD → modo "__nuevo__"
+        final provNombre = parsed['proveedor'] ?? '';
+        if (provNombre.isNotEmpty) {
+          await _resolverProveedor(provNombre);
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('OCR (Portapapeles): Doc ${parsed['nro_factura']} - ${parsed['proveedor']}')),
         );
@@ -652,6 +668,11 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
             _proveedor = provNombre;
           }
         });
+        // Resolver proveedor: si no existe en BD → modo "__nuevo__"
+        final provNombre = parsed['proveedor'] ?? '';
+        if (provNombre.isNotEmpty) {
+          await _resolverProveedor(provNombre);
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('OCR exitoso: Doc ${parsed['nro_factura']} - ${parsed['proveedor']}')),
         );

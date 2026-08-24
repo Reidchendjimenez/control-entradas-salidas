@@ -6,6 +6,9 @@
 #include <string>
 #include <vector>
 
+// CF_DIBV5 = 17 (predefined Windows constant, NOT a registered format)
+#define MY_CF_DIBV5 17
+
 #pragma pack(push, 1)
 typedef struct {
   WORD  bfType;
@@ -17,6 +20,8 @@ typedef struct {
 #pragma pack(pop)
 
 static bool ReadDibFromClipboard(std::vector<uint8_t> &out) {
+  if (!::IsClipboardFormatAvailable(CF_DIB)) return false;
+
   HANDLE hData = ::GetClipboardData(CF_DIB);
   if (hData == NULL) return false;
 
@@ -41,10 +46,10 @@ static bool ReadDibFromClipboard(std::vector<uint8_t> &out) {
 }
 
 static bool ReadDibV5FromClipboard(std::vector<uint8_t> &out) {
-  UINT fmt = ::RegisterClipboardFormat(L"Device Independent Bitmap V5");
-  if (fmt == 0) return false;
+  // Use predefined constant 17 (CF_DIBV5), NOT RegisterClipboardFormat
+  if (!::IsClipboardFormatAvailable(MY_CF_DIBV5)) return false;
 
-  HANDLE hData = ::GetClipboardData(fmt);
+  HANDLE hData = ::GetClipboardData(MY_CF_DIBV5);
   if (hData == NULL) return false;
 
   LPVOID pDIB = ::GlobalLock(hData);
@@ -70,6 +75,7 @@ static bool ReadDibV5FromClipboard(std::vector<uint8_t> &out) {
 static bool ReadPngFromClipboard(std::vector<uint8_t> &out) {
   UINT fmt = ::RegisterClipboardFormat(L"PNG");
   if (fmt == 0) return false;
+  if (!::IsClipboardFormatAvailable(fmt)) return false;
 
   HANDLE hData = ::GetClipboardData(fmt);
   if (hData == NULL) return false;
@@ -86,6 +92,8 @@ static bool ReadPngFromClipboard(std::vector<uint8_t> &out) {
 }
 
 static bool ReadBitmapFromClipboard(std::vector<uint8_t> &out) {
+  if (!::IsClipboardFormatAvailable(CF_BITMAP)) return false;
+
   HANDLE hData = ::GetClipboardData(CF_BITMAP);
   if (hData == NULL) return false;
 
@@ -94,6 +102,7 @@ static bool ReadBitmapFromClipboard(std::vector<uint8_t> &out) {
 
   BITMAP bmp = {};
   if (!::GetObject(hBmp, sizeof(bmp), &bmp)) return false;
+  if (bmp.bmWidth <= 0 || bmp.bmHeight <= 0) return false;
 
   BITMAPINFOHEADER bi = {};
   bi.biSize = sizeof(BITMAPINFOHEADER);
@@ -136,12 +145,21 @@ void ClipboardHandler::HandleMethodCall(
     return;
   }
 
-  if (!::OpenClipboard(NULL)) {
+  // Retry OpenClipboard up to 3 times (Snipping Tool may hold it briefly)
+  bool opened = false;
+  for (int i = 0; i < 3; i++) {
+    if (::OpenClipboard(NULL)) {
+      opened = true;
+      break;
+    }
+    ::Sleep(50);
+  }
+  if (!opened) {
     result->Error("CLIPBOARD_ERROR", "No se pudo abrir el portapapeles");
     return;
   }
 
-  // Enumerar formatos disponibles para debug
+  // Enumerate all available formats for debugging
   std::string fmtList;
   UINT fmt = 0;
   bool first = true;
@@ -153,18 +171,22 @@ void ClipboardHandler::HandleMethodCall(
     if (len > 0) {
       fmtList += name;
     } else if (fmt == CF_DIB) {
-      fmtList += "CF_DIB";
+      fmtList += "CF_DIB(8)";
+    } else if (fmt == CF_DIBV5) {
+      fmtList += "CF_DIBV5(17)";
     } else if (fmt == CF_BITMAP) {
-      fmtList += "CF_BITMAP";
+      fmtList += "CF_BITMAP(2)";
     } else if (fmt == CF_UNICODETEXT) {
-      fmtList += "CF_UNICODETEXT";
+      fmtList += "CF_UNICODETEXT(13)";
     } else if (fmt == CF_HDROP) {
-      fmtList += "CF_HDROP";
+      fmtList += "CF_HDROP(15)";
     } else {
-      fmtList += std::to_string(fmt);
+      fmtList += "fmt_" + std::to_string(fmt);
     }
   }
 
+  // Try formats in order: DIB, DIBV5, PNG, Bitmap
+  // Snipping Tool typically provides DIB or DIBV5 or PNG
   std::vector<uint8_t> bmpData;
   bool ok = ReadDibFromClipboard(bmpData);
   if (!ok) ok = ReadDibV5FromClipboard(bmpData);
@@ -175,7 +197,7 @@ void ClipboardHandler::HandleMethodCall(
 
   if (!ok || bmpData.empty()) {
     result->Error("CLIPBOARD_EMPTY",
-                  "Formatos en portapapeles: [" + fmtList + "]");
+                  "Formatos disponibles: [" + fmtList + "]");
     return;
   }
 
