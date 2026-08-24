@@ -12,11 +12,13 @@ Future<Uint8List?> readClipboardImage() async {
     final result = await channel.invokeMethod('readImage');
     if (result is Uint8List) return result;
     if (result is List) return Uint8List.fromList(result.cast<int>());
+    debugPrint('[clipboard] Resultado inesperado: ${result.runtimeType} = $result');
     return null;
   } on PlatformException {
     rethrow;
-  } on FlutterError {
+  } on FlutterError catch (e) {
     // MissingPluginException si el canal no está registrado (app no reconstruida)
-    return null;
+    debugPrint('[clipboard] FlutterError: ${e.message}');
+    rethrow;
   }
 }

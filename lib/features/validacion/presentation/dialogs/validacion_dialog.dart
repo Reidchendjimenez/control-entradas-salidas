@@ -752,8 +752,8 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('No se encontró imagen en el portapapeles.\n'
-                  'Use Ctrl+C/Ctrl+V o el botón Escanear.'),
-              duration: Duration(seconds: 3),
+                  'Copie con la Herramienta de Recortes y luego haga click en Pegar.'),
+              duration: Duration(seconds: 4),
             ),
           );
         }
@@ -766,7 +766,18 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
           SnackBar(
             content: Text(e.message ?? 'Error al leer portapapeles'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
+    } on FlutterError catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Canal no disponible: ${e.message}\n'
+                'Reinstale la aplicación.'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 6),
           ),
         );
       }
