@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:realtime_client/realtime_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Evento de cambio en una tabla de Supabase Realtime.

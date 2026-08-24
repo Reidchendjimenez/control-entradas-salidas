@@ -1,7 +1,6 @@
 import '../../../core/data/supabase_service.dart';
 import '../../../core/models/categoria.dart';
 import '../../../core/models/producto.dart';
-import '../../../core/models/periodo.dart';
 import '../../../core/models/existencia.dart';
 
 /// Repositorio de inventario — CRUD de productos, movimientos y lista de compra.

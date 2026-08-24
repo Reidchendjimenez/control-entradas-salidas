@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/data/supabase_providers.dart';
-import '../../../core/data/supabase_service.dart';
 import '../../../core/models/pos_models.dart';
 import 'pos_comanda_models.dart';
 import 'pos_repository.dart';

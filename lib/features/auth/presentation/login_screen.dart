@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/auth/device_id_service.dart';
 import '../../../core/auth/session_controller.dart';
 import '../../../core/data/supabase_providers.dart';
-import '../../../core/data/supabase_service.dart';
 import '../../../core/updater/auto_update_checker.dart';
 
 /// Pantalla de login / registro (porta `usr/views/login_view.py`).

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/models/periodo.dart';
 import '../../data/configuracion_providers.dart';
-import '../../data/configuracion_repository.dart';
 
 /// Pestaña de Periodos (porta `usr/views/configuracion/periodos.py`).
 class PeriodosTab extends ConsumerStatefulWidget {

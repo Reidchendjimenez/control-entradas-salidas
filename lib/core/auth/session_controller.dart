@@ -19,23 +19,21 @@ class SessionController extends StateNotifier<SessionState> {
   }) async {
     if (_db == null) return false;
     final deviceId = await DeviceIdService.instance.id;
-    final result = await _db!.insert('dispositivo_usuario', {
+    final result = await _db.insert('dispositivo_usuario', {
       'nombre': nombre,
       'pin_hash': pin,
       'device_id': deviceId,
       'configurado_en': DateTime.now().toIso8601String(),
     });
-    if (result != null) {
-      state = SessionState.authenticated(nombre: nombre, pinHash: pin);
-      return true;
-    }
+    state = SessionState.authenticated(nombre: nombre, pinHash: pin);
+    return true;
     return false;
   }
 
   Future<bool> verificarPin(String pin) async {
     if (_db == null) return false;
     final deviceId = await DeviceIdService.instance.id;
-    final rows = await _db!.client
+    final rows = await _db.client
         .from('dispositivo_usuario')
         .select('nombre, pin_hash')
         .eq('device_id', deviceId)

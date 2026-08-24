@@ -122,7 +122,7 @@ class _ProductosTabState extends ConsumerState<ProductosTab> {
               Expanded(
                 child: catAsync.when(
                   data: (cats) => DropdownButtonFormField<int?>(
-                    value: _categoriaId,
+                    initialValue: _categoriaId,
                     decoration: const InputDecoration(labelText: 'Categoría', isDense: true, border: OutlineInputBorder()),
                     items: [
                       const DropdownMenuItem<int?>(value: null, child: Text('Todas')),
@@ -140,7 +140,7 @@ class _ProductosTabState extends ConsumerState<ProductosTab> {
               Expanded(
                 child: almAsync.when(
                   data: (alms) => DropdownButtonFormField<String?>(
-                    value: _almacen,
+                    initialValue: _almacen,
                     decoration: const InputDecoration(labelText: 'Almacén', isDense: true, border: OutlineInputBorder()),
                     items: [
                       const DropdownMenuItem<String?>(value: null, child: Text('Todos')),

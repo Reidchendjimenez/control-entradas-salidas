@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../data/pos_providers.dart';
 import '../data/pos_session.dart';
 import 'pos_screen.dart';
 

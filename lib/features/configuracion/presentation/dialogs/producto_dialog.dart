@@ -152,7 +152,7 @@ class _ProductoDialogState extends ConsumerState<_ProductoDialog> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<int?>(
-                        value: _categoriaId,
+                        initialValue: _categoriaId,
                         decoration: const InputDecoration(
                             labelText: 'Categoría',
                             border: OutlineInputBorder(),
@@ -235,7 +235,7 @@ class _ProductoDialogState extends ConsumerState<_ProductoDialog> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              value: _tipo,
+                              initialValue: _tipo,
                               decoration: const InputDecoration(
                                   labelText: 'Tipo',
                                   border: OutlineInputBorder(),
@@ -266,7 +266,7 @@ class _ProductoDialogState extends ConsumerState<_ProductoDialog> {
                       ),
                       const SizedBox(height: 12),
                       DropdownButtonFormField<String>(
-                        value: _almacenPredeterminado,
+                        initialValue: _almacenPredeterminado,
                         decoration: const InputDecoration(
                             labelText: 'Almacén predeterminado',
                             border: OutlineInputBorder(),

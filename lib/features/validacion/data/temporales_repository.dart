@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:typed_data';
 
 /// Datos de una imagen temporal pre-cargada en la vista de Validacion.
