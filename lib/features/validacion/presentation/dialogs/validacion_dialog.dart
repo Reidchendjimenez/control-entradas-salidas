@@ -750,7 +750,11 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
       if (bytes == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No se encontró imagen en el portapapeles')),
+            const SnackBar(
+              content: Text('No se encontró imagen en el portapapeles.\n'
+                  'Use Ctrl+C/Ctrl+V o el botón Escanear.'),
+              duration: Duration(seconds: 3),
+            ),
           );
         }
         return;
@@ -759,7 +763,11 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
     } on PlatformException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message ?? 'Error al leer portapapeles'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(e.message ?? 'Error al leer portapapeles'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
     }

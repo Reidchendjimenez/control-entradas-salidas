@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// Lee una imagen del portapapeles del sistema en Windows.
@@ -12,8 +13,10 @@ Future<Uint8List?> readClipboardImage() async {
     if (result is Uint8List) return result;
     if (result is List) return Uint8List.fromList(result.cast<int>());
     return null;
-  } on PlatformException catch (e) {
-    // e.message contiene la lista de formatos encontrados en el portapapeles
+  } on PlatformException {
     rethrow;
+  } on FlutterError {
+    // MissingPluginException si el canal no está registrado (app no reconstruida)
+    return null;
   }
 }
