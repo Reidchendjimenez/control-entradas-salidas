@@ -109,7 +109,10 @@ class _RequisicionesScreenState extends ConsumerState<RequisicionesScreen> {
               onAuditar: () => _abrir(AuditView(
                 req: reqs[i],
                 onBack: _cerrar,
-                onTotalizada: _cerrar,
+                onTotalizada: () {
+                  _cerrar();
+                  _refresh();
+                },
               )),
               onEliminar: () => _eliminar(reqs[i]),
             ),
