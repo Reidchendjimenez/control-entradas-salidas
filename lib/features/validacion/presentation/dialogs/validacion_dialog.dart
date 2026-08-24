@@ -269,10 +269,15 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final screen = MediaQuery.of(context).size;
+    final isMobile = screen.width < 600;
+    final maxW = isMobile ? screen.width - 32 : 460.0;
+    final maxH = isMobile ? screen.height * 0.75 : 620.0;
+    final imgMaxH = isMobile ? 100.0 : 140.0;
     return AlertDialog(
       title: const Text('Validar Entradas'),
       content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 460, maxHeight: 620),
+        constraints: BoxConstraints(maxWidth: maxW, maxHeight: maxH),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -292,7 +297,7 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
               _seccionDoc(scheme),
               const SizedBox(height: 12),
               if (_imagenPegada != null) ...[
-                _seccionImagen(scheme),
+                _seccionImagen(scheme, imgMaxH: imgMaxH),
                 const SizedBox(height: 12),
               ],
               _seccionMonto(scheme),
@@ -472,7 +477,7 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
     );
   }
 
-  Widget _seccionImagen(ColorScheme scheme) {
+  Widget _seccionImagen(ColorScheme scheme, {double imgMaxH = 140}) {
     return _section(
       scheme,
       child: Column(
@@ -503,7 +508,7 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 140),
+                constraints: BoxConstraints(maxHeight: imgMaxH),
                 child: Image.memory(
                   _imagenPegada!,
                   fit: BoxFit.cover,
