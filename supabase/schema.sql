@@ -405,4 +405,20 @@ CREATE TABLE IF NOT EXISTS plato_contornos (
     max_seleccionar INTEGER DEFAULT 2
 );
 
+-- Temporales: imagenes pre-cargadas por OCR, visibles entre dispositivos
+CREATE TABLE IF NOT EXISTS pos_temporales (
+    id              SERIAL PRIMARY KEY,
+    imagen_base64   TEXT,
+    tipo_documento  TEXT,
+    nro_factura     TEXT,
+    proveedor       TEXT,
+    monto           DOUBLE PRECISION,
+    fecha           TEXT,
+    creado_en       TIMESTAMPTZ DEFAULT now(),
+    updated_at      TIMESTAMPTZ
+);
+CREATE TRIGGER trg_pos_temporales_updated_at
+    BEFORE INSERT OR UPDATE ON pos_temporales
+    FOR EACH ROW EXECUTE FUNCTION set_pos_updated_at();
+
 COMMIT;

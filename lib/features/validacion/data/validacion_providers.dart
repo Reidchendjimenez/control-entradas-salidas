@@ -11,7 +11,8 @@ final validacionRepoProvider = Provider<ValidacionRepository?>((ref) {
 });
 
 final temporalesRepoProvider = Provider<TemporalesRepository>((ref) {
-  return TemporalesRepository();
+  final client = ref.watch(supabaseClientProvider)!;
+  return TemporalesRepository(client);
 });
 
 final temporalesProvider = StreamProvider<List<TemporalData>>((ref) {
