@@ -1,6 +1,7 @@
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/clipboard_utils.dart';
@@ -79,16 +80,24 @@ class _PrecargarImagenDialogState extends ConsumerState<_PrecargarImagenDialog> 
   }
 
   Future<void> _pegarImagen() async {
-    final bytes = await readClipboardImage();
-    if (bytes == null) {
+    try {
+      final bytes = await readClipboardImage();
+      if (bytes == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No se encontró imagen en el portapapeles')),
+          );
+        }
+        return;
+      }
+      _procesarImagen(bytes);
+    } on PlatformException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se encontró imagen en el portapapeles')),
+          SnackBar(content: Text(e.message ?? 'Error al leer portapapeles'), backgroundColor: Colors.red),
         );
       }
-      return;
     }
-    _procesarImagen(bytes);
   }
 
   Future<void> _procesarImagen(Uint8List bytes) async {
