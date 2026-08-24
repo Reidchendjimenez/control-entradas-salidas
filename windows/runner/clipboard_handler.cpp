@@ -15,25 +15,6 @@ typedef struct {
 } BMPFILEHEADER;
 #pragma pack(pop)
 
-void ClipboardHandler::RegisterWithMessenger(flutter::BinaryMessenger *messenger) {
-  auto channel =
-      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
-          messenger, "com.lycoris.clipboard",
-          &flutter::StandardMethodCodec::GetInstance());
-
-  channel->SetMethodCallHandler(
-      [](const flutter::MethodCall<flutter::EncodableValue> &call,
-         std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>
-             result) {
-        HandleMethodCall(call, std::move(result));
-      });
-
-  // Transfer ownership so channel lives for the process lifetime.
-  // NOLINTNEXTLINE
-  static auto *ch = channel.release();
-  (void)ch;
-}
-
 void ClipboardHandler::HandleMethodCall(
     const flutter::MethodCall<flutter::EncodableValue> &method_call,
     std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {

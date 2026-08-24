@@ -2,6 +2,9 @@
 
 #include <optional>
 
+#include <flutter/method_channel.h>
+#include <flutter/standard_method_codec.h>
+
 #include "clipboard_handler.h"
 #include "flutter/generated_plugin_registrant.h"
 
@@ -26,8 +29,21 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
-  ClipboardHandler::RegisterWithMessenger(
-      flutter_controller_->engine()->GetBinaryMessenger());
+
+  // Registrar canal de portapapeles manualmente (no es plugin pub).
+  auto *registrar = flutter_controller_->engine()->GetRegistrarForPlugin(
+      "ClipboardHandler");
+  static auto channel =
+      std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
+          registrar->messenger(), "com.lycoris.clipboard",
+          &flutter::StandardMethodCodec::GetInstance());
+  channel->SetMethodCallHandler(
+      [](const flutter::MethodCall<flutter::EncodableValue> &call,
+         std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>
+             result) {
+        ClipboardHandler::HandleMethodCall(call, std::move(result));
+      });
+
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
