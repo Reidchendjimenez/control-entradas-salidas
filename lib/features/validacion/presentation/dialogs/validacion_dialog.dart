@@ -271,9 +271,10 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
     final scheme = Theme.of(context).colorScheme;
     final screen = MediaQuery.of(context).size;
     final isMobile = screen.width < 600;
-    final maxW = isMobile ? screen.width - 32 : 460.0;
-    final maxH = isMobile ? screen.height * 0.75 : 620.0;
-    final imgMaxH = isMobile ? 100.0 : 140.0;
+    final maxW = isMobile ? screen.width - 16 : 460.0;
+    final maxH = isMobile ? screen.height * 0.82 : 620.0;
+    final imgMaxH = isMobile ? 90.0 : 140.0;
+    final pad = isMobile ? 12.0 : 16.0;
     return AlertDialog(
       title: const Text('Validar Entradas'),
       content: ConstrainedBox(
@@ -294,14 +295,14 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
                     fontSize: 13, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
-              _seccionDoc(scheme),
-              const SizedBox(height: 12),
+              _seccionDoc(scheme, isMobile: isMobile),
+              const SizedBox(height: 10),
               if (_imagenPegada != null) ...[
                 _seccionImagen(scheme, imgMaxH: imgMaxH),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
               ],
               _seccionMonto(scheme),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               PagosPanel(key: _pagosKey),
             ],
           ),
@@ -320,58 +321,97 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
                   width: 16,
                   child: CircularProgressIndicator(strokeWidth: 2))
               : const Icon(Icons.check, size: 18),
-          label: const Text('Validar Entradas'),
+          label: const Text('Validar'),
         ),
       ],
     );
   }
 
-  Widget _seccionDoc(ColorScheme scheme) {
+  Widget _seccionDoc(ColorScheme scheme, {bool isMobile = false}) {
     return _section(
       scheme,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Datos del Documento',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  OutlinedButton.icon(
+          // Título + botones OCR en fila adaptable
+          if (isMobile) ...[
+            const Text('Datos del Documento',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
                     icon: const Icon(Icons.paste, size: 16),
                     label: const Text('Pegar'),
                     onPressed: _validando ? null : _pegarImagen,
                   ),
-                  const SizedBox(width: 6),
-                  OutlinedButton.icon(
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
                     icon: const Icon(Icons.document_scanner, size: 16),
                     label: const Text('Escanear'),
                     onPressed: _validando ? null : _escanearOcr,
                   ),
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ] else ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Datos del Documento',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.paste, size: 16),
+                      label: const Text('Pegar'),
+                      onPressed: _validando ? null : _pegarImagen,
+                    ),
+                    const SizedBox(width: 6),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.document_scanner, size: 16),
+                      label: const Text('Escanear'),
+                      onPressed: _validando ? null : _escanearOcr,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 10),
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'Factura', label: Text('Factura')),
-              ButtonSegment(value: 'Nota de Entrega', label: Text('N. Entrega')),
-              ButtonSegment(value: 'Entrada', label: Text('Entrada')),
-            ],
-            selected: {_tipoDocumento},
-            onSelectionChanged: _validando
-                ? null
-                : (sel) => _onTipoDocumento(sel.first),
-          ),
+          // Tipo de documento: Wrap en móvil, SegmentedButton en PC
+          if (isMobile)
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                _tipoChip('Factura'),
+                _tipoChip('N. Entrega'),
+                _tipoChip('Entrada'),
+              ],
+            )
+          else
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'Factura', label: Text('Factura')),
+                ButtonSegment(
+                    value: 'Nota de Entrega', label: Text('N. Entrega')),
+                ButtonSegment(value: 'Entrada', label: Text('Entrada')),
+              ],
+              selected: {_tipoDocumento},
+              onSelectionChanged: _validando
+                  ? null
+                  : (sel) => _onTipoDocumento(sel.first),
+            ),
           const SizedBox(height: 10),
           TextField(
             controller: _facturaCtrl,
             decoration: const InputDecoration(
-              labelText: 'Número de Factura',
+              labelText: 'Nro. Factura',
               hintText: 'Ej: F-2024-001',
               border: OutlineInputBorder(),
               isDense: true,
@@ -395,7 +435,7 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
                   items: [
                     const DropdownMenuItem(
                       value: 'Varios',
-                      child: Text('Varios (Entrada sin proveedor)'),
+                      child: Text('Varios (sin proveedor)'),
                     ),
                     for (final p in proveedores)
                       DropdownMenuItem(
@@ -419,32 +459,24 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
           ),
           if (_proveedor == '__nuevo__') ...[
             const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _nuevoProveedorCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Nuevo Proveedor',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: _nuevoRifCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Nuevo RIF',
-                      hintText: 'J-XXXXXXXX-X',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-                ),
-              ],
+            TextField(
+              controller: _nuevoProveedorCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Nuevo Proveedor',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _nuevoRifCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Nuevo RIF',
+                hintText: 'J-XXXXXXXX-X',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
             ),
           ],
           const SizedBox(height: 10),
@@ -466,14 +498,33 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
                       },
               ),
               const SizedBox(width: 12),
-              Text(
-                'Fecha: ${_fmtFecha(_fecha)}',
-                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+              Expanded(
+                child: Text(
+                  'Fecha: ${_fmtFecha(_fecha)}',
+                  style: TextStyle(
+                      fontSize: 12, color: scheme.onSurfaceVariant),
+                ),
               ),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  Widget _tipoChip(String label) {
+    final selected = _tipoDocumento ==
+        (label == 'N. Entrega' ? 'Nota de Entrega' : label);
+    return ChoiceChip(
+      label: Text(label, style: TextStyle(fontSize: 12)),
+      selected: selected,
+      onSelected: _validando
+          ? null
+          : (_) {
+              final tipo =
+                  label == 'N. Entrega' ? 'Nota de Entrega' : label;
+              _onTipoDocumento(tipo);
+            },
     );
   }
 
