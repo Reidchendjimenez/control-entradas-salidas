@@ -41,7 +41,7 @@ static bool ReadDibFromClipboard(std::vector<uint8_t> &out) {
 }
 
 static bool ReadDibV5FromClipboard(std::vector<uint8_t> &out) {
-  UINT fmt = ::RegisterClipboardFormat(CFSTR_DIBV5);
+  UINT fmt = ::RegisterClipboardFormat(L"Device Independent Bitmap V5");
   if (fmt == 0) return false;
 
   HANDLE hData = ::GetClipboardData(fmt);
