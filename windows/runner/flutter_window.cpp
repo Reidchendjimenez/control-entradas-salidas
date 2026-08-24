@@ -31,11 +31,10 @@ bool FlutterWindow::OnCreate() {
   RegisterPlugins(flutter_controller_->engine());
 
   // Registrar canal de portapapeles manualmente (no es plugin pub).
-  auto *registrar = flutter_controller_->engine()->GetRegistrarForPlugin(
-      "ClipboardHandler");
   static auto channel =
       std::make_unique<flutter::MethodChannel<flutter::EncodableValue>>(
-          registrar->messenger(), "com.lycoris.clipboard",
+          flutter_controller_->engine()->messenger(),
+          "com.lycoris.clipboard",
           &flutter::StandardMethodCodec::GetInstance());
   channel->SetMethodCallHandler(
       [](const flutter::MethodCall<flutter::EncodableValue> &call,
