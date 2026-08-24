@@ -26,8 +26,8 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
-  ClipboardHandler::RegisterWithRegistrar(
-      flutter_controller_->engine()->GetRegistrar());
+  ClipboardHandler::RegisterWithMessenger(
+      flutter_controller_->engine()->GetBinaryMessenger());
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
