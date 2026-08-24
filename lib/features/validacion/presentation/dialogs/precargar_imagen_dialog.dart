@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/utils/clipboard_utils.dart';
 import '../../../../core/utils/web_utils.dart';
 import '../../data/ocr_service.dart';
 import '../../data/temporales_repository.dart';
@@ -74,6 +75,19 @@ class _PrecargarImagenDialogState extends ConsumerState<_PrecargarImagenDialog> 
     );
     if (file == null) return;
     final bytes = await file.readAsBytes();
+    _procesarImagen(bytes);
+  }
+
+  Future<void> _pegarImagen() async {
+    final bytes = await readClipboardImage();
+    if (bytes == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se encontró imagen en el portapapeles')),
+        );
+      }
+      return;
+    }
     _procesarImagen(bytes);
   }
 
@@ -268,7 +282,7 @@ class _PrecargarImagenDialogState extends ConsumerState<_PrecargarImagenDialog> 
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Pega la imagen (Ctrl+V) o selecciónala. '
+                'Pega la imagen desde el portapapeles o selecciónala. '
                 'Se extraen los datos por OCR y quedan guardados para usarlos '
                 'al validar.',
                 style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
@@ -287,10 +301,21 @@ class _PrecargarImagenDialogState extends ConsumerState<_PrecargarImagenDialog> 
                   child: Center(
                     child: _extrayendo
                         ? const CircularProgressIndicator()
-                        : TextButton.icon(
-                            onPressed: _seleccionarImagen,
-                            icon: const Icon(Icons.image_outlined),
-                            label: const Text('Seleccionar imagen'),
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextButton.icon(
+                                onPressed: _pegarImagen,
+                                icon: const Icon(Icons.paste),
+                                label: const Text('Pegar imagen'),
+                              ),
+                              const SizedBox(width: 12),
+                              TextButton.icon(
+                                onPressed: _seleccionarImagen,
+                                icon: const Icon(Icons.folder_open),
+                                label: const Text('Seleccionar imagen'),
+                              ),
+                            ],
                           ),
                   ),
                 )

@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/utils/clipboard_utils.dart';
 import '../../../../core/utils/web_utils.dart';
 import '../../data/ocr_service.dart';
 import '../../data/temporales_repository.dart';
@@ -319,10 +320,21 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
             children: [
               const Text('Datos del Documento',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.document_scanner, size: 16),
-                label: const Text('Escanear / Pegar (Ctrl+V)'),
-                onPressed: _validando ? null : _escanearOcr,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.paste, size: 16),
+                    label: const Text('Pegar'),
+                    onPressed: _validando ? null : _pegarImagen,
+                  ),
+                  const SizedBox(width: 6),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.document_scanner, size: 16),
+                    label: const Text('Escanear'),
+                    onPressed: _validando ? null : _escanearOcr,
+                  ),
+                ],
               ),
             ],
           ),
@@ -652,5 +664,18 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
     } finally {
       if (mounted) setState(() => _validando = false);
     }
+  }
+
+  Future<void> _pegarImagen() async {
+    final bytes = await readClipboardImage();
+    if (bytes == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se encontró imagen en el portapapeles')),
+        );
+      }
+      return;
+    }
+    _procesarBytesOcr(bytes);
   }
 }
