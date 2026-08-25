@@ -785,7 +785,7 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Diagnóstico: $e'),
+            content: SelectableText('Diagnóstico:\n$e'),
             backgroundColor: Colors.purple,
             duration: const Duration(seconds: 8),
           ),
