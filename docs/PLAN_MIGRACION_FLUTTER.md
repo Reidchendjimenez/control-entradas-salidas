@@ -51,36 +51,35 @@
 ## 1. Arquitectura objetivo (Flutter)
 
 ```
-flutter_app/
-├── lib/
-│   ├── main.dart                 # entrada, MaterialApp, tema
-│   ├── core/
-│   │   ├── theme/                # colores (portar usr/theme.py) ✅
-│   │   ├── network/              # SupabaseClient, HTTP wrapper, conectividad ✅
-│   │   ├── db/                   # drift (SQLite local), migraciones ✅
-│   │   ├── sync/                 # motor de sincronización bidireccional ✅
-│   │   ├── auth/                 # login, PIN, sesión ✅
-│   │   ├── config/               # app_config.dart (URL/key Supabase) ✅
-│   │   ├── logging/              # log_bridge.dart ✅
-│   │   ├── state/                # theme_controller.dart ✅
-│   │   └── update/               # updater (UPDATE_URL, zip, version.json) ⏳ pendiente
-│   ├── features/
-│   │   ├── inventario/
-│   │   ├── stock/
-│   │   ├── requisiciones/
-│   │   ├── producciones/
-│   │   ├── validacion/          # + OCR
-│   │   ├── facturas/
-│   │   ├── configuracion/
-│   │   └── whatsapp/
-│   ├── pos/                     # módulo POS completo
-│   │   ├── login, mesas, habitaciones, comandas, ventas, config
-│   │   ├── printing/            # ESC/POS (esc_pos_printer)
-│   │   └── data/
-│   └── widgets/                 # footer, drawer, appbar reutilizables
-├── android/  ios/  windows/  linux/   # proyectos de plataforma
-├── supabase/                     # SQL de esquema (migraciones)
-└── pubspec.yaml
+lib/
+├── main.dart                 # entrada, MaterialApp, tema
+├── core/
+│   ├── theme/                # colores (portar usr/theme.py) ✅
+│   ├── network/              # SupabaseClient, HTTP wrapper, conectividad ✅
+│   ├── db/                   # drift (SQLite local), migraciones ✅
+│   ├── sync/                 # motor de sincronización bidireccional ✅
+│   ├── auth/                 # login, PIN, sesión ✅
+│   ├── config/               # app_config.dart (URL/key Supabase) ✅
+│   ├── logging/              # log_bridge.dart ✅
+│   ├── state/                # theme_controller.dart ✅
+│   └── update/               # updater (UPDATE_URL, zip, version.json) ⏳ pendiente
+├── features/
+│   ├── inventario/
+│   ├── stock/
+│   ├── requisiciones/
+│   ├── producciones/
+│   ├── validacion/          # + OCR
+│   ├── facturas/
+│   ├── configuracion/
+│   └── whatsapp/
+├── pos/                     # módulo POS completo
+│   ├── login, mesas, habitaciones, comandas, ventas, config
+│   ├── printing/            # ESC/POS (esc_pos_printer)
+│   └── data/
+└── widgets/                 # footer, drawer, appbar reutilizables
+android/  ios/  windows/  linux/   # proyectos de plataforma
+supabase/                     # SQL de esquema (migraciones)
+pubspec.yaml
 ```
 
 ### Stack de dependencias Flutter
@@ -223,7 +222,7 @@ En Flutter:
 
 > Cada fase debe dejar la app compilable y testeable. Orden sugerido para reducir riesgo.
 
-**Fase 0 — Scaffolding** *(✅ HECHO — `flutter_app/`)*
+**Fase 0 — Scaffolding** *(✅ HECHO)*
 1. `flutter create` con plataformas android/ios/windows/linux (según objetivo: Android primero).
 2. `pubspec.yaml` con las dependencias del §1.
 3. Carpeta `supabase/`: SQL de esquema (producto de los `__tablename__` y del DDL de sync). ✅ `supabase/schema.sql` generado e idempotente.
@@ -232,7 +231,7 @@ En Flutter:
    - ⏳ Pendiente: ejecutar `flutter create .` + `flutter pub get` en un entorno con SDK (el esqueleto se creó a mano aquí; aún no existe `.dart_tool/`). Las 5 carpetas de plataforma (android/ios/windows/linux/web) ya existen.
    - 🧹 Limpieza: borrar `lib/core/db/schema/app_database.dart.bak` (schemaVersion 1, residual). El feature `calculadora/` existe (`presentation/calculadora_dialog.dart` + `calculadora_button.dart`) y no está documentado en este plan (widget reutilizable, sin estado propio).
 
-**Fase 1 — Capa de datos + Supabase (sin UI)** *(✅ HECHO — `flutter_app/lib/core`)*
+**Fase 1 — Capa de datos + Supabase (sin UI)** *(✅ HECHO — lib/core)*
 5. Definir modelos drift (esquema local) y clientes Supabase.
    - ✅ `lib/core/db/schema/app_database.dart` — 21 tablas drift: 15 sincronizadas + `movimientos_archivo`, `compras_lista`, `sync_queue`, `sync_metadata`, `dispositivo_usuario` (sesión) y `whatsapp_queue` (schemaVersion 2; definidas en `lib/core/db/schema/tables.dart`).
    - ✅ `lib/core/config/app_config.dart` — URL Supabase derivada del ref, anon key vía `--dart-define=SUPABASE_ANON_KEY`.
@@ -251,7 +250,7 @@ En Flutter:
    - ✅ Tests unitarios de drift/outbox (3 pasando).
    - ✅ Sync real verificado (2026-08-14): 1914 movimientos descargados completos contra Supabase de producción; detalle de factura con items OK. Test de reproducción temporal usado para el fix de paginación.
 
-**Fase 2 — Login + shell + Inventario** *(✅ HECHO — flutter_app)*
+**Fase 2 — Login + shell + Inventario** *(✅ HECHO)*
 9. Login + splash + shell (drawer/appbar), portar `app_controller`.
    - ✅ `lib/features/auth/presentation/login_screen.dart` — registro/login con PIN (porta login_view.py).
    - ✅ `lib/core/auth/session_controller.dart` — sesión + tabla drift `dispositivo_usuario`.
@@ -261,7 +260,7 @@ En Flutter:
    - ✅ `lib/features/inventario/presentation/inventario_screen.dart` — panel de categorías + productos con búsqueda y diálogo de movimiento.
    - ✅ Tests (3 pasando) + build web OK.
 
-**Fase 3 — Requisiciones + Stock** *(✅ HECHO — flutter_app)*
+**Fase 3 — Requisiciones + Stock** *(✅ HECHO)*
 11. Módulo requisiciones completo (form, cards, visualizar, auditoría).
     - ✅ `lib/features/requisiciones/data/requisiciones_repository.dart` — CRUD drift + outbox (`numero` único), `guardarRequisicion` (crear/editar con verificado preservado), `totalizarRequisicion` (tr_salida/tr_entrada + existencias + estado completada), `crearAjusteStock`, `marcarDetalleVerificado`, historial de movimientos.
     - ✅ `lib/features/requisiciones/presentation/requisiciones_screen.dart` — lista de tarjetas con acciones por estado (visualizar siempre; editar/auditar/eliminar solo en pendiente), formulario maestro-detalle (buscador + cantidad/peso pesable), diálogo de auditoría con verificación y totalización.
@@ -478,7 +477,7 @@ En Flutter:
 - [x] `updated_at` en `pos_mesas`, `pos_habitaciones`, `pos_usuarios` (drift schema v7 + migración `addColumn`).
 - [x] Trigger `set_pos_updated_at()` en Supabase (BEFORE INSERT OR UPDATE) — mantiene `updated_at` solo, sin tocar el backend. Backfill de filas existentes.
 - [x] `pos_sync_engine`: mesas/habitaciones/usuarios pasan a descarga **incremental** por `updated_at` (ya no se re-bajan completas cada ciclo). Tablas grandes (ventas/comandas/sesiones/catálogos) ya eran incrementales.
-- [x] `schema.sql` actualizado (función + triggers + columnas) en `supabase/` y `flutter_app/supabase/`.
+- [x] `schema.sql` actualizado (función + triggers + columnas) en `supabase/`.
 - [x] Desplegado en 8502. `flutter analyze` 0 errores · suite 40 tests verdes.
 
 ---
@@ -494,7 +493,86 @@ En Flutter:
 
 ---
 
-## 8. Criterios de aceptación (no romper funcionalidad)
+## 8. Realtime: visibilidad inmediata entre dispositivos
+
+### Problema
+Con solo polling (timer cada 20-30s), si el teléfono 1 crea una requisición, el teléfono 2 no la ve hasta que ambos dispositivos completen un ciclo de sync. Esto puede tomar hasta 60 segundos.
+
+### Solución
+Agregar **Supabase Realtime** (WebSocket) para que todos los dispositivos reciban cambios en tiempo real. Se implementa con una **interfaz abstracta** para no depender de Supabase.
+
+### Arquitectura
+
+```
+lib/core/sync/realtime/
+├── realtime_source.dart          # Interfaz abstracta + modelo RealtimeEvent
+├── supabase_realtime_source.dart # Implementación concreta (Supabase WebSocket)
+└── realtime_provider.dart        # Riverpod provider (swappable)
+```
+
+**Flujo:**
+```
+Teléfono 1 crea requisición
+    │
+    ├── Escribe en SQLite local
+    ├── Encola en sync_queue (outbox)
+    └── Intenta subir a Supabase (inmediato o por timer)
+                │
+                ▼
+Supabase emite evento por WebSocket
+                │
+                ▼
+Teléfono 2 recibe evento → upsert local → UI se actualiza
+```
+
+### Interfaz abstracta
+
+```dart
+abstract class RealtimeSource {
+  Stream<RealtimeEvent> watchTable(String table);
+  void reconnect();
+  void dispose();
+}
+```
+
+### Implementación Supabase
+
+Usa `supabase.channel('table').onPostgresChanges().subscribe()` para escuchar cambios en tablas PostgreSQL vía WebSocket.
+
+### Migración a otro backend
+
+Para cambiar de Supabase a otro servidor (servidor propio, Firebase, etc.):
+
+1. Crear una clase que implemente `RealtimeSource`:
+   ```dart
+   class MiServidorRealtime implements RealtimeSource {
+     @override
+     Stream<RealtimeEvent> watchTable(String table) { ... }
+     @override
+     void reconnect() { ... }
+     @override
+     void dispose() { ... }
+   }
+   ```
+
+2. Cambiar `realtimeSourceProvider` en `realtime_provider.dart`:
+   ```dart
+   final realtimeSourceProvider = Provider<RealtimeSource?>((ref) {
+     return MiServidorRealtime(url: 'ws://mi-servidor.com');
+   });
+   ```
+
+3. No tocar `SyncEngine` ni `PosSyncEngine` — usan la interfaz, no la implementación concreta.
+
+### Limitaciones
+
+- **Supabase Free**: 200 conexiones WebSocket simultáneas, 10 msg/seg.
+- **Supabase Pro**: 500 conexiones, 100 msg/seg.
+- Las tablas deben tener Realtime habilitado en Supabase Dashboard → Database → Replication.
+
+---
+
+## 9. Criterios de aceptación (no romper funcionalidad)
 
 - [ ] Las 15 tablas sincronizadas quedan idénticas tras las 3 descargas consecutivas (sin duplicados, dedupe por clave natural).
 - [ ] El outbox cumple las reglas especiales: movimientos no-eliminados no se suben; `pos_*` excluidas.
@@ -505,10 +583,11 @@ En Flutter:
 - [ ] WhatsApp: mensajes salen de la cola con reintentos y son visibles en la bandeja.
 - [ ] Updater: detecta versión remota, descarga e instala el zip.
 - [ ] La app funciona offline (drift) y se sincroniza al recuperar conectividad.
+- [ ] **Realtime**: cambios en un dispositivo son visibles en otro en menos de 5 segundos (sin esperar timer).
 
 ---
 
-## 9. Riesgos y decisiones abiertas
+## 10. Riesgos y decisiones abiertas
 
 1. **OCR:** EasyOCR (Python) no existe en Flutter → usar ML Kit local + OCRSpace remoto como fallback. Confirmar si OCRSpace key está en producción.
 2. **Impresión Windows/Linux:** `pywin32` y `pyusb` no existen en Dart; se usará FFI + `esc_pos_printer`. El 90% de riesgo está aquí: probar pronto con la impresora real.

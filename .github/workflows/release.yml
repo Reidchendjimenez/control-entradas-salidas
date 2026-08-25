@@ -29,6 +29,21 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+      - name: Determinar version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Actualizar version en pubspec.yaml
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.tag }}"
+          (Get-Content pubspec.yaml) -replace 'version: .+', "version: $version+1" | Set-Content pubspec.yaml
+          Write-Host "Version actualizada a $version"
       - name: Build Windows POS
         env:
           LYCORIS_BINARY_NAME: LycorisPOS
@@ -36,7 +51,7 @@ jobs:
           Copy-Item windows\runner\resources\app_icon_pos.ico `
             windows\runner\resources\app_icon.ico -Force
           flutter pub get
-          flutter build windows --release `
+          flutter build windows --release -t lib/main_pos.dart `
             --dart-define=APP_ID=pos `
             --dart-define=APP_LABEL="Lycoris POS" `
             --dart-define=SUPABASE_URL="${{ secrets.SUPABASE_URL }}" `
@@ -63,6 +78,21 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+      - name: Determinar version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Actualizar version en pubspec.yaml
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.tag }}"
+          (Get-Content pubspec.yaml) -replace 'version: .+', "version: $version+1" | Set-Content pubspec.yaml
+          Write-Host "Version actualizada a $version"
       - name: Build Windows Inventario
         env:
           LYCORIS_BINARY_NAME: LycorisControl
@@ -100,6 +130,29 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+      - name: Determinar version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Actualizar version en pubspec.yaml
+        run: |
+          VERSION="${{ steps.version.outputs.tag }}"
+          sed -i "s/^version: .*/version: $VERSION+1/" pubspec.yaml
+          echo "Version actualizada a $VERSION"
+      - name: Decode keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | tr -d '[:space:]' | base64 -d > android/release.p12
+      - name: Create key.properties
+        run: |
+          cat > android/key.properties << EOF
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=../release.p12
+          EOF
       - name: Build APK
         run: |
           flutter pub get
