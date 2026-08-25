@@ -744,16 +744,18 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
     }
   }
 
+  static const String _clipBuildTag = '[CB-8b77408]';
+
   Future<void> _pegarImagen() async {
     try {
       final bytes = await readClipboardImage();
       if (bytes == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('No se encontró imagen en el portapapeles.\n'
+            SnackBar(
+              content: Text('$_clipBuildTag No se encontró imagen en el portapapeles.\n'
                   'Copie con la Herramienta de Recortes y luego haga click en Pegar.'),
-              duration: Duration(seconds: 4),
+              duration: const Duration(seconds: 4),
             ),
           );
         }
@@ -764,7 +766,7 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.message ?? 'Error al leer portapapeles'),
+            content: SelectableText('$_clipBuildTag ${e.message ?? 'Error al leer portapapeles'}'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 6),
           ),
@@ -774,7 +776,7 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Canal no disponible: ${e.message}\n'
+            content: SelectableText('$_clipBuildTag Canal no disponible: ${e.message}\n'
                 'Reinstale la aplicación.'),
             backgroundColor: Colors.orange,
             duration: const Duration(seconds: 6),
@@ -785,7 +787,7 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: SelectableText('Diagnóstico:\n$e'),
+            content: SelectableText('$_clipBuildTag Diagnóstico:\n$e'),
             backgroundColor: Colors.purple,
             duration: const Duration(seconds: 8),
           ),
