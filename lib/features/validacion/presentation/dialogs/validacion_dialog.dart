@@ -781,6 +781,16 @@ class _ValidacionDialogState extends ConsumerState<_ValidacionDialog> {
           ),
         );
       }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Diagnóstico: $e'),
+            backgroundColor: Colors.purple,
+            duration: const Duration(seconds: 8),
+          ),
+        );
+      }
     }
   }
 }
